@@ -1,0 +1,321 @@
+# S1: SV
+#
+# Google and Stanford produce this:
+# IDX   0      1        2
+# HEAD  1      2        2
+# DEP   nn     nsubj    root
+# SENT  Albert Einstein Died
+#                       die
+#       NOUN   NOUN     VERB
+#
+# EXPECTED: (Albert Einstein) (died)
+
+Albert Einstein died.
+
+# S2: SVeA SVA
+#
+# Google and Stanford produce this:
+# IDX   0      1        2        3    4
+# HEAD  1      2        2        2    3
+# DEP   nn     nsubj    root     prep pobj
+# SENT  Albert Einstein remained in   Princeton
+#                       remain
+#       NOUN   NOUN     VERB     ADP  NOUN
+#
+# EXPECTED: (Albert Einstein) (remained) (in Princeton)
+
+Albert Einstein remained in Princeton.
+
+# S3: SVcC SVC
+#
+# Google produced this:
+# IDX   0      1        2     3
+# HEAD  1      2        2     2
+# DEP   nn     nsubj    root  acomp
+# SENT  Albert Einstein is    smart
+#                       be
+#       NOUN   NOUN     VERB  ADJ
+#
+# ClausIE/Stanford produce this:
+# IDX   0      1        2     3
+# HEAD  1      3        3     3
+# DEP   nn     nsubj    cop   root
+# SENT  Albert Einstein is    smart
+#                       be
+#       NOUN   NOUN     VERB  ADJ
+#
+# EXPECTED: (Albert Einstein) (is) (smart)
+
+Albert Einstein is smart.
+
+# S4: SVmtO SVO
+#
+# Google and Stanford produce this:
+# IDX   0      1        2     3    4    5      6
+# HEAD  1      3        3     3    6    6      3
+# DEP   nn     nsubj    aux   root det  nn     dobj
+# SENT  Albert Einstein has   won  the  Nobel  Prize
+#                       be
+#       NOUN   NOUN     VERB  VERB DET  NOUN   NOUN
+#
+# EXPECTED: (Albert Einstein) (has won) (the Nobel Prize)
+
+Albert Einstein has won the Nobel Prize.
+
+# S5: SVdtOiO SVOO
+#
+# Google and Stanford produce this:
+# IDX   0     1     2      3        4    5      6
+# HEAD  1     1     3      2        6    6      1
+# DEP   nsubj root  nn     iobj     det  nn     dobj
+# SENT  RSAS  gave  Albert Einstein the  Nobel  Prize
+#             give
+#       NOUN  VERB  NOUN   NOUN     DET  NOUN   NOUN
+#
+# EXPECTED: (RSAS) (gave) (Albert Einstein) (the Nobel Prize)
+
+RSAS gave Albert Einstein the Nobel Prize.
+
+# S6: SVctOA SVOA (The doorman, showed, Albert Einstein, to his office)
+#
+# Google and Stanford produce this:
+# IDX   0     1       2      3      4        5    6    7
+# HEAD  1     2       2      4      2        2    7    5
+# DEP   det   nsubj   root   nn     dobj     prep poss pobj
+# SENT  The   doorman showed Albert Einstein to   his  office
+#                     show
+#       DET   NOUN    VERB   NOUN   NOUN     ADP  PRON NOUN
+#
+# EXPECTED: (The doorman) (showed) (Albert Einstein) (to his office)
+
+The doorman showed Albert Einstein to his office.
+
+# S7: SVctOC SVOC
+#
+# Google produces this:
+# IDX   0      1        2        3    4       5
+# HEAD  1      2        2        4    5       2
+# DEP   nn     nsubj    root     det  nsubj   acomp
+# SENT  Albert Einstein declared the  meeting open
+#                       declare
+#       NOUN   NOUN     VERB     DET  NOUN    ADJ
+#
+# ClausIE/Stanford mark open as xcomp, otherwise they are the same.
+#
+# ClausIE: SVO (Albert Einstein) (declared) (the meeting open)
+#          SV  (the meeting) (open)
+#          We don't include the SV case because there is no verb.
+# EXPECTED:(Albert Einstein) (declared) (the meeting open)
+
+Albert Einstein declared the meeting open.
+
+# Some extended patterns
+# S8: SViAA SV
+#
+# Google and Stanford produce this:
+# IDX   0      1        2     3     4          5     6
+# HEAD  1      2        2     2     3          2     5
+# DEP   nn     nsubj    root  prep  pobj       prep  pobj
+# SENT  Albert Einstein died  in    Princeton  in    1955
+#                       die
+#       NOUN   NOUN     VERB  ADP   NOUN       ADP   NUM
+#
+# Note: Stanford recognizes 1955 as a calendar date
+#
+# EXPECTED: (Albert Einstein) (died)
+#     (Albert Einstein) (died) (in Princeton)
+#     (Albert Einstein) (died) (in 1955)
+
+Albert Einstein died in Princeton in 1955.
+
+# S9: SVeAA SVA  (Albert Einstein, remained, in Princeton)
+#     (Albert Einstein, remained, in Princeton, until his death)
+Albert Einstein remained in Princeton until his death.
+
+# S10: SVcCA SVC
+#
+# Google produces this:
+# IDX   0      1        2     3    4          5     6    7     8
+# HEAD  1      2        2     4    2          4     8    8     5
+# DEP   nn     nsubj    root  det  attr       prep  det  amod  pobj
+# SENT  Albert Einstein is    a    scientist  of    the  20th  century
+#                       die
+#       NOUN   NOUN     VERB  DET  NOUN       ADP   DET  ADJ   NOUN
+#
+# Stanfors produces this:
+# IDX   0      1        2     3    4          5     6    7     8
+# HEAD  1      4        4     4    4          4     8    8     5
+# DEP   nn     nsubj    cop   det  root       prep  det  amod  pobj
+# SENT  Albert Einstein is    a    scientist  of    the  20th  century
+#                       die
+#       NOUN   NOUN     VERB  DET  NOUN       ADP   DET  ADJ   NOUN
+#
+# EXPECTED (Albert Einstein) (is) (a scientist)
+#     (Albert Einstein) (is a scientist) (of the 20th century)
+
+Albert Einstein is a scientist of the 20th century.
+
+# S11: SVmtOA SVO (Albert Einstein, has won, the Nobel Prize)
+#      (Albert Einstein, has won, the Nobel Prize, in 1921)
+Albert Einstein has won the Nobel Prize in 1921.
+
+# S12: ASVmtO SVO (Albert Einstein, has won, the Nobel Prize)
+#      (Albert Einstein, has won, the Nobel Prize, in 1921)
+In 1921, Albert Einstein has won the Nobel Prize.
+
+# S13: (S: Bell, V: makes, O: products)
+#      (S: Bell, V: based, A!: Angeles)
+#      (S: Bell, V: “is”, A!: company)
+Bell, a telecommunication company , which is based in Los Angeles , makes and distributes electronic , computer and building products.
+Bell, a telecommunication company better known for its split into the so called baby bells, which is based in Los Angeles, makes and distributes electronic, computer and building products.
+# One comma can make all the difference - preprocess fixes
+Bell, a telecommunication company, and a fortune 500 company, which is based in Los Angeles, makes and distributes electronic, computer and building products.
+#Bell, a telecommunication company and a fortune 500 company, which is based in Los Angeles, makes and distributes electronic, computer and building products.
+Bell is a telecommunication company and a fortune 500 company, which is based in Los Angeles, makes and distributes electronic computer and building products.
+
+
+# S14 CCOMP
+He says that you like to swim.
+He says you like to swim.
+
+# XCOMP XCOMP
+#
+# Google produces this:
+# IDX   0      1        2     3     4      5
+# HEAD  1      2        2     4     2      4
+# DEP   det    nsubj    root  aux   xcomp  xcomp
+# SENT  The    boss     said  to    start  digging
+#                       die
+#       DET    NOUN     VERB  PRT   VERB   VERB
+#
+# Stanford parser is similar except "digging" is a DEP/POS dobj/NOUN.
+#
+# EXPECTED: (The boss) (said) (to start digging)
+
+The boss said to start digging.
+
+####
+We started digging.
+The important thing is to keep calm.
+
+# CCOMP
+#
+# Google produces this:
+# IDX   0   1       2     3    4     5    6     7       8
+# HEAD
+# DEP   det nsubj   root  mark nsubj aux  neg   auxpass ccomp
+# SENT  The problem is    that this  has  never been    tried
+#                   be               have       be      try
+#       DET NOUN    VERB  ADP  DET   VERB ADV   VERB    VERB
+#
+# Stanford parser is similar except: "this" is a DEP nsubjpass.
+#
+# EXPECTED: (The problem) (is) (that this has never been tried)
+#           (this) (has never been tried)
+
+The problem is that this has never been tried.
+
+# Different result between ClausIE and Ours. Which is better for our pipeline?
+#
+# Google and Stanford produce this:
+# IDX   0       1    2    3     4    5    6      7     8       9
+# HEAD  1       4    4    4     4    6    4      9     9       6
+# DEP   advmod  dep  aux  nsubj root aux  xcomp  nn    nn      dobj
+# SENT  How     much does it    cost to   join   World Resorts International
+#                    do         cost      join
+#       ADV     ADJ  VERB PRON  VERB PRT  VERB   NOUN  NOUN    NOUN
+#
+# EXPECTED:
+#   ClausIE: (it) (does cost) (to join World Resorts International)
+#   Ours: (it) (how much does cost) (to join World Resorts International)
+
+How much does it cost to join World Resorts International.
+
+###
+
+Sue asked George to respond to her offer.
+
+# PARATAXIS
+#
+# Google produces this:
+# IDX   0   1         2      3     4         5      6     7      8    9    10
+# HEAD  1   6         4      4     6         4      6     6      7    10   8
+# DEP   det nsubjpass p      nsubj parataxis p      root  advmod prep det  pobj
+# SENT  The guy       ,      John  said      ,      left  early  in   the  morning
+#                                  say              leave
+#       DET NOUN      PUNCT  NOUN  VERB      PUNCT  VERB  ADV    ADP  DET  NOUN
+#
+# Stanford produces this (similar to Google's parse if we remove commas):
+# IDX   0   1     2     3       4     5      6    7    8
+# HEAD
+# DEP   det nsubj appos partmod dep   advmod prep det  pobj
+# SENT  The guy   John  said    left  early  in   the  morning
+#                       say     leave
+#       DET NOUN  NOUN  VERB    VERB  ADV    ADP  DET  NOUN
+#
+# ClausIE extracts this which seems wrong.
+#    (The guy) (is) (John said)
+#    (John) (be said)
+#    (The guy) (left) (early in the morning)
+#    (The guy) (left) (early)
+# EXPECTED:
+#    (John) (said)
+#    (The guy) (left) (early in the morning)
+#
+
+The guy , John said , left early in the morning.
+
+# WITHOUT PARATAXIS
+#
+# Google produces this:
+# IDX   0   1     2     3     4     5      6    7    8
+# HEAD  1   1     3     1     3     4      5    8    6
+# DEP   det root  nsubj rcmod dep   advmod prep det  pobj
+# SENT  The guy   John  said  left  early  in   the  morning
+#                       say   leave
+#       DET NOUN  NOUN  VERB  VERB  ADV    ADP  DET  NOUN
+#
+# EXPECTED:
+
+The guy John said left early in the morning.
+
+# Object complements not supported in GoogleNLP
+#
+# Google NLP extracts adjectival complements but not object complements.
+# For example: "The convention named Dogbreath Vice President to keep him happy"
+#   The noun "Vice President" complements the direct object "Dogbreath"; the
+#   adjective "happy" complements the object "him."
+#
+# Google produces this:
+# IDX   0    1           2      3          4     5          6    7     8     9
+# HEAD  1    7           1      5          5     2          7    7     7     7
+# DEP   det  nsubj       vmod   nn         nn    attr       aux  root  dobj  acomp
+# SENT  The  convention  named  Dogbreath  Vice  President  to   keep  him   happy
+#                        name                                    keep
+#       DET  NOUN        VERB   NOUN       NOUN  NOUN       PRT  VERB  PRON  ADJ
+#
+# Stanford produces this:
+# IDX   0    1           2      3          4     5          6    7     8     9
+# HEAD  1    2           2      5          5     7          7    2     9     7
+# DEP   det  nsubj       root   nn         nn    nsubj      aux  xcomp nsubj xcomp
+# SENT  The  convention  named  Dogbreath  Vice  President  to   keep  him   happy
+#                        name                                    keep
+#       DT   NN          VBD    NNP        NNP   NNP             VB    PRP   JJ
+#
+# ClausIE does this:
+# (The convention) (named) (Dogbreath Vice President to keep him happy)
+# (Dogbreath Vice President) (to keep) (him happy)
+# (him) (happy)
+#
+# We want.
+# (The convention) (named) (Dogbreath Vice President)
+# (The convention) (named) (Dogbreath Vice President) (to keep) (him happy)
+
+The convention named Dogbreath Vice President to keep him happy.
+
+
+###
+
+Reagan has died.
+He should leave.
+Do you think that he will have left when we come.
