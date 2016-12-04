@@ -1,80 +1,48 @@
-from utils import iterable_type_check, union, union_inplace, intersect
+from utils import iterable_type_check, union, union_inplace, intersect, rename_var
+from common import DRSVar, LambdaDRSVar
 
 
-class AbstractDRSVar(object):
-    """Abstract DRS Variable"""
-    def increase_new(self):
-        raise NotImplementedError
-    def idx(self):
-        raise NotImplementedError
-
-
-# DRS variable
-class DRSVar(AbstractDRSVar):
-    def __init__(self, name):
-        self._name = name
-        self._idx = None
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        if self._idx is None: return self._name
-        return '%i <- %s' % (self._idx, self._name)
-
-    def __eq__(self, other):
-        return self._name == other._name and (self._idx or -1) == (other._idx or -1)
-
-    def __ne__(self, other):
-        return self._name != other._name or (self._idx or -1) != (other._idx or -1)
-
-    def increase_new(self):
-        if self._idx is None:
-            return DRSVar(self._name, 1)
-        return DRSVar(self._name, self._idx + 1)
-
-    @property
-    def idx(self):
-        if self._idx is None: return 0
-        return self._idx
-
-
-class LambdaDRSVar(AbstractDRSVar):
-    def __init__(self, drsVar, drsVarSet):
-        """A lambda DRS.
+class LambdaTuple(object):
+    """Lambda DRS tuple"""
+    def __init__(self, lambdaVar, pos):
+        """A lambda tuple.
 
         Args:
-            drsVar: A variable.
-            drsVarSet: The set of referents to be applied to the DRS.
+            lambdaVar: A LambdaDRSVar instance.
+            pos: Argument position.
         """
-        if not isinstance(drsVar, DRSVar) or not iterable_type_check(drsVarSet, DRSVar):
+        if not isinstance(lambdaVar, LambdaDRSVar):
             raise TypeError
-        self._var = drsVar
-        self._set = drsVarSet
+        self._var = lambdaVar
+        self._pos = pos
 
     def __ne__(self, other):
-        return other._var != self._var or other._set != self._set
+        return self._var != other._var or self._pos != other._pos
 
     def __eq__(self, other):
-        return other._var == self._var and other._set == self._set
+        return self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return '(%s, %s)' % (self._var, self._set)
+        return 'LambdaTuple(%s,%i)' % (self._var, self._pos)
+
+    def __hash__(self):
+        return hash(self._var) ^ hash(self._set)
+
+    def __lt__(self, other):
+        return self._pos < other._pos or (self._pos == other._pos and self._var < other._var)
+
+    def __le__(self, other):
+        return self._pos < other._pos or (self._pos == other._pos and self._var <= other._var)
+
+    def __gt__(self, other):
+        return not self.__le__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
 
     @property
     def var(self):
         return self._var
-
-    @property
-    def referents(self):
-        return self._set
-
-    def increase_new(self):
-        return LambdaDRSVar(self._name, self._var.idx + 1)
-
-    @property
-    def idx(self):
-        return self._var.idx
 
 
 # Original haskell code in DRS/Input/Properties.hs:isPureDRS:pureRefs
@@ -167,7 +135,14 @@ class AbstractDRS(object):
     ## @remarks original haskell code in `DRS/Input/Variables.hs:drsLambdas`
     def get_lambdas(self):
         """Returns the ordered list of all lambda variables in this DRS."""
-        return []
+        s = self.get_lambda_tuples()
+        lts = sorted(s)
+        return [x.var for x in lts]
+
+    ## @remarks original haskell code in `DRS/Input/Variables.hs:lambdas`
+    def get_lambda_tuples(self, u=None):
+        """Returns the list of all lambda tuples in this DRS."""
+        raise NotImplementedError
 
 
 class LambdaDRS(AbstractDRS):
@@ -214,6 +189,13 @@ class LambdaDRS(AbstractDRS):
     def resolve_merges(self):
         """Resolves all unresolved merges in this DRS."""
         return self
+
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        lt = LambdaTuple(self._var, self._pos)
+        if u is None: return set([lt])
+        u.add(lt)
+        return u
 
 
 class DRS(AbstractDRS):
@@ -305,6 +287,15 @@ class DRS(AbstractDRS):
             u = c._universes(u)
         return u
 
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        if u is None:
+            u = set()
+        for r in self._refs:
+            u = r._lambda_tuple(u)
+        for c in self._conds:
+            u = c._lambda_tuple(u)
+
 
 class Merge(AbstractDRS):
     """A merge between two DRSs"""
@@ -386,7 +377,14 @@ class Merge(AbstractDRS):
         u = self._drsB.get_universes(u)
         return u
 
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        u = self._drsA.get_lambda_tuples(u)
+        u = self._drsB.get_lambda_tuples(u)
+        return u
 
+
+# Original haskell code in DSI/Input/Merge.hs:drsMerge
 def merge(d1, d2):
     """Applies merge to 'DRS' d1 and 'DRS' d2"""
     if isinstance(d2, LambdaDRS) or isinstance(d1, LambdaDRS):
@@ -397,39 +395,50 @@ def merge(d1, d2):
         elif d2.drs_b.islambda:
             return Merge(merge(d1, d2.drs_a), d2.drs_b)
         else:
-            return merge(d1, resolve_merges(d2))
+            return merge(d1, d2.resolve_merges())
     elif isinstance(d1, Merge):
         if d1.drs_a.islambda:
             return Merge(d1.drs_a, merge(d1.drs_b, d2))
         elif d1.drs_b.islambda:
             return Merge(d1.drs_b, merge(d1.drs_a, d2))
         else:
-            return merge(d2, resolve_merges(d1))
+            return merge(d2, d1.resolve_merges())
     else:
         # orig haskell code Merge.hs and Variable.hs
-        p1 = purify(resolve_merges(d1))
-        p2 = purify(resolve_merges(d2))
+        p1 = purify(d1.resolve_merges())
+        p2 = purify(d2.resolve_merges())
         ors = intersect(get_variables(p2), get_variables(p1))
         nrs = get_new_drsrefs(ors, union(get_variables(p2), get_variables(p1)))
         da = alpha_convert(p2, zip(ors,nrs))
-        return DRS(union(da.referents, p1.referents), union(da.conditions, p1.referents))
+        return DRS(union(da.referents, p1.referents), union(da.conditions, p1.conditions))
 
 
 def combine(func, d):
     """Combines an unresolved 'DRS' and a 'DRS' into a resolved 'DRS'."""
-    return resolve_merges(func(d))
-
-
-def resolve_merges(d):
-    return d.resolve_merges()
+    return func(d).resolve_merges()
 
 
 def purify(d):
     pass
 
 
-def alpha_convert(pu, pairs):
-    pass
+def rename_subdrs(ld, gd, rs):
+    """Applies alpha conversion to a DRS ld, which is a sub-DRS of the
+    global DRS gd, on the basis of a conversion list for DRSRef's rs.
+    """
+    if isinstance(ld, LambdaDRS):
+        return ld
+    elif isinstance(ld, Merge):
+        return Merge(rename_subdrs(ld._drs_a, gd, rs),rename_subdrs(ld._drs_b, gd, rs))
+    elif isinstance(ld, DRS):
+        return DRS([rename_var(r, rs) for r in ld.referents], \
+                   [c._convert(ld, gd, rs) for c in ld.conditions])
+    else:
+        raise TypeError
+
+
+def alpha_convert(d, rs):
+    rename_subdrs(d, d, rs)
 
 
 def get_variables(d):
@@ -465,6 +474,10 @@ class AbstractDRSRef(object):
     def _has_antecedent(self, drs, conds):
         return any(filter(lambda x: x._antecedent(self, drs), conds))
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        raise NotImplementedError
+
     def has_bound(self, drsLD, drsGD):
         """Returns whether this DRSRef in local 'DRS' drsLD is bound in the global 'DRS' drsGD."""
         if isinstance(drsLD, LambdaDRS):
@@ -493,26 +506,31 @@ class AbstractDRSRef(object):
 
 class LambdaDRSRef(AbstractDRSRef):
     """Lambda DRS referent"""
-    def __init__(self, lambdaVar, idx):
+    def __init__(self, lambdaVar, pos):
         """A lambda DRSRef.
 
         Args:
             lambdaVar: A LambdaDRSVar instance.
-            idx: Argument position.
+            pos: Argument position.
         """
         if not isinstance(lambdaVar, LambdaDRSVar):
             raise TypeError
         self._var = lambdaVar
-        self._idx = idx
+        self._pos = pos
 
     def __ne__(self, other):
-        return self._var != other._var or self._idx != other._idx
+        return self._var != other._var or self._pos != other._pos
 
     def __eq__(self, other):
-        return self._var == other._var and self._idx == other._idx
+        return self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRSRef(%s,%i)' % (self._var, self._idx)
+        return 'LambdaDRSRef(%s,%i)' % (self._var, self._pos)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u.add(LambdaTuple(self._var, self._pos))
+        return u
 
     def to_var(self):
         """Converts a DRSRef into a DRSVar."""
@@ -535,6 +553,10 @@ class DRSRef(AbstractDRSRef):
     def __repr__(self):
         return 'DRSRef(%s)' % self._var
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return u
+
     @property
     def isresolved(self):
         return True
@@ -546,6 +568,11 @@ class DRSRef(AbstractDRSRef):
 
 class AbstractDRSRelation(object):
     """Abstract DRS Relation"""
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        raise NotImplementedError
+
     def to_string(self):
         """Converts this instance into a string."""
         raise NotImplementedError
@@ -574,6 +601,11 @@ class LambdaDRSRelation(AbstractDRSRelation):
     def __repr__(self):
         return 'LambdaDRSRelation(%s,%i)' % (self._var, self._idx)
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u.add(LambdaTuple(self._var, self._pos))
+        return u
+
     def to_string(self):
         """Converts this instance into a string."""
         return self._var.var
@@ -592,6 +624,10 @@ class DRSRelation(AbstractDRSRelation):
 
     def __repr__(self):
         return 'DRSRelation(%s)' % self._var
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return u
 
     def to_string(self):
         """Converts this instance into a string."""
@@ -624,6 +660,14 @@ class AbstractDRSCond(object):
     # Original haskell code in DRS/Input/Variables.hs:drsVariables:variables
     def _variables(self, u):
         return u
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        raise NotImplementedError
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        raise NotImplementedError
 
     @property
     def isresolved(self):
@@ -661,6 +705,16 @@ class Rel(AbstractDRSCond):
     # Original haskell code in DRS/Input/Variables.hs:drsVariables:variables
     def _variables(self, u):
         return union_inplace(u, self._refs)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u = self._rel._lambda_tuple(u)
+        for x in self._refs:
+            u = x._lambda_tuple(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Rel(self._rel, [rename_var(r,rs) if r.has_bound(ld, gd) else r for r in self._refs])
 
     @property
     def isresolved(self):
@@ -710,6 +764,18 @@ class Neg(AbstractDRSCond):
     # Original haskell code in DRS/Input/Variables.hs:drsVariables:variables
     def _variables(self, u):
         return self._drs.get_variables(u)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return self._drs.get_lambda_tuples(u)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return self._drs.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Neg(rename_subdrs(self._drs, gd, rs))
 
     @property
     def isresolved(self):
@@ -769,6 +835,15 @@ class Imp(AbstractDRSCond):
         u = self._drsB.get_variables(u)
         return u
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u = self._drsA.get_lambda_tuples(u)
+        return self._drsB.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Imp(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+
     @property
     def isresolved(self):
         return self._drsA.isresolved and self._drsB.isresolved
@@ -826,6 +901,15 @@ class Or(AbstractDRSCond):
         u = self._drsB.get_variables(u)
         return u
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u = self._drsA.get_lambda_tuples(u)
+        return self._drsB.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Or(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+
     @property
     def isresolved(self):
         return self._drsA.isresolved and self._drsB.isresolved
@@ -880,6 +964,15 @@ class Prop(AbstractDRSCond):
         u.append(self._ref)
         return self._drs.get_variables(u)
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        u = self._ref._lambda_tuple(u)
+        return self._drs.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, rename_subdrs(self._drs, gd, rs))
+
     @property
     def isresolved(self):
         return self._ref.isresolved and self._drs.isresolved
@@ -930,6 +1023,14 @@ class Diamond(AbstractDRSCond):
     def _variables(self, u):
         return self._drs.get_variables(u)
 
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return self._drs.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Diamond(rename_subdrs(self._drs, gd, rs))
+
     @property
     def isresolved(self):
         return self._drs.isresolved
@@ -979,6 +1080,14 @@ class Box(AbstractDRSCond):
 
     def _variables(self, u):
         return self._drs.get_variables(u)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return self._drs.get_lambda_tuples(u)
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs):
+        return Box(rename_subdrs(self._drs, gd, rs))
 
     @property
     def isresolved(self):

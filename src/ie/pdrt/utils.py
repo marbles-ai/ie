@@ -54,3 +54,12 @@ def partition(predicate, a):
         else:
             y.append(k)
     return (x,y)
+
+
+def rename_var(v, rs):
+    """Renames a variable v, iff v occurs in a variable conversion list. Otherwise, v is returned unmodified"""
+    for r,s in rs:
+        if v == r: return s
+    return v
+
+
