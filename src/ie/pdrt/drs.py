@@ -61,21 +61,25 @@ class AbstractDRS(object):
         """Helper for ispure"""
         return False
 
+    ## @remarks original haskell code in `DRS/Input/Structure.hs:isResolvedDRS`
     @property
     def isresolved(self):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
         return False
 
+    ## @remarks original haskell code in `DRS/Input/Structure.hs:isLambdaDRS`
     @property
     def islambda(self):
         """Test whether this DRS is entirely a 'LambdaDRS' (at its top-level)."""
         return False
 
+    ## @remarks original haskell code in `DRS/Input/Structure.hs:isMergeDRS`
     @property
     def ismerge(self):
         """Test whether this DRS is entirely a 'Merge' (at its top-level)."""
         return False
 
+    ## @remarks original haskell code in `DRS/Input/Structure.hs:drsUniverse`
     @property
     def universe(self):
         """Returns the universe of a DRS.
@@ -108,14 +112,17 @@ class AbstractDRS(object):
         """Test whether this DRS can be translated into a FOLForm instance."""
         return self.isresolved and self.ispure and self.isproper
 
+    ## @remarks original haskell code in `DRS/Input/Structure.hs:isSubDRS`
     def has_subdrs(self, d1):
         """Returns whether d1 is a direct or indirect sub-DRS of this DRS"""
         return False
 
+    ## @remarks original haskell code in `DRS/Input/Binding.hs:drsFreeRefs`
     def get_freerefs(self, gd):
         """Returns the list of all free DRSRef's in a DRS."""
         return []
 
+    ## @remarks original haskell code in `DRS/Input/Merge.hs:drsResolveMerges`
     def resolve_merges(self):
         """ Resolves all unresolved merges in a 'DRS'."""
         raise NotImplementedError
@@ -143,6 +150,35 @@ class AbstractDRS(object):
     def get_lambda_tuples(self, u=None):
         """Returns the list of all lambda tuples in this DRS."""
         raise NotImplementedError
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
+    def purify_refs(self, gd, refs):
+        """Replaces duplicate uses of DRSRef's by new DRSRef's.
+
+        This function implements the following algorithm:
+        (1) start with the global DRS @gd@ and add all free 'PVar's in @gd@ to
+        the list of seen referents @rs@ (see 'drsPurify');
+
+        (2) check the universe @u@ of the first atomic DRS @ld@ against @rs@
+        and, if necessary, alpha-convert @ld@ replacing duplicates for new
+        DRSRef's in @u@;
+
+        (3) add the universe of @ld@ to the list of seen DRSRef's @rs@;
+
+        (4) go through all conditions of @ld@, while continually updating @rs@.
+        """
+        raise NotImplementedError
+
+    ## @remarks original haskell code in `DRS/Input/LambdaCalculus.hs:drsPurify`
+    def purify(self):
+        """Converts a DRS into a pure DRS by purifying its DRSRef's,
+
+        where a DRS is pure iff there are no occurrences of duplicate, unbound uses
+        of the same DRSRef.
+        """
+        refs = self.get_freerefs(self)
+        drs,_ = self.purify_refs(self, refs)
+        return drs
 
 
 class LambdaDRS(AbstractDRS):
@@ -196,6 +232,10 @@ class LambdaDRS(AbstractDRS):
         if u is None: return set([lt])
         u.add(lt)
         return u
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
+    def purify_refs(self, gd, ers):
+        return (self, ers)
 
 
 class DRS(AbstractDRS):
@@ -296,6 +336,24 @@ class DRS(AbstractDRS):
         for c in self._conds:
             u = c._lambda_tuple(u)
 
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:drsAlphaConvert`
+    def alpha_convert(self, rs):
+        return rename_subdrs(self, self, rs)
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
+    def purify_refs(self, gd, ers):
+        # In case we do not want to rename ambiguous bindings:
+        # purifyRefs (ld@(DRS u _),ers) gd = (DRS u1 c2,u1 ++ ers1)
+        ors = intersect(self._refs, ers)
+        d = self.alpha_convert(zip(ors, get_new_drsrefs(ors, union_inplace(gd.get_variables(),ers))))
+        r = d.referents
+        r.extend(ers)
+        conds = []
+        for c in self._conds:
+            x,r = c._purify(gd, r)
+            conds.append(x)
+        return (DRS(d.referents,conds), r)
+
 
 class Merge(AbstractDRS):
     """A merge between two DRSs"""
@@ -383,6 +441,12 @@ class Merge(AbstractDRS):
         u = self._drsB.get_lambda_tuples(u)
         return u
 
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
+    def purify_refs(self, gd, ers):
+        cd1, ers1 = self._drsA.purify_refs(gd, ers)
+        cd2, ers2 = self._drsB.purify_refs(gd, ers1)
+        return (Merge(cd1, cd2), ers2)
+
 
 # Original haskell code in DSI/Input/Merge.hs:drsMerge
 def merge(d1, d2):
@@ -405,47 +469,15 @@ def merge(d1, d2):
             return merge(d2, d1.resolve_merges())
     else:
         # orig haskell code Merge.hs and Variable.hs
-        p1 = purify(d1.resolve_merges())
-        p2 = purify(d2.resolve_merges())
-        ors = intersect(get_variables(p2), get_variables(p1))
-        nrs = get_new_drsrefs(ors, union(get_variables(p2), get_variables(p1)))
-        da = alpha_convert(p2, zip(ors,nrs))
-        return DRS(union(da.referents, p1.referents), union(da.conditions, p1.conditions))
+        p1 = d1.resolve_merges().purify()
+        p2 = d2.resolve_merges().purify()
+        ors = intersect(p2.get_variables(), p1.get_variables())
+        nrs = get_new_drsrefs(ors, union(p2.get_variables(), p1.get_variables()))
+        da = p2.alpha_convert(zip(ors,nrs))
+        return DRS(union(p1.referents, da.referents), union(p1.conditions, da.conditions))
 
 
-def combine(func, d):
-    """Combines an unresolved 'DRS' and a 'DRS' into a resolved 'DRS'."""
-    return func(d).resolve_merges()
-
-
-def purify(d):
-    pass
-
-
-def rename_subdrs(ld, gd, rs):
-    """Applies alpha conversion to a DRS ld, which is a sub-DRS of the
-    global DRS gd, on the basis of a conversion list for DRSRef's rs.
-    """
-    if isinstance(ld, LambdaDRS):
-        return ld
-    elif isinstance(ld, Merge):
-        return Merge(rename_subdrs(ld._drs_a, gd, rs),rename_subdrs(ld._drs_b, gd, rs))
-    elif isinstance(ld, DRS):
-        return DRS([rename_var(r, rs) for r in ld.referents], \
-                   [c._convert(ld, gd, rs) for c in ld.conditions])
-    else:
-        raise TypeError
-
-
-def alpha_convert(d, rs):
-    rename_subdrs(d, d, rs)
-
-
-def get_variables(d):
-    pass
-
-
-# Original haskell code in DSI/Input/Variables.hs:newDRSRefs
+## @remarks Original haskell code in `DRS/Input/Variables.hs:newDRSRefs`
 def get_new_drsrefs(ors, ers):
     """Returns a list of new DRSRef's, based on a list of old DRSRef's and a list of existing DRSRef's"""
     if len(ors) == 0:
@@ -467,6 +499,28 @@ def get_new_drsrefs(ors, ers):
             result.append(rd)
             result.extend(get_new_drsrefs(ors[i+1:], y))
             return result
+
+
+## @remarks Original haskell code in `DRS/Input/Variables.hs::drsCombine`
+def combine(func, d):
+    """Combines an unresolved 'DRS' and a 'DRS' into a resolved 'DRS'."""
+    return func(d).resolve_merges()
+
+
+## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
+def rename_subdrs(ld, gd, rs):
+    """Applies alpha conversion to a DRS ld, which is a sub-DRS of the
+    global DRS gd, on the basis of a conversion list for DRSRef's rs.
+    """
+    if isinstance(ld, LambdaDRS):
+        return ld
+    elif isinstance(ld, Merge):
+        return Merge(rename_subdrs(ld._drs_a, gd, rs),rename_subdrs(ld._drs_b, gd, rs))
+    elif isinstance(ld, DRS):
+        return DRS([rename_var(r, rs) for r in ld.referents], \
+                   [c._convert(ld, gd, rs) for c in ld.conditions])
+    else:
+        raise TypeError
 
 
 class AbstractDRSRef(object):
@@ -669,6 +723,10 @@ class AbstractDRSCond(object):
     def _convert(self, ld, gd, rs):
         raise NotImplementedError
 
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
     @property
     def isresolved(self):
         return False
@@ -716,6 +774,11 @@ class Rel(AbstractDRSCond):
     def _convert(self, ld, gd, rs):
         return Rel(self._rel, [rename_var(r,rs) if r.has_bound(ld, gd) else r for r in self._refs])
 
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        rs.extend(self._refs)
+        return (self, rs)
+
     @property
     def isresolved(self):
         return all(filter(lambda x: x.isresolved, self._refs))
@@ -747,7 +810,7 @@ class Neg(AbstractDRSCond):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
         rs = self._drs.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _get_freerefs(self, ld, gd):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
@@ -776,6 +839,11 @@ class Neg(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Neg(rename_subdrs(self._drs, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
+        return Neg(cd1), rs1
 
     @property
     def isresolved(self):
@@ -823,7 +891,7 @@ class Imp(AbstractDRSCond):
         rs = self._drsA.get_variables(rs)
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
         rs = self._drsB.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _universes(self, u):
         u = self._drsA.get_universes(u)
@@ -843,6 +911,16 @@ class Imp(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Imp(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        orsd = intersect(self._drsA.universe, rs)
+        nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
+        # In case we do not want to rename ambiguous bindings:
+        # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
+        cd1, rs1 = rename_subdrs(self._drsA, gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = rename_subdrs(self._drsB, gd, nrs).purify_refs(gd, rs1)
+        return Imp(cd1,cd2), rs2
 
     @property
     def isresolved(self):
@@ -889,7 +967,7 @@ class Or(AbstractDRSCond):
         rs = self._drsA.get_variables(rs)
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
         rs = self._drsB.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _universes(self, u):
         u = self._drsA.get_universes()
@@ -909,6 +987,16 @@ class Or(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Or(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        orsd = intersect(self._drsA.universe, rs)
+        nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
+        # In case we do not want to rename ambiguous bindings:
+        # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
+        cd1, rs1 = rename_subdrs(self._drsA, gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = rename_subdrs(self._drsB, gd, nrs).purify_refs(gd, rs1)
+        return Or(cd1,cd2), rs2
 
     @property
     def isresolved(self):
@@ -953,7 +1041,7 @@ class Prop(AbstractDRSCond):
         if not _pure_refs(ld, gd, [self._ref], rs) or not self._drs._ispure_helper(rs, gd):
             return (False, None)
         rs = self._drs.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _universes(self, u):
         return self._drs.get_universes(u)
@@ -972,6 +1060,14 @@ class Prop(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, rename_subdrs(self._drs, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        # FIXME: does this really need to be added to front of list
+        rsx = [self._ref]
+        rsx.extend(rs)
+        cd1, rs1 = self._drs.purify_refs(gd, rsx)
+        return Prop(self._ref, cd1), rs1
 
     @property
     def isresolved(self):
@@ -1015,7 +1111,7 @@ class Diamond(AbstractDRSCond):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
         rs = self._drs.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _universes(self, u):
         return self._drs.get_universes(u)
@@ -1030,6 +1126,11 @@ class Diamond(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Diamond(rename_subdrs(self._drs, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
+        return Diamond(cd1), rs1
 
     @property
     def isresolved(self):
@@ -1073,7 +1174,7 @@ class Box(AbstractDRSCond):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
         rs = self._drs.get_variables(rs)
-        return (True, rs)
+        return True, rs
 
     def _universes(self, u):
         return self._drs.get_universes(u)
@@ -1088,6 +1189,11 @@ class Box(AbstractDRSCond):
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
         return Box(rename_subdrs(self._drs, gd, rs))
+
+    # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
+    def _purify(self, gd, rs):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
+        return Box(cd1), rs1
 
     @property
     def isresolved(self):
