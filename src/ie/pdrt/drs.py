@@ -357,10 +357,11 @@ class DRS(AbstractDRS):
         rss = []
         rss.extend(rs)
         rss.extend(self._refs)
+        r = True
         for c in self._conds:
-            (r,rss) = c._ispure(self, gd, rss)
+            r,rss = c._ispure(self, gd, rss)
             if not r: return False
-        return False
+        return r
 
     @property
     def referents(self):
@@ -479,13 +480,15 @@ class DRS(AbstractDRS):
             return fol.Exists(fol.FOLVar(self.refs[0].to_var()), DRS(self._refs[1:], self._conds).to_mfol(world))
 
     # Original haskell code in `DRS/Input/Show.hs::showUniverse`
-    def _show_universe(self, d):
-        return d.join([x.to_var().show() for x in self._refs])
+    def _show_universe(self, d, notation):
+        return d.join([x.to_var().show(notation) for x in self._refs])
 
     def _show_conditions(self, notation):
-        if len(self._refs) == 0:
+        if len(self._conds) == 0 and notation == SHOW_BOX:
             return u' '
-        return u''.join([x.show(notation) for x in self._conds])
+        if notation == SHOW_BOX:
+            return u''.join([x.show(notation) for x in self._conds])
+        return u','.join([x.show(notation) for x in self._conds])
 
     ## @remarks Original haskell code in `DRS/Input/Show.hs::showDRSBox`
     def show(self, notation):
@@ -501,18 +504,18 @@ class DRS(AbstractDRS):
             if len(self._refs) == 0:
                 ul = u' \n'
             else:
-                ul = self._show_universe(u'  ') + u'\n'
+                ul = self._show_universe(u'  ', notation) + u'\n'
             cl = self._show_conditions(notation)
             l = 4 + max(union(map(len, ul.split(u'\n')), map(len, cl.split(u'\n'))))
             return self.show_horz_line(l, self.boxTopLeft, self.boxTopRight) + \
                    self.show_content(l, ul + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight)) + \
                    self.show_content(l, cl + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight))
-        elif notation in SHOW_LINEAR:
-            ul = self._show_universe(',')
+        elif notation == SHOW_LINEAR:
+            ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
             return u'[' + ul + u': ' + cl + u']'
-        elif notation in SHOW_SET:
-            ul = self._show_universe(',')
+        elif notation == SHOW_SET:
+            ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
             return u'<{' + ul + u'},{' + cl + u'}>'
         cl = self._show_conditions(notation)
@@ -790,7 +793,9 @@ class LambdaDRSRef(AbstractDRSRef):
 class DRSRef(AbstractDRSRef):
     """DRS referent"""
     def __init__(self, drsVar):
-        if not isinstance(drsVar, DRSVar):
+        if isinstance(drsVar, str):
+            drsVar = DRSVar(drsVar)
+        elif not isinstance(drsVar, DRSVar):
             raise TypeError
         self._var = drsVar
 
@@ -826,6 +831,11 @@ class AbstractDRSRelation(object):
 
     ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
     def to_string(self):
+        """Converts this instance into a string."""
+        raise NotImplementedError
+
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
+    def to_unicode(self):
         """Converts this instance into a string."""
         raise NotImplementedError
 
@@ -866,10 +876,19 @@ class LambdaDRSRelation(AbstractDRSRelation):
         """Converts this instance into a string."""
         return str(self._var.var)
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
+    def to_unicode(self):
+        """Converts this instance into a string."""
+        return unicode(self._var.var)
+
 
 class DRSRelation(AbstractDRSRelation):
     """DRS Relation"""
     def __init__(self, drsVar):
+        if isinstance(drsVar, str):
+            drsVar = DRSVar(drsVar)
+        elif not isinstance(drsVar, DRSVar):
+            raise TypeError
         self._var = drsVar
 
     def __ne__(self, other):
@@ -889,6 +908,11 @@ class DRSRelation(AbstractDRSRelation):
     def to_string(self):
         """Converts this instance into a string."""
         return str(self._var)
+
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
+    def to_unicode(self):
+        """Converts this instance into a string."""
+        return unicode(self._var)
 
 
 class AbstractDRSCond(Showable):
@@ -948,7 +972,11 @@ class AbstractDRSCond(Showable):
 class Rel(AbstractDRSCond):
     """A relation defined on a set of referents"""
     def __init__(self, drsRel, drsRefs):
-        if not isinstance(drsRel, AbstractDRSRelation) or iterable_type_check(drsRefs, AbstractDRSRef):
+        if not iterable_type_check(drsRefs, AbstractDRSRef):
+            raise TypeError
+        if isinstance(drsRel, str):
+            drsRel = DRSRelation(drsRel)
+        if not isinstance(drsRel, AbstractDRSRelation):
             raise TypeError
         self._rel = drsRel
         self._refs = drsRefs
@@ -1004,10 +1032,10 @@ class Rel(AbstractDRSCond):
 
     def show(self, notation):
         if notation == SHOW_BOX:
-            return unicode(self._rel.to_string()) + u'(' + ','.join([x.to_var().show(0) for x in self._refs]) + u')\n'
+            return self._rel.to_unicode() + u'(' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')\n'
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return unicode(self._rel.to_string()) + u'(' + ','.join([x.to_var().show(0) for x in self._refs]) + u')'
-        return u'Rel (' + unicode(self._rel.to_string()) + u') (' + ','.join([x.to_var().show(0) for x in self._refs]) + u')'
+            return self._rel.to_unicode() + u'(' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')'
+        return u'Rel (' + self._rel.to_unicode() + u') (' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')'
 
 
 class Neg(AbstractDRSCond):

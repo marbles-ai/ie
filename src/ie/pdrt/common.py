@@ -155,8 +155,12 @@ class DRSVar(AbstractDRSVar):
         return 'DRSVar(%s)' % self.__str__()
 
     def __str__(self):
-        if self._idx is None: return self._name
+        if self._idx  == 0: return self._name
         return '%s@%i' % (self._name, self._idx)
+
+    def __unicode__(self):
+        if self._idx == 0: return self._name
+        return u'%s@%i' % (self._name, self._idx)
 
     def __eq__(self, other):
         return self._name == other._name and self._idx == other._idx
@@ -165,7 +169,7 @@ class DRSVar(AbstractDRSVar):
         return self._name != other._name or self._idx != other._idx
 
     def __hash__(self):
-        return hash(self._idx or 0) ^ hash(self._name)
+        return hash(self._idx) ^ hash(self._name)
 
     def __lt__(self, other):
         return self.idx < other.idx or (self._idx == other._idx and self._name < other._name)
@@ -199,7 +203,7 @@ class DRSVar(AbstractDRSVar):
         Returns:
             A unicode string.
         """
-        return unicode(self.__str__())
+        return unicode(self)
 
 
 class LambdaDRSVar(AbstractDRSVar):
@@ -223,6 +227,12 @@ class LambdaDRSVar(AbstractDRSVar):
 
     def __repr__(self):
         return 'LambdaDRSVar(%s,%s)' % (self._var, self._set)
+
+    def __str__(self):
+        return str(self._var)
+
+    def __unicode__(self):
+        return unicode(self._var)
 
     def __hash__(self):
         return hash(self._var) ^ hash(self._set)
@@ -269,6 +279,6 @@ class LambdaDRSVar(AbstractDRSVar):
             A unicode string.
         """
         if len(self._set) == 0:
-            return unicode(str(self._var))
-        return unicode(str(self._var)) + u'(' + u','.join(self._set) + u')'
+            return unicode(self)
+        return unicode(self) + u'(' + u','.join([unicode(x) for x in self._set]) + u')'
 

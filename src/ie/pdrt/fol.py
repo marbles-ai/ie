@@ -24,7 +24,7 @@ class FOLForm(Showable):
     def __repr__(self):
         return self.__str__()
 
-    def show(self):
+    def show(self, notation):
         return u'\n' + unicode(self) + u'\n'
 
 
