@@ -23,10 +23,10 @@ class LambdaTuple(object):
         self._pos = pos
 
     def __ne__(self, other):
-        return self._var != other._var or self._pos != other._pos
+        return self.__class__ != other.__class__ or self._var != other._var or self._pos != other._pos
 
     def __eq__(self, other):
-        return self._var == other._var and self._pos == other._pos
+        return self.__class__ == other.__class__ and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
         return 'LambdaTuple(%s,%i)' % (self._var, self._pos)
@@ -247,10 +247,10 @@ class LambdaDRS(AbstractDRS):
         self._pos = pos
 
     def __ne__(self, other):
-        return self._var != other._var or self._pos != other._pos
+        return self.__class__ != other.__class__ or self._var != other._var or self._pos != other._pos
 
     def __eq__(self, other):
-        return self._var == other._var and self._pos == other._pos
+        return self.__class__ == other.__class__ and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
         return 'LambdaDRS(%s,%i)' % (self._var, self._pos)
@@ -341,10 +341,10 @@ class DRS(AbstractDRS):
         self._conds = drsConds
 
     def __ne__(self, other):
-        return self._refs != other._refs or self._conds != other._conds
+        return self.__class__ != other.__class__ or self._refs != other._refs or self._conds != other._conds
 
     def __eq__(self, other):
-        return self._refs == other._refs and self._conds == other._conds
+        return self.__class__ == other.__class__ and self._refs == other._refs and self._conds == other._conds
 
     def __repr__(self):
         return 'DRS(%s,%s)' % (self._refs, self._conds)
@@ -533,10 +533,10 @@ class Merge(AbstractDRS):
         self._drsB = drsB
 
     def __ne__(self, other):
-        return self._drsA != other._drsA or self._drsB != other._drsB
+        return self.__class__ != other.__class__ or self._drsA != other._drsA or self._drsB != other._drsB
 
     def __eq__(self, other):
-        return self._drsA == other._drsA and self._drsB == other._drsB
+        return self.__class__ == other.__class__ and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
         return 'Merge(%s,%s)' % (self._drsA, self._drsB)
@@ -589,7 +589,7 @@ class Merge(AbstractDRS):
 
     def resolve_merges(self):
         """Resolves all unresolved merges in a DRS."""
-        merge(self._drsA.resolve_merges(), self._drsB.resolve_merges())
+        return merge(self._drsA.resolve_merges(), self._drsB.resolve_merges())
 
     ## @remarks original haskell code in `DRS/Input/Variables.hs:drsVariables`
     def get_variables(self, u=None):
@@ -683,7 +683,7 @@ def merge(d1, d2):
         else:
             return merge(d2, d1.resolve_merges())
     else:
-        # orig haskell code Merge.hs and Variable.hs
+        # orig haskell code Merge.hs and Variable.hs adx6PlmTq3
         p1 = d1.resolve_merges().purify()
         p2 = d2.resolve_merges().purify()
         ors = intersect(p2.get_variables(), p1.get_variables())
@@ -703,17 +703,19 @@ def get_new_drsrefs(ors, ers):
         if not isinstance(r, AbstractDRSRef):
             raise TypeError
         rd = r.increase_new()
-        ors[i] = rd
-        if r in union(ors[i:], ers):
-            ors[i] = r
-            return get_new_drsrefs(ors[i:], ers)
+        if rd in union(ors[i+1:], ers):
+            ors = [x for x in ors[i:]]  # shallow partial copy
+            ors[0] = rd
+            # FIXME: remove recursion
+            result.extend(get_new_drsrefs(ors, ers))
+            return result
         else:
-            ors[i] = r
+            # FIXME: check if we can ue append rather then push front
             y = [rd]
             y.extend(ers)
+            ers = y
             result.append(rd)
-            result.extend(get_new_drsrefs(ors[i+1:], y))
-            return result
+    return result
 
 
 ## @remarks Original haskell code in `DRS/Input/Variables.hs::drsCombine`
@@ -776,10 +778,10 @@ class LambdaDRSRef(AbstractDRSRef):
         self._pos = pos
 
     def __ne__(self, other):
-        return self._var != other._var or self._pos != other._pos
+        return self.__class__ != other.__class__ or self._var != other._var or self._pos != other._pos
 
     def __eq__(self, other):
-        return self._var == other._var and self._pos == other._pos
+        return self.__class__ == other.__class__ and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
         return 'LambdaDRSRef(%s,%i)' % (self._var.var, self._pos)
@@ -805,10 +807,10 @@ class DRSRef(AbstractDRSRef):
         self._var = drsVar
 
     def __ne__(self, other):
-        return self._var != other._var
+        return self.__class__ != other.__class__ or self._var != other._var
 
     def __eq__(self, other):
-        return self._var == other._var
+        return self.__class__ == other.__class__ and self._var == other._var
 
     def __repr__(self):
         return 'DRSRef(%s)' % self._var
@@ -866,10 +868,10 @@ class LambdaDRSRelation(AbstractDRSRelation):
         self._idx = idx
 
     def __ne__(self, other):
-        return self._var != other._var or self._idx != other._idx
+        return self.__class__ != other.__class__ or self._var != other._var or self._idx != other._idx
 
     def __eq__(self, other):
-        return self._var == other._var and self._idx == other._idx
+        return self.__class__ == other.__class__ and self._var == other._var and self._idx == other._idx
 
     def __repr__(self):
         return 'LambdaDRSRelation(%s,%i)' % (self._var, self._idx)
@@ -900,10 +902,10 @@ class DRSRelation(AbstractDRSRelation):
         self._var = drsVar
 
     def __ne__(self, other):
-        return self._var != other._var
+        return self.__class__ != other.__class__ or self._var != other._var
 
     def __eq__(self, other):
-        return self._var == other._var
+        return self.__class__ == other.__class__ and self._var == other._var
 
     def __repr__(self):
         return 'DRSRelation(%s)' % self._var
@@ -1054,10 +1056,10 @@ class Neg(AbstractDRSCond):
         self._drs = drs
 
     def __ne__(self, other):
-        return self._drs != other._drs
+        return self.__class__ != other.__class__ or self._drs != other._drs
 
     def __eq__(self, other):
-        return self._drs == other._drs
+        return self.__class__ == other.__class__ and self._drs == other._drs
 
     def __repr__(self):
         return 'Neg(%s)' % self._drs
@@ -1137,10 +1139,10 @@ class Imp(AbstractDRSCond):
         self._drsB = drsB
 
     def __ne__(self, other):
-        return self._drsA != other._drsA or self._drsB != other._drsB
+        return self.__class__ != other.__class__ or self._drsA != other._drsA or self._drsB != other._drsB
 
     def __eq__(self, other):
-        return self._drsA == other._drsA and self._drsB == other._drsB
+        return self.__class__ == other.__class__ and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
         return 'Imp(%s,%s)' % (self._drsA, self._drsB)
@@ -1242,10 +1244,10 @@ class Or(AbstractDRSCond):
         self._drsB = drsB
 
     def __ne__(self, other):
-        return self._drsA != other._drsA or self._drsB != other._drsB
+        return self.__class__ != other.__class__ or self._drsA != other._drsA or self._drsB != other._drsB
 
     def __eq__(self, other):
-        return self._drsA == other._drsA and self._drsB == other._drsB
+        return self.__class__ == other.__class__ and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
         return 'Or(%s,%s)' % (self._drsA, self._drsB)
@@ -1339,10 +1341,10 @@ class Prop(AbstractDRSCond):
         self._ref = drsRef
 
     def __ne__(self, other):
-        return self._ref != other._ref or self._drs != other._drs
+        return self.__class__ != other.__class__ or self._ref != other._ref or self._drs != other._drs
 
     def __eq__(self, other):
-        return self._ref == other._ref and self._drs == other._drs
+        return self.__class__ == other.__class__ and self._ref == other._ref and self._drs == other._drs
 
     def __repr__(self):
         return 'Prop(%s,%s)' % (self._ref, self._drs)
@@ -1422,10 +1424,10 @@ class Diamond(AbstractDRSCond):
         self._drs = drs
 
     def __ne__(self, other):
-        return self._drs != other._drs
+        return self.__class__ != other.__class__ or self._drs != other._drs
 
     def __eq__(self, other):
-        return self._drs == other._drs
+        return self.__class__ == other.__class__ and self._drs == other._drs
 
     def __repr__(self):
         return 'Diamond(%s)' % self._drs
@@ -1499,10 +1501,10 @@ class Box(AbstractDRSCond):
         self._drs = drs
 
     def __ne__(self, other):
-        return self._drs != other._drs
+        return self.__class__ != other.__class__ or self._drs != other._drs
 
     def __eq__(self, other):
-        return self._drs == other._drs
+        return self.__class__ == other.__class__ and self._drs == other._drs
 
     def __repr__(self):
         return 'Box(%s)' % self._drs

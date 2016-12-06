@@ -121,7 +121,10 @@ class DrsTest(unittest.TestCase):
         nh = DRS([DRSRef('x')],
                     [Rel(DRSRelation('man'),[DRSRef('x')])
                     ,Neg(DRS([],[Rel(DRSRelation('happy'),[DRSRef('x')])]))])
-        d = Merge(h, nh).resolve_merges()
+        m = Merge(h, nh)
+        s = m.show(SHOW_SET)
+        x = u'<{x,x1},{man(x),happy(x),man(x1),\u00AC<{},{happy(x1)}>}>'
+        self.assertEquals(x, s)
+        d = m.resolve_merges()
         s = d.show(SHOW_SET)
-        x = u'<{x},{man(x),happy(x) \u00AC<{},{happy(x)}>}>'
         self.assertEquals(x,s)

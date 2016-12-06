@@ -156,26 +156,26 @@ class DRSVar(AbstractDRSVar):
 
     def __str__(self):
         if self._idx  == 0: return self._name
-        return '%s@%i' % (self._name, self._idx)
+        return '%s%i' % (self._name, self._idx)
 
     def __unicode__(self):
         if self._idx == 0: return self._name
-        return u'%s@%i' % (self._name, self._idx)
+        return u'%s%i' % (self._name, self._idx)
 
     def __eq__(self, other):
-        return self._name == other._name and self._idx == other._idx
+        return self.__class__ == other.__class__ and self._name == other._name and self._idx == other._idx
 
     def __ne__(self, other):
-        return self._name != other._name or self._idx != other._idx
+        return self.__class__ == other.__class__ or self._name != other._name or self._idx != other._idx
 
     def __hash__(self):
         return hash(self._idx) ^ hash(self._name)
 
     def __lt__(self, other):
-        return self.idx < other.idx or (self._idx == other._idx and self._name < other._name)
+        return self.__class__ == other.__class__ and (self.idx < other.idx or (self._idx == other._idx and self._name < other._name))
 
     def __le__(self, other):
-        return self.idx < other.idx or (self._idx == other._idx and self._name <= other._name)
+        return self.__class__ == other.__class__ and (self.idx < other.idx or (self._idx == other._idx and self._name <= other._name))
 
     def __gt__(self, other):
         return not self.__le__(other)
