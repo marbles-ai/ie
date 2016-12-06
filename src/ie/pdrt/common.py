@@ -86,7 +86,7 @@ class Showable(object):
             A unicode string
         """
         ls = s.split(u'\n')
-        return u'\n'.join(map(lambda x: cls.boxVerLine + u' ' + (u' ' * (n - 4 - len(x))) + u' ' + cls.boxVerLine, ls))
+        return u'\n'.join(map(lambda x: cls.boxVerLine + u' ' + x + (u' ' * (n - 4 - len(x))) + u' ' + cls.boxVerLine, ls))
 
     @classmethod
     def show_horz_line(cls, n, lc, rc):
@@ -147,9 +147,9 @@ class AbstractDRSVar(Showable):
 
 # DRS variable
 class DRSVar(AbstractDRSVar):
-    def __init__(self, name):
+    def __init__(self, name, idx=0):
         self._name = name
-        self._idx = 0
+        self._idx = idx
 
     def __repr__(self):
         return 'DRSVar(%s)' % self.__str__()

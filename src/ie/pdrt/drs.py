@@ -335,6 +335,8 @@ def conds_to_mfol(conds, world):
 class DRS(AbstractDRS):
     """Default DRS"""
     def __init__(self, drsRefs, drsConds):
+        if not iterable_type_check(drsRefs, AbstractDRSRef) or not iterable_type_check(drsConds, AbstractDRSCond):
+            raise TypeError
         self._refs = drsRefs
         self._conds = drsConds
 
@@ -392,8 +394,8 @@ class DRS(AbstractDRS):
     def get_freerefs(self, gd):
         """Returns the list of all free DRSRef's in a DRS."""
         y = []
-        for c in self.conds:
-            y = union_inplace(y, c.get_freerefs(self, gd))
+        for c in self._conds:
+            y = union_inplace(y, c._get_freerefs(self, gd))
         return sorted(set(y))
 
     def resolve_merges(self):
@@ -502,14 +504,14 @@ class DRS(AbstractDRS):
         """
         if notation == SHOW_BOX:
             if len(self._refs) == 0:
-                ul = u' \n'
+                ul = u' '
             else:
-                ul = self._show_universe(u'  ', notation) + u'\n'
-            cl = self._show_conditions(notation)
+                ul = self._show_universe(u'  ', notation)
+            cl = self._show_conditions(notation) + u'\n'
             l = 4 + max(union(map(len, ul.split(u'\n')), map(len, cl.split(u'\n'))))
             return self.show_horz_line(l, self.boxTopLeft, self.boxTopRight) + \
-                   self.show_content(l, ul + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight)) + \
-                   self.show_content(l, cl + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight))
+                   self.show_content(l, ul) + u'\n' + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight) + \
+                   self.show_content(l, cl) + u'\n' + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight)
         elif notation == SHOW_LINEAR:
             ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
@@ -755,6 +757,9 @@ class AbstractDRSRef(object):
         """Converts a DRSRef into a DRSVar."""
         raise NotImplementedError
 
+    def increase_new(self):
+        raise NotImplementedError
+
 
 class LambdaDRSRef(AbstractDRSRef):
     """Lambda DRS referent"""
@@ -820,6 +825,9 @@ class DRSRef(AbstractDRSRef):
     def to_var(self):
         """Converts a DRSRef into a DRSVar."""
         return self._var
+
+    def increase_new(self):
+        return DRSRef(self._var.increase_new())
 
 
 class AbstractDRSRelation(object):
@@ -987,7 +995,7 @@ class Rel(AbstractDRSCond):
     def _get_freerefs(self, ld, gd):
         """Helper for DRS.get_freerefs()"""
         # orig haskell code (Rel _ d:cs) = snd (partition (flip (`drsBoundRef` ld) gd) d) `union` free cs
-        return filter(lambda x: not x.has_bound(x, ld, gd), self._refs)
+        return filter(lambda x: not x.has_bound(ld, gd), self._refs)
 
     def _isproper_subdrsof(self, sd, gd):
         """Helper for DRS.isproper"""
