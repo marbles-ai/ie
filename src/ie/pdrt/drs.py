@@ -1,5 +1,11 @@
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var
-from common import DRSVar, LambdaDRSVar
+from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
+from common import DRSVar, LambdaDRSVar, Showable
+import fol
+
+
+WORLD_VAR = 'w'
+WORLD_REL = 'Acc'
 
 
 class LambdaTuple(object):
@@ -50,7 +56,7 @@ def _pure_refs(ld, gd, rs, srs):
     return all(filter(lambda r: r.has_bound(ld, gd) or r not in srs, rs))
 
 
-class AbstractDRS(object):
+class AbstractDRS(Showable):
     """Abstract Discourse Representation Structure (DRS)"""
 
     def _isproper_subdrsof(self, d):
@@ -180,6 +186,51 @@ class AbstractDRS(object):
         drs,_ = self.purify_refs(self, refs)
         return drs
 
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:drsAlphaConvert`
+    def alpha_convert(self, rs):
+        return self.rename_subdrs(self, rs)
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
+    def rename_subdrs(self, gd, rs):
+        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        global DRS gd, on the basis of a conversion list for DRSRef's rs.
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef instances.
+
+        Returns:
+            A DRS instance.
+        """
+        raise NotImplementedError
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToFOL`
+    def to_fol(self):
+        """Convert to FOLForm
+
+        Returns:
+            An ie.fol.FOLForm instance.
+
+        Raises:
+            ie.fol.FOLConversionError
+        """
+        return self.to_mfol(WORLD_VAR)
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL`
+    def to_mfol(self, world):
+        """Converts a DRS to a modal FOL formula with world
+
+        Args:
+            world: A ie.fol.FOLVar instance
+
+        Returns:
+            An ie.fol.FOLForm instance.
+
+        Raises:
+            ie.fol.FOLConversionError
+        """
+        raise fol.FOLConversionError('infelicitous FOL formula')
+
 
 class LambdaDRS(AbstractDRS):
     """A lambda DRS."""
@@ -236,6 +287,49 @@ class LambdaDRS(AbstractDRS):
     ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
     def purify_refs(self, gd, ers):
         return (self, ers)
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
+    def rename_subdrs(self, gd, rs):
+        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        global DRS gd, on the basis of a conversion list for DRSRef's rs.
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef instances.
+
+        Returns:
+            A DRS instance.
+        """
+        return self
+
+    ## @remarks Original haskell code in `DRS/Input/Show.hs::showDRSBox`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            return self._var.show(notation) + u'\n'
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._var.show(notation)
+        return u'LambdaDRS ' + unicode(str(self._var))
+
+
+def conds_to_mfol(conds, world):
+    """Converts a list of DRS conditions to a modal FOL formula with world"""
+    if len(conds) == 0:
+        return fol.Top()
+    if len(conds) == 1:
+        return conds[0].to_mfol(world)
+    else:
+        f = fol.And(conds[-1].to_mfol(world), conds[-2].to_mfol(world))
+        for i in reversed(range(len(conds) - 2)):
+            f = fol.And(conds[i].to_mfol(world), f)
+        return f
 
 
 class DRS(AbstractDRS):
@@ -336,10 +430,6 @@ class DRS(AbstractDRS):
         for c in self._conds:
             u = c._lambda_tuple(u)
 
-    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:drsAlphaConvert`
-    def alpha_convert(self, rs):
-        return rename_subdrs(self, self, rs)
-
     ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs:purifyRefs`
     def purify_refs(self, gd, ers):
         # In case we do not want to rename ambiguous bindings:
@@ -353,6 +443,80 @@ class DRS(AbstractDRS):
             x,r = c._purify(gd, r)
             conds.append(x)
         return (DRS(d.referents,conds), r)
+
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
+    def rename_subdrs(self, gd, rs):
+        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        global DRS gd, on the basis of a conversion list for DRSRef's rs.
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef instances.
+
+        Returns:
+            A DRS instance.
+        """
+        return DRS([rename_var(r, rs) for r in self._refs], \
+                   [c._convert(self, gd, rs) for c in self._conds])
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL`
+    def to_mfol(self, world):
+        """Converts a DRS to a modal FOL formula with world
+
+        Args:
+            world: A ie.fol.FOLVar instance
+
+        Returns:
+            An ie.fol.FOLForm instance.
+
+        Raises:
+            ie.fol.FOLConversionError
+        """
+        if len(self.refs) == 0:
+            conds_to_mfol(self._conds, world)
+        else:
+            # FIXME: remove recursion
+            return fol.Exists(fol.FOLVar(self.refs[0].to_var()), DRS(self._refs[1:], self._conds).to_mfol(world))
+
+    # Original haskell code in `DRS/Input/Show.hs::showUniverse`
+    def _show_universe(self, d):
+        return d.join([x.to_var().show() for x in self._refs])
+
+    def _show_conditions(self, notation):
+        if len(self._refs) == 0:
+            return u' '
+        return u''.join([x.show(notation) for x in self._conds])
+
+    ## @remarks Original haskell code in `DRS/Input/Show.hs::showDRSBox`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            if len(self._refs) == 0:
+                ul = u' \n'
+            else:
+                ul = self._show_universe(u'  ') + u'\n'
+            cl = self._show_conditions(notation)
+            l = 4 + max(union(map(len, ul.split(u'\n')), map(len, cl.split(u'\n'))))
+            return self.show_horz_line(l, self.boxTopLeft, self.boxTopRight) + \
+                   self.show_content(l, ul + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight)) + \
+                   self.show_content(l, cl + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight))
+        elif notation in SHOW_LINEAR:
+            ul = self._show_universe(',')
+            cl = self._show_conditions(notation)
+            return u'[' + ul + u': ' + cl + u']'
+        elif notation in SHOW_SET:
+            ul = self._show_universe(',')
+            cl = self._show_conditions(notation)
+            return u'<{' + ul + u'},{' + cl + u'}>'
+        cl = self._show_conditions(notation)
+        return u'DRS ' + unicode(str(self._refs)) + u' [' + cl + u']'
 
 
 class Merge(AbstractDRS):
@@ -370,7 +534,7 @@ class Merge(AbstractDRS):
         return self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return 'MergeDRS(%s,%s)' % (self._drsA, self._drsB)
+        return 'Merge(%s,%s)' % (self._drsA, self._drsB)
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
@@ -447,6 +611,52 @@ class Merge(AbstractDRS):
         cd2, ers2 = self._drsB.purify_refs(gd, ers1)
         return (Merge(cd1, cd2), ers2)
 
+    ## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
+    def rename_subdrs(self, gd, rs):
+        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        global DRS gd, on the basis of a conversion list for DRSRef's rs.
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef instances.
+
+        Returns:
+            A DRS instance.
+        """
+        return Merge(self._drsA.rename_subdrs(gd, rs), self._drsA.rename_subdrs(gd, rs))
+
+    def _show_brackets(self, s):
+        # show() helper
+        return self.show_modifier(u'(', 2, self.show_concat(s, self.show_padding(u')\n')))
+
+    ## @remarks Original haskell code in `DRS/Input/Show.hs::showDRSBox`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            if self._drsA.islambda and self._drsB.islambda:
+                self.show_modifier(u'(', 0, self.show_concat(self.show_concat(self._drsA.show(), \
+                                            self.show_modifier(self.opMerge, 0, self._drsB.show()))), u')')
+            elif not self._drsA.islambda and self._drsA.islambda:
+                return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opMerge, 2, self._drsA.show())))
+            elif self._drsA.islambda and not self._drsA.islambda:
+                self._show_brackets(self.show_concat(self.show_padding(self._drsA.show()),
+                                            self.show_modifier(self.opMerge, 2, self._drsB.show())))
+            return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opMerge, 2, self._drsB.show)))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            if not self._drsA.islambda and not self._drsB.islambda:
+                return merge(self._drsA, self._drsB).show(notation)
+            return self._drsA.show(notation) + u' ' + self.opMerge + u' ' + self._drsB.show(notation)
+        return u'Merge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
+
 
 # Original haskell code in DSI/Input/Merge.hs:drsMerge
 def merge(d1, d2):
@@ -507,22 +717,6 @@ def combine(func, d):
     return func(d).resolve_merges()
 
 
-## @remarks Original haskell code in `DRS/Input/LambdaCalculus.hs::renameSubDRS`
-def rename_subdrs(ld, gd, rs):
-    """Applies alpha conversion to a DRS ld, which is a sub-DRS of the
-    global DRS gd, on the basis of a conversion list for DRSRef's rs.
-    """
-    if isinstance(ld, LambdaDRS):
-        return ld
-    elif isinstance(ld, Merge):
-        return Merge(rename_subdrs(ld._drs_a, gd, rs),rename_subdrs(ld._drs_b, gd, rs))
-    elif isinstance(ld, DRS):
-        return DRS([rename_var(r, rs) for r in ld.referents], \
-                   [c._convert(ld, gd, rs) for c in ld.conditions])
-    else:
-        raise TypeError
-
-
 class AbstractDRSRef(object):
     """Abstract DRS referent"""
     def _has_antecedent(self, drs, conds):
@@ -553,6 +747,7 @@ class AbstractDRSRef(object):
         """Returns whether a 'DRS' is resolved (containing no unresolved merges or lambdas)"""
         return False
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRefToDRSVar`
     def to_var(self):
         """Converts a DRSRef into a DRSVar."""
         raise NotImplementedError
@@ -579,16 +774,17 @@ class LambdaDRSRef(AbstractDRSRef):
         return self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRSRef(%s,%i)' % (self._var, self._pos)
+        return 'LambdaDRSRef(%s,%i)' % (self._var.var, self._pos)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         u.add(LambdaTuple(self._var, self._pos))
         return u
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRefToDRSVar`
     def to_var(self):
         """Converts a DRSRef into a DRSVar."""
-        return self._var.var
+        return str(self._var.var)
 
 
 class DRSRef(AbstractDRSRef):
@@ -615,6 +811,7 @@ class DRSRef(AbstractDRSRef):
     def isresolved(self):
         return True
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRefToDRSVar`
     def to_var(self):
         """Converts a DRSRef into a DRSVar."""
         return self._var
@@ -627,9 +824,13 @@ class AbstractDRSRelation(object):
     def _lambda_tuple(self, u):
         raise NotImplementedError
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
     def to_string(self):
         """Converts this instance into a string."""
         raise NotImplementedError
+
+    def __str__(self):
+        return self.to_string()
 
 
 class LambdaDRSRelation(AbstractDRSRelation):
@@ -660,9 +861,10 @@ class LambdaDRSRelation(AbstractDRSRelation):
         u.add(LambdaTuple(self._var, self._pos))
         return u
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
     def to_string(self):
         """Converts this instance into a string."""
-        return self._var.var
+        return str(self._var.var)
 
 
 class DRSRelation(AbstractDRSRelation):
@@ -683,12 +885,13 @@ class DRSRelation(AbstractDRSRelation):
     def _lambda_tuple(self, u):
         return u
 
+    ## @remarks Original code in `DRS/Input/Variables.hs:drsRelToString`
     def to_string(self):
         """Converts this instance into a string."""
-        return self._var
+        return str(self._var)
 
 
-class AbstractDRSCond(object):
+class AbstractDRSCond(Showable):
     """Abstract DRS Condition"""
 
     def _antecedent(self, ref, drs):
@@ -737,6 +940,10 @@ class AbstractDRSCond(object):
     def resolve_merges(self):
         raise NotImplementedError
 
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        raise NotImplementedError
+
 
 class Rel(AbstractDRSCond):
     """A relation defined on a set of referents"""
@@ -745,6 +952,9 @@ class Rel(AbstractDRSCond):
             raise TypeError
         self._rel = drsRel
         self._refs = drsRefs
+
+    def __repr__(self):
+        return 'Rel(%s,%s)' % (self._rel.to_string(), ','.join([str(x.to_var()) for x in self._refs]))
 
     def _get_freerefs(self, ld, gd):
         """Helper for DRS.get_freerefs()"""
@@ -785,6 +995,19 @@ class Rel(AbstractDRSCond):
 
     def resolve_merges(self):
         return self
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        v = [world]
+        v.extend([x.to_string() for x in self._refs])
+        return fol.Rel(str(self._rel.to_var()), v)
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            return unicode(self._rel.to_string()) + u'(' + ','.join([x.to_var().show(0) for x in self._refs]) + u')\n'
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return unicode(self._rel.to_string()) + u'(' + ','.join([x.to_var().show(0) for x in self._refs]) + u')'
+        return u'Rel (' + unicode(self._rel.to_string()) + u') (' + ','.join([x.to_var().show(0) for x in self._refs]) + u')'
 
 
 class Neg(AbstractDRSCond):
@@ -838,7 +1061,7 @@ class Neg(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Neg(rename_subdrs(self._drs, gd, rs))
+        return Neg(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -854,6 +1077,19 @@ class Neg(AbstractDRSCond):
 
     def resolve_merges(self):
         return Neg(self._drs.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        return fol.Neg(self._drs.to_mfol(world))
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drs.islambda:
+                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
+            return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self.opNeg + self._drs.show(notation)
+        return u'Neg (' + self._drs.show(notation) + u')'
 
 
 class Imp(AbstractDRSCond):
@@ -910,7 +1146,7 @@ class Imp(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Imp(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+        return Imp(self._drsA.rename_subdrs(gd, rs), self._drsB.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -918,8 +1154,8 @@ class Imp(AbstractDRSCond):
         nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
         # In case we do not want to rename ambiguous bindings:
         # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
-        cd1, rs1 = rename_subdrs(self._drsA, gd, nrs).purify_refs(gd, rs)
-        cd2, rs2 = rename_subdrs(self._drsB, gd, nrs).purify_refs(gd, rs1)
+        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1)
         return Imp(cd1,cd2), rs2
 
     @property
@@ -931,6 +1167,34 @@ class Imp(AbstractDRSCond):
 
     def resolve_merges(self):
         return Imp(self._drsA.resolve_merges(), self._drsB.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        if not isinstance(self._drsA, DRS):
+            raise fol.FOLConversionError
+        refs = self._drsA.referents # causes a shallow copy
+        f = fol.Impl(conds_to_mfol(self._drsA._conds, world), self._drsB.to_mfol)
+        refs.reverse()
+        for r in refs:
+            f = fol.ForAll(str(r), f)
+        return f
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drsA.islambda and self._drsB.islambda:
+                return self.show_concat(self._drsA.show(notation), \
+                                        self.show_modifier(self.opImp, 0, self._drsB.show(notation)))
+            elif not self._drsA.islambda and self._drsB.islambda:
+                return self.show_concat(self._drsA.show(notation), \
+                                        self.show_modifier(self.opImp, 2, self.show_padding(self._drsB.show(notation))))
+            elif self._drsA.islambda and not self._drsB.islambda:
+                return self.show_concat(self.show_padding(self._drsA.show(notation)), \
+                                        self.show_modifier(self.opImp, 0, self._drsB.show(notation)))
+            return self.show_concat(self._drsA.show(notation), \
+                                    self.show_modifier(self.opImp, 2, self._drsB.show(notation)))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._drsA.show(notation) + u' ' + self.opImp + u' ' + self._drsB.show(notation)
+        return u'Imp (' + self._drsA.show(notation) + u') (' + self._drsB.show(notation) + u')'
 
 
 class Or(AbstractDRSCond):
@@ -986,7 +1250,7 @@ class Or(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Or(rename_subdrs(self._drsA, gd, rs), rename_subdrs(self._drsB, gd, rs))
+        return Or(self._drsA.rename_subdrs(gd, rs), self._drsB.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -994,8 +1258,8 @@ class Or(AbstractDRSCond):
         nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
         # In case we do not want to rename ambiguous bindings:
         # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
-        cd1, rs1 = rename_subdrs(self._drsA, gd, nrs).purify_refs(gd, rs)
-        cd2, rs2 = rename_subdrs(self._drsB, gd, nrs).purify_refs(gd, rs1)
+        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1)
         return Or(cd1,cd2), rs2
 
     @property
@@ -1007,6 +1271,27 @@ class Or(AbstractDRSCond):
 
     def resolve_merges(self):
         return Or(self._drsA.resolve_merges(), self._drsB.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        return fol.Or(self._drsA.to_mfol(world), self._drsB.to_mfol(world))
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drsA.islambda and self._drsB.islambda:
+                return self.show_concat(self._drsA.show(notation), \
+                                        self.show_modifier(self.opOr, 0, self._drsB.show(notation)))
+            elif not self._drsA.islambda and self._drsB.islambda:
+                return self.show_concat(self._drsA.show(notation), \
+                                        self.show_modifier(self.opOr, 2, self.show_padding(self._drsB.show(notation))))
+            elif self._drsA.islambda and not self._drsB.islambda:
+                return self.show_concat(self.show_padding(self._drsA.show(notation)), \
+                                        self.show_modifier(self.opOr, 0, self._drsB.show(notation)))
+            return self.show_concat(self._drsA.show(notation), \
+                                    self.show_modifier(self.opOr, 2, self._drsB.show(notation)))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._drsA.show(notation) + u' ' + self.opOr + u' ' + self._drsB.show(notation)
+        return u'Or (' + self._drsA.show(notation) + u') (' + self._drsB.show(notation) + u')'
 
 
 class Prop(AbstractDRSCond):
@@ -1059,7 +1344,7 @@ class Prop(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, rename_subdrs(self._drs, gd, rs))
+        return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -1078,6 +1363,19 @@ class Prop(AbstractDRSCond):
 
     def resolve_merges(self):
         return Prop(self._ref, self._drs.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        return fol.And(fol.Rel(WORLD_REL, [world, str(self._ref.to_var())]), self._drs.to_mfol(world))
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drs.islambda:
+                return self.show_modifier(self._ref.to_var().show(notation) + u':', 0, self._drs.show(notation))
+            return self.show_modifier(self._ref.to_var().show(notation) + u':', 2, self._drs.show(notation))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._ref.to_var().show(notation) + u': ' + self._drs.show(notation)
+        return u'Prop (' + self._ref.to_var().show(notation) + u') (' + self._drs.show(notation) + u')'
 
 
 class Diamond(AbstractDRSCond):
@@ -1125,7 +1423,7 @@ class Diamond(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Diamond(rename_subdrs(self._drs, gd, rs))
+        return Diamond(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -1141,6 +1439,20 @@ class Diamond(AbstractDRSCond):
 
     def resolve_merges(self):
         return Diamond(self._drs.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        v = world + "'"
+        return fol.Exists(v, fol.And(fol.Rel(WORLD_REL,[world,v]),self._drs.to_mfol(v)))
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drs.islambda:
+                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
+            return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self.opNeg + self._drs.show(notation)
+        return u'Diamond (' + self._drs.show(notation) + u')'
 
 
 class Box(AbstractDRSCond):
@@ -1188,7 +1500,7 @@ class Box(AbstractDRSCond):
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
-        return Box(rename_subdrs(self._drs, gd, rs))
+        return Box(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in DRS/Input/LambdaCalculus.hs:purifyRefs:purify
     def _purify(self, gd, rs):
@@ -1204,3 +1516,17 @@ class Box(AbstractDRSCond):
 
     def resolve_merges(self):
         return Box(self._drs.resolve_merges())
+
+    ## @remarks Original haskell code in `DRS/Input/Translate.hs:drsToMFOL:drsConsToMFOL`
+    def to_mfol(self, world):
+        v = world + "'"
+        return fol.ForAll(v, fol.Imp(fol.Rel(WORLD_REL,[world,v]),self._drs.to_mfol(v)))
+
+    def show(self, notation):
+        if notation == SHOW_BOX:
+            if self._drs.islambda:
+                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
+            return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self.opNeg + self._drs.show(notation)
+        return u'Box (' + self._drs.show(notation) + u')'
