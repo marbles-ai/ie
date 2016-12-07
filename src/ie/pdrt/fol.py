@@ -1,5 +1,6 @@
 from utils import iterable_type_check
 from common import Showable
+from common import SHOW_BOX
 
 
 class FOLConversionError(Exception):
@@ -25,7 +26,9 @@ class FOLForm(Showable):
         return self.__str__()
 
     def show(self, notation):
-        return u'\n' + unicode(self) + u'\n'
+        if notation == SHOW_BOX:
+            return u'\n' + unicode(self) + u'\n'
+        return unicode(self)
 
 
 class Exists(FOLForm):
@@ -37,10 +40,10 @@ class Exists(FOLForm):
         self._fol = folForm
 
     def __eq__(self, other):
-        return self._var == other._var and self._fol == other._fol
+        return self.__class__ == other.__class__ and self._var == other._var and self._fol == other._fol
 
     def __ne__(self, other):
-        return self._var != other._var or self._fol != other._fol
+        return self.__class__ != other.__class__ or self._var != other._var or self._fol != other._fol
 
     def __unicode__(self):
         return u'\u2203%s%s' % (self._var, self._fol)
@@ -55,10 +58,10 @@ class ForAll(FOLForm):
         self._fol = folForm
 
     def __eq__(self, other):
-        return self._var == other._var and self._fol == other._fol
+        return self.__class__ == other.__class__ and self._var == other._var and self._fol == other._fol
 
     def __ne__(self, other):
-        return self._var != other._var or self._fol != other._fol
+        return self.__class__ != other.__class__ or self._var != other._var or self._fol != other._fol
 
     def __unicode__(self):
         return u'\u2200%s%s' % (self._var, self._fol)
@@ -73,10 +76,10 @@ class And(FOLForm):
         self._folB = folForm2
 
     def __eq__(self, other):
-        return self._folA == other._folA and self._folB == other._folB
+        return self.__class__ == other.__class__ and self._folA == other._folA and self._folB == other._folB
 
     def __ne__(self, other):
-        return self._folA != other._folA or self._folB != other._folB
+        return self.__class__ != other.__class__ or self._folA != other._folA or self._folB != other._folB
 
     def __unicode__(self):
         return u'(%s \u2227 %s)' % (self._folA, self._folB)
@@ -91,10 +94,10 @@ class Or(FOLForm):
         self._folB = folForm2
 
     def __eq__(self, other):
-        return self._folA == other._folA and self._folB == other._folB
+        return self.__class__ == other.__class__ and self._folA == other._folA and self._folB == other._folB
 
     def __ne__(self, other):
-        return self._folA != other._folA or self._folB != other._folB
+        return self.__class__ != other.__class__ or self._folA != other._folA or self._folB != other._folB
 
     def __unicode__(self):
         return u'(%s \u2228 %s)' % (self._folA, self._folB)
@@ -109,10 +112,10 @@ class Imp(FOLForm):
         self._folB = folForm2
 
     def __eq__(self, other):
-        return self._folA == other._folA and self._folB == other._folB
+        return self.__class__ == other.__class__ and self._folA == other._folA and self._folB == other._folB
 
     def __ne__(self, other):
-        return self._folA != other._folA or self._folB != other._folB
+        return self.__class__ != other.__class__ or self._folA != other._folA or self._folB != other._folB
 
     def __unicode__(self):
         return u'(%s) \u2192 (%s)' % (self._folA, self._folB)
@@ -126,10 +129,10 @@ class Neg(FOLForm):
         self._fol = folForm
 
     def __eq__(self, other):
-        return self._fol == other._fol
+        return self.__class__ == other.__class__ and self._fol == other._fol
 
     def __ne__(self, other):
-        return self._fol != other._fol
+        return self.__class__ != other.__class__ or self._fol != other._fol
 
     def __unicode__(self):
         return u'\u00AC%s' % self._fol
@@ -144,10 +147,10 @@ class Rel(FOLForm):
         self._vars = [v.decode('utf-8') for v in folVars]
 
     def __eq__(self, other):
-        return self._pred == other._pred and self._vars == other._vars
+        return self.__class__ == other.__class__ and self._pred == other._pred and self._vars == other._vars
 
     def __ne__(self, other):
-        return self._pred != other._pred or self._vars != other._vars
+        return self.__class__ != other.__class__ or self._pred != other._pred or self._vars != other._vars
 
     def __unicode__(self):
         return u'%s(%s)' % (self._pred, u','.join(self._vars))
@@ -156,12 +159,30 @@ class Rel(FOLForm):
 class Top(FOLForm):
     """True constant"""
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__
+
+    def __neg__(self):
+        return Bottom()
+
     def __unicode__(self):
         return u'\u22A4'
 
 
 class Bottom(FOLForm):
     """False constant"""
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__
+
+    def __neg__(self):
+        return Top()
 
     def __unicode__(self):
         return u'\u22A5'

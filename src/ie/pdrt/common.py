@@ -159,7 +159,7 @@ class DRSVar(AbstractDRSVar):
         return '%s%i' % (self._name, self._idx)
 
     def __unicode__(self):
-        if self._idx == 0: return self._name
+        if self._idx == 0: return self._name.decode('utf-8')
         return u'%s%i' % (self._name, self._idx)
 
     def __eq__(self, other):
@@ -248,6 +248,10 @@ class LambdaDRSVar(AbstractDRSVar):
 
     def __ge__(self, other):
         return not self.__lt__(other)
+
+    # @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Show.hs:showDRSLambdas`
+    def _show_lambdas(self):
+        return self.opLambda + unicode(self._var) + u'.'
 
     @property
     def var(self):
