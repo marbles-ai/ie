@@ -138,10 +138,21 @@ class AbstractDRSVar(Showable):
     """Abstract DRS Variable"""
     def increase_new(self):
         raise NotImplementedError
+
     def idx(self):
         raise NotImplementedError
+
+    def __str__(self):
+        return self.to_string()
+
+    def __unicode__(self):
+        return self.to_string().decode('utf-8')
+
     @property
     def name(self):
+        raise NotImplementedError
+
+    def to_string(self):
         raise NotImplementedError
 
 
@@ -152,15 +163,7 @@ class DRSVar(AbstractDRSVar):
         self._idx = idx
 
     def __repr__(self):
-        return 'DRSVar(%s)' % self.__str__()
-
-    def __str__(self):
-        if self._idx  == 0: return self._name
-        return '%s%i' % (self._name, self._idx)
-
-    def __unicode__(self):
-        if self._idx == 0: return self._name.decode('utf-8')
-        return u'%s%i' % (self._name, self._idx)
+        return 'DRSVar(%s)' % self.to_string()
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self._name == other._name and self._idx == other._idx
@@ -205,6 +208,10 @@ class DRSVar(AbstractDRSVar):
         """
         return unicode(self)
 
+    def to_string(self):
+        if self._idx  == 0: return self._name
+        return '%s%i' % (self._name, self._idx)
+
 
 class LambdaDRSVar(AbstractDRSVar):
     def __init__(self, drsVar, drsVarSet):
@@ -227,12 +234,6 @@ class LambdaDRSVar(AbstractDRSVar):
 
     def __repr__(self):
         return 'LambdaDRSVar(%s,%s)' % (self._var, self._set)
-
-    def __str__(self):
-        return str(self._var)
-
-    def __unicode__(self):
-        return unicode(self._var)
 
     def __hash__(self):
         return hash(self._var) ^ hash(self._set)
@@ -286,3 +287,5 @@ class LambdaDRSVar(AbstractDRSVar):
             return unicode(self)
         return unicode(self) + u'(' + u','.join([unicode(x) for x in self._set]) + u')'
 
+    def to_string(self):
+        return self._var.to_string()

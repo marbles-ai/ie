@@ -327,7 +327,7 @@ class LambdaDRS(AbstractDRS):
             return self._var.show(notation) + u'\n'
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self._var.show(notation)
-        return u'LambdaDRS ' + unicode(str(self._var))
+        return u'LambdaDRS ' + self._var.to_string().decode('utf-8')
 
 
 def conds_to_mfol(conds, world):
@@ -489,11 +489,11 @@ class DRS(AbstractDRS):
         if len(self._refs) == 0:
             return conds_to_mfol(self._conds, world)
         # FIXME: remove recursion
-        return fol.Exists(fol.FOLVar(self._refs[0].to_var()), DRS(self._refs[1:], self._conds).to_mfol(world))
+        return fol.Exists(fol.FOLVar(self._refs[0].var), DRS(self._refs[1:], self._conds).to_mfol(world))
 
     # Original haskell code in `/pdrt-sandbox/src/Data/DRS/Show.hs::showUniverse`
     def _show_universe(self, d, notation):
-        return d.join([x.to_var().show(notation) for x in self._refs])
+        return d.join([x.var.show(notation) for x in self._refs])
 
     def _show_conditions(self, notation):
         if len(self._conds) == 0 and notation == SHOW_BOX:
@@ -531,7 +531,7 @@ class DRS(AbstractDRS):
             cl = self._show_conditions(notation)
             return u'<{' + ul + u'},{' + cl + u'}>'
         cl = self._show_conditions(notation)
-        return u'DRS ' + unicode(str(self._refs)) + u' [' + cl + u']'
+        return u'DRS ' + str(self._refs).decode('utf-8') + u' [' + cl + u']'
 
 
 class Merge(AbstractDRS):
@@ -765,7 +765,8 @@ class AbstractDRSRef(object):
         return False
 
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRefToDRSVar`
-    def to_var(self):
+    @property
+    def var(self):
         """Converts a DRSRef into a DRSVar."""
         raise NotImplementedError
 
@@ -802,9 +803,10 @@ class LambdaDRSRef(AbstractDRSRef):
         return u
 
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRefToDRSVar`
-    def to_var(self):
+    @property
+    def var(self):
         """Converts a DRSRef into a DRSVar."""
-        return str(self._var.var)
+        return self._var.var
 
 
 class DRSRef(AbstractDRSRef):
@@ -834,7 +836,8 @@ class DRSRef(AbstractDRSRef):
         return True
 
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRefToDRSVar`
-    def to_var(self):
+    @property
+    def var(self):
         """Converts a DRSRef into a DRSVar."""
         return self._var
 
@@ -894,12 +897,12 @@ class LambdaDRSRelation(AbstractDRSRelation):
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRelToString`
     def to_string(self):
         """Converts this instance into a string."""
-        return str(self._var.var)
+        return self._var.var.to_string()
 
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRelToString`
     def to_unicode(self):
         """Converts this instance into a string."""
-        return unicode(self._var.var)
+        return self._var.var.to_string().decode('utf-8')
 
 
 class DRSRelation(AbstractDRSRelation):
@@ -927,12 +930,12 @@ class DRSRelation(AbstractDRSRelation):
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRelToString`
     def to_string(self):
         """Converts this instance into a string."""
-        return str(self._var)
+        return self._var.to_string()
 
     ## @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsRelToString`
     def to_unicode(self):
         """Converts this instance into a string."""
-        return unicode(self._var)
+        return self._var.to_string().decode('utf-8')
 
 
 class AbstractDRSCond(Showable):
@@ -1002,7 +1005,7 @@ class Rel(AbstractDRSCond):
         self._refs = drsRefs
 
     def __repr__(self):
-        return 'Rel(%s,%s)' % (self._rel.to_string(), ','.join([str(x.to_var()) for x in self._refs]))
+        return 'Rel(%s,%s)' % (self._rel.to_string(), ','.join([x.var.to_string() for x in self._refs]))
 
     def _get_freerefs(self, ld, gd):
         """Helper for DRS.get_freerefs()"""
@@ -1047,15 +1050,15 @@ class Rel(AbstractDRSCond):
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL`
     def to_mfol(self, world):
         v = [world]
-        v.extend([str(x.to_var()) for x in self._refs])
+        v.extend([x.var.to_string() for x in self._refs])
         return fol.Rel(self._rel.to_string(), v)
 
     def show(self, notation):
         if notation == SHOW_BOX:
-            return self._rel.to_unicode() + u'(' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')\n'
+            return self._rel.to_unicode() + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')\n'
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self._rel.to_unicode() + u'(' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')'
-        return u'Rel (' + self._rel.to_unicode() + u') (' + ','.join([x.to_var().show(notation) for x in self._refs]) + u')'
+            return self._rel.to_unicode() + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
+        return u'Rel (' + self._rel.to_unicode() + u') (' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
 
 
 class Neg(AbstractDRSCond):
@@ -1224,7 +1227,7 @@ class Imp(AbstractDRSCond):
         f = fol.Imp(conds_to_mfol(self._drsA._conds, world), self._drsB.to_mfol(world))
         refs.reverse()
         for r in refs:
-            f = fol.ForAll(str(r.to_var()), f)
+            f = fol.ForAll(r.var.to_string(), f)
         return f
 
     def show(self, notation):
@@ -1414,16 +1417,16 @@ class Prop(AbstractDRSCond):
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL`
     def to_mfol(self, world):
-        return fol.And(fol.Rel(WORLD_REL, [world, str(self._ref.to_var())]), self._drs.to_mfol(world))
+        return fol.And(fol.Rel(WORLD_REL, [world, self._ref.var.to_string()]), self._drs.to_mfol(world))
 
     def show(self, notation):
         if notation == SHOW_BOX:
             if self._drs.islambda:
-                return self.show_modifier(self._ref.to_var().show(notation) + u':', 0, self._drs.show(notation))
-            return self.show_modifier(self._ref.to_var().show(notation) + u':', 2, self._drs.show(notation))
+                return self.show_modifier(self._ref.var.show(notation) + u':', 0, self._drs.show(notation))
+            return self.show_modifier(self._ref.var.show(notation) + u':', 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self._ref.to_var().show(notation) + u': ' + self._drs.show(notation)
-        return u'Prop (' + self._ref.to_var().show(notation) + u') (' + self._drs.show(notation) + u')'
+            return self._ref.var.show(notation) + u': ' + self._drs.show(notation)
+        return u'Prop (' + self._ref.var.show(notation) + u') (' + self._drs.show(notation) + u')'
 
 
 class Diamond(AbstractDRSCond):
