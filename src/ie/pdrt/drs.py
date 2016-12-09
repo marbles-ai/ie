@@ -417,7 +417,7 @@ class DRS(AbstractDRS):
     def get_variables(self, u=None):
         """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs)"""
         if u is None:
-            u = [x for x in self._refs] # deep copy
+            u = [x for x in self._refs] # shallow copy
         else:
             u = union_inplace(u, self._refs) # union to avoid duplicates
         for c in self._conds:
@@ -428,7 +428,7 @@ class DRS(AbstractDRS):
     def get_universes(self, u=None):
         """Returns the list of DRSRef's from all universes in this DRS."""
         if u is None:
-            u = [x for x in self._refs] # deep copy
+            u = [x for x in self._refs] # shallow copy
         else:
             u.extend(self._refs)
         for c in self._conds:
@@ -773,6 +773,10 @@ class AbstractDRSRef(object):
     def increase_new(self):
         raise NotImplementedError
 
+    def to_drsref(self):
+        # Required by PDRSRef's
+        return self
+
 
 class LambdaDRSRef(AbstractDRSRef):
     """Lambda DRS referent"""
@@ -945,11 +949,11 @@ class AbstractDRSCond(Showable):
         #  always True == isinstance(drs, DRS)
         return False
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return False
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         #  always True == isinstance(ld, DRS) and True == isinstance(gd, DRS)
         return []
 
@@ -967,7 +971,15 @@ class AbstractDRSCond(Showable):
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
-        raise NotImplementedError
+        return u
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _edges(self, u, es):
+        return es
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
+    def _pvars(self, u):
+        return u
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
     def _convert(self, ld, gd, rs):
@@ -1007,12 +1019,12 @@ class Rel(AbstractDRSCond):
     def __repr__(self):
         return 'Rel(%s,%s)' % (self._rel.to_string(), ','.join([x.var.to_string() for x in self._refs]))
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         """Helper for DRS.get_freerefs()"""
         # orig haskell code (Rel _ d:cs) = snd (partition (flip (`drsBoundRef` ld) gd) d) `union` free cs
         return filter(lambda x: not x.has_bound(ld, gd), self._refs)
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return all(filter(lambda x: not x.has_bound(sd, gd), self._refs))
 
@@ -1086,11 +1098,11 @@ class Neg(AbstractDRSCond):
         rs = self._drs.get_variables(rs)
         return True, rs
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
         return self._drs.get_freerefs(gd)
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._drs._isproper_subdrsof(gd)
 
@@ -1101,10 +1113,6 @@ class Neg(AbstractDRSCond):
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/Variables.hs:drsVariables:variables
     def _variables(self, u):
         return self._drs.get_variables(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return self._drs.get_lambda_tuples(u)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1165,11 +1173,11 @@ class Imp(AbstractDRSCond):
                (self._drsA.has_subdrs(drs) and ref.has_bound(drs, self._drsA)) or \
                (self._drsB.has_subdrs(drs) and ref.has_bound(drs, self._drsB))
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Imp d1 d2:cs) = drsFreeRefs d1 gd `union` drsFreeRefs d2 gd `union` free cs
         return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._drsA._isproper_subdrsof(gd) and self._drsB._isproper_subdrsof(gd)
 
@@ -1269,11 +1277,11 @@ class Or(AbstractDRSCond):
         return (self._drsA.has_subdrs(drs) and ref.has_bound(drs, self._drsA)) or \
                (self._drsB.has_subdrs(drs) and ref.has_bound(drs, self._drsB))
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Imp d1 d2:cs) = drsFreeRefs d1 gd `union` drsFreeRefs d2 gd `union` free cs
         return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._drsA._isproper_subdrsof(gd) and self._drsB._isproper_subdrsof(gd)
 
@@ -1365,11 +1373,11 @@ class Prop(AbstractDRSCond):
     def _antecedent(self, ref, drs):
         return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Prop r d1:cs) = snd (partition (flip (`drsBoundRef` ld) gd) [r]) `union` drsFreeRefs d1 gd `union` free cs
         return union(filter(lambda x: not x.has_bound(x, ld, gd), [self._ref]), self._drs.get_freerefs(gd))
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._ref.has_bound(sd, gd) and self._drs._isproper_subdrsof(gd)
 
@@ -1445,11 +1453,11 @@ class Diamond(AbstractDRSCond):
     def __repr__(self):
         return 'Diamond(%s)' % self._drs
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
         return self._drs.get_freerefs(gd)
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._drs._isproper_subdrsof(gd)
 
@@ -1522,11 +1530,11 @@ class Box(AbstractDRSCond):
     def __repr__(self):
         return 'Box(%s)' % self._drs
 
-    def _get_freerefs(self, ld, gd):
+    def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
         return self._drs.get_freerefs(gd)
 
-    def _isproper_subdrsof(self, sd, gd):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
         return self._drs._isproper_subdrsof(gd)
 
