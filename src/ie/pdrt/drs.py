@@ -973,16 +973,8 @@ class AbstractDRSCond(Showable):
     def _lambda_tuple(self, u):
         return u
 
-    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def _edges(self, u, es):
-        return es
-
-    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
-    def _pvars(self, u):
-        return u
-
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         raise NotImplementedError
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1044,7 +1036,7 @@ class Rel(AbstractDRSCond):
             u = x._lambda_tuple(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Rel(self._rel, [rename_var(r,rs) if r.has_bound(ld, gd) else r for r in self._refs])
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1119,7 +1111,7 @@ class Neg(AbstractDRSCond):
         return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Neg(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1204,7 +1196,7 @@ class Imp(AbstractDRSCond):
         return self._drsB.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Imp(self._drsA.rename_subdrs(gd, rs), self._drsB.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1308,7 +1300,7 @@ class Or(AbstractDRSCond):
         return self._drsB.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Or(self._drsA.rename_subdrs(gd, rs), self._drsB.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1375,7 +1367,7 @@ class Prop(AbstractDRSCond):
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Prop r d1:cs) = snd (partition (flip (`drsBoundRef` ld) gd) [r]) `union` drsFreeRefs d1 gd `union` free cs
-        return union(filter(lambda x: not x.has_bound(x, ld, gd), [self._ref]), self._drs.get_freerefs(gd))
+        return union(filter(lambda x: not x.has_bound(ld, gd), [self._ref]), self._drs.get_freerefs(gd))
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
@@ -1402,7 +1394,7 @@ class Prop(AbstractDRSCond):
         return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1481,7 +1473,7 @@ class Diamond(AbstractDRSCond):
         return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Diamond(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
@@ -1558,7 +1550,7 @@ class Box(AbstractDRSCond):
         return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs):
+    def _convert(self, ld, gd, rs, pvar=None):
         return Box(self._drs.rename_subdrs(gd, rs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs:purify
