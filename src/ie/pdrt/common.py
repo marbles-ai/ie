@@ -233,7 +233,7 @@ class LambdaDRSVar(AbstractDRSVar):
         return other._var == self._var and other._set == self._set
 
     def __repr__(self):
-        return 'LambdaDRSVar(%s,%s)' % (self._var, self._set)
+        return 'LambdaDRSVar(%s,%s)' % (self._var.to_string(), self._set)
 
     def __hash__(self):
         return hash(self._var) ^ hash(self._set)
@@ -289,3 +289,7 @@ class LambdaDRSVar(AbstractDRSVar):
 
     def to_string(self):
         return self._var.to_string()
+
+
+
+
