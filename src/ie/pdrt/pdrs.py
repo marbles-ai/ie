@@ -1,0 +1,762 @@
+from utils import iterable_type_check, union, union_inplace, intersect, rename_var
+from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
+from common import DRSVar, LambdaDRSVar, Showable
+from drs import AbstractDRSRef, DRSRef, LambdaDRSRef, AbstractDRSCond, AbstractDRS, LambdaTuple
+from drs import Rel, Neg, Imp, Or, Diamond, Box, Prop
+# Note: get_new_drsrefs() works on any AbstractPDRSRef.
+from drs import get_new_drsrefs
+import networkx as nx
+
+
+PVar = int
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:newPVars`
+def get_new_pvars(opvs, epvs):
+    """Returns a list of new projection variables for a list of old
+    PVar's opvs, based on a list of existing PVar's epvs.
+    """
+    if len(epvs) == 0: return opvs
+    n = max(epvs) + 1
+    return [x+n for x in range(len(opvs))]
+
+
+def rename_pvar(pv, lp, gp, ps):
+    if not gp.test_bound_pvar(abs(pv), lp):
+        return pv
+    if pv < 0:
+        return rename_var(abs(pv), ps)
+    return rename_var(pv, ps)
+
+
+def rename_pdrsref(pv, r, lp, gp, rs):
+    u = gp.get_universes()
+    prtest = PRef(pv, r)
+    if any([prtest.has_projected_bound(lp, pr, gp) and gp.test_free_pvar(pr.label) for pr in u]) or \
+            not prtest.has_bound(lp, gp):
+        return r
+    return rename_var(r, rs)
+
+
+class PDRSRef(DRSRef):
+    """A PDRS referent"""
+    def __init__(self, drsVar):
+        super(PDRSRef,self).__init__(drsVar)
+
+    def __repr__(self):
+        return 'PDRSRef(%s,%i)' % (self._var, self._pos)
+
+    def _has_antecedent(self, drs, conds):
+        return False
+
+    def has_bound(self, drsLD, drsGD):
+        """Disabled for PDRS. Always returns False."""
+        return False
+
+    def increase_new(self):
+        r = super(PDRSRef, self).increase_new()
+        return PDRSRef(r._var)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsRefToDRSRef`
+    def to_drsref(self):
+        """Converts a PDRSRef into a DRSRef"""
+        return DRSRef(self._var)
+
+
+class LambdaPDRSRef(LambdaDRSRef):
+    """A lambda PDRS referent"""
+    def __init__(self, lambdaVar, pos):
+        super(LambdaPDRSRef,self).__init__(lambdaVar, pos)
+
+    def __repr__(self):
+        return 'LambdaPDRSVar(%s,%s)' % (self._var.to_string(), self._set)
+
+    def _has_antecedent(self, drs, conds):
+        return False
+
+    def has_bound(self, drsLD, drsGD):
+        """Disabled for PDRS. Always returns False."""
+        return False
+
+    def increase_new(self):
+        r = super(LambdaPDRSRef, self).increase_new()
+        return LambdaPDRSRef(r._var, r._pos)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsRefToDRSRef`
+    def to_drsref(self):
+        """Converts a PDRSRef into a DRSRef"""
+        return LambdaDRSRef(self._var, self._pos)
+
+
+class PRef(AbstractDRSRef):
+    """A projected referent, consisting of a PVar and a AbstractPDRSRef"""
+    def __init__(self, label, drsRef):
+        if not isinstance(label, PVar) or not isinstance(drsRef, [PDRSRef, LambdaPDRSRef]):
+            raise TypeError
+        self._label = label
+        self._ref = drsRef
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._label != other._label or self._ref != other._ref
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._label == other._label and self._ref == other._ref
+
+    def _has_antecedent(self, drs, conds):
+        # Not required for PRef's
+        return False
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPRef`
+    def has_bound(self, drsLP, drsGP):
+        """Test whether this PRef in context drsLP is bound in the PDRS drsGP."""
+
+        # Where this PRef is bound iff there exists a context pv, such that:
+        #  - pv is accessible from the introduction site of @pr@ drsLP; and
+        #  - pv is accessible from the interpretation site of @pr@ (@this@); and
+        # - together with the PDRSRef of @pr@ (@r@), @pv@ forms a 'PRef'
+        #   that is introduced in some universe in drsGP.
+        if not isinstance(drsLP, AbstractPDRS) or not isinstance(drsLP, AbstractPDRS):
+            raise TypeError
+        pg = drsGP.get_pgraph()
+        vs = pg.nodes()
+        if drsLP.label in vs and self._label in vs:
+            u = drsGP.get_universes()
+            for pv in vs:
+                if pv in nx.dfs_postorder_nodes(pg, source=drsLP.label) and \
+                    pv in nx.dfs_postorder_nodes(pg, source=self.label):
+                    if PRef(pv,self._ref) in u: return True
+        return False
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsPRefBoundByPRef`
+    def has_projected_bound(self, pdrs1, pr2, pdrs2):
+        """Test whether this PRef introduced in local PDRS pdrs1 is bound by
+        projected referent pr2 in PDRS pdrs2.
+        """
+        # where boundByPRef self=pr1 pdrs1 pr2 pdrs2 iff
+        # 1. @pr1@ and @pr2@ share the same referent; and
+        # 2. @pr2@ is part of some universe in @pdrs2@ (i.e., can bind referents); and
+        # 3. The interpretation site of @pr2@ is accessible from both the
+        #    introduction and interpretation site of @pr1@.
+        if not isinstance(pr2, PRef) or not isinstance(pdrs1, AbstractPDRS) or not isinstance(pdrs2, AbstractPDRS):
+            raise TypeError
+        return self.ref == pr2.ref and pr2 in pdrs2.get_universes() and \
+               pdrs2.has_accessible_context(self.label, pr2.label) and \
+               pdrs2.has_accessible_context(pdrs1.label, pr2.label)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsPBoundPRef`
+    def has_other_bound(self, drsLP, drsGP):
+        """Test whether a referent is bound by some other referent than itself."""
+        u = drsGP.get_universes()
+        u.remove(self)
+        return any([self.has_projected_bound(drsLP, x, drsGP) for x in u])
+
+    # Helper for PDRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        return self._ref._lambda_tuple(u)
+
+    @property
+    def var(self):
+        return self._ref.var
+
+    @property
+    def ref(self):
+        return self._ref
+
+    @property
+    def label(self):
+        return self._label
+
+    def increase_new(self):
+        return PRef(self._label, self._ref.increase_new())
+
+    def to_drsref(self):
+        return DRSRef(self._ref)
+
+
+class AbstractPDRS(AbstractDRS):
+    """Discourse Representation Structure"""
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _edges(self, es):
+        #  Derives a list of networkx.Graph edges from a PDRS
+        return es
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabel
+    @property
+    def label(self):
+        """Get the projection label"""
+        return 0
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def has_no_edges(self):
+        return True
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
+    def get_pvars(self, u=None):
+        """Returns the list of all 'PVar's in an AbstractPDRS"""
+        raise NotImplementedError
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:projectionGraph`.
+    def get_pgraph(self):
+        """Derives a Projection Graph' for this PDRS
+
+        Returns:
+            A networkx.Graph instance
+        """
+        # get vertex count
+        es = self._edges([])
+        g = nx.Graph()
+        g.add_edges_from(es)
+        return g
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:pdrsIsAccessibleContext`.
+    def has_accessible_context(self, p1, p2):
+        """Test whether PDRS context p2 is accessible from PDRS context p1 in this PDRS"""
+        pg = self.get_graph()
+        vs = pg.nodes()
+        return p1 in vs and p2 in vs and pg.dfs_postorder_nodes(pg, source=p1)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsIsFreePVar`.
+    def test_free_pvar(self, pv):
+        """Test whether pv is a free projection variable in this PDRS,
+        where: pv is free iff:
+            - context pv is accessible from the global context, or
+            - there is no context v that is accessible from pv and also from the global context.
+        """
+        if pv == self.label: return False
+        pg = self.get_graph()
+        vs = pg.nodes()
+        if pv not in vs: return True
+        this_scope = pg.dfs_postorder_nodes(pg, source=self.label)
+        return pv in this_scope or not any([(x in pg.dfs_postorder_nodes(pg, source=pv) and x in this_scope) for x in vs])
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar`.
+    def test_bound_pvar(self, pv, lp):
+        """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
+        return False
+
+    def get_empty(self):
+        """Returns an empty PDRS, if possible with the same label."""
+        raise NotImplementedError
+
+    def get_maps(self):
+        """Returns the list of MAPs for this PDRS."""
+        raise NotImplementedError
+
+
+class LambdaPRDS(AbstractPDRS):
+    """A lambda PDRS."""
+    def __init__(self, lambdaVar, pos):
+        """A lambda DRS.
+
+        Args:
+            lambdaVar: A LambdaDRSVar instance.
+            pos: Argument position.
+        """
+        if not isinstance(lambdaVar, LambdaDRSVar):
+            raise TypeError
+        self._var = lambdaVar
+        self._pos = pos
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._var != other._var or self._pos != other._pos
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._var == other._var and self._pos == other._pos
+
+    def __repr__(self):
+        return 'LambdaPDRS(%s,%i)' % (self._var, self._pos)
+
+    def _isproper_subdrsof(self, d):
+        """Help for isproper"""
+        return True
+
+    @property
+    def isresolved(self):
+        """Test whether this PDRS is resolved (containing no unresolved merges or lambdas)"""
+        return False
+
+    @property
+    def islambda(self):
+        """Test whether this PDRS is entirely a LambdaPDRS (at its top-level)."""
+        return True
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
+    def get_pvars(self, u=None):
+        """Returns the list of all 'PVar's in an AbstractPDRS"""
+        return u
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
+    def get_variables(self, u=None):
+        """Returns the list of all variables in a PDRS"""
+        if u is None:
+            return [PDRSRef(v) for v in self._var._set]
+        return union_inplace(u, [PDRSRef(v) for v in self._var._set])
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsLambdas`.
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        lt = LambdaTuple(self._var, self._pos)
+        if u is None: return set([lt])
+        u.add(lt)
+        return u
+
+
+class GenericMerge(AbstractPDRS):
+    """Common merge pattern"""
+    def __init__(self, drsA, drsB):
+        if not isinstance(drsA, AbstractPDRS) or not isinstance(drsB, AbstractPDRS):
+            raise TypeError
+        self._drsA = drsA
+        self._drsB = drsB
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._drsA != other._drsA or self._drsB != other._drsB
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._drsA == other._drsA and self._drsB == other._drsB
+
+    def __repr__(self):
+        return 'GMerge(%s,%s)' % (self._drsA, self._drsB)
+
+    def _isproper_subdrsof(self, gd):
+        """Help for isproper"""
+        return self._drsA._isproper_subdrsof(gd) and self._drsB._isproper_subdrsof(gd)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _edges(self, es):
+        es = self._drsA._edges(es)
+        return self._drsB._edges(es)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabel
+    @property
+    def label(self):
+        """Get the projection label"""
+        return self._drsA.label if self._drsA.islambda else self._drsB.label
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isMergePDRS
+    @property
+    def ismerge(self):
+        """Test whether this PDRS is a AMerge or PMerge (at its top-level)."""
+        return True
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isLambdaPDRS
+    @property
+    def islambda(self):
+        """Test whether this DRS/PDRS is entirely a LambdaDRS/LambdaPDRS (at its top-level)."""
+        return self._drsA.islambda and self._drsB.islambda
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar`.
+    def test_bound_pvar(self, pv, lp):
+        """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
+        return self._drsA.test_bound_pvar(pv, lp) or self._drsB.test_bound_pvar(pv, lp)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def has_no_edges(self):
+        return self._drsA.has_no_edges() and self._drsB.has_no_edges()
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
+    def get_pvars(self, u=None):
+        """Returns the list of all 'PVar's in an AbstractPDRS"""
+        u = self._drsA.get_pvars(u)
+        return self._drsB.get_pvars(u)
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
+    def get_variables(self, u=None):
+        """Returns the list of all variables in a PDRS"""
+        u = self._drsA.get_variables(u)
+        return self._drsB.get_variables(u)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsLambdas`.
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        u = self._drsA.get_lambda_tuples(u)
+        return self._drsB.get_lambda_tuples(u)
+
+
+
+class AMerge(GenericMerge):
+    """An assertive merge between two PDRSs"""
+    def __init__(self, drsA, drsB):
+        super(PMerge, self).__init__(drsA,drsB)
+
+    def __repr__(self):
+        return 'AMerge(%s,%s)' % (self._drsA, self._drsB)
+
+
+class PMerge(GenericMerge):
+    """A projective merge between two PDRSs"""
+    def __init__(self, drsA, drsB):
+        super(PMerge, self).__init__(drsA,drsB)
+
+    def __repr__(self):
+        return 'PMerge(%s,%s)' % (self._drsA, self._drsB)
+
+
+class PDRS(AbstractPDRS):
+    """Projective Discourse Representation Structure."""
+    def __init__(self, label, mapper, drsRefs, drsConds):
+        if not iterable_type_check(drsRefs, PRef) or not iterable_type_check(drsConds, PCond):
+            raise TypeError
+        if not isinstance(label, PVar):
+            raise TypeError
+        self._refs = drsRefs
+        self._conds = drsConds
+        self._label = label
+        self._mapper = mapper # maps a PVar to a PVar
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._refs != other._refs or self._conds != other._conds
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._refs == other._refs and self._conds == other._conds
+
+    def __repr__(self):
+        return 'PDRS(%i,%s,%s)' % (self._label, self._refs, self._conds)
+
+    def _isproper_subdrsof(self, gd):
+        """Help for isproper"""
+        return all(filter(lambda x: x._isproper_subdrsof(self, gd), self._conds))
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _edges(self, es):
+        es.add_edge(self._label, self._label)
+        es.extend(self._mapper)
+        for c in self._conds:
+            es = c._edges(es)
+        return es
+
+    @property
+    def label(self):
+        return self._label
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def has_no_edges(self):
+        return len(self._conds) == 0 and len(self._refs) == 0 and len(self._mapper) == 0
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
+    def get_pvars(self, u=None):
+        """Returns the list of all PVar's in an AbstractPDRS"""
+        if u is None:
+            u = set([self._label])
+        elif not self._label in u:
+            u.add(self._label)
+        for x,y in self._mapper:
+            u.add(x)
+            u.add(y)
+        for r in self._refs:
+            u.add(r.label)
+        #u = union_inplace(u, [r.label for r in self._refs])
+        for c in self._conds:
+            u = c._pvars(u)
+        return u
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
+    def get_variables(self, u=None):
+        """Returns the list of all variables in a PDRS"""
+        if u is None:
+            u = [x.ref for x in self._refs] # shallow copy
+        else:
+            u = union_inplace(u, [x.ref for x in self._refs]) # union to avoid duplicates
+        for c in self._conds:
+            u = c._variables(u)
+        return u
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsLambdas`.
+    def get_lambda_tuples(self, u=None):
+        """Returns the set of all lambda tuples in this DRS."""
+        if u is None:
+            u = set()
+        for r in self._refs:
+            u = r._lambda_tuple(u)
+        for c in self._conds:
+            u = c._lambda_tuple(u)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar`.
+    def test_bound_pvar(self, pv, lp):
+        """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
+
+        # where pv is bound iff:
+        # - is equal to the label of either @lp@ or @gp@; or
+        # - there exists a PDRS @p@ with label @pv@, such that @p@ is a subPDRS
+        #   of @gp@ and @p@ is accessible from @lp@.
+        #
+        # Note the correspondence to DRSRef.has_bound()
+        if pv == lp.label or pv == self.label:
+            return True
+        any(filter(lambda x: x._bound(lp), self._conds))
+        for c in self._conds:
+            u = c._lambda_tuple(u)
+
+
+class IPDRSCond(object):
+    """Additional Interface for PDRS Conditions"""
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, u, es):
+        return es
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
+    def _pvars(self, u):
+        return u
+
+
+class PCond(AbstractDRSCond, IPDRSCond):
+    """A projected condition, consisting of a PVar and a AbstractDRSCond."""
+    def __init__(self, label, cond):
+        if not isinstance(label, PVar) or not isinstance(cond, AbstractDRSCond):
+            raise TypeError
+        self._label = label
+        self._cond = cond
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._label != other._label or self._cond != other._cond
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._label == other._label and self._cond == other._cond
+
+    def __repr__(self):
+        return 'PCond(%i,%s)' % (self._label, self._conds)
+
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
+        # Pass down to member condition
+        assert pvar is None
+        return self._cond._isproper_subdrsof(sd, gd, self._label)
+
+    def _universes(self, u):
+        # Pass down to member condition
+        return self._cond._universes(u)
+
+    def _variables(self, u):
+        # Pass down to member condition
+        return self._cond._universes(u)
+
+    # Helper for DRS.get_lambda_tuples()
+    def _lambda_tuple(self, u):
+        # Pass down to member condition
+        return self._cond.lambda_tuple(u)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePRefs:free`.
+    def _get_freerefs(self, ld, gd, pvar):
+        # Pass down to member condition
+        assert pvar is None
+        return self._cond._get_freerefs(ld, gd, self._label)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _edges(self, u, es):
+        return self._cond._edges(u, es)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
+    def _pvars(self, u):
+        u.add(self.label)
+        return self._cond._pvars(u)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
+    def _convert(self, ld, gd, rs, ps):
+        # Pass down to member condition
+        cond = self._cond._convert(ld, gd, rs, self._label)
+        pv = rename_pvar(self._label, ld, gd, ps)
+        return PCond(pv, cond)
+
+    @property
+    def label(self):
+        return self._label
+
+    @property
+    def drscond(self):
+        return self._cond
+
+    def resolve_merges(self):
+        # Pass down to member condition
+        return PCond(self._label, self._cond.resolve_merges())
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+class PRel(Rel, IPDRSCond):
+    """A relation defined on a set of referents"""
+    def __init__(self, drsRel, drsRefs):
+        super(PRel, self).__init__(drsRel, drsRefs)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Bindings.hs:pdrsFreePRefs:free
+    def _get_freerefs(self, ld, gd, pvar):
+        return filter(lambda x: not PRef(pvar, x).has_bound(ld, gd), self._refs)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isProperPDRS:isProperSubPDRS
+    def _isproper_subdrsof(self, sd, gd, pvar):
+        return all(filter(lambda x: not PRef(pvar, x).has_bound(sd, gd), self._refs))
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
+    def _pvars(self, u):
+        return u
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
+    def _convert(self, ld, gd, rs, pv):
+        refs = [rename_pdrsref(pv, r, ld, gd, rs) for r in self._refs]
+        return PRel(self._rel, refs)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+class PNeg(Neg, IPDRSCond):
+    """A negated DRS"""
+    def __init__(self, drs):
+        super(PNeg, self).__init__(drs)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+class PImp(Imp, IPDRSCond):
+    """An implication between two DRSs"""
+    def __init__(self, drsA, drsB):
+        super(PImp, self).__init__(drsA, drsB)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+class POr(Or, IPDRSCond):
+    """A disjunction between two DRSs"""
+    def __init__(self, drsA, drsB):
+        super(POr, self).__init__(drsA, drsB)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+class PProp(Prop, IPDRSCond):
+    """A proposition DRS"""
+    def __init__(self, drsRef, drs):
+        super(PProp, self).__init__(drsRef, drs)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePRefs:free.
+    def _get_freerefs(self, ld, gd, pvar):
+        return union(filter(lambda x: not x.has_bound(x, ld, gd), [PRef(pvar, self._ref)]), self._drs.get_freerefs(gd))
+
+    def _isproper_subdrsof(self, sd, gd, pvar):
+        return PRef(pvar, self._ref).has_bound(sd, gd) and self._drs._isproper_subdrsof(gd)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
+    def _convert(self, ld, gd, rs, pvar=None):
+        return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs))
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+class PDiamond(Diamond, IPDRSCond):
+    """A possible DRS"""
+    def __init__(self, drs):
+        super(PNeg, self).__init__(drs)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+class PBox(Box, IPDRSCond):
+    """A necessary DRS"""
+    def __init__(self, drs):
+        super(PNeg, self).__init__(drs)
+
+    def _antecedent(self, ref, drs):
+        raise NotImplementedError
+
+    def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
+
+    def _purify(self, gd, rs):
+        raise NotImplementedError
+
+    def to_mfol(self, world):
+        raise NotImplementedError
+
+    def show(self, notation):
+        raise NotImplementedError
+
+
+
+
