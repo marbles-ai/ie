@@ -57,7 +57,7 @@ def _pure_refs(ld, gd, rs, srs):
 
 
 class AbstractDRS(Showable):
-    """Abstract Discourse Representation Structure (DRS)"""
+    """Abstract Core Discourse Representation Structure for DRS and PDRS"""
 
     def _isproper_subdrsof(self, d):
         """Helper for isproper"""
@@ -67,25 +67,29 @@ class AbstractDRS(Showable):
         """Helper for ispure"""
         return False
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isResolvedDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isResolvedDRS`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isResolvedPDRS`.
     @property
     def isresolved(self):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)."""
         return False
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isLambdaDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isLambdaDRS`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isLambdaPDRS`.
     @property
     def islambda(self):
         """Test whether this DRS is entirely a 'LambdaDRS' (at its top-level)."""
         return False
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isMergeDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isMergeDRS`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isMergePDRS`.
     @property
     def ismerge(self):
         """Test whether this DRS is entirely a 'Merge' (at its top-level)."""
         return False
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:drsUniverse`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:drsUniverse`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsUniverse`.
     @property
     def universe(self):
         """Returns the universe of a DRS.
@@ -95,7 +99,8 @@ class AbstractDRS(Showable):
         """
         return []
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPureDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPureDRS`
+    ## and `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPurePDRS`.
     @property
     def ispure(self):
         """Test whether this DRS is pure, where:
@@ -107,7 +112,8 @@ class AbstractDRS(Showable):
         """
         return self._ispure_helper([], self)
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isProperDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isProperDRS`
+    ## `/pdrt-sandbox/src/Data/PDRS/Properties.hs:isProperPDRS`
     @property
     def isproper(self):
         """Test whether this DRS is proper, where:
@@ -118,13 +124,8 @@ class AbstractDRS(Showable):
         """
         return self._isproper_subdrsof(self)
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isFOLDRS`.
-    @property
-    def isfol(self):
-        """Test whether this DRS can be translated into a FOLForm instance."""
-        return self.isresolved and self.ispure and self.isproper
-
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isSubDRS`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Structure.hs:isSubDRS`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:isSubPDRS`.
     def has_subdrs(self, d1):
         """Returns whether d1 is a direct or indirect sub-DRS of this DRS"""
         return False
@@ -134,24 +135,28 @@ class AbstractDRS(Showable):
         """Returns the list of all free DRSRef's in a DRS."""
         return []
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Merge.hs:drsResolveMerges`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Merge.hs:drsResolveMerges`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsResolveMerges`.
     def resolve_merges(self):
         """ Resolves all unresolved merges in a 'DRS'."""
         raise NotImplementedError
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsVariables`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsVariables`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
     def get_variables(self, u=None):
         """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs)"""
         if u is None: return []
         return u
 
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsUniverses`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsUniverses`.
     def get_universes(self, u=None):
         """Returns the list of DRSRef's from all universes in this DRS."""
         if u is None: return []
         return u
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsLambdas`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsLambdas`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsLambdaVars`.
     def get_lambdas(self):
         """Get the ordered list of all lambda variables in this DRS.
 
@@ -162,13 +167,15 @@ class AbstractDRS(Showable):
         lts = sorted(s)
         return [x.var for x in lts]
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:lambdas`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:lambdas`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsLambdas`.
     ## @remarks Helper for get_lambdas().
     def get_lambda_tuples(self, u=None):
         """Returns the list of all lambda tuples in this DRS."""
         raise NotImplementedError
 
-    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs`.
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:purifyRefs`
+    ## and `/pdrt-sandbox/src/Data/RDRS/LambdaCalculus.hs:purifyPRefs`.
     def purify_refs(self, gd, refs):
         """Replaces duplicate uses of DRSRef's by new DRSRef's.
 
@@ -186,22 +193,13 @@ class AbstractDRS(Showable):
         """
         raise NotImplementedError
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:drsPurify`
-    def purify(self):
-        """Converts a DRS into a pure DRS by purifying its DRSRef's,
-
-        where a DRS is pure iff there are no occurrences of duplicate, unbound uses
-        of the same DRSRef.
-        """
-        refs = self.get_freerefs(self)
-        drs,_ = self.purify_refs(self, refs)
-        return drs
-
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:drsAlphaConvert`
-    def alpha_convert(self, rs):
-        return self.rename_subdrs(self, rs)
+    ## and `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:pdrsAlphaConvert`.
+    def alpha_convert(self, rs, ps=None):
+        return self.rename_subdrs(self, rs, ps)
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs::renameSubDRS`
+    ## and `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs::renameSubPDRS`.
     def rename_subdrs(self, gd, rs, ps=None):
         """Applies alpha conversion to this DRS, which is a sub-DRS of the
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
@@ -214,6 +212,23 @@ class AbstractDRS(Showable):
             A DRS instance.
         """
         raise NotImplementedError
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isFOLDRS`.
+    @property
+    def isfol(self):
+        """Test whether this DRS can be translated into a FOLForm instance."""
+        return self.isresolved and self.ispure and self.isproper
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:drsPurify`
+    def purify(self):
+        """Converts a DRS into a pure DRS by purifying its DRSRef's,
+
+        where a DRS is pure iff there are no occurrences of duplicate, unbound uses
+        of the same DRSRef.
+        """
+        refs = self.get_freerefs(self)
+        drs,_ = self.purify_refs(self, refs)
+        return drs
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/Translate.hs:drsToFOL`
     def to_fol(self):
