@@ -175,6 +175,23 @@ class PRef(AbstractDRSRef):
         u.remove(self)
         return any([self.has_projected_bound(drsLP, x, drsGP) for x in u])
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:independentPRefs`
+    def test_independent(self, lp, gp, prs):
+        """Test whether this PRef is independent based on a list of PRef's prs,
+        where: This PRef=pr is not independent w.r.t. prs iff
+
+        (1) pr is bound by any 'PRef' in prs; and
+        (2) pr occurs free and there is some element of prs that is accessible
+            from this. (NB. this only holds if both pr and @pr'@ occur free in
+            accessible contexts, in which case they are not independent).
+        (3) pr occurs free and there is some element of @prs@ that may become
+            accessible from @pr@ at some later point, because its projection site
+            is undetermined with respect to the projection site of @pr@. This is
+            the case if the projection site occurs free (i.e., has no path to the
+            global context).
+        """
+        raise NotImplementedError
+
     # Helper for PDRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         return self._ref._lambda_tuple(u)
@@ -216,10 +233,50 @@ class AbstractPDRS(AbstractDRS):
         """Get the projection label"""
         return 0
 
-    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPurePDRS`.
+    @property
+    def ispure(self):
+        """Test whether this DRS is pure, where:
+        A DRS is pure iff it does not contain any otiose declarations of discourse referents
+        (i.e. it does not contain any unbound, duplicate uses of referents).
+
+        Returns:
+            True if this DRS is pure.
+        """
+        return self == self.purify()
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:pdrsPurify`
+    def purify(self):
+        """Converts a PDRS into a pure PDRS by purifying its PRef's,
+
+        where a PDRS is pure iff there are no occurrences of duplicate, unbound uses
+        of the same PRef.
+        """
+        raise NotImplementedError
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
+    def get_empty(self):
+        """Returns an empty PDRS, if possible with the same label as this one."""
+        raise NotImplementedError
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabels`
+    def get_labels(self, u=None):
+        """Returns all the labels in a PDRS."""
+        return u
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
     def get_pvars(self, u=None):
         """Returns the list of all 'PVar's in an AbstractPDRS"""
-        raise NotImplementedError
+        return u
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePVars`.
+    def get_free_pvars(self, gp, u=None):
+        """Returns the list of all free PVar's in this PRDS, which is a sub PDRS of global PDRS gp."""
+        return []
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsMAPs`
+    def get_maps(self, u=None):
+        return u
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:projectionGraph`.
     def get_pgraph(self):
@@ -233,6 +290,18 @@ class AbstractPDRS(AbstractDRS):
         g = nx.Graph()
         g.add_edges_from(es)
         return g
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
+    def get_unbound_dup_prefs(self, gp, eps):
+        """Returns a tuple of existing 'PRef's @eps@ and unbound duplicate 'PRef's
+        @dps@ in a 'PDRS', based on a list of seen 'PRef's @prs@, where:
+
+        [@pr = ('PRef' p r)@ is duplicate in 'PDRS' @gp@ /iff/]
+
+        * There exists a @p'@, such that @pr' = ('PRef' p' r)@ is an element
+        of @prs@, and @pr@ and @pr'@ are /independent/.
+        """
+        raise NotImplementedError
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:pdrsIsAccessibleContext`.
     def has_accessible_context(self, p1, p2):
@@ -262,10 +331,6 @@ class AbstractPDRS(AbstractDRS):
 
     def get_empty(self):
         """Returns an empty PDRS, if possible with the same label."""
-        raise NotImplementedError
-
-    def get_maps(self):
-        """Returns the list of MAPs for this PDRS."""
         raise NotImplementedError
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
@@ -310,10 +375,10 @@ class LambdaPDRS(AbstractPDRS):
         """Test whether this PDRS is entirely a LambdaPDRS (at its top-level)."""
         return True
 
-    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
-    def get_pvars(self, u=None):
-        """Returns the list of all 'PVar's in an AbstractPDRS"""
-        return u
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
+    def get_empty(self):
+        """Returns an empty PDRS, if possible with the same label as this one."""
+        return self
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
     def get_variables(self, u=None):
@@ -400,16 +465,41 @@ class GenericMerge(AbstractPDRS):
     @property
     def islambda(self):
         """Test whether this DRS/PDRS is entirely a LambdaDRS/LambdaPDRS (at its top-level)."""
-        return self._drsA.islambda and self._drsB.islambda
+        return self._drsB.islambda and self._drsB.islambda
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
+    def get_empty(self):
+        """Returns an empty PDRS, if possible with the same label as this one."""
+        if self._drsB.islambda:
+            return type(self)(self._drsA.get_empty(), self._drsB)
+        return self._drsB.get_empty()
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar`.
     def test_bound_pvar(self, pv, lp):
         """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
         return self._drsA.test_bound_pvar(pv, lp) or self._drsB.test_bound_pvar(pv, lp)
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabels`
+    def get_labels(self, u=None):
+        """Returns all the labels in a PDRS."""
+        u = self._drsA.get_labels(u)
+        return self._drsB.get_labels(u)
+
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
     def get_pvars(self, u=None):
-        """Returns the list of all 'PVar's in an AbstractPDRS"""
+        """Returns the set of all 'PVar's in an AbstractPDRS"""
+        u = self._drsA.get_pvars(u)
+        return self._drsB.get_pvars(u)
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePVars`.
+    def get_free_pvars(self, gp, u=None):
+        """Returns the set of all free PVar's in this PRDS, which is a sub PDRS of global PDRS gp."""
+        u = self._drsA.get_pvars(u)
+        return self._drsB.get_pvars(u)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsMAPs`
+    def get_maps(self, u=None):
+        """Returns the list of MAPs of this PDRS."""
         u = self._drsA.get_pvars(u)
         return self._drsB.get_pvars(u)
 
@@ -510,9 +600,25 @@ class PDRS(AbstractPDRS):
     def _no_edges(self):
         return len(self._conds) == 0 and len(self._refs) == 0 and len(self._mapper) == 0
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
+    def get_empty(self):
+        """Returns an empty PDRS, if possible with the same label as this one."""
+        return PDRS(self._label,[],[],[])
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabels`
+    def get_labels(self, u=None):
+        """Returns a list of all the labels in this PDRS."""
+        if u is None:
+            u = [self._label]
+        else:
+            u.append(self._label)
+        for c in self._cond:
+            u = c._labels(u)
+        return u
+
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
     def get_pvars(self, u=None):
-        """Returns the list of all PVar's in an AbstractPDRS"""
+        """Returns the set of all PVar's in an AbstractPDRS"""
         if u is None:
             u = set([self._label])
         elif not self._label in u:
@@ -525,6 +631,27 @@ class PDRS(AbstractPDRS):
         #u = union_inplace(u, [r.label for r in self._refs])
         for c in self._conds:
             u = c._pvars(u)
+        return u
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePVars`.
+    def get_free_pvars(self, gp, u=None):
+        """Returns the set of all free PVar's in this PRDS, which is a sub PDRS of global PDRS gp."""
+        if u is None: u = set()
+        for x,y in self._mapper:
+            u.add(x)
+            u.add(y)
+        # TODO: complete implementation
+        raise NotImplementedError
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsMAPs`
+    def get_maps(self, u=None):
+        """Returns the list of MAPs of this PDRS."""
+        if u is None:
+            u = [x for x in self._mapper] # shallow copy
+        else:
+            u = union(self._mapper, u)
+        for c in self._conds:
+            u = c._maps(u)
         return u
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
@@ -557,12 +684,13 @@ class PDRS(AbstractPDRS):
         # - there exists a PDRS @p@ with label @pv@, such that @p@ is a subPDRS
         #   of @gp@ and @p@ is accessible from @lp@.
         #
-        # Note the correspondence to DRSRef.has_bound()
-        if pv == lp.label or pv == self.label:
+        # Note the correspondence to DRSRef.has_bound()        if u is None
+        if pv == lp.label or pv == self._label:
             return True
         any(filter(lambda x: x._bound(lp), self._conds))
         for c in self._conds:
-            u = c._lambda_tuple(u)
+            if c._bound(lp, pv): return True
+        return False
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs::renameSubPDRS`
     def rename_subdrs(self, gd, rs, ps):
@@ -606,7 +734,7 @@ class PDRS(AbstractPDRS):
         pvs2 = union(pvs, pvs1)
         c2 = []
         for c in d1.conds:
-            x, pvs2 = c._purify_pvars(gp, pvs2)
+            x, pvs2 = c._purify_pvars(gp, None, pvs2)
             c2.append(x)
         return PDRS(d1.label, d1.mapper, d1.referents, c2), pvs2
 
@@ -620,6 +748,22 @@ class IPDRSCond(object):
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
     def _pvars(self, u):
         return u
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        raise NotImplementedError
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabels:labels
+    def _labels(self, u):
+        return u
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsMAPs:maps
+    def _maps(self, u):
+        return u
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar:bound
+    def _bound(self, lp, pv):
+        return False
 
 
 class PCond(AbstractDRSCond, IPDRSCond):
@@ -685,6 +829,21 @@ class PCond(AbstractDRSCond, IPDRSCond):
         # Must return tuple to be compatible with AbstractDRS spec
         return PCond(self._label, cond), None
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        cond, ps = self._cond._purify_pvars(gp, self._label, ps)
+        return PCond(self._label, cond), ps
+
+    def _labels(self, u):
+        return self._cond._labels(u)
+
+    def _maps(self, u):
+        return self._cond._maps(u)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar:bound
+    def _bound(self, lp, pv):
+        return self._cond._bound(lp, pv)
+
     @property
     def label(self):
         return self._label
@@ -723,10 +882,6 @@ class PRel(Rel, IPDRSCond):
     def _isproper_subdrsof(self, sd, gd, pv):
         return all(filter(lambda x: not PRef(pv, x).has_bound(sd, gd), self._refs))
 
-    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
-    def _pvars(self, u):
-        return u
-
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
     def _convert(self, ld, gd, rs, pv, ps):
         refs = [rename_pdrsref(pv, r, ld, gd, rs) for r in self._refs]
@@ -743,6 +898,11 @@ class PRel(Rel, IPDRSCond):
             return pr.ref
         # Must return tuple to be compatible with AbstractDRS spec
         return PRel(self._rel, [convert(PRef(pv,r)) for r in self._refs]), None
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        ps.append(pv)
+        return self
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -767,6 +927,20 @@ class PNeg(Neg, IPDRSCond):
         if self._drs._no_edges(): return es
         es = union_inplace(es, [(self._drs.label, pv)])
         return self._drs._edges(es)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        cp1, ps1 = self._drs.purify_pvars(gp, union(ps,[pv]))
+        return PNeg(cp1), ps1
+
+    def _labels(self, u):
+        return self._drs.get_labels(u)
+
+    def _maps(self, u):
+        return self._drs.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -806,6 +980,26 @@ class PImp(Imp, IPDRSCond):
         es = union_inplace(es, [(self._drsB.label, pv)])
         return self._drsB._edges(es)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        ops = intersect(union_inplace(ps, [pv]), [self._drsA.label])
+        nps = zip(ops, get_new_pvars(ops, union(gp.get_pvars(), ps)))
+        cp1, ps1 = self._drsA.rename_subdrs(gp, [], ps).purify_pvars(gp, union_inplace(ps, [pv]))
+        cp2, ps2 = self._drsA.rename_subdrs(gp, [], ps).purify_pvars(gp, ps1)
+        return PImp(cp1, cp2), ps2
+
+    def _labels(self, u):
+        u = self._drsA.get_labels(u)
+        return self._drsB.get_labels(u)
+
+    def _maps(self, u):
+        u = self._drsA.get_maps(u)
+        return self._drsB.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return (self._drsA.has_subdrs(lp) and self._drsA.test_bound_pvar(pv, lp)) \
+               or (self._drsB.has_subdrs(lp) and self._drsB.test_bound_pvar(pv, lp))
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -843,6 +1037,26 @@ class POr(Or, IPDRSCond):
         es = self._drsA._edges(es)
         es = union_inplace(es, [(self._drsB.label, pv)])
         return self._drsB._edges(es)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        ops = intersect(union_inplace(ps, [pv]), [self._drsA.label])
+        nps = zip(ops, get_new_pvars(ops, union(gp.get_pvars(), ps)))
+        cp1, ps1 = self._drsA.rename_subdrs(gp, [], ps).purify_pvars(gp, union_inplace(ps, [pv]))
+        cp2, ps2 = self._drsA.rename_subdrs(gp, [], ps).purify_pvars(gp, ps1)
+        return POr(cp1, cp2), ps2
+
+    def _labels(self, u):
+        u = self._drsA.get_labels(u)
+        return self._drsB.get_labels(u)
+
+    def _maps(self, u):
+        u = self._drsA.get_maps(u)
+        return self._drsB.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return (self._drsA.has_subdrs(lp) and self._drsA.test_bound_pvar(pv, lp)) \
+               or (self._drsB.has_subdrs(lp) and self._drsB.test_bound_pvar(pv, lp))
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -890,6 +1104,20 @@ class PProp(Prop, IPDRSCond):
         es = union_inplace(es, [(self._drs.label, pv)])
         return self._drs._edges(es)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        cp1, ps1 = self._drs.purify_pvars(gp, union(ps,[pv]))
+        return PProp(self._ref, cp1), ps1
+
+    def _labels(self, u):
+        return self._drs.get_labels(u)
+
+    def _maps(self, u):
+        return self._drs.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -914,6 +1142,20 @@ class PDiamond(Diamond, IPDRSCond):
         es = union_inplace(es, [(self._drs.label, pv)])
         return self._drs._edges(es)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        cp1, ps1 = self._drs.purify_pvars(gp, union(ps,[pv]))
+        return PDiamond(cp1), ps1
+
+    def _labels(self, u):
+        return self._drs.get_labels(u)
+
+    def _maps(self, u):
+        return self._drs.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -936,6 +1178,20 @@ class PBox(Box, IPDRSCond):
         if self._drs._no_edges(): return es
         es = union_inplace(es, [(self._drs.label, pv)])
         return self._drs._edges(es)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
+    def _purify_pvars(self, gp, pv, ps):
+        cp1, ps1 = self._drs.purify_pvars(gp, union(ps,[pv]))
+        return PBox(cp1), ps1
+
+    def _labels(self, u):
+        return self._drs.get_labels(u)
+
+    def _maps(self, u):
+        return self._drs.get_maps(u)
+
+    def _bound(self, lp, pv):
+        return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
