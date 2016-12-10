@@ -21,7 +21,11 @@ def get_new_pvars(opvs, epvs):
     return [x+n for x in range(len(opvs))]
 
 
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePVar`
 def rename_pvar(pv, lp, gp, ps):
+    """Converts a PVar into a new PVar in case it occurs bound in
+    local PDRS lp in global PDRS gp.
+    """
     if not gp.test_bound_pvar(abs(pv), lp):
         return pv
     if pv < 0:
@@ -29,13 +33,34 @@ def rename_pvar(pv, lp, gp, ps):
     return rename_var(pv, ps)
 
 
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePDRSRef`
 def rename_pdrsref(pv, r, lp, gp, rs):
+    """Applies alpha conversion to a projected referent PRef(pv,r), in
+    local PDRS lp which is in global PDRS gp, on the basis of two conversion lists
+    for projection variables ps and PDRS referents rs
+    """
     u = gp.get_universes()
     prtest = PRef(pv, r)
     if any([prtest.has_projected_bound(lp, pr, gp) and gp.test_free_pvar(pr.label) for pr in u]) or \
             not prtest.has_bound(lp, gp):
         return r
     return rename_var(r, rs)
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renameMAPs`
+def rename_mapper(m, lp, gp, ps):
+    """Applies alpha conversion to a list of MAP's m, on the basis of a
+    conversion list for projection variables ps.
+    """
+    return filter(lambda x: (rename_pvar(x[0], lp, gp, ps), rename_pvar(x[1], lp, gp, ps)), m)
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renameUniverse`
+def rename_universe(u, lp, gp, ps, rs):
+    """Applies alpha conversion to a list of PRef's u, on the basis of
+    a conversion list for PVar's ps and PDRSRef's rs.
+    """
+    return filter(lambda r: PRef(rename_pvar(r.label, lp, gp, ps), rename_pdrsref(r.label, r.ref, lp, gp, rs)), u)
 
 
 class PDRSRef(DRSRef):
@@ -176,20 +201,20 @@ class PRef(AbstractDRSRef):
 class AbstractPDRS(AbstractDRS):
     """Discourse Representation Structure"""
 
-    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _edges(self, es):
         #  Derives a list of networkx.Graph edges from a PDRS
         return es
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _no_edges(self):
+        return True
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabel
     @property
     def label(self):
         """Get the projection label"""
         return 0
-
-    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def has_no_edges(self):
-        return True
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsVariables`.
     def get_pvars(self, u=None):
@@ -243,8 +268,12 @@ class AbstractPDRS(AbstractDRS):
         """Returns the list of MAPs for this PDRS."""
         raise NotImplementedError
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
+    def purify_pvars(self, gp, pvs):
+        raise NotImplementedError
 
-class LambdaPRDS(AbstractPDRS):
+
+class LambdaPDRS(AbstractPDRS):
     """A lambda PDRS."""
     def __init__(self, lambdaVar, pos):
         """A lambda DRS.
@@ -301,6 +330,29 @@ class LambdaPRDS(AbstractPDRS):
         u.add(lt)
         return u
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs::renameSubPDRS`
+    def rename_subdrs(self, gd, rs, ps):
+        """Applies alpha conversion to this PDRS which is a sub-PDRS of the global PDRS gd,
+        on the basis of two conversion lists: PDRSRef's rs and PVar's ps.
+
+        Args:
+            gd: An PDRS|LambdaPDRS|AMerge|PMerge instance.
+            rs: A conversion list of PDRSRef|LambaPDRSRef tuples.
+            ps: A conversion list of integer tuples.
+
+        Returns:
+            A PDRS instance.
+        """
+        return LambdaPDRS(LambdaDRSVar(self._var._var, [rename_var(PDRSRef(v,[]), rs).var for v in self._var._set]), self._pos)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs`
+    def purify_refs(self, gd, pvs):
+        return self
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
+    def purify_pvars(self, gp, pvs):
+        return self, pvs
+
 
 class GenericMerge(AbstractPDRS):
     """Common merge pattern"""
@@ -324,9 +376,13 @@ class GenericMerge(AbstractPDRS):
         return self._drsA._isproper_subdrsof(gd) and self._drsB._isproper_subdrsof(gd)
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def _edges(self, es):
+    def _edges(self, es=None):
         es = self._drsA._edges(es)
         return self._drsB._edges(es)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
+    def _no_edges(self):
+        return self._drsA._no_edges() and self._drsB._no_edges()
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsLabel
     @property
@@ -351,10 +407,6 @@ class GenericMerge(AbstractPDRS):
         """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
         return self._drsA.test_bound_pvar(pv, lp) or self._drsB.test_bound_pvar(pv, lp)
 
-    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def has_no_edges(self):
-        return self._drsA.has_no_edges() and self._drsB.has_no_edges()
-
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
     def get_pvars(self, u=None):
         """Returns the list of all 'PVar's in an AbstractPDRS"""
@@ -373,12 +425,36 @@ class GenericMerge(AbstractPDRS):
         u = self._drsA.get_lambda_tuples(u)
         return self._drsB.get_lambda_tuples(u)
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs::renameSubPDRS`
+    def rename_subdrs(self, gd, rs, ps):
+        """Applies alpha conversion to this PDRS which is a sub-PDRS of the global PDRS gd,
+        on the basis of two conversion lists: PDRSRef's rs and PVar's ps.
+
+        Args:
+            gd: An PDRS|LambdaPDRS|AMerge|PMerge instance.
+            rs: A conversion list of PDRSRef|LambaPDRSRef tuples.
+            ps: A conversion list of integer tuples.
+
+        Returns:
+            A PDRS instance.
+        """
+        return type(self)(self._drsA.rename_subdrs(gd, rs, ps), self._drsB.rename_subdrs(gd, rs, ps))
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs`
+    def purify_refs(self, gd, ers):
+        return type(self)(self._drsA.purify_refs(gd, ers), self._drsB.purify_refs(gd, ers))
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
+    def purify_pvars(self, gp, pvs):
+        cd1, pvs1 = self._drsA.purify_refs(gp, pvs)
+        cd2, pvs2 = self._drsB.purify_refs(gp, pvs1)
+        return type(self)(cd1, cd2), pvs2
 
 
 class AMerge(GenericMerge):
     """An assertive merge between two PDRSs"""
     def __init__(self, drsA, drsB):
-        super(PMerge, self).__init__(drsA,drsB)
+        super(AMerge, self).__init__(drsA, drsB)
 
     def __repr__(self):
         return 'AMerge(%s,%s)' % (self._drsA, self._drsB)
@@ -387,7 +463,7 @@ class AMerge(GenericMerge):
 class PMerge(GenericMerge):
     """A projective merge between two PDRSs"""
     def __init__(self, drsA, drsB):
-        super(PMerge, self).__init__(drsA,drsB)
+        super(PMerge, self).__init__(drsA, drsB)
 
     def __repr__(self):
         return 'PMerge(%s,%s)' % (self._drsA, self._drsB)
@@ -420,10 +496,10 @@ class PDRS(AbstractPDRS):
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _edges(self, es):
-        es.add_edge(self._label, self._label)
+        es.append((self._label, self._label))
         es.extend(self._mapper)
         for c in self._conds:
-            es = c._edges(es)
+            es = c._edges(es, self._label)
         return es
 
     @property
@@ -431,7 +507,7 @@ class PDRS(AbstractPDRS):
         return self._label
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def has_no_edges(self):
+    def _no_edges(self):
         return len(self._conds) == 0 and len(self._refs) == 0 and len(self._mapper) == 0
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars`
@@ -488,11 +564,57 @@ class PDRS(AbstractPDRS):
         for c in self._conds:
             u = c._lambda_tuple(u)
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs::renameSubPDRS`
+    def rename_subdrs(self, gd, rs, ps):
+        """Applies alpha conversion to this PDRS which is a sub-PDRS of the global PDRS gd,
+        on the basis of two conversion lists: PDRSRef's rs and PVar's ps.
+
+        Args:
+            gd: An PDRS|LambdaPDRS|AMerge|PMerge instance.
+            rs: A conversion list of PDRSRef|LambaPDRSRef tuples.
+            ps: A conversion list of integer tuples.
+
+        Returns:
+            A PDRS instance.
+        """
+        return PDRS(rename_var(self._label, ps), \
+                    rename_mapper(self._mapper, self, gd, ps), \
+                    rename_universe(self._refs, self, gd, ps, rs), \
+                    filter(lambda x: x._convert(self, gd, rs, None, ps), self._conds))
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs`
+    def purify_refs(self, gd, ers):
+        def convert(prs, pr):
+            for prd,npr in prs:
+                if pr.ref == prd.ref \
+                        and (pr.has_projected_bound(self, prd, gd) \
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                    return npr
+            return pr
+        # Must return tuple to be compatible with AbstractDRS spec.
+        return PDRS(self._label, self._mapper, [convert(gd, r) for r in self._refs],
+                    [c._purify(gd, r) for c in self._conds]), None
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
+    def purify_pvars(self, gp, pvs):
+        ol = intersect([self.label], pvs)
+        d1 = self.alpha_convert(zip(ol, get_new_pvars(ol, union_inplace(gp.get_pvars(), pvs))))
+        pvs1 = [d1.label]
+        pvs1.extend([x for x,y in d1.mapper])
+        pvs1.extend([y for x,y in d1.mapper])
+        pvs1 = union(pvs1, [r.label for r in d1.referents])
+        pvs2 = union(pvs, pvs1)
+        c2 = []
+        for c in d1.conds:
+            x, pvs2 = c._purify_pvars(gp, pvs2)
+            c2.append(x)
+        return PDRS(d1.label, d1.mapper, d1.referents, c2), pvs2
+
 
 class IPDRSCond(object):
     """Additional Interface for PDRS Conditions"""
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
-    def _edges(self, u, es):
+    def _edges(self, es, pv):
         return es
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
@@ -517,9 +639,9 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def __repr__(self):
         return 'PCond(%i,%s)' % (self._label, self._conds)
 
-    def _isproper_subdrsof(self, sd, gd, pvar=None):
+    def _isproper_subdrsof(self, sd, gd, pv):
         # Pass down to member condition
-        assert pvar is None
+        assert pv is None
         return self._cond._isproper_subdrsof(sd, gd, self._label)
 
     def _universes(self, u):
@@ -536,14 +658,14 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return self._cond.lambda_tuple(u)
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePRefs:free`.
-    def _get_freerefs(self, ld, gd, pvar):
+    def _get_freerefs(self, ld, gd, pv):
         # Pass down to member condition
-        assert pvar is None
+        assert pv is None
         return self._cond._get_freerefs(ld, gd, self._label)
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def _edges(self, u, es):
-        return self._cond._edges(u, es)
+    def _edges(self, es, pv):
+        return union_inplace(self._cond._edges(es, self._label), [(pv, self._label)])
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
     def _pvars(self, u):
@@ -551,11 +673,17 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return self._cond._pvars(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
-    def _convert(self, ld, gd, rs, ps):
+    def _convert(self, ld, gd, rs, pv, ps):
         # Pass down to member condition
-        cond = self._cond._convert(ld, gd, rs, self._label)
-        pv = rename_pvar(self._label, ld, gd, ps)
-        return PCond(pv, cond)
+        assert pv is None
+        return PCond(rename_pvar(self._label, ld, gd, ps), self._cond._convert(ld, gd, rs, self._label, ps))
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs:purify
+    def _purify(self, gd, rs, pv, ps):
+        assert pv is None
+        cond, _ = self._cond._purify(gd, rs, self._label, ps)
+        # Must return tuple to be compatible with AbstractDRS spec
+        return PCond(self._label, cond), None
 
     @property
     def label(self):
@@ -575,9 +703,6 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def _purify(self, gd, rs):
-        raise NotImplementedError
-
     def to_mfol(self, world):
         raise NotImplementedError
 
@@ -591,29 +716,38 @@ class PRel(Rel, IPDRSCond):
         super(PRel, self).__init__(drsRel, drsRefs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Bindings.hs:pdrsFreePRefs:free
-    def _get_freerefs(self, ld, gd, pvar):
-        return filter(lambda x: not PRef(pvar, x).has_bound(ld, gd), self._refs)
+    def _get_freerefs(self, ld, gd, pv):
+        return filter(lambda x: not PRef(pv, x).has_bound(ld, gd), self._refs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isProperPDRS:isProperSubPDRS
-    def _isproper_subdrsof(self, sd, gd, pvar):
-        return all(filter(lambda x: not PRef(pvar, x).has_bound(sd, gd), self._refs))
+    def _isproper_subdrsof(self, sd, gd, pv):
+        return all(filter(lambda x: not PRef(pv, x).has_bound(sd, gd), self._refs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
     def _pvars(self, u):
         return u
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
-    def _convert(self, ld, gd, rs, pv):
+    def _convert(self, ld, gd, rs, pv, ps):
         refs = [rename_pdrsref(pv, r, ld, gd, rs) for r in self._refs]
         return PRel(self._rel, refs)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs:purify
+    def _purify(self, gd, rs, pv, ps):
+        def convert(prs, pr):
+            for prd,npr in prs:
+                if pr.ref == prd.ref \
+                        and (pr.has_projected_bound(self, prd, gd) \
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                    return npr.ref
+            return pr.ref
+        # Must return tuple to be compatible with AbstractDRS spec
+        return PRel(self._rel, [convert(PRef(pv,r)) for r in self._refs]), None
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -628,13 +762,16 @@ class PNeg(Neg, IPDRSCond):
     def __init__(self, drs):
         super(PNeg, self).__init__(drs)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drs._no_edges(): return es
+        es = union_inplace(es, [(self._drs.label, pv)])
+        return self._drs._edges(es)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -649,13 +786,30 @@ class PImp(Imp, IPDRSCond):
     def __init__(self, drsA, drsB):
         super(PImp, self).__init__(drsA, drsB)
 
+    def _purify(self, gd, rs, pv, ps):
+        cd1, _ = self._drsA.purify_refs(gd, rs, ps)
+        cd2, _ = self._drsB.purify_refs(gd, rs, ps)
+        return PImp(cd1, cd2), None
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drsA._no_edges() and self._drsA._no_edges():
+            return es
+        elif self._drsA._no_edges():
+            es = union_inplace(es, [(self._drsB.label, pv)])
+            return self._drsB._edges(es)
+        elif self._drsB._no_edges():
+            es = union_inplace(es, [(self._drsA.label, pv)])
+            return self._drsA._edges(es)
+        es = union_inplace(es, [(self._drsA.label, pv)])
+        es = self._drsA._edges(es)
+        es = union_inplace(es, [(self._drsB.label, pv)])
+        return self._drsB._edges(es)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -670,13 +824,30 @@ class POr(Or, IPDRSCond):
     def __init__(self, drsA, drsB):
         super(POr, self).__init__(drsA, drsB)
 
+    def _purify(self, gd, rs, pv, ps):
+        cd1, _ = self._drsA.purify_refs(gd, rs, ps)
+        cd2, _ = self._drsB.purify_refs(gd, rs, ps)
+        return POr(cd1, cd2), None
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drsA._no_edges() and self._drsA._no_edges():
+            return es
+        elif self._drsA._no_edges():
+            es = union_inplace(es, [(self._drsB.label, pv)])
+            return self._drsB._edges(es)
+        elif self._drsB._no_edges():
+            es = union_inplace(es, [(self._drsA.label, pv)])
+            return self._drsA._edges(es)
+        es = union_inplace(es, [(self._drsA.label, pv)])
+        es = self._drsA._edges(es)
+        es = union_inplace(es, [(self._drsB.label, pv)])
+        return self._drsB._edges(es)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -684,6 +855,7 @@ class POr(Or, IPDRSCond):
 
     def show(self, notation):
         raise NotImplementedError
+
 
 class PProp(Prop, IPDRSCond):
     """A proposition DRS"""
@@ -698,16 +870,30 @@ class PProp(Prop, IPDRSCond):
         return PRef(pvar, self._ref).has_bound(sd, gd) and self._drs._isproper_subdrsof(gd)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs, pvar=None):
-        return Prop(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs))
+    def _convert(self, ld, gd, rs, pv, ps):
+        return Prop(rename_pdrsref(pv, self._ref, ld, gd, rs), self._drs.rename_subdrs(gd, rs, ps))
+
+    def _purify(self, gd, rs, pv, ps):
+        def convert(prs, pr):
+            for prd,npr in prs:
+                if pr.ref == prd.ref \
+                        and (pr.has_projected_bound(self, prd, gd) \
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                    return npr.ref
+            return pr.ref
+        # Must return tuple to be compatible with AbstractDRS spec
+        return PProp(convert(PRef(pv, self._ref)), self._drs.purify_refs(gd, rs, ps)), None
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drs._no_edges(): return es
+        es = union_inplace(es, [(self._drs.label, pv)])
+        return self._drs._edges(es)
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -722,13 +908,16 @@ class PDiamond(Diamond, IPDRSCond):
     def __init__(self, drs):
         super(PNeg, self).__init__(drs)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drs._no_edges(): return es
+        es = union_inplace(es, [(self._drs.label, pv)])
+        return self._drs._edges(es)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -742,13 +931,16 @@ class PBox(Box, IPDRSCond):
     def __init__(self, drs):
         super(PNeg, self).__init__(drs)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
+    def _edges(self, es, pv):
+        if self._drs._no_edges(): return es
+        es = union_inplace(es, [(self._drs.label, pv)])
+        return self._drs._edges(es)
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
-
-    def _purify(self, gd, rs):
         raise NotImplementedError
 
     def to_mfol(self, world):
