@@ -20,6 +20,13 @@ class Showable(object):
     opLambda = u"\u03BB"
     opMerge = u"\u002B"
 
+    opAMerge = u"\u002B"
+    opPMerge = u"\u002A"
+    modPointer = u"\u2190"
+    modEquals = u"\u003D"
+    modWeakSubord = u"\u2264"
+    modStrictSubord = u"\u003C"
+
     # Box
     boxTopLeft = u'\u250C'
     boxTopRight = u'\u2510'
@@ -102,6 +109,27 @@ class Showable(object):
             A unicode string
         """
         return lc + (cls.boxHorLine * (n - 2)) + rc + u'\n'
+
+    @classmethod
+    def show_title_line(cls, n, title, lc, rc):
+        """Shows a horizontal line of length n with left corner symbol ls and
+        right corner symbol rc.
+
+        Args:
+            n: An integer.
+            title: A unicode string
+            lc: A unicode string.
+            rc: A unicode string.
+
+        Returns:
+            A unicode string
+        """
+        k = len(title)
+        if k >= n-2:
+            return lc + title[0:n-2] + rc + u'\n'
+        lm = n - 2 - k/2
+        rm = n - 2 - (k - k/2)
+        return lc + (cls.boxHorLine * lm) + title + (cls.boxHorLine * rm) + rc + u'\n'
 
     @classmethod
     def show_modifier(cls, m, p, s):
