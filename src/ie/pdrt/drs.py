@@ -1517,10 +1517,10 @@ class Diamond(AbstractDRSCond):
     def show(self, notation):
         if notation == SHOW_BOX:
             if self._drs.islambda:
-                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
-            return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
+                return self.show_modifier(self.opDiamond, 0, self._drs.show(notation))
+            return self.show_modifier(self.opDiamond, 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self.opNeg + self._drs.show(notation)
+            return self.opDiamond + self._drs.show(notation)
         return u'Diamond (' + self._drs.show(notation) + u')'
 
 
@@ -1594,8 +1594,8 @@ class Box(AbstractDRSCond):
     def show(self, notation):
         if notation == SHOW_BOX:
             if self._drs.islambda:
-                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
-            return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
+                return self.show_modifier(self.opBox, 0, self._drs.show(notation))
+            return self.show_modifier(self.opBox, 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self.opNeg + self._drs.show(notation)
+            return self.opBox + self._drs.show(notation)
         return u'Box (' + self._drs.show(notation) + u')'
