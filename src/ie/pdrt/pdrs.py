@@ -63,6 +63,60 @@ def rename_universe(u, lp, gp, ps, rs):
     return filter(lambda r: PRef(rename_pvar(r.label, lp, gp, ps), rename_pdrsref(r.label, r.ref, lp, gp, rs)), u)
 
 
+# Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dup`
+def _dup(pr, eps, lp, gp):
+    for prd in eps:
+        if not gp.test_bound_pvar(pr.label, lp): return False
+        if pr.ref == prd.ref and pr.test_independent(lp, gp, [prd]): return True
+    return False
+
+
+class MAP(object):
+    def __init__(self, v1, v2):
+        self._v1 = v1
+        self._v2 = v2
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._v1 != other._v1 or self._v2 != other._v2
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._v1 == other._v1 and self._v2 == other._v2
+
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, idx):
+        if idx < 0 or idx > 2:
+            raise IndexError
+        return self._v1 if idx == 0 else self._v2
+
+    def __str__(self):
+        return '(%i, %i)' % (self._v1, self._v2)
+
+    def __unicode__(self):
+        return u'(%i, %i)' % (self._v1, self._v2)
+
+    def swap(self):
+        return MAP(self._v2, self._v1)
+
+    def to_tuple(self):
+        return (self._v1, self._v2)
+
+    def to_list(self):
+        return [self._v1, self._v2]
+
+    def show(self, notation):
+        """Display for screen.
+
+        Args:
+            notation: An integer notation. Ignored for this class.
+
+        Returns:
+            A unicode string.
+        """
+        return u'%s' % self.to_tuple()
+
+
 class PDRSRef(DRSRef):
     """A PDRS referent"""
     def __init__(self, drsVar):
@@ -214,6 +268,19 @@ class PRef(AbstractDRSRef):
     def to_drsref(self):
         return DRSRef(self._ref)
 
+    def show(self, notation):
+        """Display for screen.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+            A unicode string.
+        """
+        if notation == SHOW_BOX:
+            return u'%i %s %s' % (self._label, self.modPointer, self._ref.show(notation))
+        return u'<%i, %s>' % (self._label, self._ref.show(notation))
+
 
 class AbstractPDRS(AbstractDRS):
     """Discourse Representation Structure"""
@@ -244,6 +311,30 @@ class AbstractPDRS(AbstractDRS):
             True if this DRS is pure.
         """
         return self == self.purify()
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPresupPDRS`.
+    @property
+    def ispresup(self):
+        """Test whether this PDRS is presuppositional, where a PDRS is presuppositional
+        iff it contains free pointers.
+        """
+        raise NotImplementedError
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPlainPDRS`.
+    @property
+    def isplain(self):
+        """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
+        are locally bound.
+        """
+        raise NotImplementedError
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isSimplePDRS`.
+    @property
+    def issimple(self):
+        """Test whether this PDRS is simple, where a PDRS is simple iff it
+        does not contain free pointers.
+        """
+        not self.ispresup
 
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:pdrsPurify`
     def purify(self):
@@ -292,14 +383,12 @@ class AbstractPDRS(AbstractDRS):
         return g
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
-    def get_unbound_dup_prefs(self, gp, eps):
-        """Returns a tuple of existing 'PRef's @eps@ and unbound duplicate 'PRef's
-        @dps@ in a 'PDRS', based on a list of seen 'PRef's @prs@, where:
+    def get_unbound_dup_prefs(self, gp, eps=[]):
+        """Returns a tuple of existing 'PRef's (eps) and unbound duplicate 'PRef's
+        (dps) in a 'PDRS', based on a list of seen 'PRef's prs.
 
-        [@pr = ('PRef' p r)@ is duplicate in 'PDRS' @gp@ /iff/]
-
-        * There exists a @p'@, such that @pr' = ('PRef' p' r)@ is an element
-        of @prs@, and @pr@ and @pr'@ are /independent/.
+        Where pr = PRef(p. r) is duplicate in PDRS gp iff there exists a p'
+        such that pr' = PRef(p',r) is an element prs, and pr and pr' are independent.
         """
         raise NotImplementedError
 
@@ -337,6 +426,19 @@ class AbstractPDRS(AbstractDRS):
     def purify_pvars(self, gp, pvs):
         raise NotImplementedError
 
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:pdrsPurify`
+    def purify(self):
+        """Converts a PDRS into a pure PDRS by by first purifying its
+        projection variables, and then purifying its projected referents
+
+        where a PDRS is pure iff there are no occurrences of duplicate, unbound uses
+        of the same PVar or PDRSRef.
+        """
+        cgp, _ = self.purify_pvars(self, self.get_free_pvars(self))
+        _, prs = cgp.get_unbound_dup_prefs(cgp)
+        drs, _ = cgp.purify_refs(cgp, zip(prs, get_new_drsrefs(prs, cgp.get_variables())))
+        return drs
+
 
 class LambdaPDRS(AbstractPDRS):
     """A lambda PDRS."""
@@ -373,6 +475,22 @@ class LambdaPDRS(AbstractPDRS):
     @property
     def islambda(self):
         """Test whether this PDRS is entirely a LambdaPDRS (at its top-level)."""
+        return True
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPresupPDRS`.
+    @property
+    def ispresup(self):
+        """Test whether this PDRS is presuppositional, where a PDRS is presuppositional
+        iff it contains free pointers.
+        """
+        return False
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPlainPDRS`.
+    @property
+    def isplain(self):
+        """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
+        are locally bound.
+        """
         return True
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
@@ -417,6 +535,32 @@ class LambdaPDRS(AbstractPDRS):
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
     def purify_pvars(self, gp, pvs):
         return self, pvs
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
+    def get_unbound_dup_prefs(self, gp, eps=[]):
+        """Returns a tuple of existing 'PRef's (eps) and unbound duplicate 'PRef's
+        (dps) in a PDRS, based on a list of seen 'PRef's prs.
+
+        Where pr = PRef(p. r) is duplicate in PDRS gp iff there exists a p'
+        such that pr' = PRef(p',r) is an element prs, and pr and pr' are independent.
+        """
+        return eps, []
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            return self._var.show(notation) + u'\n'
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._var.show(notation)
+        return u'LambdaPDRS ' + self._var.to_string().decode('utf-8')
 
 
 class GenericMerge(AbstractPDRS):
@@ -540,6 +684,19 @@ class GenericMerge(AbstractPDRS):
         cd2, pvs2 = self._drsB.purify_refs(gp, pvs1)
         return type(self)(cd1, cd2), pvs2
 
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
+    def get_unbound_dup_prefs(self, gp, eps=[]):
+        """Returns a tuple of existing 'PRef's (eps) and unbound duplicate 'PRef's
+        (dps) in a PDRS, based on a list of seen 'PRef's prs.
+
+        Where pr = PRef(p. r) is duplicate in PDRS gp iff there exists a p'
+        such that pr' = PRef(p',r) is an element prs, and pr and pr' are independent.
+        """
+        eps1, dps1 = self._drsA.get_unbound_dup_prefs(gp, eps)
+        eps2, dps2 = self._drsA.get_unbound_dup_prefs(gp, eps1)
+        dps1.extend(dps2)
+        return eps2, dps1
+
 
 class AMerge(GenericMerge):
     """An assertive merge between two PDRSs"""
@@ -548,6 +705,48 @@ class AMerge(GenericMerge):
 
     def __repr__(self):
         return 'AMerge(%s,%s)' % (self._drsA, self._drsB)
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPresupPDRS`.
+    @property
+    def ispresup(self):
+        """Test whether this PDRS is presuppositional, where a PDRS is presuppositional
+        iff it contains free pointers.
+        """
+        return self._drsA.ispresup or self._drsB.ispresup
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPlainPDRS`.
+    @property
+    def isplain(self):
+        """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
+        are locally bound.
+        """
+        return self._drsA.isplain and self._drsB.isplain
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            if self._drsA.islambda and self._drsB.islambda:
+                self.show_modifier(u'(', 0, self.show_concat(self.show_concat(self._drsA.show(), \
+                                            self.show_modifier(self.opAMerge, 0, self._drsB.show()))), u')')
+            elif not self._drsA.islambda and self._drsA.islambda:
+                return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opAMerge, 2, self._drsA.show())))
+            elif self._drsA.islambda and not self._drsA.islambda:
+                self._show_brackets(self.show_concat(self.show_padding(self._drsA.show()),
+                                            self.show_modifier(self.opAMerge, 2, self._drsB.show())))
+            return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opAMerge, 2, self._drsB.show)))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._drsA.show(notation) + u' ' + self.opAMerge + u' ' + self._drsB.show(notation)
+        return u'AMerge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
 
 
 class PMerge(GenericMerge):
@@ -558,13 +757,54 @@ class PMerge(GenericMerge):
     def __repr__(self):
         return 'PMerge(%s,%s)' % (self._drsA, self._drsB)
 
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPresupPDRS`.
+    @property
+    def ispresup(self):
+        """Test whether this PDRS is presuppositional, where a PDRS is presuppositional
+        iff it contains free pointers.
+        """
+        return True
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPlainPDRS`.
+    @property
+    def isplain(self):
+        """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
+        are locally bound.
+        """
+        return False
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            if self._drsA.islambda and self._drsB.islambda:
+                self.show_modifier(u'(', 0, self.show_concat(self.show_concat(self._drsA.show(), \
+                                            self.show_modifier(self.opPMerge, 0, self._drsB.show()))), u')')
+            elif not self._drsA.islambda and self._drsA.islambda:
+                return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opPMerge, 2, self._drsA.show())))
+            elif self._drsA.islambda and not self._drsA.islambda:
+                self._show_brackets(self.show_concat(self.show_padding(self._drsA.show()),
+                                            self.show_modifier(self.opPMerge, 2, self._drsB.show())))
+            return self._show_brackets(self.show_concat(self._drsA.show(),
+                                            self.show_modifier(self.opPMerge, 2, self._drsB.show)))
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return self._drsA.show(notation) + u' ' + self.opPMerge + u' ' + self._drsB.show(notation)
+        return u'PMerge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
+
 
 class PDRS(AbstractPDRS):
     """Projective Discourse Representation Structure."""
     def __init__(self, label, mapper, drsRefs, drsConds):
-        if not iterable_type_check(drsRefs, PRef) or not iterable_type_check(drsConds, PCond):
-            raise TypeError
-        if not isinstance(label, PVar):
+        if not iterable_type_check(drsRefs, PRef) or not iterable_type_check(drsConds, PCond) or \
+                not isinstance(label, PVar) or not iterable_type_check(mapper, MAP):
             raise TypeError
         self._refs = drsRefs
         self._conds = drsConds
@@ -595,6 +835,25 @@ class PDRS(AbstractPDRS):
     @property
     def label(self):
         return self._label
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPresupPDRS`.
+    @property
+    def ispresup(self):
+        """Test whether this PDRS is presuppositional, where a PDRS is presuppositional
+        iff it contains free pointers.
+        """
+        return any([self.test_free_pvar(x) for x in self.get_pvars()])
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isPlainPDRS`.
+    @property
+    def isplain(self):
+        """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
+        are locally bound.
+        """
+        if not all([x.label == self._label for x in self._refs]): return False
+        for c in self._cond:
+            if not (c.label == self._label and c._plain()): return False
+        return True
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _no_edges(self):
@@ -728,8 +987,8 @@ class PDRS(AbstractPDRS):
         ol = intersect([self.label], pvs)
         d1 = self.alpha_convert(zip(ol, get_new_pvars(ol, union_inplace(gp.get_pvars(), pvs))))
         pvs1 = [d1.label]
-        pvs1.extend([x for x,y in d1.mapper])
-        pvs1.extend([y for x,y in d1.mapper])
+        pvs1.extend([x[0] for x in d1.mapper])
+        pvs1.extend([x[1] for x in d1.mapper])
         pvs1 = union(pvs1, [r.label for r in d1.referents])
         pvs2 = union(pvs, pvs1)
         c2 = []
@@ -737,6 +996,114 @@ class PDRS(AbstractPDRS):
             x, pvs2 = c._purify_pvars(gp, None, pvs2)
             c2.append(x)
         return PDRS(d1.label, d1.mapper, d1.referents, c2), pvs2
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
+    def get_unbound_dup_prefs(self, gp, eps=[]):
+        """Returns a tuple of existing 'PRef's (eps) and unbound duplicate 'PRef's
+        (dps) in a PDRS, based on a list of seen 'PRef's prs.
+
+        Where pr = PRef(p, r) is duplicate in PDRS gp iff there exists a pd
+        such that prd = PRef(pd,r) is an element prs, and pr and prd are independent.
+        """
+        eps1 = [x for x in eps] # shallow copy
+        dps1 = []
+        eps3 = []
+        dps3 = []
+        for c in self._cond:
+            eps1, dps1, e3, d3 = c._dups(self, gp, eps1, None)
+            dps1.extend(dps1)
+            dps3.extend(d3)
+            eps3.extend(e3)
+        uu = filter(lambda x: _dup(x, eps, self, gp), filter(lambda x: gp.test_bound_pvar(x, self), self._refs))
+        uu.extend(dps1)
+        eps1.extend(eps3)
+        uu.extend(dps3)
+        return eps1, uu
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/DRS/Show.hs::showUniverse`
+    def _show_universe(self, d, notation):
+        return d.join([x.var.show(notation) for x in self._refs])
+
+    def _show_conditions(self, notation):
+        if len(self._conds) == 0 and notation == SHOW_BOX:
+            return u' '
+        if notation == SHOW_BOX:
+            return u''.join([x.show(notation) for x in self._conds])
+        return u','.join([x.show(notation) for x in self._conds])
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs::{showMAPs, showMAPsTuples}`
+    def _show_mapper(self, notation):
+        if notation == SHOW_BOX:
+            # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs::showMAPs`
+            def unique1(m, ms, sms):
+                if abs(m[1]) < 0:
+                    sms.append([MAP(abs(m[1]), abs(m[0]))])
+                    return u'%i %s %i' % (abs(m[1]), self.modStrictSubord, m[0])
+                elif m.swap() in ms or MAP(m[1],-m[0]) in ms:
+                    sms.append(m)
+                    return u''
+                elif m.swap() in sms:
+                    sms.append(m)
+                    return u'%i %s %i' % (abs(m[0]), self.modEquals, m[1])
+                sms.append(m)
+                return u'%i %s %i' % (abs(m[0]), self.modWeakSubord, m[1])
+            sms = []
+            return u'  '.join(filter(lambda x: len(x) > 0, [unique1(self._mapper[i], self._mapper[i+1:], sms) \
+                                                            for i in range(len(self._mapper))])) + u'  '
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs::showMAPsTuples`
+            def unique2(m, ms, sms):
+                if m.swap() in ms:
+                    sms.append(m)
+                    return u''
+                elif m.swap() in sms:
+                    sms.append(m)
+                    return u'%s' % m.to_tuple()
+                sms.append(m)
+                return u'%i %s %i' % (abs(m[0]), self.modWeakSubord, m[1])
+            sms = []
+            return u','.join(filter(lambda x: len(x) > 0, [unique2(self._mapper[i], self._mapper[i + 1:], sms) \
+                                                            for i in range(len(self._mapper))])) + u'  '
+        else:
+            return 'PRDS(%i,%s)' % (self._label, self._mapper)
+
+    ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/DRS/Show.hs::showDRSBox`
+    def show(self, notation):
+        """For pretty printing.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+             A unicode string.
+        """
+        if notation == SHOW_BOX:
+            if len(self._refs) == 0:
+                ul = u' '
+            else:
+                ul = self._show_universe(u'  ', notation)
+            cl = self._show_conditions(notation) + u'\n'
+            ml = self._show_mapper(notation) + u'\n'
+            hl = [u' %i ' % self._label]
+            l = 4 + max(union(union(union(map(len, ul.split(u'\n')), map(len, cl.split(u'\n'))), map(len, ml.split(u'\n'))), [len(hl)+2]))
+            if (len(hl[0])+4) < l:
+                hl[0] += ' '* (l-4)
+            return self.show_title_line(l, hl[0], self.boxTopLeft, self.boxTopRight) + \
+                   self.show_content(l, ul) + u'\n' + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight) + \
+                   self.show_content(l, cl) + u'\n' + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight) + \
+                   self.show_content(l, ml) + u'\n' + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight)
+        elif notation == SHOW_LINEAR:
+            ul = self._show_universe(',', notation)
+            cl = self._show_conditions(notation)
+            ml = self._show_mapper(notation)
+            return u'%i[%s|%s|%s]' % (self._label, ul, cl, ml)
+        elif notation == SHOW_SET:
+            ul = self._show_universe(',', notation)
+            cl = self._show_conditions(notation)
+            ml = self._show_mapper(notation)
+            return u'<%i,{%s},{%s},{%s}>' % (self._label, ul, cl, ml)
+        cl = self._show_conditions(notation)
+        return u'PDRS ' + str(self._refs).decode('utf-8') + u' [' + cl + u']'
 
 
 class IPDRSCond(object):
@@ -764,6 +1131,17 @@ class IPDRSCond(object):
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsBoundPVar:bound
     def _bound(self, lp, pv):
         return False
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dups
+    def _dups(self, lp, gp, eps, pv):
+        return eps, []
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isPlainPDRS:plain
+    def _plain(self):
+        return False
+
+    def _showmod(self):
+        return 0
 
 
 class PCond(AbstractDRSCond, IPDRSCond):
@@ -844,6 +1222,15 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def _bound(self, lp, pv):
         return self._cond._bound(lp, pv)
 
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dups
+    def _dups(self, lp, gp, eps, pv):
+        assert pv is None
+        return self._conf._dups(lp, gp, eps, self._label)
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isPlainPDRS:plain
+    def _plain(self):
+        return self._cond._plain()
+
     @property
     def label(self):
         return self._label
@@ -866,7 +1253,15 @@ class PCond(AbstractDRSCond, IPDRSCond):
         raise NotImplementedError
 
     def show(self, notation):
-        raise NotImplementedError
+        if notation == SHOW_BOX:
+            mod = self._cond._showmod()
+            s = self._cond.show(notation)
+            if mod > 0:
+                return self.show_modifier(u'%i %s' % (self._label, self.modPointer), mod, s)
+            return u'%i %s %s' % (self._label, self.modPointer, s)
+        elif notation in [SHOW_LINEAR, SHOW_SET]:
+            return u'<%i, %s>' % (self._label, self._cond.show(notation))
+        return u'PCond(%i, %s)' % (self._label, self._cond.show(notation))
 
 
 class PRel(Rel, IPDRSCond):
@@ -903,6 +1298,20 @@ class PRel(Rel, IPDRSCond):
     def _purify_pvars(self, gp, pv, ps):
         ps.append(pv)
         return self
+
+    # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dups
+    def _dups(self, lp, gp, eps, pv):
+        # upd  = filter (\pr -> not (pdrsPBoundPRef pr lp gp)) (map (PRef p) d)
+        upd = filter(lambda x: not PRef(pv, x).has_other_bound(self, gp), self._refs)
+        dps1 = filter(lambda x: _dup(x, eps, lp, gp), upd)
+        eps.extend(upd) #eps2
+        return eps, dps1, [], []
+
+    def _plain(self):
+        return True
+
+    def _showmod(self):
+        return -1
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -942,10 +1351,21 @@ class PNeg(Neg, IPDRSCond):
     def _bound(self, lp, pv):
         return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drs, eps)
+        return eps1, dps1, [], []
+
+    def _plain(self):
+        return self._drs.isplain
+
+    def _showmod(self):
+        return 0 if self._drs.islambda else 2
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
+        raise NotImplementedError
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -999,6 +1419,18 @@ class PImp(Imp, IPDRSCond):
     def _bound(self, lp, pv):
         return (self._drsA.has_subdrs(lp) and self._drsA.test_bound_pvar(pv, lp)) \
                or (self._drsB.has_subdrs(lp) and self._drsB.test_bound_pvar(pv, lp))
+
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drsA, eps)
+        eps2, dps2 = gp.get_unbound_dup_prefs(self._drsB, eps1)
+        dps1.extend(dps2)
+        return eps2, dps1, [], []
+
+    def _plain(self):
+        return self._drsA.isplain and self._drsB.isplain
+
+    def _showmod(self):
+        return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1057,6 +1489,18 @@ class POr(Or, IPDRSCond):
     def _bound(self, lp, pv):
         return (self._drsA.has_subdrs(lp) and self._drsA.test_bound_pvar(pv, lp)) \
                or (self._drsB.has_subdrs(lp) and self._drsB.test_bound_pvar(pv, lp))
+
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drsA, eps)
+        eps2, dps2 = gp.get_unbound_dup_prefs(self._drsB, eps1)
+        dps1.extend(dps2)
+        return eps2, dps1, [], []
+
+    def _plain(self):
+        return self._drsA.isplain and self._drsB.isplain
+
+    def _showmod(self):
+        return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1118,6 +1562,18 @@ class PProp(Prop, IPDRSCond):
     def _bound(self, lp, pv):
         return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drs, eps)
+        pr = [] if PRef(pv, self._ref).has_other_bound(lp, gp) else [PRef(pv, self._ref)]
+        dps3 = filter(_dup(eps, lp, gp), pr)
+        return eps1, dps1, pr, dps3
+
+    def _plain(self):
+        return self._drs.isplain
+
+    def _showmod(self):
+        return 0 if self._drs.islambda else 2
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1156,6 +1612,16 @@ class PDiamond(Diamond, IPDRSCond):
     def _bound(self, lp, pv):
         return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drs, eps)
+        return eps1, dps1, [], []
+
+    def _plain(self):
+        return self._drs.isplain
+
+    def _showmod(self):
+        return 0 if self._drs.islambda else 2
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1167,6 +1633,7 @@ class PDiamond(Diamond, IPDRSCond):
 
     def show(self, notation):
         raise NotImplementedError
+
 
 class PBox(Box, IPDRSCond):
     """A necessary DRS"""
@@ -1193,6 +1660,16 @@ class PBox(Box, IPDRSCond):
     def _bound(self, lp, pv):
         return self._drs.has_subdrs(lp) and self._drs.test_bound_pvar(pv, lp)
 
+    def _dups(self, lp, gp, eps, pv):
+        eps1, dps1 = gp.get_unbound_dup_prefs(self._drs, eps)
+        return eps1, dps1,[], []
+
+    def _plain(self):
+        return self._drs.isplain
+
+    def _showmod(self):
+        return 0 if self._drs.islambda else 2
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1206,5 +1683,42 @@ class PBox(Box, IPDRSCond):
         raise NotImplementedError
 
 
+class Item(Showable):
+    """Rows of a PTable"""
+    def __init__(self, content, pv1, pv2):
+        if not iterable_type_check([pv1, pv2], PVar) or \
+                not isinstance(content, [PRef, PRel, PImp, POr, PProp, PDiamond, PBox, MAP]):
+            raise TypeError
+        self.content = content
+        self.pv1 = pv1
+        self.pv2 = pv2
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self.pv1 != other.pv1 or self.pv2 != other.pv2 or \
+                self.content != other.content
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.pv1 == other.pv1 and self.pv2 == other.pv2 and \
+            self.content == other.content
+
+    def show(self, notation):
+        """Display for screen.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+            A unicode string.
+        """
+        raise NotImplementedError
+
+
+
+class PTable(Showable):
+    """Projection Table"""
+    def __init__(self, items):
+        if not iterable_type_check(items, Item):
+            raise TypeError
+        self.items = items
 
 
