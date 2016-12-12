@@ -691,7 +691,7 @@ class Merge(AbstractDRS):
         return u'Merge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
 
 
-# Original haskell code in DSI/Input/Merge.hs:drsMerge
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:drsMerge`
 def merge(d1, d2):
     """Applies merge to 'DRS' d1 and 'DRS' d2"""
     if isinstance(d2, LambdaDRS) or isinstance(d1, LambdaDRS):
