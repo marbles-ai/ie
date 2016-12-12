@@ -394,11 +394,11 @@ class DRS(AbstractDRS):
 
     @property
     def referents(self):
-        return [x for x in self._refs] # deep copy
+        return [x for x in self._refs] # shallow copy
 
     @property
     def conditions(self):
-        return [x for x in self._conds] # deep copy
+        return [x for x in self._conds] # shallow copy
 
     @property
     def isresolved(self):
@@ -412,7 +412,7 @@ class DRS(AbstractDRS):
         Returns:
             A list of DRSRef instances.
         """
-        return [x for x in self._refs] # deep copy
+        return [x for x in self._refs] # shallow copy
 
     def has_subdrs(self, d1):
         """Test whether d1 is a direct or indirect sub-DRS of this DRS."""
