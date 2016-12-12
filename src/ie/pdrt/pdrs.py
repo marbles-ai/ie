@@ -2,6 +2,7 @@ from utils import iterable_type_check, union, union_inplace, intersect, rename_v
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
 from common import DRSVar, LambdaDRSVar, Showable
 from drs import AbstractDRSRef, DRSRef, LambdaDRSRef, AbstractDRSCond, AbstractDRS, LambdaTuple
+from drs import LambdaDRS, Merge, DRS
 from drs import Rel, Neg, Imp, Or, Diamond, Box, Prop
 # Note: get_new_drsrefs() works on any AbstractPDRSRef.
 from drs import get_new_drsrefs
@@ -41,7 +42,7 @@ def rename_pdrsref(pv, r, lp, gp, rs):
     """
     u = gp.get_universes()
     prtest = PRef(pv, r)
-    if any([prtest.has_projected_bound(lp, pr, gp) and gp.test_free_pvar(pr.label) for pr in u]) or \
+    if any([prtest.has_projected_bound(lp, pr, gp) and gp.test_free_pvar(pr.plabel) for pr in u]) or \
             not prtest.has_bound(lp, gp):
         return r
     return rename_var(r, rs)
@@ -60,7 +61,107 @@ def rename_universe(u, lp, gp, ps, rs):
     """Applies alpha conversion to a list of PRef's u, on the basis of
     a conversion list for PVar's ps and PDRSRef's rs.
     """
-    return filter(lambda r: PRef(rename_pvar(r.label, lp, gp, ps), rename_pdrsref(r.label, r.ref, lp, gp, rs)), u)
+    return filter(lambda r: PRef(rename_pvar(r.plabel, lp, gp, ps), rename_pdrsref(r.plabel, r.ref, lp, gp, rs)), u)
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsDisjoin`
+def disjoin(d1, d2):
+    """Disjoins PDRS d1 from PDRS d2, where d1 is disjoined from d2 iff all duplicate
+    occurrences of PVar's and PDRSRef's from PDRS d2 in PDRS d1 are replaced by new
+    variables.
+    """
+    ops = intersect(d2.get_pvars(), d1.get_pvars())
+    nps = get_new_pvars(ops, union(d2.get_pvars(), d1.get_pvars()))
+    ors = intersect(d2.get_variables(), d1.get_variables())
+    nrs = get_new_drsrefs(ors, union(d2.get_variables(), d1.get_variables()))
+    return d2.alpha_convert(zip(ors, nrs), zip(ops, nps))
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsAMerge`
+def amerge(d1, d2):
+    """Applies assertive merge to PDRS d1 and PDRS d2,"""
+    if isinstance(d2, LambdaPDRS) or isinstance(d1, LambdaPDRS):
+        return AMerge(d1, d2)
+    elif isinstance(d2, AMerge):
+        if d2.drs_a.islambda:
+            return AMerge(d2.drs_a, amerge(d1, d2.drs_b))
+        elif d2.drs_b.islambda:
+            return AMerge(amerge(d1, d2.drs_a), d2.drs_b)
+        else:
+            return amerge(d1, d2.resolve_merges())
+    elif isinstance(d1, AMerge):
+        if d1.drs_a.islambda:
+            return AMerge(d1.drs_a, amerge(d1.drs_b, d2))
+        elif d1.drs_b.islambda:
+            return AMerge(d1.drs_b, amerge(d1.drs_a, d2))
+        else:
+            return amerge(d2, d1.resolve_merges())
+    elif isinstance(d2, PMerge):
+        if d2.drs_a.islambda:
+            return PMerge(d2.drs_a, amerge(d1, d2.drs_b))
+        elif d2.drs_b.islambda:
+            return AMerge(pmerge(d1, d2.drs_a), d2.drs_b)
+        else:
+            return amerge(d1, d2.resolve_merges())
+    elif isinstance(d1, PMerge):
+        if d1.drs_a.islambda:
+            return PMerge(d1.drs_a, amerge(d1.drs_b, d2))
+        elif d1.drs_b.islambda:
+            return AMerge(d1.drs_b, pmerge(d1.drs_a, d2))
+        else:
+            return amerge(d2, d1.resolve_merges())
+    else:
+        p1 = d1.resolve_merges().purify()
+        p2 = disjoin(d2.resolve_merges().purify(), p1)
+        if not iterable_type_check([p1, p2], PDRS):
+            return AMerge(p1, p2)
+        p3 = p1.alpha_convert([(p1.label, p2.label)], [])
+        p4 = PDRS(p1.label, p2.mapper, p2.referents, p2.conditions).alpha_convert([(p1.label, p2.label)], [])
+        return PDRS(p2.label, union_inplace(p3.mapper, p4.mapper), union_inplace(p3.rererents, p4.rererents), \
+                    union_inplace(p3.conditions, p4.conditions)).purify()
+
+
+## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsPMerge`
+def pmerge(d1, d2):
+    """Applies projective merge to PDRS d1 and PDRS d2,"""
+    if isinstance(d2, LambdaPDRS) or isinstance(d1, LambdaPDRS):
+        return PMerge(d1, d2)
+    elif isinstance(d2, PMerge):
+        if d2.drs_a.islambda:
+            return AMerge(d2.drs_a, pmerge(d1, d2.drs_b))
+        elif d2.drs_b.islambda:
+            return AMerge(pmerge(d1, d2.drs_a), d2.drs_b)
+        else:
+            return pmerge(d1, d2.resolve_merges())
+    elif isinstance(d1, AMerge):
+        if d1.drs_a.islambda:
+            return PMerge(amerge(d1.drs_a, d1.drs_a.get_empty()), pmerge(d1.drs_b, d2))
+        elif d1.drs_b.islambda:
+            return PMerge(d1.drs_b, amerge(d1.drs_a, pmerge(d1.drs_a, d2)))
+        else:
+            return pmerge(d2, d1.resolve_merges())
+    elif isinstance(d2, PMerge):
+        if d2.drs_a.islambda:
+            return PMerge(d2.drs_a, pmerge(d1, d2.drs_b))
+        elif d2.drs_b.islambda:
+            return PMerge(pmerge(d1, d2.drs_a), d2.drs_b)
+        else:
+            return pmerge(d1, d2.resolve_merges())
+    elif isinstance(d1, PMerge):
+        if d1.drs_a.islambda:
+            return PMerge(d1.drs_a, pmerge(d1.drs_b, d2))
+        elif d1.drs_b.islambda:
+            return PMerge(d1.drs_b, pmerge(d1.drs_a, d2))
+        else:
+            return pmerge(d2, d1.resolve_merges())
+    else:
+        p1 = d1.resolve_merges().purify()
+        p2 = disjoin(d2.resolve_merges().purify(), p1)
+        if not iterable_type_check([p1, p2], PDRS):
+            return PMerge(p1, p2)
+        return PDRS(p2.label, union_inplace(union_inplace([p2.label, p1.label], p1.mapper), p2.mapper), \
+                    union_inplace(p1.rererents, p2.rererents), \
+                    union_inplace(p1.conditions, p1.conditions)).purify()
 
 
 # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dup`
@@ -172,14 +273,14 @@ class PRef(AbstractDRSRef):
     def __init__(self, label, drsRef):
         if not isinstance(label, PVar) or not isinstance(drsRef, [PDRSRef, LambdaPDRSRef]):
             raise TypeError
-        self._label = label
+        self._plabel = label
         self._ref = drsRef
 
     def __ne__(self, other):
-        return self.__class__ != other.__class__ or self._label != other._label or self._ref != other._ref
+        return self.__class__ != other.__class__ or self._plabel != other._plabel or self._ref != other._ref
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self._label == other._label and self._ref == other._ref
+        return self.__class__ == other.__class__ and self._plabel == other._plabel and self._ref == other._ref
 
     def _has_antecedent(self, drs, conds):
         # Not required for PRef's
@@ -198,7 +299,7 @@ class PRef(AbstractDRSRef):
             raise TypeError
         pg = drsGP.get_pgraph()
         vs = pg.nodes()
-        if drsLP.label in vs and self._label in vs:
+        if drsLP.label in vs and self._plabel in vs:
             u = drsGP.get_universes()
             for pv in vs:
                 if pv in nx.dfs_postorder_nodes(pg, source=drsLP.label) and \
@@ -259,11 +360,11 @@ class PRef(AbstractDRSRef):
         return self._ref
 
     @property
-    def label(self):
-        return self._label
+    def plabel(self):
+        return self._plabel
 
     def increase_new(self):
-        return PRef(self._label, self._ref.increase_new())
+        return PRef(self._plabel, self._ref.increase_new())
 
     def to_drsref(self):
         return DRSRef(self._ref)
@@ -278,8 +379,8 @@ class PRef(AbstractDRSRef):
             A unicode string.
         """
         if notation == SHOW_BOX:
-            return u'%i %s %s' % (self._label, self.modPointer, self._ref.show(notation))
-        return u'<%i, %s>' % (self._label, self._ref.show(notation))
+            return u'%i %s %s' % (self._plabel, self.modPointer, self._ref.show(notation))
+        return u'<%i, %s>' % (self._plabel, self._ref.show(notation))
 
 
 class AbstractPDRS(AbstractDRS):
@@ -418,10 +519,6 @@ class AbstractPDRS(AbstractDRS):
         """Test whether a pointer pv in local PDRS lp is bound by a label in this global PDRS."""
         return False
 
-    def get_empty(self):
-        """Returns an empty PDRS, if possible with the same label."""
-        raise NotImplementedError
-
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
     def purify_pvars(self, gp, pvs):
         raise NotImplementedError
@@ -438,6 +535,11 @@ class AbstractPDRS(AbstractDRS):
         _, prs = cgp.get_unbound_dup_prefs(cgp)
         drs, _ = cgp.purify_refs(cgp, zip(prs, get_new_drsrefs(prs, cgp.get_variables())))
         return drs
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
+    def strip_pvars(self):
+        """Strips projection variables from this PDRS resulting in a DRS."""
+        raise NotImplementedError
 
 
 class LambdaPDRS(AbstractPDRS):
@@ -528,6 +630,11 @@ class LambdaPDRS(AbstractPDRS):
         """
         return LambdaPDRS(LambdaDRSVar(self._var._var, [rename_var(PDRSRef(v,[]), rs).var for v in self._var._set]), self._pos)
 
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsResolveMerges`.
+    def resolve_merges(self):
+        """ Resolves all unresolved merges in a PDRS."""
+        return self
+
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs`
     def purify_refs(self, gd, pvs):
         return self
@@ -535,6 +642,11 @@ class LambdaPDRS(AbstractPDRS):
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
     def purify_pvars(self, gp, pvs):
         return self, pvs
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
+    def strip_pvars(self):
+        """Strips projection variables from this PDRS resulting in a DRS."""
+        return LambdaDRS(self._var, self._pos)
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
     def get_unbound_dup_prefs(self, gp, eps=[]):
@@ -684,6 +796,11 @@ class GenericMerge(AbstractPDRS):
         cd2, pvs2 = self._drsB.purify_refs(gp, pvs1)
         return type(self)(cd1, cd2), pvs2
 
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
+    def strip_pvars(self):
+        """Strips projection variables from this PDRS resulting in a DRS."""
+        return Merge(self._drsA.strip_pvars(), self._drsB.strip_pvars())
+
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
     def get_unbound_dup_prefs(self, gp, eps=[]):
         """Returns a tuple of existing 'PRef's (eps) and unbound duplicate 'PRef's
@@ -721,6 +838,11 @@ class AMerge(GenericMerge):
         are locally bound.
         """
         return self._drsA.isplain and self._drsB.isplain
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsResolveMerges`.
+    def resolve_merges(self):
+        """ Resolves all unresolved merges in a PDRS."""
+        return amerge(self._drsA, self._drsB)
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs`
     def show(self, notation):
@@ -773,6 +895,11 @@ class PMerge(GenericMerge):
         """
         return False
 
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsResolveMerges`.
+    def resolve_merges(self):
+        """ Resolves all unresolved merges in a PDRS."""
+        return pmerge(self._drsA, self._drsB)
+
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Show.hs`
     def show(self, notation):
         """For pretty printing.
@@ -812,10 +939,12 @@ class PDRS(AbstractPDRS):
         self._mapper = mapper # maps a PVar to a PVar
 
     def __ne__(self, other):
-        return self.__class__ != other.__class__ or self._refs != other._refs or self._conds != other._conds
+        return self.__class__ != other.__class__ or self._refs != other._refs or self._conds != other._conds or \
+                self._label != other._label
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self._refs == other._refs and self._conds == other._conds
+        return self.__class__ == other.__class__ and self._refs == other._refs and self._conds == other._conds and \
+                self._label == other._label
 
     def __repr__(self):
         return 'PDRS(%i,%s,%s)' % (self._label, self._refs, self._conds)
@@ -850,9 +979,9 @@ class PDRS(AbstractPDRS):
         """Test whether this PDRS is plain, where a PDRS is plain iff all projection pointers
         are locally bound.
         """
-        if not all([x.label == self._label for x in self._refs]): return False
+        if not all([x.plabel == self._label for x in self._refs]): return False
         for c in self._cond:
-            if not (c.label == self._label and c._plain()): return False
+            if not (c.plabel == self._label and c._plain()): return False
         return True
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
@@ -886,8 +1015,8 @@ class PDRS(AbstractPDRS):
             u.add(x)
             u.add(y)
         for r in self._refs:
-            u.add(r.label)
-        #u = union_inplace(u, [r.label for r in self._refs])
+            u.add(r.plabel)
+        #u = union_inplace(u, [r.plabel for r in self._refs])
         for c in self._conds:
             u = c._pvars(u)
         return u
@@ -975,7 +1104,7 @@ class PDRS(AbstractPDRS):
             for prd,npr in prs:
                 if pr.ref == prd.ref \
                         and (pr.has_projected_bound(self, prd, gd) \
-                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.plabel, prd.plabel))):
                     return npr
             return pr
         # Must return tuple to be compatible with AbstractDRS spec.
@@ -989,13 +1118,22 @@ class PDRS(AbstractPDRS):
         pvs1 = [d1.label]
         pvs1.extend([x[0] for x in d1.mapper])
         pvs1.extend([x[1] for x in d1.mapper])
-        pvs1 = union(pvs1, [r.label for r in d1.referents])
+        pvs1 = union(pvs1, [r.plabel for r in d1.referents])
         pvs2 = union(pvs, pvs1)
         c2 = []
         for c in d1.conds:
             x, pvs2 = c._purify_pvars(gp, None, pvs2)
             c2.append(x)
         return PDRS(d1.label, d1.mapper, d1.referents, c2), pvs2
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
+    def strip_pvars(self):
+        """Strips projection variables from this PDRS resulting in a DRS."""
+        conds = []
+        for c in self._conds:
+            conds.append(c._strip_pvars())
+        refs = [x.ref for x in self._refs]
+        return DRS(refs, conds)
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
     def get_unbound_dup_prefs(self, gp, eps=[]):
@@ -1143,28 +1281,31 @@ class IPDRSCond(object):
     def _showmod(self):
         return 0
 
+    def _strip_pvars(self):
+        raise NotImplementedError
+
 
 class PCond(AbstractDRSCond, IPDRSCond):
     """A projected condition, consisting of a PVar and a AbstractDRSCond."""
     def __init__(self, label, cond):
         if not isinstance(label, PVar) or not isinstance(cond, AbstractDRSCond):
             raise TypeError
-        self._label = label
+        self._plabel = label
         self._cond = cond
 
     def __ne__(self, other):
-        return self.__class__ != other.__class__ or self._label != other._label or self._cond != other._cond
+        return self.__class__ != other.__class__ or self._plabel != other._plabel or self._cond != other._cond
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self._label == other._label and self._cond == other._cond
+        return self.__class__ == other.__class__ and self._plabel == other._plabel and self._cond == other._cond
 
     def __repr__(self):
-        return 'PCond(%i,%s)' % (self._label, self._conds)
+        return 'PCond(%i,%s)' % (self._plabel, self._conds)
 
     def _isproper_subdrsof(self, sd, gd, pv):
         # Pass down to member condition
         assert pv is None
-        return self._cond._isproper_subdrsof(sd, gd, self._label)
+        return self._cond._isproper_subdrsof(sd, gd, self._plabel)
 
     def _universes(self, u):
         # Pass down to member condition
@@ -1183,34 +1324,34 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def _get_freerefs(self, ld, gd, pv):
         # Pass down to member condition
         assert pv is None
-        return self._cond._get_freerefs(ld, gd, self._label)
+        return self._cond._get_freerefs(ld, gd, self._plabel)
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _edges(self, es, pv):
-        return union_inplace(self._cond._edges(es, self._label), [(pv, self._label)])
+        return union_inplace(self._cond._edges(es, self._plabel), [(pv, self._plabel)])
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsPVars:pvars
     def _pvars(self, u):
-        u.add(self.label)
+        u.add(self.plabel)
         return self._cond._pvars(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
     def _convert(self, ld, gd, rs, pv, ps):
         # Pass down to member condition
         assert pv is None
-        return PCond(rename_pvar(self._label, ld, gd, ps), self._cond._convert(ld, gd, rs, self._label, ps))
+        return PCond(rename_pvar(self._plabel, ld, gd, ps), self._cond._convert(ld, gd, rs, self._plabel, ps))
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs:purify
     def _purify(self, gd, rs, pv, ps):
         assert pv is None
-        cond, _ = self._cond._purify(gd, rs, self._label, ps)
+        cond, _ = self._cond._purify(gd, rs, self._plabel, ps)
         # Must return tuple to be compatible with AbstractDRS spec
-        return PCond(self._label, cond), None
+        return PCond(self._plabel, cond), None
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars:purify
     def _purify_pvars(self, gp, pv, ps):
-        cond, ps = self._cond._purify_pvars(gp, self._label, ps)
-        return PCond(self._label, cond), ps
+        cond, ps = self._cond._purify_pvars(gp, self._plabel, ps)
+        return PCond(self._plabel, cond), ps
 
     def _labels(self, u):
         return self._cond._labels(u)
@@ -1225,15 +1366,18 @@ class PCond(AbstractDRSCond, IPDRSCond):
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs:dups
     def _dups(self, lp, gp, eps, pv):
         assert pv is None
-        return self._conf._dups(lp, gp, eps, self._label)
+        return self._conf._dups(lp, gp, eps, self._plabel)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isPlainPDRS:plain
     def _plain(self):
         return self._cond._plain()
 
+    def _strip_pvars(self):
+        return self._cond._strip_pvars()
+
     @property
-    def label(self):
-        return self._label
+    def plabel(self):
+        return self._plabel
 
     @property
     def drscond(self):
@@ -1241,7 +1385,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
 
     def resolve_merges(self):
         # Pass down to member condition
-        return PCond(self._label, self._cond.resolve_merges())
+        return PCond(self._plabel, self._cond.resolve_merges())
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1257,11 +1401,11 @@ class PCond(AbstractDRSCond, IPDRSCond):
             mod = self._cond._showmod()
             s = self._cond.show(notation)
             if mod > 0:
-                return self.show_modifier(u'%i %s' % (self._label, self.modPointer), mod, s)
-            return u'%i %s %s' % (self._label, self.modPointer, s)
+                return self.show_modifier(u'%i %s' % (self._plabel, self.modPointer), mod, s)
+            return u'%i %s %s' % (self._plabel, self.modPointer, s)
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return u'<%i, %s>' % (self._label, self._cond.show(notation))
-        return u'PCond(%i, %s)' % (self._label, self._cond.show(notation))
+            return u'<%i, %s>' % (self._plabel, self._cond.show(notation))
+        return u'PCond(%i, %s)' % (self._plabel, self._cond.show(notation))
 
 
 class PRel(Rel, IPDRSCond):
@@ -1288,7 +1432,7 @@ class PRel(Rel, IPDRSCond):
             for prd,npr in prs:
                 if pr.ref == prd.ref \
                         and (pr.has_projected_bound(self, prd, gd) \
-                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.plabel, prd.plabel))):
                     return npr.ref
             return pr.ref
         # Must return tuple to be compatible with AbstractDRS spec
@@ -1312,6 +1456,9 @@ class PRel(Rel, IPDRSCond):
 
     def _showmod(self):
         return -1
+
+    def _strip_pvars(self):
+        return Rel(self._rel, [x.ref for x in self._refs])
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1360,6 +1507,9 @@ class PNeg(Neg, IPDRSCond):
 
     def _showmod(self):
         return 0 if self._drs.islambda else 2
+
+    def _strip_pvars(self):
+        return Neg(self._drs.strip_pvars())
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1432,6 +1582,9 @@ class PImp(Imp, IPDRSCond):
     def _showmod(self):
         return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
+    def _strip_pvars(self):
+        return Imp(self._drsA.strip_pvars(), self._drsB.strip_pvars())
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1502,6 +1655,9 @@ class POr(Or, IPDRSCond):
     def _showmod(self):
         return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
+    def _strip_pvars(self):
+        return Or(self._drsA.strip_pvars(), self._drsB.strip_pvars())
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1536,7 +1692,7 @@ class PProp(Prop, IPDRSCond):
             for prd,npr in prs:
                 if pr.ref == prd.ref \
                         and (pr.has_projected_bound(self, prd, gd) \
-                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.label, prd.label))):
+                                or (pr.has_bound(self, gd) and gd.has_accessible_context(pr.plabel, prd.plabel))):
                     return npr.ref
             return pr.ref
         # Must return tuple to be compatible with AbstractDRS spec
@@ -1573,6 +1729,9 @@ class PProp(Prop, IPDRSCond):
 
     def _showmod(self):
         return 0 if self._drs.islambda else 2
+
+    def _strip_pvars(self):
+        return Prop(self._ref.ref, self._drs.strip_pvars())
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1622,6 +1781,9 @@ class PDiamond(Diamond, IPDRSCond):
     def _showmod(self):
         return 0 if self._drs.islambda else 2
 
+    def _strip_pvars(self):
+        return Diamond(self._drs.strip_pvars())
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1670,6 +1832,9 @@ class PBox(Box, IPDRSCond):
     def _showmod(self):
         return 0 if self._drs.islambda else 2
 
+    def _strip_pvars(self):
+        return Box(self._drs.strip_pvars())
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
@@ -1683,42 +1848,5 @@ class PBox(Box, IPDRSCond):
         raise NotImplementedError
 
 
-class Item(Showable):
-    """Rows of a PTable"""
-    def __init__(self, content, pv1, pv2):
-        if not iterable_type_check([pv1, pv2], PVar) or \
-                not isinstance(content, [PRef, PRel, PImp, POr, PProp, PDiamond, PBox, MAP]):
-            raise TypeError
-        self.content = content
-        self.pv1 = pv1
-        self.pv2 = pv2
-
-    def __ne__(self, other):
-        return self.__class__ != other.__class__ or self.pv1 != other.pv1 or self.pv2 != other.pv2 or \
-                self.content != other.content
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.pv1 == other.pv1 and self.pv2 == other.pv2 and \
-            self.content == other.content
-
-    def show(self, notation):
-        """Display for screen.
-
-        Args:
-            notation: An integer notation.
-
-        Returns:
-            A unicode string.
-        """
-        raise NotImplementedError
-
-
-
-class PTable(Showable):
-    """Projection Table"""
-    def __init__(self, items):
-        if not iterable_type_check(items, Item):
-            raise TypeError
-        self.items = items
 
 
