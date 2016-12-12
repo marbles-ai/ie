@@ -367,7 +367,7 @@ class PRef(AbstractDRSRef):
         return PRef(self._plabel, self._ref.increase_new())
 
     def to_drsref(self):
-        return DRSRef(self._ref)
+        return self._ref.to_drsref()
 
     def show(self, notation):
         """Display for screen.
@@ -436,6 +436,12 @@ class AbstractPDRS(AbstractDRS):
         does not contain free pointers.
         """
         not self.ispresup
+
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Properties.hs:isFOLDRS`.
+    @property
+    def isfol(self):
+        """Test whether this DRS can be translated into a FOLForm instance."""
+        return self.to_drs().isfol()
 
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:pdrsPurify`
     def purify(self):
@@ -536,10 +542,44 @@ class AbstractPDRS(AbstractDRS):
         drs, _ = cgp.purify_refs(cgp, zip(prs, get_new_drsrefs(prs, cgp.get_variables())))
         return drs
 
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs`
+    def _move_pcontent(self, lp, gp):
+        """Moves projected content in PDRS to its interpretation site in PDRS lp
+        based on global PDRS gp.
+        """
+        raise NotImplementedError
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs`
+    def _insert_prefs(self, pref, gp):
+        raise NotImplementedError
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs`
+    def _insert_pcond(self, pcon, gp):
+        raise NotImplementedError
+
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
     def strip_pvars(self):
         """Strips projection variables from this PDRS resulting in a DRS."""
         raise NotImplementedError
+
+    def to_mfol(self, world):
+        """Converts a PDRS to a modal FOL formula with world.
+
+        Args:
+            world: A ie.fol.FOLVar instance
+
+        Returns:
+            An ie.fol.FOLForm instance.
+
+        Raises:
+            ie.fol.FOLConversionError
+        """
+        return self.to_drs().to_mfol(world)
+
+    def to_drs(self):
+        """Translates a PDRS into a DRS."""
+        gp = self.resolve_merges().purify()
+        return gp._move_pcontent(gp.get_empty(), gp).strip_pvars()
 
 
 class LambdaPDRS(AbstractPDRS):
@@ -642,6 +682,21 @@ class LambdaPDRS(AbstractPDRS):
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPVars`
     def purify_pvars(self, gp, pvs):
         return self, pvs
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs`
+    def _move_pcontent(self, lp, gp):
+        """Moves projected content in PDRS to its interpretation site in PDRS lp
+        based on global PDRS gp.
+        """
+        return self
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs`
+    def _insert_prefs(self, pref, gp):
+        return self
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs`
+    def _insert_pcond(self, pcon, gp):
+        return self
 
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
     def strip_pvars(self):
@@ -795,6 +850,21 @@ class GenericMerge(AbstractPDRS):
         cd1, pvs1 = self._drsA.purify_refs(gp, pvs)
         cd2, pvs2 = self._drsB.purify_refs(gp, pvs1)
         return type(self)(cd1, cd2), pvs2
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs`
+    def _move_pcontent(self, lp, gp):
+        """Moves projected content in PDRS to its interpretation site in PDRS lp
+        based on global PDRS gp.
+        """
+        return self._drsB._move_pcontent(self._drsA._move_pcontent(lp, gp), gp)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs`
+    def _insert_prefs(self, pref, gp):
+        return type(self)(self._drsA._insert_prefs(pref, gp), self._drsB._insert_prefs(pref, gp))
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs`
+    def _insert_pcond(self, pcon, gp):
+        return type(self)(self._drsA._insert_prefs(pcon, gp), self._drsB._insert_prefs(pcon, gp))
 
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
     def strip_pvars(self):
@@ -962,6 +1032,14 @@ class PDRS(AbstractPDRS):
         return es
 
     @property
+    def referents(self):
+        return [x for x in self._refs] # shallow copy
+
+    @property
+    def conditions(self):
+        return [x for x in self._conds] # shallow copy
+
+    @property
     def label(self):
         return self._label
 
@@ -1126,13 +1204,55 @@ class PDRS(AbstractPDRS):
             c2.append(x)
         return PDRS(d1.label, d1.mapper, d1.referents, c2), pvs2
 
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs`
+    def _move_pcontent(self, lp, gp):
+        """Moves projected content in PDRS to its interpretation site in PDRS lp
+        based on global PDRS gp.
+        """
+        lp = self
+        for c in lp._conds:
+            lp = c._move_pcontent(lp, gp)
+        return lp._insert_prefs(filter(lambda r: r.has_bound_pref(lp, gp), lp._refs), gp)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs`
+    def _insert_prefs(self, prs, gp):
+        labels = gp.get_labels()
+        refs = []
+        lp = self
+        ni = len(prs)
+        i = 0
+        while i < 0:
+            pr = prs[i]
+            ant = [m[1] for m in filter(lambda x: x[0] == pr.plabel and x[1] in labels, gp.get_maps())]
+            if len(ant) != 0:
+                prs[i] = PRef(ant[0], pr.ref) # no increment if i
+            elif lp._label == pr.plabel or gp.test_free_pvar(pr.plabel):
+                lp = PDRS(lp._label, lp._mapper, union_inplace(lp.referents, [pr]), lp._conds)
+                i += 1
+            else:
+                lp = PDRS(lp._label, lp._mapper, lp._refs, [c._insert_prefs(pr, gp) for c in lp._conds])
+                i += 1
+        return lp
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs`
+    def _insert_pcond(self, pc, gp):
+        labels = gp.get_labels()
+        ant = [m[1] for m in filter(lambda x: x[0] == pc.plabel and x[1] in labels, gp.get_maps())]
+        if len(ant) != 0:
+            return self._insert_pcond(PCond(ant[0], pc.condition), gp)
+        elif self._label == pc.plabel or gp.test_free_pvar(pc.plabel):
+            conds = [c for c in self._conds]
+            conds.append(pc)
+            return PDRS(self._label, self._mapper, self._refs, conds)
+        return PDRS(self._label, self._mapper, self._refs, [c._insert_pcond(pc, gp) for c in self._conds])
+
     ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:stripPVars`
     def strip_pvars(self):
         """Strips projection variables from this PDRS resulting in a DRS."""
         conds = []
         for c in self._conds:
             conds.append(c._strip_pvars())
-        refs = [x.ref for x in self._refs]
+        refs = [x.to_drsref() for x in self._refs]
         return DRS(refs, conds)
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:unboundDupPRefs`.
@@ -1284,6 +1404,22 @@ class IPDRSCond(object):
     def _strip_pvars(self):
         raise NotImplementedError
 
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs:move`
+    def _move_pcontent(self, lp, gp):
+        raise NotImplementedError
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs:insert`
+    def _insert_prefs(self, pr, gp):
+        raise NotImplementedError
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs:insert`
+    def _insert_pcond(self, pc, gp):
+        raise NotImplementedError
+
+    @property
+    def condition(self):
+        return self
+
 
 class PCond(AbstractDRSCond, IPDRSCond):
     """A projected condition, consisting of a PVar and a AbstractDRSCond."""
@@ -1302,7 +1438,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def __repr__(self):
         return 'PCond(%i,%s)' % (self._plabel, self._conds)
 
-    def _isproper_subdrsof(self, sd, gd, pv):
+    def _isproper_subdrsof(self, sd, gd, pv=None):
         # Pass down to member condition
         assert pv is None
         return self._cond._isproper_subdrsof(sd, gd, self._plabel)
@@ -1321,7 +1457,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return self._cond.lambda_tuple(u)
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePRefs:free`.
-    def _get_freerefs(self, ld, gd, pv):
+    def _get_freerefs(self, ld, gd, pv=None):
         # Pass down to member condition
         assert pv is None
         return self._cond._get_freerefs(ld, gd, self._plabel)
@@ -1336,13 +1472,13 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return self._cond._pvars(u)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
-    def _convert(self, ld, gd, rs, pv, ps):
+    def _convert(self, ld, gd, rs, pv=None, ps=None):
         # Pass down to member condition
         assert pv is None
         return PCond(rename_pvar(self._plabel, ld, gd, ps), self._cond._convert(ld, gd, rs, self._plabel, ps))
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs:purify
-    def _purify(self, gd, rs, pv, ps):
+    def _purify(self, gd, rs, pv=None, ps=None):
         assert pv is None
         cond, _ = self._cond._purify(gd, rs, self._plabel, ps)
         # Must return tuple to be compatible with AbstractDRS spec
@@ -1372,6 +1508,18 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def _plain(self):
         return self._cond._plain()
 
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/movePContent.hs:move`
+    def _move_pcontent(self, lp, gp):
+        return lp._insert_pcon(PCond(self._label, self._cond._move_pcontent(lp, gp)), gp)
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPRefs.hs:insert`
+    def _insert_prefs(self, pr, gp):
+        return PCond(self._label, self._cond._insert_prefs(pr, gp))
+
+    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/insertPCon.hs:insert`
+    def _insert_pcond(self, pc, gp):
+        return PCond(self._label, self._cond._insert_pcond(pc, gp))
+
     def _strip_pvars(self):
         return self._cond._strip_pvars()
 
@@ -1380,7 +1528,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return self._plabel
 
     @property
-    def drscond(self):
+    def condition(self):
         return self._cond
 
     def resolve_merges(self):
@@ -1414,20 +1562,20 @@ class PRel(Rel, IPDRSCond):
         super(PRel, self).__init__(drsRel, drsRefs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Bindings.hs:pdrsFreePRefs:free
-    def _get_freerefs(self, ld, gd, pv):
+    def _get_freerefs(self, ld, gd, pv=None):
         return filter(lambda x: not PRef(pv, x).has_bound(ld, gd), self._refs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Properties.hs:isProperPDRS:isProperSubPDRS
-    def _isproper_subdrsof(self, sd, gd, pv):
+    def _isproper_subdrsof(self, sd, gd, pv=None):
         return all(filter(lambda x: not PRef(pv, x).has_bound(sd, gd), self._refs))
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renamePCons:rename
-    def _convert(self, ld, gd, rs, pv, ps):
+    def _convert(self, ld, gd, rs, pv=None, ps=None):
         refs = [rename_pdrsref(pv, r, ld, gd, rs) for r in self._refs]
         return PRel(self._rel, refs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs:purify
-    def _purify(self, gd, rs, pv, ps):
+    def _purify(self, gd, rs, pv=None, ps=None):
         def convert(prs, pr):
             for prd,npr in prs:
                 if pr.ref == prd.ref \
@@ -1456,6 +1604,15 @@ class PRel(Rel, IPDRSCond):
 
     def _showmod(self):
         return -1
+
+    def _move_pcontent(self, lp, gp):
+        return self
+
+    def _insert_prefs(self, pr, gp):
+        return self
+
+    def _insert_pcond(self, pc, gp):
+        return self
 
     def _strip_pvars(self):
         return Rel(self._rel, [x.ref for x in self._refs])
@@ -1511,11 +1668,19 @@ class PNeg(Neg, IPDRSCond):
     def _strip_pvars(self):
         return Neg(self._drs.strip_pvars())
 
+    def _move_pcontent(self, lp, gp):
+        return PNeg(self._drs.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return PNeg(self._drs.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return PNeg(self._drs.insert_pconds(pc, gp))
+
     def _antecedent(self, ref, drs):
         raise NotImplementedError
 
     def _ispure(self, ld, gd, rs):
-        raise NotImplementedError
         raise NotImplementedError
 
     def to_mfol(self, world):
@@ -1530,7 +1695,7 @@ class PImp(Imp, IPDRSCond):
     def __init__(self, drsA, drsB):
         super(PImp, self).__init__(drsA, drsB)
 
-    def _purify(self, gd, rs, pv, ps):
+    def _purify(self, gd, rs, pv=None, ps=None):
         cd1, _ = self._drsA.purify_refs(gd, rs, ps)
         cd2, _ = self._drsB.purify_refs(gd, rs, ps)
         return PImp(cd1, cd2), None
@@ -1582,6 +1747,15 @@ class PImp(Imp, IPDRSCond):
     def _showmod(self):
         return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
+    def _move_pcontent(self, lp, gp):
+        return PImp(self._drsA.get_empty(), self._drsB.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return PImp(self._drsA.insert_prefs(pr, gp), self._drsB.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return PImp(self._drsA.insert_pconds(pc, gp), self._drsB.insert_pconds(pc, gp))
+
     def _strip_pvars(self):
         return Imp(self._drsA.strip_pvars(), self._drsB.strip_pvars())
 
@@ -1603,7 +1777,7 @@ class POr(Or, IPDRSCond):
     def __init__(self, drsA, drsB):
         super(POr, self).__init__(drsA, drsB)
 
-    def _purify(self, gd, rs, pv, ps):
+    def _purify(self, gd, rs, pv=None, ps=None):
         cd1, _ = self._drsA.purify_refs(gd, rs, ps)
         cd2, _ = self._drsB.purify_refs(gd, rs, ps)
         return POr(cd1, cd2), None
@@ -1655,6 +1829,15 @@ class POr(Or, IPDRSCond):
     def _showmod(self):
         return 0 if self._drsA.islambda and self._drsB.islambda else 2
 
+    def _move_pcontent(self, lp, gp):
+        return POr(self._drsA.get_empty(), self._drsB.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return POr(self._drsA.insert_prefs(pr, gp), self._drsB.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return POr(self._drsA.insert_pconds(pc, gp), self._drsB.insert_pconds(pc, gp))
+
     def _strip_pvars(self):
         return Or(self._drsA.strip_pvars(), self._drsB.strip_pvars())
 
@@ -1677,17 +1860,17 @@ class PProp(Prop, IPDRSCond):
         super(PProp, self).__init__(drsRef, drs)
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/Binding.hs:pdrsFreePRefs:free.
-    def _get_freerefs(self, ld, gd, pvar):
+    def _get_freerefs(self, ld, gd, pvar=None):
         return union(filter(lambda x: not x.has_bound(x, ld, gd), [PRef(pvar, self._ref)]), self._drs.get_freerefs(gd))
 
-    def _isproper_subdrsof(self, sd, gd, pvar):
+    def _isproper_subdrsof(self, sd, gd, pvar=None):
         return PRef(pvar, self._ref).has_bound(sd, gd) and self._drs._isproper_subdrsof(gd)
 
     # Original haskell code in /pdrt-sandbox/src/Data/DRS/LambdaCalculus.hs:renameCons:convertCon
-    def _convert(self, ld, gd, rs, pv, ps):
+    def _convert(self, ld, gd, rs, pv=None, ps=None):
         return Prop(rename_pdrsref(pv, self._ref, ld, gd, rs), self._drs.rename_subdrs(gd, rs, ps))
 
-    def _purify(self, gd, rs, pv, ps):
+    def _purify(self, gd, rs, pv=None, ps=None):
         def convert(prs, pr):
             for prd,npr in prs:
                 if pr.ref == prd.ref \
@@ -1730,8 +1913,17 @@ class PProp(Prop, IPDRSCond):
     def _showmod(self):
         return 0 if self._drs.islambda else 2
 
+    def _move_pcontent(self, lp, gp):
+        return PProp(self._ref, self._drs.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return PProp(self._rel, self._drs.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return PProp(self._rel, self._drs.insert_pconds(pc, gp))
+
     def _strip_pvars(self):
-        return Prop(self._ref.ref, self._drs.strip_pvars())
+        return Prop(self._ref.to_drsref(), self._drs.strip_pvars())
 
     def _antecedent(self, ref, drs):
         raise NotImplementedError
@@ -1780,6 +1972,15 @@ class PDiamond(Diamond, IPDRSCond):
 
     def _showmod(self):
         return 0 if self._drs.islambda else 2
+
+    def _move_pcontent(self, lp, gp):
+        return PDiamond(self._drs.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return PDiamond(self._drs.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return PDiamond(self._drs.insert_pconds(pc, gp))
 
     def _strip_pvars(self):
         return Diamond(self._drs.strip_pvars())
@@ -1831,6 +2032,15 @@ class PBox(Box, IPDRSCond):
 
     def _showmod(self):
         return 0 if self._drs.islambda else 2
+
+    def _move_pcontent(self, lp, gp):
+        return PBox(self._drs.get_empty())
+
+    def _insert_prefs(self, pr, gp):
+        return PBox(self._drs.insert_prefs(pr, gp))
+
+    def _insert_pcond(self, pc, gp):
+        return PBox(self._drs.insert_pconds(pc, gp))
 
     def _strip_pvars(self):
         return Box(self._drs.strip_pvars())
