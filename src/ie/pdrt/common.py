@@ -125,10 +125,10 @@ class Showable(object):
             A unicode string
         """
         k = len(title)
-        if k >= n-2:
+        if k >= (n - 2):
             return lc + title[0:n-2] + rc + u'\n'
-        lm = n - 2 - k/2
-        rm = n - 2 - (k - k/2)
+        lm = (n - 2 - k) / 2
+        rm = (n - 2 - k) - (n - 2 - k) / 2
         return lc + (cls.boxHorLine * lm) + title + (cls.boxHorLine * rm) + rc + u'\n'
 
     @classmethod
