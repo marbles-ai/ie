@@ -53,7 +53,7 @@ def rename_mapper(m, lp, gp, ps):
     """Applies alpha conversion to a list of MAP's m, on the basis of a
     conversion list for projection variables ps.
     """
-    return filter(lambda x: (rename_pvar(x[0], lp, gp, ps), rename_pvar(x[1], lp, gp, ps)), m)
+    return map(lambda x: (rename_pvar(x[0], lp, gp, ps), rename_pvar(x[1], lp, gp, ps)), m)
 
 
 ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:renameUniverse`
@@ -61,7 +61,7 @@ def rename_universe(u, lp, gp, ps, rs):
     """Applies alpha conversion to a list of PRef's u, on the basis of
     a conversion list for PVar's ps and PDRSRef's rs.
     """
-    return filter(lambda r: PRef(rename_pvar(r.plabel, lp, gp, ps), rename_pdrsref(r.plabel, r.ref, lp, gp, rs)), u)
+    return map(lambda r: PRef(rename_pvar(r.plabel, lp, gp, ps), rename_pdrsref(r.plabel, r.ref, lp, gp, rs)), u)
 
 
 ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Merge.hs:pdrsDisjoin`
@@ -1232,7 +1232,7 @@ class PDRS(AbstractPDRS):
         return PDRS(rename_var(self._label, ps), \
                     rename_mapper(self._mapper, self, gd, ps), \
                     rename_universe(self._refs, self, gd, ps, rs), \
-                    filter(lambda x: x._convert(self, gd, rs, None, ps), self._conds))
+                    map(lambda x: x._convert(self, gd, rs, None, ps), self._conds))
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/LambdaCalculus.hs:purifyPRefs`
     def purify_refs(self, gd, ers):
@@ -1332,7 +1332,7 @@ class PDRS(AbstractPDRS):
             dps1.extend(dps1)
             dps3.extend(d3)
             eps3.extend(e3)
-        uu = filter(lambda x: _dup(x, eps, self, gp), filter(lambda x: not x.has_other_bound(self, gp), self._refs))
+        uu = filter(lambda x: not x.has_other_bound(self, gp) and _dup(x, eps, self, gp), self._refs)
         uu.extend(dps1)
         eps1.extend(eps3)
         uu.extend(dps3)
