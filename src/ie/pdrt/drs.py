@@ -53,7 +53,7 @@ class LambdaTuple(object):
 
 # Original haskell code in /pdrt-sandbox/src/Data/DRS/Properties.hs:isPureDRS:pureRefs
 def _pure_refs(ld, gd, rs, srs):
-    return all(filter(lambda r: r.has_bound(ld, gd) or r not in srs, rs))
+    return all([(r.has_bound(ld, gd) or r not in srs) for r in rs])
 
 
 class AbstractDRS(Showable):
@@ -148,8 +148,8 @@ class AbstractDRS(Showable):
         if u is None: return []
         return u
 
-    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/DRS/Variables.hs:drsUniverses`
-    ## and `/pdrt-sandbox/src/Data/PDRS/Variables.hs:pdrsUniverses`.
+    ## @remarks original haskell code in `/pdrt-sandbox/src/Data/PDRS/Variables.hs:drsUniverses`
+    ## and `/pdrt-sandbox/src/Data/PDRS/Structure.hs:pdrsUniverses`.
     def get_universes(self, u=None):
         """Returns the list of DRSRef's from all universes in this DRS."""
         if u is None: return []
@@ -378,10 +378,10 @@ class DRS(AbstractDRS):
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
-        return all(filter(lambda x: x._isproper_subdrsof(self, gd), self._conds))
+        return all([x._isproper_subdrsof(self, gd) for x in self._conds])
 
     def _ispure_helper(self, rs, gd):
-        if any(filter(lambda x: x in rs, self._refs)): return False
+        if any([(x in rs) for x in self._refs]): return False
         if len(self._conds) == 0: return True
         rss = []
         rss.extend(rs)
@@ -403,7 +403,7 @@ class DRS(AbstractDRS):
     @property
     def isresolved(self):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
-        return all(filter(lambda x: x.isresolved, self._refs)) and all(filter(lambda x: x.isresolved, self._conds))
+        return all([x.isresolved for x in self._refs]) and all([x.isresolved for x in self._conds])
 
     @property
     def universe(self):
@@ -416,7 +416,7 @@ class DRS(AbstractDRS):
 
     def has_subdrs(self, d1):
         """Test whether d1 is a direct or indirect sub-DRS of this DRS."""
-        return self == d1 or any(filter(lambda x: x.has_subdrs(self), self._conds))
+        return self == d1 or any([x.has_subdrs(self) for x in self._conds])
 
     def get_freerefs(self, gd):
         """Returns the list of all free DRSRef's in a DRS."""
@@ -755,7 +755,7 @@ def combine(func, d):
 class AbstractDRSRef(object):
     """Abstract DRS referent"""
     def _has_antecedent(self, drs, conds):
-        return any(filter(lambda x: x._antecedent(self, drs), conds))
+        return any([x._antecedent(self, drs) for x in conds])
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1036,7 +1036,7 @@ class Rel(AbstractDRSCond):
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
-        return all(filter(lambda x: not x.has_bound(sd, gd), self._refs))
+        return all([(x.has_bound(sd, gd)) for x in self._refs])
 
     def _ispure(self, ld, gd, rs):
         if not _pure_refs(ld, gd, self._refs, rs): return (False, None)
@@ -1064,7 +1064,7 @@ class Rel(AbstractDRSCond):
 
     @property
     def isresolved(self):
-        return all(filter(lambda x: x.isresolved, self._refs))
+        return all([x.isresolved for x in self._refs])
 
     def resolve_merges(self):
         return self
