@@ -1295,10 +1295,10 @@ class PDRS(AbstractPDRS):
         """Moves projected content in PDRS to its interpretation site in PDRS lp
         based on global PDRS gp.
         """
-        lp = self
-        for c in lp._conds:
+        lp = lp._insert_prefs(filter(lambda r: not r.has_bound(lp, gp), self._refs), gp)
+        for c in self._conds:
             lp = c._move_pcontent(lp, gp)
-        return lp._insert_prefs(filter(lambda r: r.has_bound(lp, gp), lp._refs), gp)
+        return lp
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:insertPRefs.hs`
     def _insert_prefs(self, prs, gp):
@@ -1307,7 +1307,7 @@ class PDRS(AbstractPDRS):
         lp = self
         ni = len(prs)
         i = 0
-        while i < 0:
+        while i < ni:
             pr = prs[i]
             ant = [m[1] for m in filter(lambda x: x[0] == pr.plabel and x[1] in labels, gp.get_maps())]
             if len(ant) != 0:
