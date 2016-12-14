@@ -63,5 +63,10 @@ def rename_var(v, rs):
     return v
 
 
-
+def compare_lists_eq(l1, l2):
+    if len(l1) != len(l2):
+        return False
+    s1 = set(l1)
+    s2 = set(l2)
+    return len(s1.intersection(s2)) == len(s2)
 

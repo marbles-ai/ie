@@ -1,4 +1,4 @@
-from utils import iterable_type_check
+from utils import iterable_type_check, compare_lists_eq
 
 
 # Show notations
@@ -194,19 +194,19 @@ class DRSVar(AbstractDRSVar):
         return 'DRSVar(%s)' % self.to_string()
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self._name == other._name and self._idx == other._idx
+        return type(self) == type(other) and self._name == other._name and self._idx == other._idx
 
     def __ne__(self, other):
-        return self.__class__ == other.__class__ or self._name != other._name or self._idx != other._idx
+        return type(self) != type(other) or self._name != other._name or self._idx != other._idx
 
     def __hash__(self):
         return hash(self._idx) ^ hash(self._name)
 
     def __lt__(self, other):
-        return self.__class__ == other.__class__ and (self.idx < other.idx or (self._idx == other._idx and self._name < other._name))
+        return type(self) == type(other) and (self.idx < other.idx or (self._idx == other._idx and self._name < other._name))
 
     def __le__(self, other):
-        return self.__class__ == other.__class__ and (self.idx < other.idx or (self._idx == other._idx and self._name <= other._name))
+        return type(self) == type(other) and (self.idx < other.idx or (self._idx == other._idx and self._name <= other._name))
 
     def __gt__(self, other):
         return not self.__le__(other)
@@ -255,16 +255,16 @@ class LambdaDRSVar(AbstractDRSVar):
         self._set = drsVarSet
 
     def __ne__(self, other):
-        return other._var != self._var or other._set != self._set
+        return type(self) != type(other) or other._var != self._var or not compare_lists_eq(other._set, self._set)
 
     def __eq__(self, other):
-        return other._var == self._var and other._set == self._set
+        return type(self) == type(other) and other._var == self._var and compare_lists_eq(other._set, self._set)
 
     def __repr__(self):
         return 'LambdaDRSVar(%s,%s)' % (self._var.to_string(), self._set)
 
     def __hash__(self):
-        return hash(self._var) ^ hash(self._set)
+        return hash(self._var) ^ hash(len(self._set))
 
     def __lt__(self, other):
         return self._var < other._var
