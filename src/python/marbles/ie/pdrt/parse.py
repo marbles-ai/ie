@@ -28,6 +28,8 @@ from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 # * A list is contained between '{' and '}'. List can have [0,inf] elements
 # * A tuple is contained between '(' and ')'. Tuples have fixed cardinality.
 # * Elements are separated by a comma
+#
+## @cond
 
 
 class NegateOp(Keyword):
@@ -136,6 +138,7 @@ class MapDecl(List):
 
 
 PdrsDecl.grammar = '<', PosInt, ',', '{', PRefDecl, '}', ',', '{', PCondDecl, '}', ',', '{', MapDecl, '}', '>'
+## @endcond
 
 def parse_pdrs(s):
     """Convert linear notation into a DRS. All whitespace, including new lines
@@ -182,6 +185,7 @@ def parse_pdrs(s):
 
 ###########################################################################
 # DRS Parser
+## @cond
 
 
 class RelExpr(List):
@@ -250,6 +254,7 @@ class RefDecl(List):
 
 
 DrsDecl.grammar = '<', '{', RefDecl, '}', ',', '{', CondDecl, '}', '>'
+## @endcond
 
 def parse_drs(s):
     """Convert linear notation into a DRS. All whitespace, including new lines

@@ -11,6 +11,7 @@ function brew_install() {
 brew update
 brew_install coreutils
 brew_install doxygen
+brew_install graphviz
 
 # gRPC
 brew_install openssl
