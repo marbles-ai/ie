@@ -278,7 +278,7 @@ class LambdaDRSVar(AbstractDRSVar):
     def __ge__(self, other):
         return not self.__lt__(other)
 
-    # @remarks Original code in `/pdrt-sandbox/src/Data/DRS/Show.hs:showDRSLambdas`
+    # @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Show.hs">/Data/DRS/Show.hs:showDRSLambdas</a>
     def _show_lambdas(self):
         return self.opLambda + unicode(self._var) + u'.'
 
