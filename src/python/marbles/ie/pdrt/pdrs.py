@@ -1678,7 +1678,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
                 return self.show_modifier(u'%i %s' % (self._plabel, self.modPointer), mod, s)
             return u'%i %s %s' % (self._plabel, self.modPointer, s)
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return u'<%i,%s>' % (self._plabel, self._cond.show(notation))
+            return u'(%i,%s)' % (self._plabel, self._cond.show(notation))
         return u'PCond(%i,%s)' % (self._plabel, self._cond.show(notation))
 
 

@@ -28,10 +28,10 @@ class PDrsTest(unittest.TestCase):
                     [PCond(1, PRel(DRSRelation('man'),[PDRSRef('x')]))
                     ,PCond(1, PRel(DRSRelation('happy'),[PDRSRef('x')]))])
         s = d.show(SHOW_SET)
-        x = u'<1,{x},{<1,man(x)>,<1,happy(x)>},{}>'
+        x = u'<1,{x},{(1,man(x)),(1,happy(x))},{}>'
         self.assertEquals(x,s)
         s = d.show(SHOW_LINEAR)
-        x = u'1:[x|<1,man(x)>,<1,happy(x)>|]'
+        x = u'1:[x|(1,man(x)),(1,happy(x))|]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
