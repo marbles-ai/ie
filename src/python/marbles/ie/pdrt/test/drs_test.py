@@ -151,7 +151,7 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
 
-    def test6_Merge1(self):
+    def test6_MergeHappyNotHappyMan(self):
         # "A man is happy and a man is not happy."
         h = DRS([DRSRef('x')],
                     [Rel(DRSRelation('man'),[DRSRef('x')])
@@ -170,7 +170,7 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         self.assertEquals(x,s)
 
-    def test7_Merge2(self):
+    def test7_MergeHappySadMan(self):
         # "A man is not happy."
         d1 = DRS([DRSRef('x')],
                     [Rel(DRSRelation('man'),[DRSRef('x')])
@@ -180,3 +180,15 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_SET)
         x = u'<{x},{man(x),\u00AC<{},{happy(x)}>,sad(x)}>'
         self.assertEquals(x, s)
+
+    def test8_MergeRecordDate(self):
+        # "A record date."
+        a = DRS([DRSRef('x')],[])
+        record = DRS([DRSRef('y')],[Rel(DRSRelation('record'),[DRSRef('y')]), Rel(DRSRelation('nn'),[DRSRef('y'),DRSRef('x')])])
+        date = DRS([],[Rel(DRSRelation('date'), [DRSRef('x')])])
+        d1 = merge(record, date)
+        d2 = merge(a,d1)
+        s = d2.show(SHOW_SET)
+        x = u'<{x,y},{record(y),nn(y,x),date(x)}>'
+        self.assertEquals(x, s)
+
