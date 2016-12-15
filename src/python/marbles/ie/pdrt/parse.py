@@ -16,11 +16,12 @@ from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 # The following names can be used for different operators (these are all
 # case insensitive):
 #
-# * Negation operators: !, not, neg
-# * Implication operators (infix): imp, ->, =>, then
-# * Disjunction operators (infix): v, or
-# * Box operators: b, box, necessary
-# * Diamond operators: d, diamond, maybe.
+# * Negation operators: '!', 'not', 'neg'
+# * Implication operators (infix): 'imp', '->', '=>', 'then'
+# * Disjunction operators (infix): 'v', 'or'
+# * Box operators: 'b', 'box', 'necessary'
+# * Diamond operators: 'd', 'diamond', 'maybe'.
+# * Proposition operator: ':'
 #
 # Syntax:
 # * A DRS/PDRS is contained between '<' and '>'
@@ -36,7 +37,7 @@ class NegateOp(Keyword):
 class BinaryOp(Keyword):
     grammar = Enum(K('b'), K('box'), K('necessary'),
                    K('d'), K('diamond'), K('maybe'),
-                   K('imp'), K('=>'), K('->'),
+                   K('imp'), K('=>'), K('->'), K('then'),
                    K('or'), K('v'))
 
 
@@ -78,6 +79,13 @@ class PdrsDecl(List):
         return PDRS(int(self[0]), self[3].to_drs(), self[1].to_drs(), self[2].to_drs())
 
 
+class PPropExpr(List):
+    grammar = Predicate, ':', PdrsDecl
+
+    def to_drs(self):
+        return PProp(PDRSRef(self[0].encode('utf-8')), self[2].to_drs())
+
+
 class PNegExpr(List):
     grammar = NegateOp, PdrsDecl
 
@@ -93,14 +101,14 @@ class PBinaryExpr(List):
             return PDiamond(self[0].to_drs(), self[2].to_drs())
         elif self[1] in ['b', 'box', 'necessary']:
             return PBox(self[0].to_drs(), self[2].to_drs())
-        elif self[1] in ['imp', '=>', '->']:
+        elif self[1] in ['imp', '=>', '->', 'then']:
             return PImp(self[0].to_drs(), self[2].to_drs())
         else: # Must be or
             return POr(self[0].to_drs(), self[2].to_drs())
 
 
 class PCondChoice(List):
-    grammar = '(', PosInt, ',', [PNegExpr, PRelExpr, PBinaryExpr], ')'
+    grammar = '(', PosInt, ',', [PNegExpr, PRelExpr, PBinaryExpr, PPropExpr], ')'
 
     def to_drs(self):
         return PCond(int(self[0]), self[1].to_drs())
@@ -136,11 +144,12 @@ def parse_pdrs(s):
 
     The following names can be used for different operators (these are all
     case insensitive):
-        - Negation operators: !, not, neg
-        - Implication operators (infix): imp, ->, =>, then
-        - Disjunction operators (infix): v, or
-        - Box operators: b, box, necessary
-        - Diamond operators: d, diamond, maybe.
+        - Negation operators: '!', 'not', 'neg'
+        - Implication operators (infix): 'imp', '->', '=>', 'then'
+        - Disjunction operators (infix): 'v', 'or'
+        - Box operators: 'b', 'box', 'necessary'
+        - Diamond operators: 'd', 'diamond', 'maybe'.
+        - Proposition operator: ':'
 
     The following rules apply:
         - A PDRS is contained between '<' and '>'
@@ -191,6 +200,13 @@ class DrsDecl(List):
         return DRS(self[0].to_drs(), self[1].to_drs())
 
 
+class PropExpr(List):
+    grammar = Predicate, ':', DrsDecl
+
+    def to_drs(self):
+        return PProp(PDRSRef(self[0].encode('utf-8')), self[2].to_drs())
+
+
 class NegExpr(List):
     grammar = NegateOp, DrsDecl
 
@@ -206,14 +222,14 @@ class BinaryExpr(List):
             return Diamond(self[0].to_drs(), self[2].to_drs())
         elif self[1] in ['b', 'box', 'necessary']:
             return Box(self[0].to_drs(), self[2].to_drs())
-        elif self[1] in ['imp', '=>', '->']:
+        elif self[1] in ['imp', '=>', '->', 'then']:
             return Imp(self[0].to_drs(), self[2].to_drs())
         else:  # Must be or
             return Or(self[0].to_drs(), self[2].to_drs())
 
 
 class CondChoice(List):
-    grammar = [NegExpr, RelExpr, BinaryExpr]
+    grammar = [NegExpr, RelExpr, BinaryExpr, PropExpr]
 
     def to_drs(self):
         return self[0].to_drs()
@@ -242,11 +258,12 @@ def parse_drs(s):
 
     The following names can be used for different operators (these are all
     case insensitive):
-        - Negation operators: !, not, neg
-        - Implication operators (infix): imp, ->, =>, then
-        - Disjunction operators (infix): v, or
-        - Box operators: b, box, necessary
-        - Diamond operators: d, diamond, maybe.
+        - Negation operators: '!', 'not', 'neg'
+        - Implication operators (infix): 'imp', '->', '=>', 'then'
+        - Disjunction operators (infix): 'v', 'or'
+        - Box operators: 'b', 'box', 'necessary'
+        - Diamond operators: 'd', 'diamond', 'maybe'.
+        - Proposition operator: ':'
 
     The following rules apply:
         - A DRS is contained between '<' and '>'
