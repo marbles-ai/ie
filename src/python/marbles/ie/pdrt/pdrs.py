@@ -789,10 +789,6 @@ class GenericMerge(AbstractPDRS):
         es = self._drsA._edges(es)
         return self._drsB._edges(es)
 
-    # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
-    def _no_edges(self):
-        return self._drsA._no_edges() and self._drsB._no_edges()
-
     def _show_brackets(self, s):
         # show() helper
         return self.show_modifier(u'(', 2, self.show_concat(s, self.show_padding(u')\n')))
@@ -1054,13 +1050,35 @@ class PMerge(GenericMerge):
 
 
 class PDRS(AbstractPDRS):
-    """Projective Discourse Representation Structure."""
-    def __init__(self, label, mapper, drsRefs, drsConds):
-        if not iterable_type_check(drsRefs, PRef) or not iterable_type_check(drsConds, PCond) or \
+    """Projective Discourse Representation Structure.
+
+    A Projected Discourse Representation Structure (PDRS) consists of a PDRS
+    label and three sets: a set of MAPs, a set of projected discourse
+    referents and a set of projected conditions.
+
+    Pointers of referents and conditions can indicate projection, and the set
+    of MAPs can indicate constraints on projection: MAP(1,2) means that 2 is an
+    accessible context from 1, i.e., context 1 is weakly subordinate to 2 ("1
+    <= 2"). Equivalence between two contexts ("1 = 2") can be represented by
+    introducing a reciprocal accessibility relation: MAP(1,2) and MAP(2,1).
+    Finally, strict subordination between contexts ("1 < 2") can be
+    represented by introducing a negative edge from 2 to 1: MAP(2,-1) (negative
+    pointers are used to represent negative edges).
+    """
+    def __init__(self, label, mapper, referents, conditions):
+        """Constructor.
+
+        Args:
+            label: An integer label
+            mapper: A List of MAPS indicating constraints on projection.
+            referents: A list of projected referents PRef's.
+            conditions: A list of projected conditions PConds's.
+        """
+        if not iterable_type_check(referents, PRef) or not iterable_type_check(conditions, PCond) or \
                 not isinstance(label, PVar) or not iterable_type_check(mapper, MAP):
             raise TypeError
-        self._refs = drsRefs
-        self._conds = drsConds
+        self._refs = referents
+        self._conds = conditions
         self._label = label
         self._mapper = mapper # maps a PVar to a PVar
 
@@ -1082,7 +1100,7 @@ class PDRS(AbstractPDRS):
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _edges(self, es):
         es.append((self._label, self._label))
-        es.extend(self._mapper)
+        es.extend([m.to_tuple() for m in self._mapper])
         for c in self._conds:
             es = c._edges(es, self._label)
         return es
@@ -1130,7 +1148,7 @@ class PDRS(AbstractPDRS):
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges`.
     def _no_edges(self):
-        return len(self._conds) == 0 and len(self._refs) == 0 and len(self._mapper) == 0
+        False
 
     ## @remarks Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Structure.hs:emptyPDRS`.
     def get_empty(self):
@@ -1292,31 +1310,36 @@ class PDRS(AbstractPDRS):
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:movePContent`
     def _move_pcontent(self, lp, gp):
-        """Moves projected content in PDRS to its interpretation site in PDRS lp
+        """Moves projected content in this PDRS to its interpretation site in PDRS lp
         based on global PDRS gp.
         """
-        lp = lp._insert_prefs(filter(lambda r: not r.has_bound(lp, gp), self._refs), gp)
+
+        # FIXME: Haskell code uses `not r.has_bound(lp, gp)`
+        lp = lp._insert_prefs(filter(lambda r: r.has_bound(lp, gp), self._refs), gp)
         for c in self._conds:
             lp = c._move_pcontent(lp, gp)
         return lp
 
     # Original haskell code in `/pdrt-sandbox/src/Data/PDRS/Translate.hs:insertPRefs.hs`
     def _insert_prefs(self, prs, gp):
+        ni = len(prs)
+        if ni == 0:
+            return self
         labels = gp.get_labels()
+        maps = gp.get_maps()
         refs = []
         lp = self
-        ni = len(prs)
         i = 0
         while i < ni:
             pr = prs[i]
-            ant = [m[1] for m in filter(lambda x: x[0] == pr.plabel and x[1] in labels, gp.get_maps())]
+            ant = [m[1] for m in filter(lambda x: x[0] == pr.plabel and x[1] in labels, maps)]
             if len(ant) != 0:
-                prs[i] = PRef(ant[0], pr.ref) # no increment if i
+                prs[i] = PRef(ant[0], pr.ref) # no increment of i
             elif lp._label == pr.plabel or gp.test_free_pvar(pr.plabel):
                 lp = PDRS(lp._label, lp._mapper, union_inplace(lp.referents, [pr]), lp._conds)
                 i += 1
             else:
-                lp = PDRS(lp._label, lp._mapper, lp._refs, [c._insert_prefs(pr, gp) for c in lp._conds])
+                lp = PDRS(lp._label, lp._mapper, lp._refs, [c._insert_prefs([pr], gp) for c in lp._conds])
                 i += 1
         return lp
 
@@ -1807,14 +1830,14 @@ class PImp(Imp, IPDRSCond):
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
     def _edges(self, es, pv):
-        if self._drsA._no_edges() and self._drsA._no_edges():
+        if self._drsA._no_edges() and self._drsB._no_edges():
             return es
-        elif self._drsA._no_edges():
-            es = union_inplace(es, [(self._drsB.label, pv)])
-            return self._drsB._edges(es)
-        elif self._drsB._no_edges():
+        elif self._drsB._no_edges(): # True == not self._drsA._no_edges()
             es = union_inplace(es, [(self._drsA.label, pv)])
             return self._drsA._edges(es)
+        elif self._drsB._no_edges(): # True == not self._drsB._no_edges()
+            es = union_inplace(es, [(self._drsB.label, pv)])
+            return self._drsB._edges(es)
         es = union_inplace(es, [(self._drsA.label, pv)])
         es = self._drsA._edges(es)
         es = union_inplace(es, [(self._drsB.label, pv)])
@@ -1892,14 +1915,14 @@ class POr(Or, IPDRSCond):
 
     # Original haskell code in /pdrt-sandbox/src/Data/PDRS/ProjectionGraph.hs:edges.
     def _edges(self, es, pv):
-        if self._drsA._no_edges() and self._drsA._no_edges():
+        if self._drsA._no_edges() and self._drsB._no_edges():
             return es
-        elif self._drsA._no_edges():
-            es = union_inplace(es, [(self._drsB.label, pv)])
-            return self._drsB._edges(es)
-        elif self._drsB._no_edges():
+        elif self._drsB._no_edges(): # True == not self._drsA._no_edges()
             es = union_inplace(es, [(self._drsA.label, pv)])
             return self._drsA._edges(es)
+        elif self._drsB._no_edges(): # True == not self._drsB._no_edges()
+            es = union_inplace(es, [(self._drsB.label, pv)])
+            return self._drsB._edges(es)
         es = union_inplace(es, [(self._drsA.label, pv)])
         es = self._drsA._edges(es)
         es = union_inplace(es, [(self._drsB.label, pv)])
