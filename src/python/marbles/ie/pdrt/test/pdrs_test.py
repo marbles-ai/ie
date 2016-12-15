@@ -44,3 +44,20 @@ class PDrsTest(unittest.TestCase):
         x = u'\u2203x(happy(w,x) \u2227 man(w,x))'
         self.assertEquals(x, s)
 
+    def test2_HappyMan(self):
+        d = PDRS(1, [MAP(2, -1)], [PRef(2, PDRSRef('x'))],
+                    [PCond(2, PRel(DRSRelation('man'),[PDRSRef('x')]))
+                    ,PCond(1, PRel(DRSRelation('happy'),[PDRSRef('x')]))])
+
+
+    def test2_ManSmiles(self):
+        # "A man smiles."
+        # "The man smiles"
+        # "It is not the case that the man smiles."
+        pass
+
+    def test1_LanceArmstrong(self):
+        # "It is not true that Lance Armstrong, a former cyclist, is a Tour-winner."
+        pass
+
+
