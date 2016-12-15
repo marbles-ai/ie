@@ -5,10 +5,10 @@ from . import pos
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from oauth2client.client import GoogleCredentials
-from clausefinder.common import IndexSpan as IndexSpan
-from clausefinder.common import SubtreeSpan
-from clausefinder.common import build_typeof_map
-from clausefinder.common import TYPEOF_APPOS
+from ..common import IndexSpan as IndexSpan
+from ..common import SubtreeSpan
+from ..common import build_typeof_map
+from ..common import TYPEOF_APPOS
 import sys
 
 

@@ -3,18 +3,18 @@ import states
 import googlenlp
 import sys
 # Delay import because it takes time
-from clausefinder.common import DELAY_SPACY_IMPORT
-from clausefinder.common import ClauseFinderMap
-from clausefinder.common import SyntheticSpan
-from clausefinder.common import IndexSpan
-from clausefinder.common import SubtreeSpan
-from clausefinder.common import TYPEOF_SUBJECT
-from clausefinder.common import TYPEOF_OBJECT
-from clausefinder.common import TYPEOF_CONJ
-from clausefinder.common import TYPEOF_AMOD
-from clausefinder.common import TYPEOF_ISA_END
-from clausefinder.common import TYPEOF_APPOS
-from clausefinder.common import TYPEOF_AUX
+from common import DELAY_SPACY_IMPORT
+from common import ClauseFinderMap
+from common import SyntheticSpan
+from common import IndexSpan
+from common import SubtreeSpan
+from common import TYPEOF_SUBJECT
+from common import TYPEOF_OBJECT
+from common import TYPEOF_CONJ
+from common import TYPEOF_AMOD
+from common import TYPEOF_ISA_END
+from common import TYPEOF_APPOS
+from common import TYPEOF_AUX
 
 if not DELAY_SPACY_IMPORT:
     import spacynlp
