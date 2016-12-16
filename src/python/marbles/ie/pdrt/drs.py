@@ -755,6 +755,7 @@ class Merge(AbstractDRS):
         return u'Merge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Merge.hs">/Data/PDRS/Merge.hs:drsMerge</a>
 ##
 def merge(d1, d2):
@@ -785,6 +786,7 @@ def merge(d1, d2):
         return DRS(union(p1.referents, da.referents), union(p1.conditions, da.conditions))
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:newDRSRefs</a>
 ##
 def get_new_drsrefs(ors, ers):

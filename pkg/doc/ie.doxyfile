@@ -97,7 +97,8 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = ../../src/python/marbles/ie/pdrt/common.py \
+INPUT                  = ie-help.py \ 
+                         ../../src/python/marbles/ie/pdrt/common.py \
 						 ../../src/python/marbles/ie/pdrt/drs.py \
 						 ../../src/python/marbles/ie/pdrt/pdrs.py \
 						 ../../src/python/marbles/ie/pdrt/parse.py \

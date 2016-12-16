@@ -12,6 +12,7 @@ import networkx as nx
 PVar = int
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:newPVars</a>
 ##
 def get_new_pvars(opvs, epvs):
@@ -30,6 +31,7 @@ def get_new_pvars(opvs, epvs):
     return [x+n for x in range(len(opvs))]
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:renamePVar</a>
 ##
 def rename_pvar(pv, lp, gp, ps):
@@ -52,6 +54,7 @@ def rename_pvar(pv, lp, gp, ps):
     return rename_var(pv, ps)
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:renamePDRSRef</a>
 ##
 def rename_pdrsref(pv, r, lp, gp, rs):
@@ -67,6 +70,7 @@ def rename_pdrsref(pv, r, lp, gp, rs):
     return rename_var(r, rs)
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:renameMAPs</a>
 ##
 def rename_mapper(m, lp, gp, ps):
@@ -76,6 +80,7 @@ def rename_mapper(m, lp, gp, ps):
     return map(lambda x: MAP(rename_pvar(x[0], lp, gp, ps), rename_pvar(x[1], lp, gp, ps)), m)
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:renameUniverse</a>
 ##
 def rename_universe(u, lp, gp, ps, rs):
@@ -85,6 +90,7 @@ def rename_universe(u, lp, gp, ps, rs):
     return map(lambda r: PRef(rename_pvar(r.plabel, lp, gp, ps), rename_pdrsref(r.plabel, r.ref, lp, gp, rs)), u)
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Merge.hs">/Data/PDRS/Merge.hs:pdrsDisjoin</a>
 ##
 def disjoin(d1, d2):
@@ -99,6 +105,7 @@ def disjoin(d1, d2):
     return d2.alpha_convert(zip(ors, nrs), zip(ops, nps))
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Merge.hs">/Data/PDRS/Merge.hs:pdrsAMerge</a>
 ##
 def amerge(d1, d2):
@@ -144,6 +151,7 @@ def amerge(d1, d2):
                     union_inplace(p3.conditions, p4.conditions)).purify()
 
 
+## @ingroup gfn
 ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Merge.hs">/Data/PDRS/Merge.hs:pdrsPMerge</a>
 ##
 def pmerge(d1, d2):

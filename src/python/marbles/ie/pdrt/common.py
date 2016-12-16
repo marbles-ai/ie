@@ -1,12 +1,23 @@
 from utils import iterable_type_check, compare_lists_eq
 
 
-# Show notations
-SHOW_BOX = 0
-SHOW_LINEAR = 1
-SHOW_SET = 2
-SHOW_DEBUG = 3
+## @defgroup showtypes Show notation
+## @ingroup gconst
+## @see Showable
+## @{
 
+## Display in box format
+SHOW_BOX = 0
+
+## Display in linear format
+SHOW_LINEAR = 1
+
+## Display in set format
+SHOW_SET = 2
+
+## Display in debug format
+SHOW_DEBUG = 3
+## @}
 
 class Showable(object):
     """Like haskell show"""
