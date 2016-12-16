@@ -11,6 +11,8 @@ SHOW_DEBUG = 3
 class Showable(object):
     """Like haskell show"""
 
+    ## @cond
+
     # Symbols
     opNeg = u"\u00AC"
     opImp = u"\u21D2"
@@ -36,6 +38,8 @@ class Showable(object):
     boxMiddleRight = u'\u2524'
     boxHorLine = u'-'
     boxVerLine = u'|'
+
+    ## @endcond
 
     def show(self, notation):
         """Display for screen.
@@ -176,6 +180,7 @@ class AbstractDRSVar(Showable):
     def __unicode__(self):
         return self.to_string().decode('utf-8')
 
+    ## @property name
     @property
     def name(self):
         raise NotImplementedError
@@ -217,10 +222,12 @@ class DRSVar(AbstractDRSVar):
     def increase_new(self):
         return DRSVar(self._name, self._idx + 1)
 
+    ## @property idx
     @property
     def idx(self):
         return self._idx
 
+    ## @property name
     @property
     def name(self):
         return self._name
@@ -282,18 +289,22 @@ class LambdaDRSVar(AbstractDRSVar):
     def _show_lambdas(self):
         return self.opLambda + unicode(self._var) + u'.'
 
+    ## @property var
     @property
     def var(self):
         return self._var
 
+    ## @property referents
     @property
     def referents(self):
         return self._set
 
+    ## @property idx
     @property
     def idx(self):
         return self._var.idx
 
+    ## @property name
     @property
     def name(self):
         return self._var.name
