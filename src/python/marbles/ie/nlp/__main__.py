@@ -1,7 +1,7 @@
-from clausefinder import *
+from . import *
 import sys, json
 from optparse import OptionParser
-from clausefinder.clause import preprocess
+from .clause import preprocess
 
 
 print('Clause Finder supports Google or spaCy NLP')
