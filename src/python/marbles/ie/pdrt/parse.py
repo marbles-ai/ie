@@ -28,27 +28,19 @@ from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 # * A list is contained between '{' and '}'. List can have [0,inf] elements
 # * A tuple is contained between '(' and ')'. Tuples have fixed cardinality.
 # * Elements are separated by a comma
-#
+
+
 ## @cond
-
-
-class NegateOp(Keyword):
-    grammar = Enum(K('not'), K('neg'), K('!'))
-
-
-class BinaryOp(Keyword):
-    grammar = Enum(K('b'), K('box'), K('necessary'),
-                   K('d'), K('diamond'), K('maybe'),
-                   K('imp'), K('=>'), K('->'), K('then'),
-                   K('or'), K('v'))
-
-
+NegateOp = re.compile(r'not|neg|!')
+BinaryOp = re.compile(r'box|b|necessary|diamond|d|maybe|imp|=>|->|then|or|v')
 Predicate = re.compile(r'[a-zA-Z][_\w]*')
 Number = re.compile(r'-?\d+')
 PosInt = re.compile(r'\d+')
+## @endcond
 
 ###########################################################################
-# PDRS Parser
+# PDRS Set Noation Grammar
+## @cond
 
 
 class Map(List):
@@ -69,7 +61,7 @@ class PRelExpr(List):
     grammar = Predicate, '(', csl(Predicate), ')'
 
     def to_drs(self):
-        refs = [PDRSRef(r) for r in self[1].encode('utf-8')]
+        refs = [PDRSRef(r) for r in self[1:].encode('utf-8')]
         return PRel(DRSRelation(self[0].encode('utf-8')), refs)
 
 
@@ -184,7 +176,7 @@ def parse_pdrs(s):
     return drs
 
 ###########################################################################
-# DRS Parser
+# DRS Set Grammar
 ## @cond
 
 
@@ -192,7 +184,7 @@ class RelExpr(List):
     grammar = Predicate, '(', csl(Predicate), ')'
 
     def to_drs(self):
-        refs = [DRSRef(r) for r in self[1].encode('utf-8')]
+        refs = [DRSRef(r.encode('utf-8')) for r in self[1:]]
         return Rel(DRSRelation(self[0].encode('utf-8')), refs)
 
 
@@ -208,7 +200,7 @@ class PropExpr(List):
     grammar = Predicate, ':', DrsDecl
 
     def to_drs(self):
-        return PProp(PDRSRef(self[0].encode('utf-8')), self[2].to_drs())
+        return Prop(DRSRef(self[0].encode('utf-8')), self[2].to_drs())
 
 
 class NegExpr(List):
@@ -253,10 +245,93 @@ class RefDecl(List):
         return [DRSRef(x.encode('utf-8')) for x in self]
 
 
-DrsDecl.grammar = '<', '{', RefDecl, '}', ',', '{', CondDecl, '}', '>'
+DrsDecl.grammar  = '<', '{', RefDecl, '}', ',', '{', CondDecl, '}', '>'
 ## @endcond
 
-def parse_drs(s):
+###########################################################################
+# DRS NLTK Grammar
+## @cond
+
+
+class NltkDecl(List):
+    # Grammar is recursive so must declare with None
+    grammar = None
+
+    def to_drs(self):
+        return DRS(self[0].to_drs(), self[1].to_drs())
+
+
+class NltkPropExpr(List):
+    grammar = Predicate, ':', NltkDecl
+
+    def to_drs(self):
+        return Prop(DRSRef(self[0].encode('utf-8')), self[2].to_drs())
+
+
+class NltkNegExpr(List):
+    grammar = NegateOp, NltkDecl
+
+    def to_drs(self):
+        return Neg(self[1].to_drs())
+
+
+class NltkBinaryExpr(List):
+    grammar = NltkDecl, BinaryOp, NltkDecl
+
+    def to_drs(self):
+        if self[1] in ['d', 'diamond', 'maybe']:
+            return Diamond(self[0].to_drs(), self[2].to_drs())
+        elif self[1] in ['b', 'box', 'necessary']:
+            return Box(self[0].to_drs(), self[2].to_drs())
+        elif self[1] in ['imp', '=>', '->', 'then']:
+            return Imp(self[0].to_drs(), self[2].to_drs())
+        else:  # Must be or
+            return Or(self[0].to_drs(), self[2].to_drs())
+
+
+class NltkCondChoice(List):
+    grammar = [NltkNegExpr, RelExpr, NltkBinaryExpr, NltkPropExpr]
+
+    def to_drs(self):
+        return self[0].to_drs()
+
+
+class NltkBracketedCondExpr(List):
+    grammar = None
+
+    def to_drs(self):
+        return self[0].to_drs()
+
+
+class NltkBracketedCondChoice(List):
+    grammar = [NltkCondChoice, NltkBracketedCondExpr]
+
+    def to_drs(self):
+        return self[0].to_drs()
+
+
+NltkBracketedCondExpr.grammar = '(', NltkBracketedCondChoice, ')'
+
+
+class NltkCondDecl(List):
+    #grammar = optional(csl(NltkCondChoice))
+    grammar = optional(csl(NltkBracketedCondChoice))
+
+    def to_drs(self):
+        return [x.to_drs() for x in self]
+
+
+class NltkRefDecl(List):
+    grammar = optional(csl(Predicate))
+
+    def to_drs(self):
+        return [DRSRef(x.encode('utf-8')) for x in self]
+
+
+NltkDecl.grammar = '(', '[', NltkRefDecl, ']', ',', '[', NltkCondDecl, ']', ')'
+## @endcond
+
+def parse_drs(s, grammar=None):
     """Convert linear notation into a DRS. All whitespace, including new lines
     are ignored. The parser uses pypeg2 which is written in python 3, therefore
     the input string must be unicode.
@@ -270,7 +345,7 @@ def parse_drs(s):
         - Diamond operators: 'd', 'diamond', 'maybe'.
         - Proposition operator: ':'
 
-    The following rules apply:
+    The following rules apply apply to set notation:
         - A DRS is contained between '<' and '>'
         - A list is contained between '{' and '}'. List can have [0,inf] elements
         - A tuple is contained between '(' and ')'. Tuples have fixed cardinality.
@@ -283,6 +358,8 @@ def parse_drs(s):
 
     Args:
         s: The unicode string to parse.
+        grammar: Either 'set' or 'nltk', default is 'set'. Use 'nltk' to parse using
+            <a href="http://www.nltk.org/howto/drt.html">nltk drt</a>.
 
     Returns:
         A DRS instance.
@@ -292,10 +369,18 @@ def parse_drs(s):
         marbles.ie.common.Showable.show()
     """
     # Remove all spaces in a string
+    if grammar is None:
+        grammar = 'set'
+
     p = Parser()
     if isinstance(s, str):
         s = s.decode('utf-8')
-    pt = p.parse(s, DrsDecl)
+    if grammar == 'set':
+        pt = p.parse(s, DrsDecl)
+    elif grammar == 'nltk':
+        pt = p.parse(s, NltkDecl)
+    else:
+        raise SyntaxError('grammar not in ["set", "nltk"]')
     drs = pt[1].to_drs()
     return drs
 

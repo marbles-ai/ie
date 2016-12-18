@@ -46,7 +46,6 @@ class LambdaTuple(object):
     def __ge__(self, other):
         return not self.__lt__(other)
 
-    ## @property var
     @property
     def var(self):
         return self._var
@@ -70,7 +69,6 @@ class AbstractDRS(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isResolvedDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isResolvedPDRS</a>.
-    ## @property isresolved
     ##
     @property
     def isresolved(self):
@@ -79,7 +77,6 @@ class AbstractDRS(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isLambdaDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isLambdaPDRS</a>.
-    ## @property islambda
     ##
     @property
     def islambda(self):
@@ -88,7 +85,6 @@ class AbstractDRS(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isMergeDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isMergePDRS</a>.
-    ## @property ismerge
     ##
     @property
     def ismerge(self):
@@ -97,44 +93,28 @@ class AbstractDRS(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:drsUniverse</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:pdrsUniverse</a>.
-    ## @property universe
     ##
     @property
     def universe(self):
-        """Returns the universe of a DRS.
-
-        Returns:
-            A list of DRSRef instances.
-        """
+        """Returns the universe of referents in this DRS."""
         return []
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isPureDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isPurePDRS</a>.
-    ## @property ispure
     ##
     @property
     def ispure(self):
-        """Test whether this DRS is pure, where:
-        A DRS is pure iff it does not contain any otiose declarations of discourse referents
-        (i.e. it does not contain any unbound, duplicate uses of referents).
-
-        Returns:
-            True if this DRS is pure.
+        """Test whether this DRS is pure, where a DRS is pure iff it does not contain any otiose declarations of
+        discourse referents (i.e. it does not contain any unbound, duplicate uses of referents).
         """
         return self._ispure_helper([], self)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isProperDRS</a>
     ## <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Properties.hs">/Data/PDRS/Properties.hs:isProperPDRS</a>
-    ## @property isproper
     ##
     @property
     def isproper(self):
-        """Test whether this DRS is proper, where:
-        A DRS is proper iff it does not contain any free variables.
-
-        Returns:
-            True if this DRS is proper.
-        """
+        """Test whether this DRS is proper, where a DRS is proper iff it does not contain any free variables."""
         return self._isproper_subdrsof(self)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isSubDRS</a>
@@ -146,8 +126,15 @@ class AbstractDRS(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsFreeRefs</a>.
     ##
-    def get_freerefs(self, gd):
-        """Returns the list of all free DRSRef's in a DRS."""
+    def get_freerefs(self, gd=None):
+        """Returns the list of all free DRSRef's in a DRS.
+
+        Args:
+            gd: A global DRS where `self` is a sub-DRS of `gd`.
+
+        Returns:
+            A list of DRSRef instances.
+        """
         return []
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Merge.hs">/Data/DRS/Merge.hs:drsResolveMerges</a>
@@ -161,7 +148,14 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsVariables</a>.
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs)"""
+        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         if u is None: return []
         return u
 
@@ -169,7 +163,14 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:pdrsUniverses</a>.
     ##
     def get_universes(self, u=None):
-        """Returns the list of DRSRef's from all universes in this DRS."""
+        """Returns the list of DRSRef's from all universes in this DRS.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         if u is None: return []
         return u
 
@@ -191,26 +192,28 @@ class AbstractDRS(Showable):
     ## @remarks Helper for get_lambdas().
     ##
     def get_lambda_tuples(self, u=None):
-        """Returns the list of all lambda tuples in this DRS."""
+        """Returns the set of all lambda tuples in this DRS.
+
+        Args:
+            u: An initial set of tuples. If not present `u` is set to `set()`.
+
+        Returns:
+            A set of LambdaTuple instances union'ed with `u`.
+        """
         raise NotImplementedError
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/RDRS/LambdaCalculus.hs">/Data/RDRS/LambdaCalculus.hs:purifyPRefs</a>.
     ##
-    def purify_refs(self, gd, refs):
+    def purify_refs(self, gd, rs):
         """Replaces duplicate uses of DRSRef's by new DRSRef's.
 
-        This function implements the following algorithm:
-        (1) start with the global DRS @gd@ and add all free 'PVar's in @gd@ to
-        the list of seen referents @rs@ (see 'drsPurify');
+        Args:
+            gd: A global DRS, where `self` is a sub-DRS of global.
+            rs: A list of referents
 
-        (2) check the universe @u@ of the first atomic DRS @ld@ against @rs@
-        and, if necessary, alpha-convert @ld@ replacing duplicates for new
-        DRSRef's in @u@;
-
-        (3) add the universe of @ld@ to the list of seen DRSRef's @rs@;
-
-        (4) go through all conditions of @ld@, while continually updating @rs@.
+        Returns:
+            A tuple of a new DRS instance and a list of referents seen.
         """
         raise NotImplementedError
 
@@ -218,25 +221,46 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:pdrsAlphaConvert</a>.
     ##
     def alpha_convert(self, rs, ps=None):
+        """Applies alpha conversion to this DRS on the basis of the conversion list `rs` for DRSRef's and the conversion
+        list `ps` for PVar's.
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef conversion tuples formated as (old, new).
+            ps: A list of integer tuples formated as (old, new). Cannot be None in PDRS implementation but we have to
+                reproduce the type declaration of AbstractDRS.
+
+        Returns:
+            A DRS instance.
+        """
+        if isinstance(rs, tuple) and len(rs) == 2 and iterable_type_check(rs, AbstractDRSRef):
+            rs = [rs]
+        elif iterable_type_check([rs, ps], AbstractDRSRef):
+            rs = [(rs, ps)]
+            ps = None
+        elif not iterable_type_check(rs, tuple):
+            raise TypeError
         return self.rename_subdrs(self, rs, ps)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs::renameSubPDRS</a>.
+    ##
     def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a sub-DRS of the
-        global DRS gd, on the basis of a conversion list for DRSRef's rs.
+        """Applies alpha conversion to this DRS, which is a sub-DRS of the global DRS `gd`, on the basis of the
+        conversion list `rs` for DRSRef's and the conversion list `ps` for PVar's.
 
         Args:
             gd: An DRS|LambdaDRS|Merge instance.
             rs: A list of DRSRef|LambaDRSRef tuples.
-            ps: A list of integer tuples. Only used in PDRS implementation.
+            ps: A list of integer tuples. Cannot be None in PDRS implementation but we
+                have to reproduce the type declaration of AbstractDRS.
+
         Returns:
             A DRS instance.
         """
         raise NotImplementedError
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isFOLDRS</a>.
-    ## @property isfol
     ##
     @property
     def isfol(self):
@@ -246,10 +270,8 @@ class AbstractDRS(Showable):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:drsPurify</a>
     ##
     def purify(self):
-        """Converts a DRS into a pure DRS by purifying its DRSRef's,
-
-        where a DRS is pure iff there are no occurrences of duplicate, unbound uses
-        of the same DRSRef.
+        """Converts a DRS into a pure DRS by purifying its DRSRef's, where a DRS is pure iff there are no occurrences of
+        duplicate, unbound uses of the same DRSRef.
         """
         refs = self.get_freerefs(self)
         drs,_ = self.purify_refs(self, refs)
@@ -287,6 +309,7 @@ class AbstractDRS(Showable):
 
 class LambdaDRS(AbstractDRS):
     """A lambda DRS."""
+
     def __init__(self, lambdaVar, pos):
         """A lambda DRS.
 
@@ -316,15 +339,11 @@ class LambdaDRS(AbstractDRS):
         """Help for isproper"""
         return True
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
         return False
 
-    ## @property islambda
-    ##
     @property
     def islambda(self):
         """Test whether this DRS is entirely a LambdaDRS (at its top-level)."""
@@ -335,7 +354,14 @@ class LambdaDRS(AbstractDRS):
         return self
 
     def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS."""
+        """Returns the set of all lambda tuples in this DRS.
+
+        Args:
+            u: An initial set of tuples. If not present `u` is set to `set()`.
+
+        Returns:
+            The set of LambdaTuple instances union'ed with `u`.
+        """
         lt = LambdaTuple(self._var, self._pos)
         if u is None: return set([lt])
         u.add(lt)
@@ -343,8 +369,18 @@ class LambdaDRS(AbstractDRS):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ##
-    def purify_refs(self, gd, ers):
-        return (self, ers)
+    def purify_refs(self, gd, rs):
+        """Replaces duplicate uses of DRSRef's by new DRSRef's. For a Lambda DRS
+        this function does nothing.
+
+        Args:
+            gd: A global DRS, where `self` is a sub-DRS of global.
+            rs: A list of referents.
+
+        Returns:
+             A tuple of (`self`, `ers`).
+         """
+        return (self, rs)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
@@ -358,7 +394,7 @@ class LambdaDRS(AbstractDRS):
             ps: A list of integer tuples. Only used in PDRS implementation.
 
         Returns:
-            A DRS instance.
+            This instance.
         """
         return self
 
@@ -428,46 +464,41 @@ class DRS(AbstractDRS):
             if not r: return False
         return r
 
-    ## @property referents
-    ##
     @property
-    def referents(self):
+    def universe(self):
+        """Returns the universe of referents in this DRS."""
         return [x for x in self._refs] # shallow copy
 
-    ## @property conditions
-    ##
     @property
     def conditions(self):
+        """Get the list of conditions."""
         return [x for x in self._conds] # shallow copy
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
         return all([x.isresolved for x in self._refs]) and all([x.isresolved for x in self._conds])
 
-    ## @property universe
-    ##
-    @property
-    def universe(self):
-        """Returns the universe of a DRS.
+    def has_subdrs(self, d1):
+        """Test whether d1 is a direct or indirect sub-DRS of this DRS."""
+        return self == d1 or any([x.has_subdrs(d1) for x in self._conds])
+
+    def get_freerefs(self, gd=None):
+        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
+        function only returns free referents in domain of DRS between `self` and `gd`.
+
+        Args:
+            gd: A global DRS where `self` is a sub-DRS of `gd`.
 
         Returns:
             A list of DRSRef instances.
         """
-        return [x for x in self._refs] # shallow copy
-
-    def has_subdrs(self, d1):
-        """Test whether d1 is a direct or indirect sub-DRS of this DRS."""
-        return self == d1 or any([x.has_subdrs(self) for x in self._conds])
-
-    def get_freerefs(self, gd):
-        """Returns the list of all free DRSRef's in a DRS."""
+        if gd is None:
+            gd = self
         y = []
         for c in self._conds:
             y = union_inplace(y, c._get_freerefs(self, gd))
-        return sorted(set(y))
+        return y # sorted(set(y))
 
     def resolve_merges(self):
         """Resolves all unresolved merges in this DRS."""
@@ -476,7 +507,14 @@ class DRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables</a>
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs)"""
+        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         if u is None:
             u = [x for x in self._refs] # shallow copy
         else:
@@ -488,7 +526,14 @@ class DRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
     ##
     def get_universes(self, u=None):
-        """Returns the list of DRSRef's from all universes in this DRS."""
+        """Returns the list of DRSRef's from all universes in this DRS.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         if u is None:
             u = [x for x in self._refs] # shallow copy
         else:
@@ -498,28 +543,56 @@ class DRS(AbstractDRS):
         return u
 
     def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS."""
+        """Returns the set of all lambda tuples in this DRS.
+
+        Args:
+            u: An initial set of tuples. If not present `u` is set to `set()`.
+
+        Returns:
+            The set of LambdaTuple instances union'ed with `u`.
+        """
         if u is None:
             u = set()
         for r in self._refs:
             u = r._lambda_tuple(u)
         for c in self._conds:
             u = c._lambda_tuple(u)
+        return u
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ##
-    def purify_refs(self, gd, ers, ps=None):
+    def purify_refs(self, gd, ers):
+        """Replaces duplicate uses of DRSRef's by new DRSRef's.
+
+         This function implements the following algorithm:
+         - start with the global DRS `gd` and add all free DRSRefs's in `gd` to the list of seen referents `rs`;
+         - check the universe `u` of the first atomic DRS `self` against `rs` and, if necessary, alpha-convert
+           `self` replacing duplicates for new DRSRef's in `u`;
+         - add the universe of self to the list of seen DRSRef's `rs`;
+         - go through all conditions of `self`, while continually updating `rs`.
+
+         Args:
+             gd: A global DRS, where `self` is a sub-DRS of global.
+             ers: A list of referents
+
+         Returns:
+             A tuple of a new DRS instance and the list of seen referents
+
+         See Also:
+             purify()
+         """
+
         # In case we do not want to rename ambiguous bindings:
         # purifyRefs (ld@(DRS u _),ers) gd = (DRS u1 c2,u1 ++ ers1)
         ors = intersect(self._refs, ers)
         d = self.alpha_convert(zip(ors, get_new_drsrefs(ors, union_inplace(gd.get_variables(),ers))))
-        r = d.referents
+        r = d.universe
         r.extend(ers)
         conds = []
         for c in self._conds:
-            x,r = c._purify(gd, r)
+            x,r = c._purify_refs(gd, r)
             conds.append(x)
-        return (DRS(d.referents,conds), r)
+        return (DRS(d.universe,conds), r)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
@@ -629,48 +702,45 @@ class Merge(AbstractDRS):
         y = self._drsA.get_variables(y)
         return self._drsB._ispure_helper(y, gd)
 
-    ## @property drs_a
-    ##
     @property
-    def drs_a(self):
+    def ldrs(self):
         return self._drsA
 
-    ## @property drs_b
-    ##
     @property
-    def drs_b(self):
+    def rdrs(self):
         return self._drsB
 
-    ## @property islambda
-    ##
     @property
     def islambda(self):
         """test whether this DRS is entirely a LambdaDRS (at its top-level)."""
         return self._drsA.islambda and self._drsB.islambda
 
-    ## @property ismerge
-    ##
     @property
     def ismerge(self):
         """Test whether this DRS is entirely a Merge (at its top-level)."""
         return True
 
-    ## @property universe
     @property
     def universe(self):
-        """Returns the universe of a DRS.
-
-        Returns:
-            A list of DRSRef instances.
-        """
+        """Returns the universe of a DRS."""
         return union(self._drsA.universe, self._drsB.universe)
 
     def has_subdrs(self, d1):
         """Test whether d1 is a direct or indirect sub-DRS of this DRS"""
         return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
 
-    def get_freerefs(self, gd):
-        """Returns the list of all free DRSRef's in a DRS."""
+    def get_freerefs(self, gd=None):
+        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
+        function only returns free referents in domain of DRS between `self` and `gd`.
+
+        Args:
+            gd: A global DRS where `self` is a sub-DRS of `gd`.
+
+        Returns:
+            A list of DRSRef instances.
+        """
+        if gd is None:
+            gd = self
         return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
 
     def resolve_merges(self):
@@ -680,27 +750,55 @@ class Merge(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables</a>
     ##
     def get_variables(self, u=None):
+        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         u = self._drsA.get_variables(u)
-        u = self._drsB.get_variables(u)
-        return u
+        return self._drsB.get_variables(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
     ##
     def get_universes(self, u=None):
-        """Returns the list of DRSRef's from all universes in this DRS."""
+        """Returns the list of DRSRef's from all universes in this DRS.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
         u = self._drsA.get_universes(u)
-        u = self._drsB.get_universes(u)
-        return u
+        return self._drsB.get_universes(u)
 
     def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS."""
+        """Returns the set of all lambda tuples in this DRS.
+
+        Args:
+            u: An initial set of tuples. If not present `u` is set to `set()`.
+
+        Returns:
+            The set of LambdaTuple instances union'ed with `u`.
+        """
         u = self._drsA.get_lambda_tuples(u)
-        u = self._drsB.get_lambda_tuples(u)
-        return u
+        return self._drsB.get_lambda_tuples(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ##
     def purify_refs(self, gd, ers):
+        """Replaces duplicate uses of DRSRef's by new DRSRef's.
+
+         Args:
+             gd: A global DRS, where `self` is a sub-DRS of global.
+             ers: A list of referents
+
+         Returns:
+             A tuple of a new Merge instance and the list of seen referents
+         """
         cd1, ers1 = self._drsA.purify_refs(gd, ers)
         cd2, ers2 = self._drsB.purify_refs(gd, ers1)
         return (Merge(cd1, cd2), ers2)
@@ -763,17 +861,17 @@ def merge(d1, d2):
     if isinstance(d2, LambdaDRS) or isinstance(d1, LambdaDRS):
         return Merge(d1, d2)
     elif isinstance(d2, Merge):
-        if d2.drs_a.islambda:
-            return Merge(d2.drs_a, merge(d1, d2.drs_b))
-        elif d2.drs_b.islambda:
-            return Merge(merge(d1, d2.drs_a), d2.drs_b)
+        if d2.ldrs.islambda:
+            return Merge(d2.ldrs, merge(d1, d2.rdrs))
+        elif d2.rdrs.islambda:
+            return Merge(merge(d1, d2.ldrs), d2.rdrs)
         else:
             return merge(d1, d2.resolve_merges())
     elif isinstance(d1, Merge):
-        if d1.drs_a.islambda:
-            return Merge(d1.drs_a, merge(d1.drs_b, d2))
-        elif d1.drs_b.islambda:
-            return Merge(d1.drs_b, merge(d1.drs_a, d2))
+        if d1.ldrs.islambda:
+            return Merge(d1.ldrs, merge(d1.rdrs, d2))
+        elif d1.rdrs.islambda:
+            return Merge(d1.rdrs, merge(d1.ldrs, d2))
         else:
             return merge(d2, d1.resolve_merges())
     else:
@@ -783,7 +881,7 @@ def merge(d1, d2):
         ors = intersect(p2.get_variables(), p1.get_variables())
         nrs = get_new_drsrefs(ors, union(p2.get_variables(), p1.get_variables()))
         da = p2.alpha_convert(zip(ors,nrs))
-        return DRS(union(p1.referents, da.referents), union(p1.conditions, da.conditions))
+        return DRS(union(p1.universe, da.universe), union(p1.conditions, da.conditions))
 
 
 ## @ingroup gfn
@@ -826,43 +924,57 @@ class AbstractDRSRef(Showable):
     def __hash__(self):
         return hash(self.__repr__())
 
-    def has_bound(self, drsLD, drsGD):
-        """Returns whether this DRSRef in local 'DRS' drsLD is bound in the global 'DRS' drsGD."""
-        if isinstance(drsLD, LambdaDRS):
+    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsBoundRef</a>
+    ##
+    def has_bound(self, ld, gd):
+        """Test if this DRSRef is bound in the universes between local DRS `ld` and global DRS `gd`. A necessary
+        condition is that `ld` be a sub-DRS of `gd`. If any relation exists in the bound between `ld` and `gd` then the
+        constraint for bounding is extended to the universes of the antecedent
+
+        Args:
+            ld: A LambdaDRS|Merge|DRS instance.
+            gd: A LambdaDRS|Merge|DRS instance.
+
+        Returns:
+            True if this referent is bound.
+        """
+        if isinstance(ld, LambdaDRS):
             return False
-        elif isinstance(drsLD, Merge):
-            return self.has_bound(drsLD.drs_a, drsGD) or self.has_bound(drsLD.drs_b, drsGD)
-        elif isinstance(drsGD, LambdaDRS):
+        elif isinstance(ld, Merge):
+            return self.has_bound(ld.ldrs, gd) or self.has_bound(ld.rdrs, gd)
+        elif isinstance(gd, LambdaDRS):
             return False
-        elif isinstance(drsGD, Merge):
-            return self.has_bound(drsLD, drsGD.drs_a) or self.has_bound(drsLD, drsGD.drs_b)
-        elif isinstance(drsLD, DRS) and isinstance(drsGD, DRS):
-            return self in drsLD.referents or self in drsGD.referents or \
-                   self._has_antecedent(drsLD, drsGD.conditions)
+        elif isinstance(gd, Merge):
+            return self.has_bound(ld, gd.ldrs) or self.has_bound(ld, gd.rdrs)
+        elif isinstance(ld, DRS) and isinstance(gd, DRS):
+            # PWG: Original haskell code did not check gd.has_subdrs(ld) which is incorrect.
+            if self in ld.universe or self in gd.universe:
+                return gd.has_subdrs(ld)
+            return self._has_antecedent(ld, gd.conditions)
         else:
             raise TypeError
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
-        """Returns whether a 'DRS' is resolved (containing no unresolved merges or lambdas)"""
+        """Test if this DRS is resolved (containing no unresolved merges or lambdas)"""
         return False
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ## @property var
     ##
     @property
     def var(self):
         """Converts a DRSRef into a DRSVar."""
         raise NotImplementedError
 
+    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:increase</a>
+    ##
     def increase_new(self):
         """Adds a trailing integer to the referent to make it unique."""
         raise NotImplementedError
 
+    ## @remarks Required by PDRSRef's
     def to_drsref(self):
-        # Required by PDRSRef's
+        """Convert to a DRSRef. This implementation returns self."""
         return self
 
 
@@ -896,7 +1008,6 @@ class LambdaDRSRef(AbstractDRSRef):
         return u
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ## @property var
     ##
     @property
     def var(self):
@@ -926,20 +1037,19 @@ class DRSRef(AbstractDRSRef):
     def _lambda_tuple(self, u):
         return u
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         return True
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ## @property var
     ##
     @property
     def var(self):
         """Converts a DRSRef into a DRSVar."""
         return self._var
 
+    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:increase</a>
+    ##
     def increase_new(self):
         """Adds a trailing integer to the referent to make it unique."""
         return DRSRef(self._var.increase_new())
@@ -1086,11 +1196,9 @@ class AbstractDRSCond(Showable):
         raise NotImplementedError
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
+    def _purify_refs(self, gd, rs, pv=None):
         raise NotImplementedError
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1132,6 +1240,16 @@ class Rel(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._rel == other._rel and compare_lists_eq(self._refs, other._refs)
 
+    @property
+    def relation(self):
+        """Get the predicate"""
+        return self._rel
+
+    @property
+    def referents(self):
+        """Get the referents in this relation"""
+        return [x for x in self._refs]
+
     def _get_freerefs(self, ld, gd, pvar=None):
         """Helper for DRS.get_freerefs()"""
         # orig haskell code (Rel _ d:cs) = snd (partition (flip (`drsBoundRef` ld) gd) d) `union` free cs
@@ -1161,12 +1279,10 @@ class Rel(AbstractDRSCond):
         return Rel(self._rel, [rename_var(r,rs) if r.has_bound(ld, gd) else r for r in self._refs])
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
+    def _purify_refs(self, gd, rs, pv=None):
         rs.extend(self._refs)
         return (self, rs)
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1209,6 +1325,10 @@ class Neg(AbstractDRSCond):
     def __repr__(self):
         return 'Neg(%s)' % repr(self._drs)
 
+    @property
+    def drs(self):
+        return self._drs
+
     def _antecedent(self, ref, drs):
         return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
 
@@ -1243,12 +1363,10 @@ class Neg(AbstractDRSCond):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
-        cd1, rs1 = self._drs.purify_refs(gd, rs, ps)
+    def _purify_refs(self, gd, rs, pv=None):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
         return type(self)(cd1), rs1
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1281,11 +1399,11 @@ class Neg(AbstractDRSCond):
 
 class Imp(AbstractDRSCond):
     """An implication between two DRSs"""
-    def __init__(self, drsA, drsB):
-        if not isinstance(drsA, AbstractDRS) or not isinstance(drsB, AbstractDRS):
+    def __init__(self, antecedent, consequent):
+        if not isinstance(antecedent, AbstractDRS) or not isinstance(consequent, AbstractDRS):
             raise TypeError
-        self._drsA = drsA
-        self._drsB = drsB
+        self._drsA = antecedent
+        self._drsB = consequent
 
     def __ne__(self, other):
         return type(self) != type(other) or self._drsA != other._drsA or self._drsB != other._drsB
@@ -1295,6 +1413,16 @@ class Imp(AbstractDRSCond):
 
     def __repr__(self):
         return 'Imp(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+
+    @property
+    def antecedent(self):
+        """Get the antecedent DRS"""
+        return self._drsA
+
+    @property
+    def consequent(self):
+        """Get the consequent DRS"""
+        return self._drsB
 
     def _antecedent(self, ref, drs):
         return (ref in self._drsA.universe and self._drsB.has_subdrs(drs)) or \
@@ -1336,17 +1464,15 @@ class Imp(AbstractDRSCond):
         return type(self)(self._drsA.rename_subdrs(gd, rs, ps), self._drsB.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
+    def _purify_refs(self, gd, rs, pv=None):
         orsd = intersect(self._drsA.universe, rs)
         nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
         # In case we do not want to rename ambiguous bindings:
         # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
-        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs, ps)
-        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1, ps)
+        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1)
         return type(self)(cd1,cd2), rs2
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1354,7 +1480,7 @@ class Imp(AbstractDRSCond):
 
     def has_subdrs(self, d1):
         """Helper for DRS function of same name."""
-        return self._drsA.has_subdrs(d1) and self._drsB.has_subdrs(d1)
+        return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1366,7 +1492,7 @@ class Imp(AbstractDRSCond):
         """Helper for DRS function of same name."""
         if not isinstance(self._drsA, DRS):
             raise fol.FOLConversionError
-        refs = self._drsA.referents # causes a shallow copy
+        refs = self._drsA.universe # causes a shallow copy of referents
         f = fol.Imp(conds_to_mfol(self._drsA._conds, world), self._drsB.to_mfol(world))
         refs.reverse()
         for r in refs:
@@ -1409,6 +1535,16 @@ class Or(AbstractDRSCond):
     def __repr__(self):
         return 'Or(%s,%s)' % (repr(self._drsA), repr(self._drsB))
 
+    @property
+    def ldrs(self):
+        """Get the left DRS operand"""
+        return self._drsA
+
+    @property
+    def rdrs(self):
+        """Get the right DRS operand"""
+        return self._drsB
+
     def _antecedent(self, ref, drs):
         return (self._drsA.has_subdrs(drs) and ref.has_bound(drs, self._drsA)) or \
                (self._drsB.has_subdrs(drs) and ref.has_bound(drs, self._drsB))
@@ -1448,17 +1584,15 @@ class Or(AbstractDRSCond):
         return type(self)(self._drsA.rename_subdrs(gd, rs, ps), self._drsB.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
+    def _purify_refs(self, gd, rs, pv=None):
         orsd = intersect(self._drsA.universe, rs)
         nrs = zip(orsd, union_inplace(get_new_drsrefs(orsd, gd.get_variables()), rs))
         # In case we do not want to rename ambiguous bindings:
         # ors = drsUniverses d2 \\ drsUniverse d1 `intersect` rs
-        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs, ps)
-        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1, ps)
+        cd1, rs1 = self._drsA.rename_subdrs(gd, nrs).purify_refs(gd, rs)
+        cd2, rs2 = self._drsB.rename_subdrs(gd, nrs).purify_refs(gd, rs1)
         return type(self)(cd1,cd2), rs2
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1466,7 +1600,7 @@ class Or(AbstractDRSCond):
 
     def has_subdrs(self, d1):
         """Helper for DRS function of same name."""
-        return self._drsA.has_subdrs(d1) and self._drsB.has_subdrs(d1)
+        return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1514,6 +1648,16 @@ class Prop(AbstractDRSCond):
     def __repr__(self):
         return 'Prop(%s,%s)' % (repr(self._ref), repr(self._drs))
 
+    @property
+    def referent(self):
+        """Get the variable (a referent) of this proposition."""
+        return self._ref
+
+    @property
+    def drs(self):
+        """Get the DRS hypothesis in this proposition"""
+        return self._drs
+
     def _antecedent(self, ref, drs):
         return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
 
@@ -1550,15 +1694,13 @@ class Prop(AbstractDRSCond):
         return type(self)(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
+    def _purify_refs(self, gd, rs, pv=None):
         # FIXME: does this really need to be added to front of list
         rsx = [self._ref]
         rsx.extend(rs)
-        cd1, rs1 = self._drs.purify_refs(gd, rsx, ps)
+        cd1, rs1 = self._drs.purify_refs(gd, rsx)
         return type(self)(self._ref, cd1), rs1
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1605,6 +1747,10 @@ class Diamond(AbstractDRSCond):
     def __repr__(self):
         return 'Diamond(%s)' % repr(self._drs)
 
+    @property
+    def drs(self):
+        return self._drs
+
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
         return self._drs.get_freerefs(gd)
@@ -1637,12 +1783,10 @@ class Diamond(AbstractDRSCond):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
-        cd1, rs1 = self._drs.purify_refs(gd, rs, ps)
+    def _purify_refs(self, gd, rs, pv=None):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
         return type(self)(cd1), rs1
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
@@ -1690,6 +1834,10 @@ class Box(AbstractDRSCond):
     def __repr__(self):
         return 'Box(%s)' % repr(self._drs)
 
+    @property
+    def drs(self):
+        return self._drs
+
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
         return self._drs.get_freerefs(gd)
@@ -1722,12 +1870,10 @@ class Box(AbstractDRSCond):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
-    def _purify(self, gd, rs, pv=None, ps=None):
-        cd1, rs1 = self._drs.purify_refs(gd, rs, ps)
+    def _purify_refs(self, gd, rs, pv=None):
+        cd1, rs1 = self._drs.purify_refs(gd, rs)
         return type(self)(cd1), rs1
 
-    ## @property isresolved
-    ##
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
