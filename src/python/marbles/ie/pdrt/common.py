@@ -210,19 +210,19 @@ class DRSVar(AbstractDRSVar):
         return 'DRSVar(%s)' % self.to_string()
 
     def __eq__(self, other):
-        return type(self) == type(other) and self._name == other._name and self._idx == other._idx
+        return type(self) == type(other) and self.to_string() == other.to_string()
 
     def __ne__(self, other):
-        return type(self) != type(other) or self._name != other._name or self._idx != other._idx
+        return type(self) != type(other) or self.to_string() != other.to_string()
 
     def __hash__(self):
         return hash(self._idx) ^ hash(self._name)
 
     def __lt__(self, other):
-        return type(self) == type(other) and (self.idx < other.idx or (self._idx == other._idx and self._name < other._name))
+        return type(self) == type(other) and self.to_string() < other.to_string()
 
     def __le__(self, other):
-        return type(self) == type(other) and (self.idx < other.idx or (self._idx == other._idx and self._name <= other._name))
+        return type(self) == type(other) and self.to_string() < other.to_string()
 
     def __gt__(self, other):
         return not self.__le__(other)

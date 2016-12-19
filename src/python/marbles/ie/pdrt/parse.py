@@ -77,7 +77,7 @@ class PPropExpr(List):
     grammar = Predicate, ':', PdrsDecl
 
     def to_drs(self):
-        return PProp(PDRSRef(self[0].encode('utf-8')), self[2].to_drs())
+        return PProp(PDRSRef(self[0].encode('utf-8')), self[1].to_drs())
 
 
 class PNegExpr(List):
@@ -200,7 +200,7 @@ class PropExpr(List):
     grammar = Predicate, ':', DrsDecl
 
     def to_drs(self):
-        return Prop(DRSRef(self[0].encode('utf-8')), self[2].to_drs())
+        return Prop(DRSRef(self[0].encode('utf-8')), self[1].to_drs())
 
 
 class NegExpr(List):
@@ -265,7 +265,7 @@ class NltkPropExpr(List):
     grammar = Predicate, ':', NltkDecl
 
     def to_drs(self):
-        return Prop(DRSRef(self[0].encode('utf-8')), self[2].to_drs())
+        return Prop(DRSRef(self[0].encode('utf-8')), self[1].to_drs())
 
 
 class NltkNegExpr(List):

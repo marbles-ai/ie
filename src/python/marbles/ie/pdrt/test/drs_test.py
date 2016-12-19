@@ -56,6 +56,10 @@ class DrsTest(unittest.TestCase):
         d = DRS([DRSRef('x')],
                     [Rel(DRSRelation('man'),[DRSRef('x')])
                     ,Neg(DRS([],[Rel(DRSRelation('happy'),[DRSRef('x')])]))])
+        self.assertEquals(d.conditions[1].drs, d.find_subdrs(DRS([],[Rel(DRSRelation('happy'),[DRSRef('x')])])))
+        self.assertEquals(d, d.find_subdrs(DRS([],[Rel(DRSRelation('happy'),[DRSRef('x')])])).global_drs)
+        self.assertTrue(compare_lists_eq(d.conditions[1].drs.accessible_universe, [DRSRef('x')]))
+        self.assertTrue(compare_lists_eq(d.accessible_universe, [DRSRef('x')]))
         s = d.show(SHOW_SET)
         x = u'<{x},{man(x),\u00AC<{},{happy(x)}>}>'
         self.assertEquals(x,s)
@@ -175,7 +179,9 @@ class DrsTest(unittest.TestCase):
         s = m.show(SHOW_SET)
         x = u'<{x,x1},{man(x),happy(x),man(x1),\u00AC<{},{happy(x1)}>}>'
         self.assertEquals(x, s)
-        self.assertEquals(parse_drs('<{x,x1},{man(x),happy(x),man(x1), !<{},{happy(x1)}>}>'), m)
+        p = parse_drs('<{x,x1},{man(x),happy(x),man(x1), !<{},{happy(x1)}>}>')
+        s = p.show(SHOW_SET)
+        self.assertEquals(x, s)
         s = m.show(SHOW_LINEAR)
         x = u'[x,x1: man(x),happy(x),man(x1),\u00AC[: happy(x1)]]'
         self.assertEquals(x,s)
@@ -227,24 +233,41 @@ class DrsTest(unittest.TestCase):
         self.assertFalse(DRSRef('a').has_bound(d.conditions[1].antecedent, d))
         self.assertFalse(DRSRef('a').has_bound(d.conditions[1].consequent, d))
         self.assertFalse(DRSRef('y').has_bound(d, d))
+        self.assertFalse(DRSRef('y').has_bound(d.conditions[1].consequent, d.conditions[1].consequent))
         self.assertFalse(DRSRef('z').has_bound(d, d))
         self.assertFalse(DRSRef('c').has_bound(d, d))
-        self.assertFalse(DRSRef('z').has_bound(d.conditions[1].consequent, d.conditions[1].antecedent))
+        self.assertFalse(DRSRef('z').has_bound(d.conditions[1].antecedent, d))
 
         # Bound referents
         self.assertTrue(DRSRef('x').has_bound(d, d))
         self.assertTrue(DRSRef('y').has_bound(d.conditions[1].antecedent, d))
         self.assertTrue(DRSRef('y').has_bound(d.conditions[1].consequent, d))
-        self.assertTrue(DRSRef('z').has_bound(d.conditions[1].antecedent, d))
+        self.assertTrue(DRSRef('y').has_bound(d.conditions[1].consequent, d.conditions[1].antecedent))
         self.assertTrue(DRSRef('z').has_bound(d.conditions[1].consequent, d))
+        self.assertTrue(DRSRef('z').has_bound(d.conditions[1].consequent, d.conditions[1].antecedent))
+
+        # Accessibility
+        self.assertTrue(compare_lists_eq([DRSRef(x) for x in['x','y']], d.conditions[1].antecedent.accessible_universe))
+        self.assertTrue(compare_lists_eq([DRSRef(x) for x in['x','y','z']], d.conditions[1].consequent.accessible_universe))
+        self.assertEquals(d, d.conditions[1].antecedent.global_drs)
+        self.assertEquals(d, d.conditions[1].consequent.global_drs)
 
         # Check free variables
+        a = d.conditions[1].antecedent.get_freerefs(d.conditions[1].antecedent)
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['x','z','a']]))
         a = d.conditions[1].antecedent.get_freerefs()
-        self.assertTrue(compare_lists_eq(a, [DRSRef('x'), DRSRef('z'), DRSRef('a')]))
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['z','a']]))
+        a = d.conditions[1].consequent.get_freerefs(d.conditions[1].consequent)
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['x','y','a']]))
         a = d.conditions[1].consequent.get_freerefs()
-        self.assertTrue(compare_lists_eq(a, [DRSRef('x'), DRSRef('y'), DRSRef('a')]))
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['a']]))
         a = d.get_freerefs()
-        self.assertTrue(compare_lists_eq(a, [DRSRef('c'),  DRSRef('z'), DRSRef('a')]))
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['c','z','a']]))
+        dp = d.purify()
+        a = dp.get_freerefs()
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['c','z','a']]))
+        a = dp.get_universes()
+        self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['x','y','z1']]))
 
         # Check universe
         self.assertTrue(compare_lists_eq(d.universe, [DRSRef('x')]))
@@ -255,28 +278,16 @@ class DrsTest(unittest.TestCase):
 
         # Cannot convert free variables
         a = d.alpha_convert([(DRSRef('a'), DRSRef('r')), (DRSRef('c'), DRSRef('s')), (DRSRef('z'), DRSRef('t'))])
-        self.assertEquals(a, d)
+        self.assertEquals(a, parse_drs('<{x},{A(c),<{y},{B(x,y,z,a)}> -> <{t},{C(x,y,t,a)}>}>'))
 
         # Can convert bound variables
         a = d.alpha_convert([(DRSRef('x'), DRSRef('x1')), (DRSRef('y'), DRSRef('y1')), (DRSRef('c'), DRSRef('c1'))])
         x = dexpr('([x1],[A(c), (([y1],[B(x1,y1,z,a)]) -> ([z],[C(x1,y1,z,a)]))])')
-        self.assertEquals(x, d)
+        self.assertEquals(x, a)
         a = d.alpha_convert((DRSRef('x'), DRSRef('r')))
         x = dexpr('([r],[A(c), (([y],[B(r,y,z,a)]) -> ([z],[C(r,y,z,a)]))])')
+        self.assertEquals(x, a)
+        a = a.alpha_convert((DRSRef('y'), DRSRef('z1')))
+        d = a.purify()
+        x = dexpr('([r],[A(c), (([z1],[B(r,z1,z,a)]) -> ([z2],[C(r,z1,z2,a)]))])')
         self.assertEquals(x, d)
-
-        '''>>> print(str(d))
->>> print(d.replace(Variable('x'), DrtVariableExpression(Variable('r'))))
-
->>> print(d.replace(Variable('y'), DrtVariableExpression(Variable('r'))))
-([x],[A(c), (([y],[B(x,y,z,a)]) -> ([z],[C(x,y,z,a)]))])
-
->>> print(d.replace(Variable('z'), DrtVariableExpression(Variable('r'))))
-([x],[A(c), (([y],[B(x,y,r,a)]) -> ([z],[C(x,y,z,a)]))])
->>> print(d.replace(Variable('x'), DrtVariableExpression(Variable('r')), True))
-([r],[A(c), (([y],[B(r,y,z,a)]) -> ([z],[C(r,y,z,a)]))])
->>> print(d.replace(Variable('y'), DrtVariableExpression(Variable('r')), True))
-([x],[A(c), (([r],[B(x,r,z,a)]) -> ([z],[C(x,r,z,a)]))])
->>> print(d.replace(Variable('z'), DrtVariableExpression(Variable('r')), True))
-([x],[A(c), (([y],[B(x,y,r,a)]) -> ([r],[C(x,y,r,a)]))])
->>> print(d == dexpr('([l],[A(c), ([m],[B(l,m,z,a)])->([n],[C(l,m,n,a)])])'))'''

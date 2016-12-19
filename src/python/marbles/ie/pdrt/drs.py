@@ -2,6 +2,7 @@ from utils import iterable_type_check, union, union_inplace, intersect, rename_v
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
 from common import DRSVar, LambdaDRSVar, Showable
 import fol
+import weakref
 
 
 WORLD_VAR = 'w'
@@ -58,6 +59,8 @@ def _pure_refs(ld, gd, rs, srs):
 
 class AbstractDRS(Showable):
     """Abstract Core Discourse Representation Structure for DRS and PDRS"""
+    def __init__(self):
+        self._accessible_drs = None
 
     def _isproper_subdrsof(self, d):
         """Helper for isproper"""
@@ -66,6 +69,33 @@ class AbstractDRS(Showable):
     def _ispure_helper(self, rs, gd):
         """Helper for ispure"""
         return False
+
+    def _set_accessible(self, d):
+        self._accessible_drs = None
+        return True
+
+    @property
+    def accessible_drs(self):
+        """Returns the next accessible DRS or None."""
+        return None if self._accessible_drs is None else self._accessible_drs() # weak de-ref
+
+    @property
+    def global_drs(self):
+        """Returns the outer-most DRS accessible from this DRS. If this DRS is the outer-most DRS then self is returned."""
+        g = self
+        while g.accessible_drs is not None:
+            g = g.accessible_drs
+        return g
+
+    @property
+    def accessible_universe(self):
+        """Returns the universe of referents accessible from this DRS."""
+        u = set()
+        g = self
+        while g is not None:
+            u = u.union(g.referents)
+            g = g.accessible_drs
+        return sorted(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isResolvedDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isResolvedPDRS</a>.
@@ -96,7 +126,14 @@ class AbstractDRS(Showable):
     ##
     @property
     def universe(self):
-        """Returns the universe of referents in this DRS."""
+        """Returns the universe of referents in this DRS. A shallow copy is always returned."""
+        return []
+
+    @property
+    def referents(self):
+        """Similar to universe but will only returns referents for a DRS. Also no copy is performed whereas universe
+        will do  a shallow copy.
+        """
         return []
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isPureDRS</a>
@@ -117,12 +154,27 @@ class AbstractDRS(Showable):
         """Test whether this DRS is proper, where a DRS is proper iff it does not contain any free variables."""
         return self._isproper_subdrsof(self)
 
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this DRS and return the found sub-DRS."""
+        return None
+
+    def test_is_accessible_to(self, d):
+        """Test whether this DRS is accessible to d."""
+        while d is not None:
+            if d == self:
+                return True
+            d = d.accessible_drs
+        return False
+
+    def clone(self):
+        return self
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isSubDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isSubPDRS</a>.
     ##
-    def has_subdrs(self, d1):
-        """Returns whether d1 is a direct or indirect sub-DRS of this DRS"""
-        return False
+    def has_subdrs(self, d):
+        """Returns whether d is a direct or indirect sub-DRS of this DRS"""
+        return self.find_subdrs(d) is not None
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsFreeRefs</a>.
     ##
@@ -319,6 +371,7 @@ class LambdaDRS(AbstractDRS):
         """
         if not isinstance(lambdaVar, LambdaDRSVar):
             raise TypeError
+        super(LambdaDRS, self).__init__()
         self._var = lambdaVar
         self._pos = pos
 
@@ -434,8 +487,18 @@ class DRS(AbstractDRS):
     def __init__(self, drsRefs, drsConds):
         if not iterable_type_check(drsRefs, AbstractDRSRef) or not iterable_type_check(drsConds, AbstractDRSCond):
             raise TypeError
+        super(DRS, self).__init__()
         self._refs = drsRefs
         self._conds = drsConds
+        ok = True
+        for c in drsConds:
+            if not c._set_accessible(self):
+                ok = False
+                break
+        if not ok:
+            self._conds = [c.clone() for c in drsConds]
+            for c in self._conds:
+                c._set_accessible(self)
 
     def __ne__(self, other):
         return type(self) != type(other) or not compare_lists_eq(self._refs, other._refs) \
@@ -447,6 +510,12 @@ class DRS(AbstractDRS):
 
     def __repr__(self):
         return 'DRS(%s,%s)' % (repr(self._refs), repr(self._conds))
+
+    def _set_accessible(self, d):
+        if self._accessible_drs is None:
+            self._accessible_drs = weakref.ref(d)
+            return True
+        return False
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
@@ -465,6 +534,11 @@ class DRS(AbstractDRS):
         return r
 
     @property
+    def referents(self):
+        """Similar to universe but will only returns referents for a DRS."""
+        return [x for x in self._refs] # shallow copy
+
+    @property
     def universe(self):
         """Returns the universe of referents in this DRS."""
         return [x for x in self._refs] # shallow copy
@@ -479,26 +553,35 @@ class DRS(AbstractDRS):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
         return all([x.isresolved for x in self._refs]) and all([x.isresolved for x in self._conds])
 
-    def has_subdrs(self, d1):
-        """Test whether d1 is a direct or indirect sub-DRS of this DRS."""
-        return self == d1 or any([x.has_subdrs(d1) for x in self._conds])
+    def clone(self):
+        return DRS(self._refs, [c.clone() for c in self._conds])
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this DRS and return the found sub-DRS."""
+        if self == d:
+            return self
+        for c in self._conds:
+            x = c.find_subdrs(d)
+            if x is not None:
+                return x
+        return None
 
     def get_freerefs(self, gd=None):
         """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
-        function only returns free referents in domain of DRS between `self` and `gd`.
+        function only returns free referents in the accessible domain of DRS between `self` and `gd`.
 
         Args:
-            gd: A global DRS where `self` is a sub-DRS of `gd`.
+            gd: A global DRS where `self` is a sub-DRS of `gd`. Default is self.global_drs
 
         Returns:
             A list of DRSRef instances.
         """
         if gd is None:
-            gd = self
-        y = []
+            gd = self.global_drs
+        y = set()
         for c in self._conds:
-            y = union_inplace(y, c._get_freerefs(self, gd))
-        return y # sorted(set(y))
+            y = y.union(c._get_freerefs(self, gd))
+        return sorted(y)
 
     def resolve_merges(self):
         """Resolves all unresolved merges in this DRS."""
@@ -507,7 +590,7 @@ class DRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables</a>
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+        """Returns the list of all DRSRef's in this DRS. Equivalent to get_freevars() union get_universes()
 
         Args:
             u: An initial list. If None `u` is set to [].
@@ -516,12 +599,12 @@ class DRS(AbstractDRS):
             A list of DRSRef's unioned with `u`.
         """
         if u is None:
-            u = [x for x in self._refs] # shallow copy
+            u = set(self._refs) # shallow copy
         else:
-            u = union_inplace(u, self._refs) # union to avoid duplicates
+            u = set(self._refs).union(u)
         for c in self._conds:
-            u = c._variables(u)
-        return u
+            u = c.get_variables(u)
+        return sorted(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
     ##
@@ -586,13 +669,12 @@ class DRS(AbstractDRS):
         # purifyRefs (ld@(DRS u _),ers) gd = (DRS u1 c2,u1 ++ ers1)
         ors = intersect(self._refs, ers)
         d = self.alpha_convert(zip(ors, get_new_drsrefs(ors, union_inplace(gd.get_variables(),ers))))
-        r = d.universe
-        r.extend(ers)
+        r = union(d.universe, ers)
         conds = []
-        for c in self._conds:
+        for c in d._conds:
             x,r = c._purify_refs(gd, r)
             conds.append(x)
-        return (DRS(d.universe,conds), r)
+        return DRS(d.universe,conds), r
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
@@ -679,8 +761,15 @@ class Merge(AbstractDRS):
     def __init__(self, drsA, drsB):
         if not isinstance(drsA, AbstractDRS) or not isinstance(drsB, AbstractDRS):
             raise TypeError
-        self._drsA = drsA
-        self._drsB = drsB
+        super(Merge, self).__init__()
+        if drsA._set_accessible(self) and drsB._set_accessible(self):
+            self._drsA = drsA
+            self._drsB = drsB
+        else:
+            self._drsA = drsA.clone()
+            self._drsB = drsB.clone()
+            self._drsA._set_accessible(self)
+            self._drsB._set_accessible(self)
 
     def __ne__(self, other):
         return type(self) != type(other) or self._drsA != other._drsA or self._drsB != other._drsB
@@ -690,6 +779,12 @@ class Merge(AbstractDRS):
 
     def __repr__(self):
         return 'Merge(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+
+    def _set_accessible(self, d):
+        if self._accessible_drs is None:
+            self._accessible_drs = weakref.ref(d)
+            return True
+        return False
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
@@ -725,9 +820,12 @@ class Merge(AbstractDRS):
         """Returns the universe of a DRS."""
         return union(self._drsA.universe, self._drsB.universe)
 
-    def has_subdrs(self, d1):
-        """Test whether d1 is a direct or indirect sub-DRS of this DRS"""
-        return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
+    def clone(self):
+        return Merge(self._drsA.clone(), self._drsB.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this DRS"""
+        return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def get_freerefs(self, gd=None):
         """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
@@ -740,7 +838,7 @@ class Merge(AbstractDRS):
             A list of DRSRef instances.
         """
         if gd is None:
-            gd = self
+            gd = self.global_drs
         return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
 
     def resolve_merges(self):
@@ -914,8 +1012,6 @@ def get_new_drsrefs(ors, ers):
 
 class AbstractDRSRef(Showable):
     """Abstract DRS referent"""
-    def _has_antecedent(self, drs, conds):
-        return any([x._antecedent(self, drs) for x in conds])
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -927,9 +1023,9 @@ class AbstractDRSRef(Showable):
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsBoundRef</a>
     ##
     def has_bound(self, ld, gd):
-        """Test if this DRSRef is bound in the universes between local DRS `ld` and global DRS `gd`. A necessary
-        condition is that `ld` be a sub-DRS of `gd`. If any relation exists in the bound between `ld` and `gd` then the
-        constraint for bounding is extended to the universes of the antecedent
+        """Test if this DRSRef is bound in the accessible universes between local DRS `ld` and global DRS `gd`. A
+        necessary condition is that `gd` be accessible from `ld`. If any implication exists in the bound between `ld`
+        and `gd` then the accessible constraint of the consequent is extended to the antecedent.
 
         Args:
             ld: A LambdaDRS|Merge|DRS instance.
@@ -938,6 +1034,16 @@ class AbstractDRSRef(Showable):
         Returns:
             True if this referent is bound.
         """
+        rd = gd.global_drs
+        ld = rd.find_subdrs(ld)
+        if ld is None or not gd.test_is_accessible_to(ld):
+            return False
+        u = set(ld.referents)
+        while ld != gd:
+            ld = ld.accessible_drs
+            u = u.union(ld.referents)
+        return self in u
+        '''
         if isinstance(ld, LambdaDRS):
             return False
         elif isinstance(ld, Merge):
@@ -947,12 +1053,13 @@ class AbstractDRSRef(Showable):
         elif isinstance(gd, Merge):
             return self.has_bound(ld, gd.ldrs) or self.has_bound(ld, gd.rdrs)
         elif isinstance(ld, DRS) and isinstance(gd, DRS):
-            # PWG: Original haskell code did not check gd.has_subdrs(ld) which is incorrect.
+            # PWG: Original haskell code did not check accessibility which is incorrect.
             if self in ld.universe or self in gd.universe:
-                return gd.has_subdrs(ld)
-            return self._has_antecedent(ld, gd.conditions)
+                return gd.test_is_accessible_to(ld)
+            return any([x._antecedent(self, ld) for x in gd.conditions])
         else:
             raise TypeError
+        '''
 
     @property
     def isresolved(self):
@@ -1163,6 +1270,9 @@ class AbstractDRSCond(Showable):
     def __hash__(self):
         return hash(self.__repr__())
 
+    def _set_accessible(self, d):
+        raise NotImplementedError
+
     def _antecedent(self, ref, drs):
         #  always True == isinstance(drs, DRS)
         return False
@@ -1183,10 +1293,6 @@ class AbstractDRSCond(Showable):
     def _universes(self, u):
         return u
 
-    # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs#drsVariables:variables
-    def _variables(self, u):
-        return u
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         return u
@@ -1204,9 +1310,24 @@ class AbstractDRSCond(Showable):
         """Helper for DRS function of same name."""
         return False
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return False
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        return u
+
+    def clone(self):
+        raise NotImplementedError
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return None
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1240,15 +1361,8 @@ class Rel(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._rel == other._rel and compare_lists_eq(self._refs, other._refs)
 
-    @property
-    def relation(self):
-        """Get the predicate"""
-        return self._rel
-
-    @property
-    def referents(self):
-        """Get the referents in this relation"""
-        return [x for x in self._refs]
+    def _set_accessible(self, d):
+        return True
 
     def _get_freerefs(self, ld, gd, pvar=None):
         """Helper for DRS.get_freerefs()"""
@@ -1264,10 +1378,6 @@ class Rel(AbstractDRSCond):
         rs.extend(self._refs)
         return (True, rs)
 
-    # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs#drsVariables:variables
-    def _variables(self, u):
-        return union_inplace(u, self._refs)
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         u = self._rel._lambda_tuple(u)
@@ -1280,13 +1390,38 @@ class Rel(AbstractDRSCond):
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
-        rs.extend(self._refs)
+        rs = union(rs, self._refs)
         return (self, rs)
+
+    @property
+    def relation(self):
+        """Get the predicate"""
+        return self._rel
+
+    @property
+    def referents(self):
+        """Get the referents in this relation"""
+        return [x for x in self._refs]
 
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
         return all([x.isresolved for x in self._refs])
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        return u.union(self._refs)
+
+    def clone(self):
+        return self
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1325,9 +1460,8 @@ class Neg(AbstractDRSCond):
     def __repr__(self):
         return 'Neg(%s)' % repr(self._drs)
 
-    @property
-    def drs(self):
-        return self._drs
+    def _set_accessible(self, d):
+        return self._drs._set_accessible(d)
 
     def _antecedent(self, ref, drs):
         return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
@@ -1350,10 +1484,6 @@ class Neg(AbstractDRSCond):
     def _universes(self, u):
         return self._drs.get_universes(u)
 
-    # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs#drsVariables:variables
-    def _variables(self, u):
-        return self._drs.get_variables(u)
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         return self._drs.get_lambda_tuples(u)
@@ -1372,9 +1502,28 @@ class Neg(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return self._drs.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drs.has_subdrs(d1)
+    @property
+    def drs(self):
+        return self._drs
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        return self._drs.get_variables(u)
+
+    def clone(self):
+        return Neg(self._drs.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1414,15 +1563,8 @@ class Imp(AbstractDRSCond):
     def __repr__(self):
         return 'Imp(%s,%s)' % (repr(self._drsA), repr(self._drsB))
 
-    @property
-    def antecedent(self):
-        """Get the antecedent DRS"""
-        return self._drsA
-
-    @property
-    def consequent(self):
-        """Get the consequent DRS"""
-        return self._drsB
+    def _set_accessible(self, d):
+        return self._drsA._set_accessible(d) and self._drsB._set_accessible(self._drsA)
 
     def _antecedent(self, ref, drs):
         return (ref in self._drsA.universe and self._drsB.has_subdrs(drs)) or \
@@ -1446,13 +1588,7 @@ class Imp(AbstractDRSCond):
 
     def _universes(self, u):
         u = self._drsA.get_universes(u)
-        u = self._drsB.get_universes(u)
-        return u
-
-    def _variables(self, u):
-        u = self._drsA.get_variables(u)
-        u = self._drsB.get_variables(u)
-        return u
+        return self._drsB.get_universes(u)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1478,9 +1614,35 @@ class Imp(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return self._drsA.isresolved and self._drsB.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
+    @property
+    def antecedent(self):
+        """Get the antecedent DRS"""
+        return self._drsA
+
+    @property
+    def consequent(self):
+        """Get the consequent DRS"""
+        return self._drsB
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        u = self._drsA.get_variables(u)
+        return self._drsB.get_variables(u)
+
+    def clone(self):
+        return Imp(self._drsA.clone(), self._drsB.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1535,15 +1697,8 @@ class Or(AbstractDRSCond):
     def __repr__(self):
         return 'Or(%s,%s)' % (repr(self._drsA), repr(self._drsB))
 
-    @property
-    def ldrs(self):
-        """Get the left DRS operand"""
-        return self._drsA
-
-    @property
-    def rdrs(self):
-        """Get the right DRS operand"""
-        return self._drsB
+    def _set_accessible(self, d):
+        return self._drsA._set_accessible(d) and self._drsB._set_accessible(d)
 
     def _antecedent(self, ref, drs):
         return (self._drsA.has_subdrs(drs) and ref.has_bound(drs, self._drsA)) or \
@@ -1566,13 +1721,7 @@ class Or(AbstractDRSCond):
 
     def _universes(self, u):
         u = self._drsA.get_universes()
-        u = self._drsB.get_universes(u)
-        return u
-
-    def _variables(self, u):
-        u = self._drsA.get_variables(u)
-        u = self._drsB.get_variables(u)
-        return u
+        return self._drsB.get_universes(u)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1598,9 +1747,35 @@ class Or(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return self._drsA.isresolved and self._drsB.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drsA.has_subdrs(d1) or self._drsB.has_subdrs(d1)
+    @property
+    def ldrs(self):
+        """Get the left DRS operand"""
+        return self._drsA
+
+    @property
+    def rdrs(self):
+        """Get the right DRS operand"""
+        return self._drsB
+
+    def clone(self):
+        return Or(self._drsA.clone(), self._drsB.clone())
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        u = self._drsA.get_variables(u)
+        return self._drsB.get_variables(u)
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1648,15 +1823,8 @@ class Prop(AbstractDRSCond):
     def __repr__(self):
         return 'Prop(%s,%s)' % (repr(self._ref), repr(self._drs))
 
-    @property
-    def referent(self):
-        """Get the variable (a referent) of this proposition."""
-        return self._ref
-
-    @property
-    def drs(self):
-        """Get the DRS hypothesis in this proposition"""
-        return self._drs
+    def _set_accessible(self, d):
+        return self._drs._set_accessible(d)
 
     def _antecedent(self, ref, drs):
         return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
@@ -1678,12 +1846,6 @@ class Prop(AbstractDRSCond):
     def _universes(self, u):
         return self._drs.get_universes(u)
 
-    def _variables(self, u):
-        if self._ref in u:
-            return self._drs.get_variables(u)
-        u.append(self._ref)
-        return self._drs.get_variables(u)
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         u = self._ref._lambda_tuple(u)
@@ -1696,19 +1858,44 @@ class Prop(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
         # FIXME: does this really need to be added to front of list
-        rsx = [self._ref]
-        rsx.extend(rs)
-        cd1, rs1 = self._drs.purify_refs(gd, rsx)
-        return type(self)(self._ref, cd1), rs1
+        rs = union([self._ref], rs)
+        cd1, rs = self._drs.purify_refs(gd, rs)
+        return type(self)(self._ref, cd1), rs
 
     @property
     def isresolved(self):
         """Helper for DRS function of same name."""
         return self._ref.isresolved and self._drs.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drs.has_subdrs(d1)
+    @property
+    def referent(self):
+        """Get the variable (a referent) of this proposition."""
+        return self._ref
+
+    @property
+    def drs(self):
+        """Get the DRS hypothesis in this proposition"""
+        return self._drs
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        u.add(self._ref)
+        return self._drs.get_variables(u)
+
+    def clone(self):
+        return Prop(self._ref, self._drs.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1747,9 +1934,8 @@ class Diamond(AbstractDRSCond):
     def __repr__(self):
         return 'Diamond(%s)' % repr(self._drs)
 
-    @property
-    def drs(self):
-        return self._drs
+    def _set_accessible(self, d):
+        return self._drs._set_accessible(d)
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
@@ -1760,7 +1946,7 @@ class Diamond(AbstractDRSCond):
         return self._drs._isproper_subdrsof(gd)
 
     def _antecedent(self, ref, drs):
-        return self._drs.has_subdrs(drs) and ref.has_bound(drs, self._drs)
+        return self._drs.find_subdrs(drs) and ref.find_bound(drs, self._drs)
 
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
@@ -1770,9 +1956,6 @@ class Diamond(AbstractDRSCond):
 
     def _universes(self, u):
         return self._drs.get_universes(u)
-
-    def _variables(self, u):
-        return self._drs.get_variables(u)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1792,9 +1975,28 @@ class Diamond(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return self._drs.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drs.has_subdrs(d1)
+    @property
+    def drs(self):
+        return self._drs
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        return self._drs.get_variables(u)
+
+    def clone(self):
+        return Diamond(self._drs.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
@@ -1834,9 +2036,8 @@ class Box(AbstractDRSCond):
     def __repr__(self):
         return 'Box(%s)' % repr(self._drs)
 
-    @property
-    def drs(self):
-        return self._drs
+    def _set_accessible(self, d):
+        return self._drs._set_accessible(d)
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Neg d1:cs) = drsFreeRefs d1 gd `union` free cs
@@ -1858,9 +2059,6 @@ class Box(AbstractDRSCond):
     def _universes(self, u):
         return self._drs.get_universes(u)
 
-    def _variables(self, u):
-        return self._drs.get_variables(u)
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         return self._drs.get_lambda_tuples(u)
@@ -1879,9 +2077,28 @@ class Box(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return self._drs.isresolved
 
-    def has_subdrs(self, d1):
-        """Helper for DRS function of same name."""
-        return self._drs.has_subdrs(d1)
+    @property
+    def drs(self):
+        return self._drs
+
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
+    def get_variables(self, u):
+        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of DRSRef's unioned with `u`.
+        """
+        return self._drs.get_variables(u)
+
+    def clone(self):
+        return Box(self._drs.clone())
+
+    def find_subdrs(self, d):
+        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
         """Helper for DRS function of same name."""
