@@ -34,7 +34,7 @@ def complement(a, b, sorted=False):
     if sorted:
         # optimize for sorted lists
         pass
-    return filter(lambda x: x not in a, b)
+    return filter(lambda x: x not in b, a)
 
 
 def intersect(a, b, sorted=False):
