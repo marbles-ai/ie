@@ -535,8 +535,8 @@ class DRS(AbstractDRS):
 
     @property
     def referents(self):
-        """Similar to universe but will only returns referents for a DRS."""
-        return [x for x in self._refs] # shallow copy
+        """Similar to universe but will only returns referents for a DRS. No shallow copy."""
+        return self._refs
 
     @property
     def universe(self):
