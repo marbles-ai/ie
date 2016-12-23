@@ -1,0 +1,32 @@
+# Unary type-changing rules, which allow the left hand category to convert to the right hand category.
+# There's plenty of scope for improving these.
+
+# Rule used to allow nouns to become noun-phrases without needed a determiner.
+N_1       NP_1
+
+# Reduced relatives  
+(S[pss]_2\NP_1)_2      (NP_1\NP_1)_2
+(S[ng]_2\NP_1)_2       (NP_1\NP_1)_2
+(S[adj]_2\NP_1)_2      (NP_1\NP_1)_2
+(S[to]_2\NP_3)_2      (NP_1\NP_1)_2
+(S[dcl]_2/NP_1)_2      (NP_1\NP_1)_2
+#(S[to]_2\NP_1)_2      (N_1\N_1)_2
+
+
+# Rules that let verb-phrases modify sentences, as in "Born in Hawaii, Obama is the 44th president."
+(S[to]_2\NP)_2       (S_1/S_1)_2
+(S[pss]_2\NP)_2       (S_1/S_1)_2
+(S[ng]_2\NP)_2       (S_1/S_1)_2
+
+#(S[adj]_2\NP_1)_2	((S_3\NP_1)_3\(S_3\NP_1)_3)_2
+
+# Type raising
+NP_1      (S[X]_2/(S[X]_2\NP_1)_2)_1
+NP_1      ((S[X]_3\NP_2)_3\((S[X]_3\NP_2)_3/NP_1)_3)_1
+PP_1      ((S[X]_3\NP_2)_3\((S[X]_3\NP_2)_3/PP_1)_3)_1
+NP_1      (((S[X]_3\NP_2)_3/NP_4)_3\(((S[X]_3\NP_2)_3/NP_4)_3/NP_1)_3)_1
+NP_1      (((S[X]_3\NP_2)_3/PP_4)_3\(((S[X]_3\NP_2)_3/PP_4)_3/NP_1)_3)_1
+
+
+# Gerunds
+(S[ng]_1\NP_2)_1	 NP_1
