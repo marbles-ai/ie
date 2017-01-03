@@ -1,2 +1,7 @@
 networkx
 pypeg2
+rdflib
+nltk
+SPARQLWrapper
+pysmt
+statistics

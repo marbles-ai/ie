@@ -21,3 +21,9 @@ brew_install gradle
 # pseudo terminal
 brew tap homebrew/dupes
 brew_install screen 
+
+# STP
+brew_install boost
+brew_install boost-python
+brew_install bison
+brew_install flex
