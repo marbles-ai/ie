@@ -61,7 +61,7 @@ class PRelExpr(List):
     grammar = Predicate, '(', csl(Predicate), ')'
 
     def to_drs(self):
-        refs = [PDRSRef(r) for r in self[1:].encode('utf-8')]
+        refs = [PDRSRef(r.encode('utf-8')) for r in self[1:]]
         return PRel(DRSRelation(self[0].encode('utf-8')), refs)
 
 
@@ -358,7 +358,7 @@ def parse_drs(s, grammar=None):
 
     Args:
         s: The unicode string to parse.
-        grammar: Either 'set' or 'nltk', default is 'set'. Use 'nltk' to parse using
+        grammar: Either 'set' or 'nltk', default is 'set'. Use 'nltk' format to parse. See
             <a href="http://www.nltk.org/howto/drt.html">nltk drt</a>.
 
     Returns:
