@@ -568,7 +568,7 @@ class DRS(AbstractDRS):
         if not ok:
             self._conds = [c.clone() for c in drsConds]
             for c in self._conds:
-                c._set_accessible(self)
+                assert c._set_accessible(self)
 
     def __ne__(self, other):
         return type(self) != type(other) or not compare_lists_eq(self._refs, other._refs) \
