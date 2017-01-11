@@ -200,14 +200,15 @@ class AbstractDRSVar(Showable):
         raise NotImplementedError
 
 
-# DRS variable
 class DRSVar(AbstractDRSVar):
+    """DRS variable"""
+
     def __init__(self, name, idx=0):
         self._name = name
         self._idx = idx
 
     def __repr__(self):
-        return 'DRSVar(%s)' % self.to_string()
+        return 'Var(%s)' % self.to_string()
 
     def __eq__(self, other):
         return type(self) == type(other) and self.to_string() == other.to_string()
@@ -259,7 +260,65 @@ class DRSVar(AbstractDRSVar):
         return '%s%i' % (self._name, self._idx)
 
 
+class DRSConst(AbstractDRSVar):
+    """DRS Constant. Refer to Muskens, 1996."""
+    def __init__(self, name):
+        self._name = name
+
+    def __repr__(self):
+        return 'DRSConst(%s)' % self.to_string()
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.to_string() == other.to_string()
+
+    def __ne__(self, other):
+        return type(self) != type(other) or self.to_string() != other.to_string()
+
+    def __hash__(self):
+        return hash(self._name)
+
+    def __lt__(self, other):
+        return type(self) == type(other) and self.to_string() < other.to_string()
+
+    def __le__(self, other):
+        return type(self) == type(other) and self.to_string() < other.to_string()
+
+    def __gt__(self, other):
+        return not self.__le__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def increase_new(self):
+        return DRSConst(self._name)
+
+    ## @property idx
+    @property
+    def idx(self):
+        return 0
+
+    ## @property name
+    @property
+    def name(self):
+        return self._name
+
+    def show(self, notation):
+        """Display for screen.
+
+        Args:
+            notation: An integer notation.
+
+        Returns:
+            A unicode string.
+        """
+        return unicode(self)
+
+    def to_string(self):
+        return self._name
+
+
 class LambdaDRSVar(AbstractDRSVar):
+    """A lambda DRS"""
     def __init__(self, drsVar, drsVarSet):
         """A lambda DRS.
 
@@ -279,7 +338,7 @@ class LambdaDRSVar(AbstractDRSVar):
         return type(self) == type(other) and other._var == self._var and compare_lists_eq(other._set, self._set)
 
     def __repr__(self):
-        return 'LambdaDRSVar(%s,%s)' % (self._var.to_string(), self._set)
+        return 'LambdaVar(%s,%s)' % (self._var.to_string(), self._set)
 
     def __hash__(self):
         return hash(self._var) ^ hash(len(self._set))
@@ -339,7 +398,6 @@ class LambdaDRSVar(AbstractDRSVar):
 
     def to_string(self):
         return self._var.to_string()
-
 
 
 
