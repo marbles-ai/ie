@@ -855,8 +855,8 @@ class Merge(AbstractDRS):
         else:
             self._drsA = drsA.clone()
             self._drsB = drsB.clone()
-            self._drsA._set_accessible(self)
-            self._drsB._set_accessible(self)
+            assert self._drsA._set_accessible(self)
+            assert self._drsB._set_accessible(self)
 
     def __ne__(self, other):
         return type(self) != type(other) or self._drsA != other._drsA or self._drsB != other._drsB
