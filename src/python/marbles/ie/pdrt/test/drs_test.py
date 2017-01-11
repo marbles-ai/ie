@@ -3,6 +3,7 @@ from ..drs import *
 from ..common import *
 from ..parse import parse_drs
 from ..utils import compare_lists_eq
+from pysmt.shortcuts import Solver
 
 
 # Like NLTK's dexpr()
@@ -23,7 +24,7 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[: ]'
         self.assertEquals(x,s)
-        f = d.to_fol()
+        f, _ = d.to_fol()
         s = f.show(SHOW_SET)
         x = u'\u22A4'
         self.assertEquals(x, s)
@@ -46,9 +47,9 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(d.isproper)
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
-        f = d.to_fol()
+        f, _ = d.to_fol()
         s = f.show(SHOW_SET)
-        x = u'\u2203x(happy(w,x) \u2227 man(w,x))'
+        x = u'\u2203x(man(w,x) \u2227 happy(w,x))'
         self.assertEquals(x, s)
 
     def test2_NotHappyMan(self):
@@ -90,9 +91,9 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(d.isproper)
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
-        f = d.to_fol()
+        f, _ = d.to_fol()
         s = f.show(SHOW_SET)
-        x = u'\u2203x(\u00AChappy(w,x) \u2227 man(w,x))'
+        x = u'\u2203x(man(w,x) \u2227 \u00AChappy(w,x))'
         self.assertEquals(x, s)
 
     def test3_FarmerDonkey(self):
@@ -117,9 +118,9 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(d.isproper)
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
-        f = d.to_fol()
+        f, _ = d.to_fol()
         s = f.show(SHOW_SET)
-        x = u'\u2200x\u2200y((farmer(w,x) \u2227 (owns(w,x,y) \u2227 donkey(w,y)))) \u2192 (feeds(w,x,y))'
+        x = u'\u2200x\u2200y((farmer(w,x) \u2227 (donkey(w,y) \u2227 owns(w,x,y)))) \u2192 (feeds(w,x,y))'
         self.assertEquals(x, s)
 
     def test4_ManLoveWoman(self):
@@ -142,9 +143,9 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(d.isproper)
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
-        f = d.to_fol()
+        f, _ = d.to_fol()
         s = f.show(SHOW_SET)
-        x = u'\u2203x\u2203y\u2203p(man(w,x) \u2227 (woman(w,y) \u2227 ((Acc(w,p) \u2227 loves(w,x,y)) \u2227 believes(w,x,p))))'
+        x = u'\u2203x\u2203y\u2203p(man(w,x) \u2227 (woman(w,y) \u2227 (believes(w,x,p) \u2227 (Acc(w,p) \u2227 loves(w,x,y)))))'
         self.assertEquals(x, s)
 
     def test5_ManHappyNotSad(self):
@@ -291,3 +292,19 @@ class DrsTest(unittest.TestCase):
         d = a.purify()
         x = dexpr('([r],[A(c), (([z1],[B(r,z1,z,a)]) -> ([z2],[C(r,z1,z2,a)]))])')
         self.assertEquals(x, d)
+
+    def __test11_Unify(self):
+        """A man walked in. He ordered a beer"""
+        d1 = parse_drs('<{e,x,l},{location(l),<{},{walked_in(e,x,l)}> -> <{},{entered(e,x,l)}>,<{},{man(x)}> -> <{},{male(x),person(x)}>}>')
+        d2 = parse_drs('<{e,y,z},{beer(z),order(e,y,z),<{},{PRON(y)}> -> <{},{male(y),person(x)}>}>')
+        d3 = Merge(d1,d2)
+        d4 = d3.purify().resolve_merges()
+        fol, _ = d4.to_fol()
+        formula = fol.to_smt()
+        with Solver(name='z3', quantified=True) as solver:
+            solver.add_assertion(formula)
+            if solver.solve():
+                pass
+            else:
+                pass
+        s = d4.show(SHOW_SET)
