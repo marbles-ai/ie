@@ -1,6 +1,32 @@
 from utils import iterable_type_check
 from common import Showable
 from common import SHOW_BOX
+from pysmt import shortcuts as sc
+#import Solver, get_model
+#from pysmt.shortcuts import Symbol, Bool, Implies, And, Not, Equals
+#from pysmt.shortcuts import ForAll, Exists, Implies, Iff, TRUE, FALSE
+from pysmt.logics import AUTO, QF_LRA, QF_UFLRA, QF_UFIDL
+from pysmt.typing import REAL, FunctionType
+from pysmt.exceptions import SolverReturnedUnknownResultError
+from pysmt.environment import get_env
+import os
+
+
+z3name = "z3"
+if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'src')):
+    # Path to the solver in devel tree
+    z3path = [os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', 'scripts'))]
+else:
+    # Path to the solver in install tree
+    z3path = [os.path.abspath(os.path.join(os.path.dirname(__file__), 'solvers'))]
+
+logics = [QF_UFLRA, QF_UFIDL] # Some of the supported logics
+
+env = sc.get_env()
+
+# Add the solver to the environment
+env.factory.add_generic_solver(z3name, z3path, logics)
+
 
 
 class FOLConversionError(Exception):
@@ -30,6 +56,9 @@ class FOLForm(Showable):
             return u'\n' + unicode(self) + u'\n'
         return unicode(self)
 
+    def to_smt(self):
+        raise NotImplementedError
+
 
 class Exists(FOLForm):
     """An existential quantification"""
@@ -47,6 +76,9 @@ class Exists(FOLForm):
 
     def __unicode__(self):
         return u'\u2203%s%s' % (self._var, self._fol)
+
+    def to_smt(self):
+        return sc.Exists(sc.Symbol(self._var), self._fol.to_smt())
 
 
 class ForAll(FOLForm):
@@ -66,6 +98,9 @@ class ForAll(FOLForm):
     def __unicode__(self):
         return u'\u2200%s%s' % (self._var, self._fol)
 
+    def to_smt(self):
+        return sc.ForAll(sc.Symbol(self._var), self.to_smt())
+
 
 class And(FOLForm):
     """A conjunction"""
@@ -83,6 +118,9 @@ class And(FOLForm):
 
     def __unicode__(self):
         return u'(%s \u2227 %s)' % (self._folA, self._folB)
+
+    def to_smt(self):
+        return sc.And(self._folA.to_smt(), self._folB.to_smt())
 
 
 class Or(FOLForm):
@@ -102,6 +140,9 @@ class Or(FOLForm):
     def __unicode__(self):
         return u'(%s \u2228 %s)' % (self._folA, self._folB)
 
+    def to_smt(self):
+        return sc.Or(self._folA.to_smt(), self._folB.to_smt())
+
 
 class Imp(FOLForm):
     """An implication"""
@@ -120,6 +161,9 @@ class Imp(FOLForm):
     def __unicode__(self):
         return u'(%s) \u2192 (%s)' % (self._folA, self._folB)
 
+    def to_smt(self):
+        return sc.Implies(self._folA.to_smt(), self._folB.to_smt())
+
 
 class Neg(FOLForm):
     """A negation"""
@@ -136,6 +180,9 @@ class Neg(FOLForm):
 
     def __unicode__(self):
         return u'\u00AC%s' % self._fol
+
+    def to_smt(self):
+        return sc.Neg(self._fol.to_smt())
 
 
 class Rel(FOLForm):
@@ -155,6 +202,29 @@ class Rel(FOLForm):
     def __unicode__(self):
         return u'%s(%s)' % (self._pred, u','.join(self._vars))
 
+    def to_smt(self):
+        return sc.Function(sc.Symbol(self._pred), [sc.Symbol(x) for x in self._vars])
+
+
+class Acc(FOLForm):
+    """Acc relation"""
+    def __init__(self, folVars):
+        if not iterable_type_check(folVars, FOLVar):
+            raise TypeError
+        self._vars = [v.decode('utf-8') for v in folVars]
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self._vars == other._vars
+
+    def __ne__(self, other):
+        return self.__class__ != other.__class__ or self._vars != other._vars
+
+    def __unicode__(self):
+        return u'Acc(%s)' % u','.join(self._vars)
+
+    def to_smt(self):
+        return sc.Function(sc.Function(u'Acc'), [sc.Symbol(x) for x in self._vars])
+
 
 class Top(FOLForm):
     """True constant"""
@@ -171,6 +241,9 @@ class Top(FOLForm):
     def __unicode__(self):
         return u'\u22A4'
 
+    def to_smt(self):
+        return sc.TRUE
+
 
 class Bottom(FOLForm):
     """False constant"""
@@ -186,3 +259,6 @@ class Bottom(FOLForm):
 
     def __unicode__(self):
         return u'\u22A5'
+
+    def to_smt(self):
+        return sc.FALSE
