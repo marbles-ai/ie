@@ -1,12 +1,11 @@
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var, compare_lists_eq
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
-from common import DRSVar, LambdaDRSVar, Showable
+from common import DRSVar, DRSConst, LambdaDRSVar, Showable
 import fol
 import weakref
 
 
 WORLD_VAR = 'w'
-WORLD_REL = 'Acc'
 
 
 class LambdaTuple(object):
@@ -89,13 +88,52 @@ class AbstractDRS(Showable):
 
     @property
     def accessible_universe(self):
-        """Returns the universe of referents accessible from this DRS."""
+        """Returns the universe of referents accessible to this DRS."""
         u = set()
         g = self
         while g is not None:
             u = u.union(g.referents)
             g = g.accessible_drs
         return sorted(u)
+
+    @property
+    def freerefs(self):
+        """Returns the list of all free DRSRef's in this DRS.
+
+        Remarks:
+            Same as get_freerefs(None)
+        """
+        return self.get_freerefs()
+
+    @property
+    def variables(self):
+        """Returns the list of all bound DRSRef's in this DRS.
+
+        Remarks:
+            Same as get_variables(None)
+        """
+        return self.get_variables(None)
+
+    @property
+    def constants(self):
+        """Returns the list of all constant DRSRef's in this DRS.
+
+        Remarks:
+            Same as get_constants(None)
+        """
+        return self.get_constants(None)
+
+    @property
+    def universes(self):
+        """Returns the list of DRSRef's from all universes in this DRS.
+
+        Remarks:
+            Same as get_universes(None)
+
+        See Also:
+            AbstractDRS.universe property.
+        """
+        return self.get_universes(None)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isResolvedDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isResolvedPDRS</a>.
@@ -155,11 +193,26 @@ class AbstractDRS(Showable):
         return self._isproper_subdrsof(self)
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this DRS and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
         return None
 
     def test_is_accessible_to(self, d):
         """Test whether this DRS is accessible to d."""
+        if d.accessible_drs is not None and self.accessible_drs is None:
+            gd = d.global_drs
+            if gd != self:
+                s = gd.find_subdrs(self)
+                if s is not None:
+                    return s.test_is_accessible_to(d)
+                return False
+            return True
+        elif self.accessible_drs is None:
+            # d.accessible_drs is None and self.accessible_drs is None
+            return d == self or self.find_subdrs(d) is not None
+        elif d.accessible_drs is None:
+            # d.accessible_drs is None and self.accessible_drs is not None
+            d = self.global_drs.find_subdrs(d)
+        # else d.accessible_drs is not None and self.accessible_drs is not None
         while d is not None:
             if d == self:
                 return True
@@ -173,7 +226,7 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isSubPDRS</a>.
     ##
     def has_subdrs(self, d):
-        """Returns whether d is a direct or indirect sub-DRS of this DRS"""
+        """Returns whether d is a direct or indirect subordinate DRS of this DRS"""
         return self.find_subdrs(d) is not None
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsFreeRefs</a>.
@@ -182,7 +235,7 @@ class AbstractDRS(Showable):
         """Returns the list of all free DRSRef's in a DRS.
 
         Args:
-            gd: A global DRS where `self` is a sub-DRS of `gd`.
+            gd: A global DRS where `self` is a subordinate DRS of `gd`.
 
         Returns:
             A list of DRSRef instances.
@@ -200,13 +253,26 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsVariables</a>.
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+        """Returns the list of all bound DRSRef's in this DRS.
 
         Args:
             u: An initial list. If None `u` is set to [].
 
         Returns:
             A list of DRSRef's unioned with `u`.
+        """
+        if u is None: return []
+        return u
+
+    def get_constants(self, u=None):
+        """Returns the list of all constant DRSRef's in this DRS. Constants were introduced by Muskens, 1996. A constant
+        can only appear in conditions, i.e. it is never bound.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
         """
         if u is None: return []
         return u
@@ -261,7 +327,7 @@ class AbstractDRS(Showable):
         """Replaces duplicate uses of DRSRef's by new DRSRef's.
 
         Args:
-            gd: A global DRS, where `self` is a sub-DRS of global.
+            gd: A global DRS, where `self` is a subordinate DRS of global.
             rs: A list of referents
 
         Returns:
@@ -298,7 +364,7 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs::renameSubPDRS</a>.
     ##
     def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a sub-DRS of the global DRS `gd`, on the basis of the
+        """Applies alpha conversion to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
         conversion list `rs` for DRSRef's and the conversion list `ps` for PVar's.
 
         Args:
@@ -335,23 +401,25 @@ class AbstractDRS(Showable):
         """Convert to FOLForm
 
         Returns:
-            An ie.fol.FOLForm instance.
+            A tuple of an ie.fol.FOLForm instance and a list of possible worlds.
 
         Raises:
             ie.fol.FOLConversionError
         """
-        return self.to_mfol(WORLD_VAR)
+        worlds = [WORLD_VAR]
+        return self.to_mfol(WORLD_VAR, worlds), worlds
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Converts a DRS to a modal FOL formula with world
 
         Args:
             world: A ie.fol.FOLVar instance
+            worlds: A list of all worlds.
 
         Returns:
-            An ie.fol.FOLForm instance.
+            A tuple of an ie.fol.FOLForm instance and a list of possible worlds.
 
         Raises:
             ie.fol.FOLConversionError
@@ -427,7 +495,7 @@ class LambdaDRS(AbstractDRS):
         this function does nothing.
 
         Args:
-            gd: A global DRS, where `self` is a sub-DRS of global.
+            gd: A global DRS, where `self` is a subordinate DRS of global.
             rs: A list of referents.
 
         Returns:
@@ -438,7 +506,7 @@ class LambdaDRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
     def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        """Applies alpha conversion to this DRS, which is a subordinate DRS of the
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
 
         Args:
@@ -469,16 +537,16 @@ class LambdaDRS(AbstractDRS):
         return u'LambdaDRS ' + self._var.to_string().decode('utf-8')
 
 
-def conds_to_mfol(conds, world):
+def conds_to_mfol(conds, world, worlds):
     """Converts a list of DRS conditions to a modal FOL formula with world"""
     if len(conds) == 0:
         return fol.Top()
     if len(conds) == 1:
-        return conds[0].to_mfol(world)
+        return conds[0].to_mfol(world, worlds)
     else:
-        f = fol.And(conds[-1].to_mfol(world), conds[-2].to_mfol(world))
+        f = fol.And(conds[-2].to_mfol(world, worlds), conds[-1].to_mfol(world, worlds))
         for i in reversed(range(len(conds) - 2)):
-            f = fol.And(conds[i].to_mfol(world), f)
+            f = fol.And(conds[i].to_mfol(world, worlds), f)
         return f
 
 
@@ -487,6 +555,8 @@ class DRS(AbstractDRS):
     def __init__(self, drsRefs, drsConds):
         if not iterable_type_check(drsRefs, AbstractDRSRef) or not iterable_type_check(drsConds, AbstractDRSCond):
             raise TypeError
+        if any([x.isconst for x in drsRefs]):
+            raise TypeError('DRSConst cannot be bound')
         super(DRS, self).__init__()
         self._refs = drsRefs
         self._conds = drsConds
@@ -557,7 +627,7 @@ class DRS(AbstractDRS):
         return DRS(self._refs, [c.clone() for c in self._conds])
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this DRS and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
         if self == d:
             return self
         for c in self._conds:
@@ -567,11 +637,11 @@ class DRS(AbstractDRS):
         return None
 
     def get_freerefs(self, gd=None):
-        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
+        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a subordinate DRS of `gd` and the
         function only returns free referents in the accessible domain of DRS between `self` and `gd`.
 
         Args:
-            gd: A global DRS where `self` is a sub-DRS of `gd`. Default is self.global_drs
+            gd: A global DRS where `self` is a subordinate DRS of `gd`. Default is self.global_drs
 
         Returns:
             A list of DRSRef instances.
@@ -590,13 +660,13 @@ class DRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables</a>
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS. Equivalent to get_freevars() union get_universes()
+        """Returns the list of all bound DRSRef's in this DRS.
 
         Args:
             u: An initial list. If None `u` is set to [].
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         if u is None:
             u = set(self._refs) # shallow copy
@@ -604,6 +674,23 @@ class DRS(AbstractDRS):
             u = set(self._refs).union(u)
         for c in self._conds:
             u = c.get_variables(u)
+        return sorted(u)
+
+    def get_constants(self, u=None):
+        """Returns the list of all constant DRSRef's in this DRS.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        if u is None:
+            u = set(self._refs) # shallow copy
+        else:
+            u = set(self._refs).union(u)
+        for c in self._conds:
+            u = c.get_constants(u)
         return sorted(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
@@ -655,7 +742,7 @@ class DRS(AbstractDRS):
          - go through all conditions of `self`, while continually updating `rs`.
 
          Args:
-             gd: A global DRS, where `self` is a sub-DRS of global.
+             gd: A global DRS, where `self` is a subordinate DRS of global.
              ers: A list of referents
 
          Returns:
@@ -679,7 +766,7 @@ class DRS(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
     def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        """Applies alpha conversion to this DRS, which is a subordinate DRS of the
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
 
         Args:
@@ -695,7 +782,7 @@ class DRS(AbstractDRS):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Converts a DRS to a modal FOL formula with world
 
         Args:
@@ -708,9 +795,9 @@ class DRS(AbstractDRS):
             ie.fol.FOLConversionError
         """
         if len(self._refs) == 0:
-            return conds_to_mfol(self._conds, world)
+            return conds_to_mfol(self._conds, world, worlds)
         # FIXME: remove recursion
-        return fol.Exists(fol.FOLVar(self._refs[0].var), DRS(self._refs[1:], self._conds).to_mfol(world))
+        return fol.Exists(fol.FOLVar(self._refs[0].var), DRS(self._refs[1:], self._conds).to_mfol(world, worlds))
 
     # Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Show.hs">/Data/DRS/Show.hs::showUniverse</a>
     def _show_universe(self, d, notation):
@@ -824,15 +911,15 @@ class Merge(AbstractDRS):
         return Merge(self._drsA.clone(), self._drsB.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this DRS"""
+        """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
         return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def get_freerefs(self, gd=None):
-        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a sub-DRS of `gd` and the
+        """Returns the list of all free DRSRef's in a DRS. If `gd` is set then self must be a subordinate DRS of `gd` and the
         function only returns free referents in domain of DRS between `self` and `gd`.
 
         Args:
-            gd: A global DRS where `self` is a sub-DRS of `gd`.
+            gd: A global DRS where `self` is a subordinate DRS of `gd`.
 
         Returns:
             A list of DRSRef instances.
@@ -848,16 +935,28 @@ class Merge(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables</a>
     ##
     def get_variables(self, u=None):
-        """Returns the list of all DRSRef's in this DRS (equals getUniverses getFreeRefs).
+        """Returns the list of all bound DRSRef's in this DRS.
 
         Args:
             u: An initial list. If None `u` is set to [].
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         u = self._drsA.get_variables(u)
         return self._drsB.get_variables(u)
+
+    def get_constants(self, u=None):
+        """Returns the list of all constant DRSRef's in this DRS.
+
+        Args:
+            u: An initial list. If None `u` is set to [].
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        u = self._drsA.get_constants(u)
+        return self._drsB.get_constants(u)
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
     ##
@@ -891,7 +990,7 @@ class Merge(AbstractDRS):
         """Replaces duplicate uses of DRSRef's by new DRSRef's.
 
          Args:
-             gd: A global DRS, where `self` is a sub-DRS of global.
+             gd: A global DRS, where `self` is a subordinate DRS of global.
              ers: A list of referents
 
          Returns:
@@ -904,7 +1003,7 @@ class Merge(AbstractDRS):
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
     ##
     def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a sub-DRS of the
+        """Applies alpha conversion to this DRS, which is a subordinate DRS of the
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
 
         Args:
@@ -1043,23 +1142,10 @@ class AbstractDRSRef(Showable):
             ld = ld.accessible_drs
             u = u.union(ld.referents)
         return self in u
-        '''
-        if isinstance(ld, LambdaDRS):
-            return False
-        elif isinstance(ld, Merge):
-            return self.has_bound(ld.ldrs, gd) or self.has_bound(ld.rdrs, gd)
-        elif isinstance(gd, LambdaDRS):
-            return False
-        elif isinstance(gd, Merge):
-            return self.has_bound(ld, gd.ldrs) or self.has_bound(ld, gd.rdrs)
-        elif isinstance(ld, DRS) and isinstance(gd, DRS):
-            # PWG: Original haskell code did not check accessibility which is incorrect.
-            if self in ld.universe or self in gd.universe:
-                return gd.test_is_accessible_to(ld)
-            return any([x._antecedent(self, ld) for x in gd.conditions])
-        else:
-            raise TypeError
-        '''
+
+    @property
+    def isconst(self):
+        return False
 
     @property
     def isresolved(self):
@@ -1127,7 +1213,7 @@ class DRSRef(AbstractDRSRef):
     def __init__(self, drsVar):
         if isinstance(drsVar, str):
             drsVar = DRSVar(drsVar)
-        elif not isinstance(drsVar, DRSVar):
+        elif not isinstance(drsVar, (DRSVar, DRSConst)):
             raise TypeError
         self._var = drsVar
 
@@ -1143,6 +1229,10 @@ class DRSRef(AbstractDRSRef):
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         return u
+
+    @property
+    def isconst(self):
+        return isinstance(self._var, DRSConst)
 
     @property
     def isresolved(self):
@@ -1322,11 +1412,22 @@ class AbstractDRSCond(Showable):
         """
         return u
 
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        return u
+
     def clone(self):
         raise NotImplementedError
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return None
 
     def resolve_merges(self):
@@ -1335,7 +1436,7 @@ class AbstractDRSCond(Showable):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         raise NotImplementedError
 
@@ -1410,15 +1511,26 @@ class Rel(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
-        return u.union(self._refs)
+        return u.union(filter(lambda x: not x.isconst, self._refs))
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        return u.union(filter(lambda x: x.isconst, self._refs))
 
     def clone(self):
         return self
@@ -1429,7 +1541,7 @@ class Rel(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         v = [world]
         v.extend([x.var.to_string() for x in self._refs])
@@ -1508,21 +1620,32 @@ class Neg(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         return self._drs.get_variables(u)
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        return self._drs.get_constants(u)
 
     def clone(self):
         return Neg(self._drs.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
@@ -1531,9 +1654,9 @@ class Neg(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        return fol.Neg(self._drs.to_mfol(world))
+        return fol.Neg(self._drs.to_mfol(world, worlds))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
@@ -1626,22 +1749,34 @@ class Imp(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         u = self._drsA.get_variables(u)
         return self._drsB.get_variables(u)
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constants DRSRef's unioned with `u`.
+        """
+        u = self._drsA.get_constants(u)
+        return self._drsB.get_constants(u)
 
     def clone(self):
         return Imp(self._drsA.clone(), self._drsB.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def resolve_merges(self):
@@ -1650,12 +1785,12 @@ class Imp(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         if not isinstance(self._drsA, DRS):
             raise fol.FOLConversionError
         refs = self._drsA.universe # causes a shallow copy of referents
-        f = fol.Imp(conds_to_mfol(self._drsA._conds, world), self._drsB.to_mfol(world))
+        f = fol.Imp(conds_to_mfol(self._drsA._conds, world, worlds), self._drsB.to_mfol(world, worlds))
         refs.reverse()
         for r in refs:
             f = fol.ForAll(r.var.to_string(), f)
@@ -1762,19 +1897,31 @@ class Or(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         u = self._drsA.get_variables(u)
         return self._drsB.get_variables(u)
 
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        u = self._drsA.get_constants(u)
+        return self._drsB.get_constants(u)
+
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drsA.find_subdrs(d) or self._drsB.find_subdrs(d)
 
     def resolve_merges(self):
@@ -1783,9 +1930,9 @@ class Or(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        return fol.Or(self._drsA.to_mfol(world), self._drsB.to_mfol(world))
+        return fol.Or(self._drsA.to_mfol(world, worlds), self._drsB.to_mfol(world, worlds))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
@@ -1879,22 +2026,34 @@ class Prop(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         u.add(self._ref)
         return self._drs.get_variables(u)
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        u.add(self._ref)
+        return self._drs.get_constants(u)
 
     def clone(self):
         return Prop(self._ref, self._drs.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
@@ -1903,9 +2062,9 @@ class Prop(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        return fol.And(fol.Rel(WORLD_REL, [world, self._ref.var.to_string()]), self._drs.to_mfol(world))
+        return fol.And(fol.Acc([world, self._ref.var.to_string()]), self._drs.to_mfol(world, worlds))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
@@ -1981,21 +2140,32 @@ class Diamond(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         return self._drs.get_variables(u)
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        return self._drs.get_constants(u)
 
     def clone(self):
         return Diamond(self._drs.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
@@ -2004,10 +2174,11 @@ class Diamond(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         v = world + "'"
-        return fol.Exists(v, fol.And(fol.Rel(WORLD_REL,[world,v]),self._drs.to_mfol(v)))
+        worlds.append(v)
+        return fol.Exists(v, fol.And(fol.Acc([world,v]),self._drs.to_mfol(v, worlds)))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
@@ -2083,21 +2254,32 @@ class Box(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
-        """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
+        """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
             u: An initial set(). Cannot be None.
 
         Returns:
-            A list of DRSRef's unioned with `u`.
+            A list of bound DRSRef's unioned with `u`.
         """
         return self._drs.get_variables(u)
+
+    def get_constants(self, u):
+        """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
+
+        Args:
+            u: An initial set(). Cannot be None.
+
+        Returns:
+            A list of constant DRSRef's unioned with `u`.
+        """
+        return self._drs.get_constants(u)
 
     def clone(self):
         return Box(self._drs.clone())
 
     def find_subdrs(self, d):
-        """Test whether d is a direct or indirect sub-DRS of this condition and return the found sub-DRS."""
+        """Test whether d is a direct or indirect subordinate DRS of this condition and return the found subordinate DRS."""
         return self._drs.find_subdrs(d)
 
     def resolve_merges(self):
@@ -2106,10 +2288,11 @@ class Box(AbstractDRSCond):
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL:drsConsToMFOL</a>
     ##
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         v = world + "'"
-        return fol.ForAll(v, fol.Imp(fol.Rel(WORLD_REL,[world,v]),self._drs.to_mfol(v)))
+        worlds.append(v)
+        return fol.ForAll(v, fol.Imp(fol.Acc([world,v]),self._drs.to_mfol(v, worlds)))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
