@@ -23,7 +23,7 @@ from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 # * Diamond operators: 'd', 'diamond', 'maybe'.
 # * Proposition operator: ':'
 #
-# Syntax:
+# Set notation syntax:
 # * A DRS/PDRS is contained between '<' and '>'
 # * A list is contained between '{' and '}'. List can have [0,inf] elements
 # * A tuple is contained between '(' and ')'. Tuples have fixed cardinality.
@@ -39,7 +39,7 @@ PosInt = re.compile(r'\d+')
 ## @endcond
 
 ###########################################################################
-# PDRS Set Noation Grammar
+# PDRS Set Notation Grammar
 ## @cond
 
 
@@ -133,7 +133,7 @@ PdrsDecl.grammar = '<', PosInt, ',', '{', PRefDecl, '}', ',', '{', PCondDecl, '}
 ## @endcond
 
 def parse_pdrs(s):
-    """Convert linear notation into a DRS. All whitespace, including new lines
+    """Convert set notation into a PDRS. All whitespace, including new lines
     are ignored. The parser uses pypeg2 which is written in python 3, therefore
     the input string must be unicode.
 
@@ -148,10 +148,12 @@ def parse_pdrs(s):
 
     The following rules apply:
         - A PDRS is contained between '<' and '>'
-        - A list is contained between '{' and '}'. List's can have [0,inf] elements
-        - A tuple is contained between '(' and ')'. Tuples have fixed cardinality of 2.
+        - A tuple is contained between '(' and ')'. Tuples have fixed cardinality of 2, where the first item is an
+          integer
+        - A list is contained between '{' and '}'. List's can have [0,inf] tuples.
+        - A n-ary relation R is defined as R(x1,x2,...,xn)
         - Elements are separated by a comma.
-        - An element can be: a PDRS, a list, a tuple, or an expression using the operators
+        - An element can be: a PDRS, a relation, a tuple, or an expression using the operators
           described above.
 
     For example, "The man is not happy" can be represented by
@@ -332,7 +334,7 @@ NltkDecl.grammar = '(', '[', NltkRefDecl, ']', ',', '[', NltkCondDecl, ']', ')'
 ## @endcond
 
 def parse_drs(s, grammar=None):
-    """Convert linear notation into a DRS. All whitespace, including new lines
+    """Convert set notation into a DRS. All whitespace, including new lines
     are ignored. The parser uses pypeg2 which is written in python 3, therefore
     the input string must be unicode.
 
@@ -346,11 +348,11 @@ def parse_drs(s, grammar=None):
         - Proposition operator: ':'
 
     The following rules apply apply to set notation:
-        - A DRS is contained between '<' and '>'
+        - A DRS is contained between '<' and '>'.
         - A list is contained between '{' and '}'. List can have [0,inf] elements
-        - A tuple is contained between '(' and ')'. Tuples have fixed cardinality.
+        - A n-ary relation R is defined as R(x1,x2,...,xn).
         - Elements are separated by a comma.
-        - An element can be: a DRS, a list, a tuple, or an expression using the operators
+        - An element can be: a DRS, a list, a relation, or an expression using the operators
           described above.
 
     For example, "The man is not happy" can be represented by
