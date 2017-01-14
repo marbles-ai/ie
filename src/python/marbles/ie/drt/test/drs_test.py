@@ -281,6 +281,12 @@ class DrsTest(unittest.TestCase):
         a = d.alpha_convert([(DRSRef('a'), DRSRef('r')), (DRSRef('c'), DRSRef('s')), (DRSRef('z'), DRSRef('t'))])
         self.assertEquals(a, parse_drs('<{x},{A(c),<{y},{B(x,y,z,a)}> -> <{t},{C(x,y,t,a)}>}>'))
 
+        # Can substitute free variables
+        a = d.substitute([(DRSRef('a'), DRSRef('r')), (DRSRef('c'), DRSRef('s')), (DRSRef('z'), DRSRef('t'))])
+        self.assertEquals(a, parse_drs('<{x},{A(s),<{y},{B(x,y,t,r)}> -> <{z},{C(x,y,z,r)}>}>'))
+        a = a.purify()
+        self.assertEquals(a, parse_drs('<{x},{A(s),<{y},{B(x,y,t,r)}> -> <{z},{C(x,y,z,r)}>}>'))
+
         # Can convert bound variables
         a = d.alpha_convert([(DRSRef('x'), DRSRef('x1')), (DRSRef('y'), DRSRef('y1')), (DRSRef('c'), DRSRef('c1'))])
         x = dexpr('([x1],[A(c), (([y1],[B(x1,y1,z,a)]) -> ([z],[C(x1,y1,z,a)]))])')

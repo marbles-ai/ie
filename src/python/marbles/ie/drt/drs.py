@@ -192,6 +192,13 @@ class AbstractDRS(Showable):
         """Test whether this DRS is proper, where a DRS is proper iff it does not contain any free variables."""
         return self._isproper_subdrsof(self)
 
+    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isFOLDRS</a>.
+    ##
+    @property
+    def isfol(self):
+        """Test whether this DRS can be translated into a FOLForm instance."""
+        return self.isresolved and self.ispure and self.isproper
+
     def find_subdrs(self, d):
         """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
         return None
@@ -339,11 +346,10 @@ class AbstractDRS(Showable):
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/LambdaCalculus.hs">/Data/PDRS/LambdaCalculus.hs:pdrsAlphaConvert</a>.
     ##
     def alpha_convert(self, rs, ps=None):
-        """Applies alpha conversion to this DRS on the basis of the conversion list `rs` for DRSRef's and the conversion
-        list `ps` for PVar's.
+        """Applies alpha conversion to the bound variables in this DRS on the basis of the conversion list `rs` for
+        DRSRef's and the conversion list `ps` for PVar's.
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
             rs: A list of DRSRef|LambaDRSRef conversion tuples formated as (old, new).
             ps: A list of integer tuples formated as (old, new). Cannot be None in PDRS implementation but we have to
                 reproduce the type declaration of AbstractDRS.
@@ -378,12 +384,39 @@ class AbstractDRS(Showable):
         """
         raise NotImplementedError
 
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isFOLDRS</a>.
-    ##
-    @property
-    def isfol(self):
-        """Test whether this DRS can be translated into a FOLForm instance."""
-        return self.isresolved and self.ispure and self.isproper
+    def substitute(self, rs, ps=None):
+        """Applies substitution to the free variables in this DRS on the basis of the conversion list `rs` for
+        DRSRef's.
+
+        Args:
+            rs: A list of DRSRef|LambaDRSRef conversion tuples formatted as (old, new).
+
+        Returns:
+            A DRS instance.
+        """
+        if self.isproper:
+            return self
+        elif isinstance(rs, tuple) and len(rs) == 2 and iterable_type_check(rs, AbstractDRSRef):
+            rs = [rs]
+        elif iterable_type_check([rs, ps], AbstractDRSRef):
+            rs = [(rs, ps)]
+            ps = None
+        elif not iterable_type_check(rs, tuple):
+            raise TypeError
+        return self.subst_subdrs(self, rs)
+
+    def subst_subdrs(self, gd, rs):
+        """Applies substitution to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
+        conversion list `rs` for DRSRef's .
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef tuples.
+
+        Returns:
+            A DRS instance.
+        """
+        raise NotImplementedError
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:drsPurify</a>
     ##
@@ -516,6 +549,19 @@ class LambdaDRS(AbstractDRS):
 
         Returns:
             This instance.
+        """
+        return self
+
+    def subst_subdrs(self, gd, rs):
+        """Applies substitution to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
+        conversion list `rs` for DRSRef's .
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef tuples.
+
+        Returns:
+            A DRS instance.
         """
         return self
 
@@ -780,6 +826,19 @@ class DRS(AbstractDRS):
         return DRS([rename_var(r, rs) for r in self._refs], \
                    [c._convert(self, gd, rs) for c in self._conds])
 
+    def subst_subdrs(self, gd, rs):
+        """Applies substitution to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
+        conversion list `rs` for DRSRef's .
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef tuples.
+
+        Returns:
+            A DRS instance.
+        """
+        return DRS(self.universe, [c._substitute(self, gd, rs) for c in self._conds])
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL</a>
     ##
     def to_mfol(self, world, worlds):
@@ -907,6 +966,11 @@ class Merge(AbstractDRS):
         """Returns the universe of a DRS."""
         return union(self._drsA.universe, self._drsB.universe)
 
+    @property
+    def referents(self):
+        """Returns the universe of a DRS. Alias for universe property."""
+        return union(self._drsA.referents, self._drsB.referents)
+
     def clone(self):
         return Merge(self._drsA.clone(), self._drsB.clone())
 
@@ -1014,7 +1078,20 @@ class Merge(AbstractDRS):
         Returns:
             A DRS instance.
         """
-        return Merge(self._drsA.rename_subdrs(gd, rs), self._drsA.rename_subdrs(gd, rs))
+        return Merge(self._drsA.rename_subdrs(gd, rs), self._drsB.rename_subdrs(gd, rs))
+
+    def subst_subdrs(self, gd, rs):
+        """Applies substitution to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
+        conversion list `rs` for DRSRef's .
+
+        Args:
+            gd: An DRS|LambdaDRS|Merge instance.
+            rs: A list of DRSRef|LambaDRSRef tuples.
+
+        Returns:
+            A DRS instance.
+        """
+        return Merge(self._drsA.subst_subdrs(gd, rs), self._drsB.subst_subdrs(gd, rs))
 
     def _show_brackets(self, s):
         # show() helper
@@ -1391,6 +1468,9 @@ class AbstractDRSCond(Showable):
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         raise NotImplementedError
 
+    def _substitute(self, ld, gd, rs):
+        raise NotImplementedError
+
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
         raise NotImplementedError
@@ -1488,6 +1568,9 @@ class Rel(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return Rel(self._rel, [rename_var(r,rs) if r.has_bound(ld, gd) else r for r in self._refs])
+
+    def _substitute(self, ld, gd, rs):
+        return Rel(self._rel, [rename_var(r,rs) if not r.has_bound(ld, gd) else r for r in self._refs])
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
@@ -1603,6 +1686,9 @@ class Neg(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
+
+    def _substitute(self, ld, gd, rs):
+        return type(self)(self._drs.subst_subdrs(gd, rs))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
@@ -1721,6 +1807,9 @@ class Imp(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drsA.rename_subdrs(gd, rs, ps), self._drsB.rename_subdrs(gd, rs, ps))
+
+    def _substitute(self, ld, gd, rs):
+        return type(self)(self._drsA.subst_subdrs(gd, rs), self._drsB.subst_subdrs(gd, rs))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
@@ -1867,6 +1956,9 @@ class Or(AbstractDRSCond):
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drsA.rename_subdrs(gd, rs, ps), self._drsB.rename_subdrs(gd, rs, ps))
 
+    def _substitute(self, ld, gd, rs):
+        return type(self)(self._drsA.subst_subdrs(gd, rs), self._drsB.subst_subdrs(gd, rs))
+
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
         orsd = intersect(self._drsA.universe, rs)
@@ -2002,6 +2094,9 @@ class Prop(AbstractDRSCond):
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(rename_var(self._ref,rs) if self._ref.has_bound(ld, gd) else self._ref, self._drs.rename_subdrs(gd, rs, ps))
 
+    def _substitute(self, ld, gd, rs):
+        return type(self)(rename_var(self._ref,rs) if not self._ref.has_bound(ld, gd) else self._ref, self._drs.subst_subdrs(gd, rs))
+
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
         # FIXME: does this really need to be added to front of list
@@ -2078,7 +2173,7 @@ class Prop(AbstractDRSCond):
 
 
 class Diamond(AbstractDRSCond):
-    """A possible DRS"""
+    """A possible DRS - possibly among other things."""
     def __init__(self, drs):
         if not isinstance(drs, AbstractDRS):
             raise TypeError
@@ -2123,6 +2218,9 @@ class Diamond(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
+
+    def _substitute(self, ld, gd, rs):
+        return type(self)(self._drs.subst_subdrs(gd, rs))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
@@ -2237,6 +2335,9 @@ class Box(AbstractDRSCond):
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
+
+    def _substitute(self, ld, gd, rs):
+        return type(self)(self._drs.subst_subdrs(gd, rs))
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#purifyRefs:purify
     def _purify_refs(self, gd, rs, pv=None):
