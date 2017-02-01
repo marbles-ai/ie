@@ -1,0 +1,76 @@
+<html><script>
+function drawArrowhead(ctx, locx, locy, angle, sizex, sizey) {
+    var hx = sizex / 2;
+    var hy = sizey / 2;
+    ctx.save();
+    ctx.translate((locx ), (locy));
+    ctx.rotate(angle);
+    ctx.translate(-hx,-hy);
+
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(0,1*sizey);
+    ctx.lineTo(1*sizex,1*hy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+
+
+
+function draw(context, startElement, endElement, label, id) {
+      var start  = document.getElementById('w' + startElement + '.' + id).getBoundingClientRect();;
+      var end  = document.getElementById('w' + endElement + '.' + id).getBoundingClientRect();;
+      var margin = document.getElementById('myCanvas2').getBoundingClientRect().left;
+      var sx = (start.left + start.right) / 2 - 0;
+      var ex = (end.left + end.right) / 2  - 0;
+      if (ex < sx) { ex = ex + 8; } else { ex = ex - 8; }
+      var x = ((sx + ex) / 2) - margin;
+
+      var theta = 0.2 * Math.PI;
+      var radius = Math.abs(ex - sx) / (2 * Math.sin(theta));
+      var y = canvas.height - 3 + radius * Math.cos(theta);
+
+      var theta2 = Math.PI / 2 - theta;
+      var startAngle = Math.PI + theta2;
+      var endAngle = -theta2;
+      var counterClockwise = false;
+
+
+      context.beginPath();
+      context.arc(x, y, radius, startAngle, endAngle, counterClockwise);
+      context.lineWidth = 2;
+
+      // line color
+      context.strokeStyle = 'black';
+      context.stroke();
+      context.closePath();
+      context.fillText(label, x - 10, y - radius - 3)
+      //alert(label);
+
+      var angle;
+      var angle2;
+      if (sx > ex) {
+        angle = startAngle;
+        angle2 = angle - Math.PI / 2;
+      } else {
+        angle = endAngle;
+        angle2 = angle + Math.PI / 2;
+      }
+
+      drawArrowhead(context, x + radius * Math.cos(angle), y + radius * Math.sin(angle), angle2, 10, 10);
+}
+</script><body>
+<table><tr><td colspan=13 style="padding-left:0px;padding-right:0px;">
+<canvas id="myCanvas2" width=1155 height=200 display:block vertical-align:bottom></canvas></td></tr><tr><td id=w0.2><center><font face="Arial">I</font><hr style="margin:5px" /><font face="gill sans">NP</font><br><font face="serif"><i>i</i></font></center></td><td id=w1.2><center><font face="Arial">have</font><hr style="margin:5px" /><font face="gill sans">(S<sub>dcl</sub>\NP)/NP</font><br><font face="serif"><i>&lambda;x&lambda;y&lambda;e.have(e)&and;A0(y,e)&and;A1(x,e)</i></font></center></td><td id=w2.2><center><font face="Arial">seven</font><hr style="margin:5px" /><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.sk<sub>&lambda;x.p(x)</sub></i></font></center></td><td id=w3.2><center><font face="Arial">new</font><hr style="margin:5px" /><font face="gill sans">N/N</font><br><font face="serif"><i>&lambda;p&lambda;x.p(x)&and;new(x)</i></font></center></td><td id=w4.2><center><font face="Arial">notebooks,</font><hr style="margin:5px" /><font face="gill sans">;</font><br><font face="serif"><i>notebooks,</i></font></center></td><td id=w5.2><center><font face="Arial">a</font><hr style="margin:5px" /><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.sk<sub>&lambda;x.p(x)</sub></i></font></center></td><td id=w6.2><center><font face="Arial">skirt</font><hr style="margin:5px" /><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.skirt(x)</i></font></center></td><td id=w7.2><center><font face="Arial">I</font><hr style="margin:5px" /><font face="gill sans">N\N</font><br><font face="serif"><i>&lambda;p&lambda;x.p(x)&and;i(x)</i></font></center></td><td id=w8.2><center><font face="Arial">hate,</font><hr style="margin:5px" /><font face="gill sans">N\N</font><br><font face="serif"><i>&lambda;p&lambda;x.p(x)&and;hate,(x)</i></font></center></td><td id=w9.2><center><font face="Arial">and</font><hr style="margin:5px" /><font face="gill sans">conj</font><br><font face="serif"><i>and</i></font></center></td><td id=w10.2><center><font face="Arial">a</font><hr style="margin:5px" /><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.sk<sub>&lambda;x.p(x)</sub></i></font></center></td><td id=w11.2><center><font face="Arial">stomachache.</font><hr style="margin:5px" /><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.stomachache.(x)</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.sk<sub>&lambda;x.p(x)&and;new(x)</sub></i></font></center></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">(NP/N)\(NP/N)</font><br><font face="serif"><i>&lambda;p&lambda;q.{p(q),sk<sub>&lambda;x.q(x)</sub>}</i></font></center></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.skirt(x)&and;i(x)</i></font></center></td><td></td><td></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">NP</font><br><font face="serif"><i>sk<sub>&lambda;x.stomachache.(x)</sub></i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td colspan=4><center><hr style="margin:5px"/><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.{sk<sub>&lambda;x.p(x)&and;new(x)</sub>,sk<sub>&lambda;y.p(y)</sub>}</i></font></center></td><td colspan=3><center><hr style="margin:5px"/><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.skirt(x)&and;i(x)&and;hate,(x)</i></font></center></td><td colspan=3><center><hr style="margin:5px"/><font face="gill sans">NP\NP</font><br><font face="serif"><i>&lambda;x.{x,sk<sub>&lambda;y.stomachache.(y)</sub>}</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td colspan=7><center><hr style="margin:5px"/><font face="gill sans">NP</font><br><font face="serif"><i>{sk<sub>&lambda;x.skirt(x)&and;i(x)&and;hate,(x)&and;new(x)</sub>,sk<sub>&lambda;y.skirt(y)&and;i(y)&and;hate,(y)</sub>}</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td colspan=10><center><hr style="margin:5px"/><font face="gill sans">NP</font><br><font face="serif"><i>{{sk<sub>&lambda;x.skirt(x)&and;i(x)&and;hate,(x)&and;new(x)</sub>,sk<sub>&lambda;y.skirt(y)&and;i(y)&and;hate,(y)</sub>},sk<sub>&lambda;z.stomachache.(z)</sub>}</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td colspan=11><center><hr style="margin:5px"/><font face="gill sans">S<sub>dcl</sub>\NP</font><br><font face="serif"><i>&lambda;x&lambda;e.have(e)&and;A0(x,e)&and;A1({{sk<sub>&lambda;y.skirt(y)&and;i(y)&and;hate,(y)&and;new(y)</sub>,sk<sub>&lambda;z.skirt(z)&and;i(z)&and;hate,(z)</sub>},sk<sub>&lambda;u.stomachache.(u)</sub>},e)</i></font></center></td><td width=0 /></tr>
+<tr><td colspan=12><center><hr style="margin:5px"/><font face="gill sans">S<sub>dcl</sub></font><br><font face="serif"><i>&lambda;e.have(e)&and;A0(i,e)&and;A1({{sk<sub>&lambda;x.skirt(x)&and;i(x)&and;hate,(x)&and;new(x)</sub>,sk<sub>&lambda;y.skirt(y)&and;i(y)&and;hate,(y)</sub>},sk<sub>&lambda;z.stomachache.(z)</sub>},e)</i></font></center></td><td width=0 /></tr>
+</table><script>      var canvas = document.getElementById('myCanvas2');
+      var context = canvas.getContext('2d');
+draw(context, 1, 0, 'ARG0', 2);draw(context, 1, 6, 'ARG1', 2);draw(context, 3, 6, '', 2);draw(context, 8, 6, '', 2);</script></body>
+</html>

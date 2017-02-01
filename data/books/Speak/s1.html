@@ -1,0 +1,80 @@
+<html>
+<script>
+function drawArrowhead(ctx, locx, locy, angle, sizex, sizey) {
+    var hx = sizex / 2;
+    var hy = sizey / 2;
+    ctx.save();
+    ctx.translate((locx ), (locy));
+    ctx.rotate(angle);
+    ctx.translate(-hx,-hy);
+
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(0,1*sizey);
+    ctx.lineTo(1*sizex,1*hy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+
+
+
+function draw(context, startElement, endElement, label, id) {
+      var start  = document.getElementById('w' + startElement + '.' + id).getBoundingClientRect();;
+      var end  = document.getElementById('w' + endElement + '.' + id).getBoundingClientRect();;
+      var margin = document.getElementById('myCanvas0').getBoundingClientRect().left;
+      var sx = (start.left + start.right) / 2 - 0;
+      var ex = (end.left + end.right) / 2  - 0;
+      if (ex < sx) { ex = ex + 8; } else { ex = ex - 8; }
+      var x = ((sx + ex) / 2) - margin;
+
+      var theta = 0.2 * Math.PI;
+      var radius = Math.abs(ex - sx) / (2 * Math.sin(theta));
+      var y = canvas.height - 3 + radius * Math.cos(theta);
+
+      var theta2 = Math.PI / 2 - theta;
+      var startAngle = Math.PI + theta2;
+      var endAngle = -theta2;
+      var counterClockwise = false;
+
+
+      context.beginPath();
+      context.arc(x, y, radius, startAngle, endAngle, counterClockwise);
+      context.lineWidth = 2;
+
+      // line color
+      context.strokeStyle = 'black';
+      context.stroke();
+      context.closePath();
+      context.fillText(label, x - 10, y - radius - 3)
+      //alert(label);
+
+      var angle;
+      var angle2;
+      if (sx > ex) {
+        angle = startAngle;
+        angle2 = angle - Math.PI / 2;
+      } else {
+        angle = endAngle;
+        angle2 = angle + Math.PI / 2;
+      }
+
+      drawArrowhead(context, x + radius * Math.cos(angle), y + radius * Math.sin(angle), angle2, 10, 10);
+}
+</script>
+<body>
+<table><tr><td colspan=9 style="padding-left:0px;padding-right:0px;">
+<canvas id="myCanvas0" width=790 height=200 display:block vertical-align:bottom></canvas></td></tr><tr><td id=w0.0><center><font face="Arial">It</font><hr style="margin:5px" /><font face="gill sans">NP</font><br><font face="serif"><i>it</i></font></center></td><td id=w1.0><center><font face="Arial">is</font><hr style="margin:5px" /><font face="gill sans">(S<sub>dcl</sub>\NP)/NP</font><br><font face="serif"><i>&lambda;x&lambda;y&lambda;e.eq(x,y,e)</i></font></center></td><td id=w2.0><center><font face="Arial">my</font><hr style="margin:5px" /><font face="gill sans">NP/N</font><br><font face="serif"><i>&lambda;p.sk<sub>&lambda;x.p(x)</sub></i></font></center></td><td id=w3.0><center><font face="Arial">first</font><hr style="margin:5px" /><font face="gill sans">N/N</font><br><font face="serif"><i>&lambda;p&lambda;x.p(x)&and;first(x)</i></font></center></td><td id=w4.0><center><font face="Arial">morning</font><hr style="margin:5px" /><font face="gill sans">N/PP</font><br><font face="serif"><i>&lambda;x&lambda;y.morning(y)&and;ARG(x,y)</i></font></center></td><td id=w5.0><center><font face="Arial">of</font><hr style="margin:5px" /><font face="gill sans">PP/NP</font><br><font face="serif"><i>&lambda;x.x</i></font></center></td><td id=w6.0><center><font face="Arial">high</font><hr style="margin:5px" /><font face="gill sans">N/N</font><br><font face="serif"><i>&lambda;p&lambda;x.p(x)&and;high(x)</i></font></center></td><td id=w7.0><center><font face="Arial">school.</font><hr style="margin:5px" /><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.school.(x)</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.school.(x)&and;high(x)</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td></td><td colspan=2><center><hr style="margin:5px"/><font face="gill sans">NP</font><br><font face="serif"><i>sk<sub>&lambda;x.school.(x)&and;high(x)</sub></i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td></td><td></td><td></td><td colspan=3><center><hr style="margin:5px"/><font face="gill sans">PP</font><br><font face="serif"><i>sk<sub>&lambda;x.school.(x)&and;high(x)</sub></i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td></td><td></td><td colspan=4><center><hr style="margin:5px"/><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.morning(x)&and;ARG(sk<sub>&lambda;y.school.(y)&and;high(y)</sub>,x)</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td></td><td colspan=5><center><hr style="margin:5px"/><font face="gill sans">N</font><br><font face="serif"><i>&lambda;x.morning(x)&and;ARG(sk<sub>&lambda;y.school.(y)&and;high(y)</sub>,x)&and;first(x)</i></font></center></td><td width=0 /></tr>
+<tr><td></td><td></td><td colspan=6><center><hr style="margin:5px"/><font face="gill sans">NP</font><br><font face="serif"><i>sk<sub>&lambda;x.morning(x)&and;ARG(sk<sub>&lambda;y.school.(y)&and;high(y)</sub>,x)&and;first(x)</sub></i></font></center></td><td width=0 /></tr>
+<tr><td></td><td colspan=7><center><hr style="margin:5px"/><font face="gill sans">S<sub>dcl</sub>\NP</font><br><font face="serif"><i>&lambda;x&lambda;e.eq(sk<sub>&lambda;y.morning(y)&and;ARG(sk<sub>&lambda;z.school.(z)&and;high(z)</sub>,y)&and;first(y)</sub>,x,e)</i></font></center></td><td width=0 /></tr>
+<tr><td colspan=8><center><hr style="margin:5px"/><font face="gill sans">S<sub>dcl</sub></font><br><font face="serif"><i>&lambda;e.eq(sk<sub>&lambda;x.morning(x)&and;ARG(sk<sub>&lambda;y.school.(y)&and;high(y)</sub>,x)&and;first(x)</sub>,it,e)</i></font></center></td><td width=0 /></tr>
+</table><script>      var canvas = document.getElementById('myCanvas0');
+      var context = canvas.getContext('2d');
+draw(context, 1, 0, '', 0);draw(context, 1, 4, '', 0);draw(context, 3, 4, '', 0);draw(context, 4, 7, '', 0);draw(context, 6, 7, '', 0);</script></body>
+</html>
