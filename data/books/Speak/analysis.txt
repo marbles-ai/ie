@@ -1,6 +1,3 @@
-<{X1,Speak}, {book(X1), title(X1,Speak)}>
-
-    It is my first morning of high school. 
 
 Propositions can be used to group entities or event time specifications.
 Propositions must produce entity type
@@ -9,31 +6,254 @@ Function predicates have type e->e or e->t, e-> is distinguished by suffix Of, f
 e = entity
 t = truth value (true or false)
 all referents are of type (e)
-narration: when a new referent is introduces and it becomes the main subject
-elaboration: if previous narration referent maintains subject or passive subject status 
+narration: when a new referent is introduced and it becomes the main subject
+elaboration: if previous narration referent maintains subject or passive subject status OR
+    no new referents, excluding propositions, are introduced.
 
+VERBNET SELECTION RESTRICTIONS:
+    concrete:
+        int-control: force, machine, vehicle
+        natural:
+            animate: human, animal, body-part
+            plant:
+        phys-obj:
+            comestible:
+            artifact: machine, garment, tool
+        solid:
+            rigid: non-rigid
+        shape:
+            pointed: elongated
+        substance:
+    time:
+    state:
+    abstract: idea, sound, communication
+    scalar:
+    currency:
+    location: region, place, object
+    organization:
+    
+FIXED FOL RULES TO INDICATE VERBNET HIERARCHY:
+    1. These rules are accessible from all FOL Modal worlds.
+    2. All are functions f(x)
+    vn.int_control(x) -> vn.concrete(x)
+    vn.force(x) -> vn.int_control(x)
+    ...
+    vn.region(x) -> vn.location(x)
+
+REFERENTS IN DRT:
+    DRT:
+        Locations may introduce multiple referents.  Location is a proposition.
+        Use implication to show superclass membership, this allows inference at different
+            granularity.
+        Examples: 
+            "at the northern end of the park"
+                [x,p|park(x),p:[y|[|northern(y),end(y)]->[|vn.region(y)],location(y,x)]]
+            "in the park"
+                [x,p|park(x),p:[|location(x,x)]]
+        Use propositions because these have an accessibility relationship in Modal FOL
+        and they can be referenced using a DRS referent. The accessibility relationship
+        is useful because the proposition is only accessible while the world of
+        the park 'x' remains within the context of the conversation. Here we define
+        accessibility as the accessibility of the free variables of the proposition in
+        the global DRS context. In addition, accessibility allows concepts such as 'in'
+        to take on different meaning, for example "in the park" is a locational
+        world whereas "in the end" is a conceptual world and "in the past" is a 
+        time world.
+    thing(x):
+        Verbnet selection:
+            All subclasses of vn.concrete
+            vn.organization
+            vn.currency
+            vn.scalar
+    concept(x,y): concept(x) held by thing(y)
+        Verbnet selection: 
+            All subclasses of abstract
+            state
+    location(x,y): vn.position|vn.region|vn.object (x) in location(y)
+        location(x,x) indicates non-specific region, somewhere in (x)
+        location(x,y) -> location(x,x)
+        Verbnet selection:
+            All subclasses of vn.location
+    time(x,y): time position (x) in time period (y)
+        time(x,x) indicates period only
+        time(x,y) -> time(x,x)
+        Verbnet selection: 
+            vn.time
+            
+ADJECTIVES IN DRT:
+    Always use a proposition for adjectives. This way we get the similar meaning for
+        "The northern end of the park" and "The parks northern end".
+    All adjectives are functions f(y) where y is a referent indication an attribute type. 
+    All adjectival propositions include an attributeOf(x,y) predicate
+        location(x,y) -> attributeOf(x,y)
+        time(x,y) -> attributeOf(x,y)
+    
+    Example: "The parks northern end"
+        [x,p|park(x),p:[y|northern(y),end(y)],attributeOf(p,x)]
+    Example: "The small silver knife."
+        [x,p|knife(x),p:[y|small(y),silver(y)],attributeOf(p,x)]
+        
+    Accessibility in modal world is always true for adjectives.
+    
+    Entailment of sub-DRS representing adjectival phrases: 
+        DRS1: [x,p|thing1(x),p:[y|attributeOf(y,x),f1(y),f2(y),...fn(y)]]
+        DRS2: [x,q|thing1(x),q:[z|attributeOf(z,x),g1(z),g2(z),...gm(z)]]
+        
+        DRS1 |= DRS2 
+            1> non-propositional-of-referents(DRS2) is a subset of non-propositional-of-referents(DRS1)
+            2> if conditions g are a subset of conditions f
+                for example: "little red knife" |= "red knife"
+              OR if for any i,j, condition g(i) conflicts with f(j) in adjective-type: {quantity, value/opinion, size, temperature, age, shape, color, origin, material}
+                 and f(j) -> g(i), or concretely g(i) is in the synset of f(j) or f(j) is in the synset of g(i)
+                 for example: "small red knife" == "little red knife"
+            
+ARTICLE IN DRT:
+    DRT:
+        Refer to an existing referent or introduce a new one
+    Definite:
+        Indicates singularly identifiable existance of a thing, concept, or location (uniquely identifible) |
+            Indicates uniquely identifiable membership with a group of things, concepts |
+            Indicates uniquely identifiable position within a location
+        Examples:
+            "The first door on the left". -> there are many doors (group)
+            "The northern end of the park." > The park is a location, the northern end indicates position
+            "Pass me the bucket." -> there is only one bucket
+        Pronouns in DRT have similar behavior: singularly identifiable existance of a thing or concept.
+    Indefinite:
+        Indicates non-singular existance of a thing, concept, or location |
+            Indicates non-specific membership within group |
+            Indicates unknown (possible) existance of a thing, concept, or location
+        Examples:
+            "A door in the room". -> there are many doors and the exact one is unspecified
+            "Pass me a bucket." -> there many buckets, any one will do OR
+                                   there should exist a bucket but unknown where is it
+            "Lend me a dollar." -> possibly you have a dollar
+            
+DISCOURSE MARKERS IN DRT:
+    To indicate time order:
+        In the past,before, earlier, previously, formerly, yesterday, recently, not long ago, 
+        at present, presently, currently, now, by now, until, today, immediately, simultaneously,
+        at the same time, during, all the while, in the future, tomorrow, henceforth, after,
+        after a short time, after a while, soon, later, later on, following
+
+    To indicate how or when something occurs in time:
+        Suddenly, all at once, instantly, immediately, quickly, directly, soon, as soon as,
+        just then, when, sometimes, some of the time, in the meantime, occasionally, rarely,
+        seldom, infrequently, temporarily, periodically, gradually, eventually, 
+        little by little, slowly, while, meanwhile, always, all of the time, without exception,
+        at the same time, repeatedly, often, frequently, generally, usually, as long as, never,
+        not at all
+
+    To indicate sequence:
+        First, in the first place, at first, once, once upon time, to begin with, at the beginning,
+        starting with, initially, from this point, earlier, second, secondly, in the second place,
+        next, the next time, the following week, then, after that, following that, subsequently,
+        on the next occasion, so far, later on, third, in the third place, last, last of all, 
+        at last, at the end, in the end, final finally, to finish, to conclude, in conclusion, consequently
+
+    To repeat:
+        All in all, altogether, in brief, in short, in fact, in particular, that is, in simpler terms,
+        to put it differently, in other words, again, once more, again and again, over and over,
+        to repeat, as stated, that is to say, to retell, to review, to rephrase, to paraphrase,
+        to reconsider, to clarify, to explain, to outline, to summarize
+
+    To provide an example:
+        For example, as an example, for instance, in this case, to illustrate, to show, to demonstrate,
+        to explain, suppose that, specifically, to be exact, in particular, such as, namely,
+        for one thing, indeed, in other words, to put it in another way, thus
+
+    To concede:
+        Of course, after all, no doubt, naturally, unfortunately, while it is true,
+        although this may be true, although, to admit, to confess, to agree
+
+    To conclude or to summarize:
+        To conclude, in conclusion, to close, last of all, finally, to end, to complete,
+        to bring to an end, thus, hence, therefore, as a consequence of, as a result, in short,
+        to sum up, to summarize, to recapitulate
+
+    To add a point:
+        Also, too, as well as, besides, equally important, first of all, furthermore,
+        in addition (to), moreover, likewise, above all, most of all, least of all, and,
+        either…or, neither…nor, however, yet, but, nevertheless, still, to continue
+
+    To compare:
+        As, as well as, like, in much the same way, resembling, parallel to, same as,
+        identically, of little difference, equally, matching, also, exactly, similarly,
+        similar to, in comparison, in relation to
+
+    To contrast:
+        Though, although, and yet, but, despite, despite this fact, in spite of, even so,
+        for all that, however, in contrast, by contrast, on one hand, on the other hand,
+        on the contrary, in one way, in another way, although this may be true, nevertheless,
+        nonetheless, still, yet, to differ from, a striking difference, another distinction,
+        otherwise, after all, instead, unlike, opposite, to oppose, in opposition to,
+        versus, against
+
+    To emphasise or to intensify:
+        Above all, after all, indeed, as a matter of fact, chiefly, especially, actually,
+        more important(ly), most important of all, most of all, moreover, furthermore, 
+        significantly, the most significant, more and more, of major interest, 
+        the chief characteristic, the major point, the main problem (issue), 
+        the most necessary, extremely, to emphasize, to highlight, to stress, by all means,
+        undoubtedly, without a doubt, certainly, to be sure, surely, absolutely, obviously, 
+        to culminate, in truth, the climax of, to add to that, without question, 
+        unquestionably, as a result
+
+    To generalize:
+        On the whole, in general, as a rule, in most cases, broadly speaking, 
+        to some extent, mostly
+
+    Showing our attitude to what we are saying:
+        Frankly, honestly, I think, I suppose, after all, no doubt, I’m afraid, actually, 
+        as a matter of fact, to tell the truth, unfortunately      
+
+    To introduce a new discourse referent or refer to an existing referent:
+        of the <noun>, of <noun>
+
+INTERPRETATION OF DRT PROPOSITIONS:
+    p:[x|g1(x),g2(x)], exists(x) & g1 & g2 ... -> exists(p)
+    Can be used to reference location, time, and concepts 
+
+CCG BASIC CATEGORIES
+    Declarative:        S[dcl]
+    To-infinitival:     S[to]
+    􏰑􏰈􏰒Bare-infinitival:   S[b]
+    􏰀􏰑􏰉􏰃􏰊􏰒Adjectival:         S[adj]
+    PP/NP
+
+CCG COMPLEX CATEGORIES
+    Intransitive Verbs: VP         => S\NP
+    Transitive Verbs:   VP/NP      => (S\NP)/NP
+    Ditransitive Verbs: (VP/NP)/NP => ((S\NP)/NP)/NP
+
+SENTENCE TYPES:
+    Declarative: merely makes a statement.
+    Imperative: expresses a command, order or request.
+    Interrogative: asks a question.
+    Exclamatory: expresses a sudden emotion.
 
 =============================================================
+PARSE:
     WELCOME TO MERRYWEATHER HIGH
 
-*** RAW ***      
+*** RAW ***
 (<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )
 #x#e.(welcome(e)&ARG(x,e)&ARG2(merryweather-high.,e))
 *** RAW ***
-    
 
-WELCOME                              TO     MERRYWEATHER  HIGH
-(S[b]\NP)/PP                         PP/NP  N/N           N
-λxλyλe.welcome(e)∧ARG(y,e)∧ARG(x,e)  λx.x
-L                                    T      L             L
-                                            T ______ N _______
-                                            T ______ NP ______
-                                     T _________ PP __________
-T _______________________ S[b]\NP ____________________________
+$  WELCOME                              TO     MERRYWEATHER  HIGH
+   (S[b]\NP)/PP                         PP/NP  N/N           N
+   λxλyλe.welcome(e)∧A0(y,e)∧A1(x,e)    λx.x
+                                               N_________________
+                                               NP________________
+                                               merryweather-high
+                                        PP_______________________
+                                        merryweather-high
+S[b]\NP__________________________________________________________
+λxλe.welcome(e)∧A0(x,e)∧A1(merryweather-high,e)
 
-λxλe.welcome(e)∧ARG(x,e)∧ARG(merryweather-high.,e)
-
-Verbnet(WELCOME): admit-65, judgment-33-1
+LEXICON:
+    Verbnet(WELCOME): admit-65, judgment-33-1
 
 Verbnet(WELCOME).admit-65: welcome (wn 3; g 2)
     Roles
@@ -52,7 +272,7 @@ Verbnet(WELCOME).admit-65: welcome (wn 3; g 2)
             He welcomed the new students into the department.
             Welcome to my world!
             A Navy petty officer is enthusiastically welcomed by his dog after returning home.
-    
+
 Verbnet(WELCOME).judgment-33-1: welcome (wn 1; g 1)
     Frames
         NP V NP PP.attribute
@@ -66,20 +286,40 @@ Verbnet(WELCOME).judgment-33-1: welcome (wn 1; g 1)
             She welcomed serious discussion of literature and science.
             I welcome your proposals.
             Pets are welcomed at the Chippewa Moraine State Recreation Area.
+            
+VERB SELECTION:
+    TO.PP/NP -> location = Merryweather High
+    Select, Verbnet.admit-65.Frame because PP == PP.location
+        NP1 V NP2 PP.location
+        if PP.location does not exists we assume "here" is the PP.location
+    WELCOME (S[b]\NP)/PP -> Transitive Verb (S[b]\$)/PP
+                            NP1 = $ -> The representives of PP.location
+                            Convert to (S[b]\$)/(PP\$)
+                            NP2 = $ -> you
+                            (The representives of Merryweather High) Welcome (you|people) to Merryweather High
 
-DRT(TITLE):<
->
+SEMANTICS:
+    (The represenatives of Merryweather High) Welcome (you, the people) to Merryweather High
+    Agent(organization): The representives of Merryweather High
+    Theme(animate): You
+    Location: Merryweather High, N/High -> high-school
+    Verb.Mood  = INDICATIVE
+    Verb.Tense = PRESENT
+    Google NLP confirms "Merryweather High" is an organization, need to check with spaCy.
 
-              
-BACKGROUND:<
-    {
-        _highSchool,        # constant
-        _merryWeatherHigh   # constant
-    },
-    {
-        institution_name(_highSchool, _merryWeatherHigh)
-    }
->
+    
+DRT(narration): 1:[_merryWeatherHigh| 
+    high-school(_merryWeatherHigh),
+    [x1,e1,_youThePeople|
+        x1:[|representivesOf(_merryWeatherHigh)],
+        event(e1),
+        [vn.admit-65.event(e1)
+        vn.admit-65.agent(e1, x1),
+        vn.admit-65.theme(e1, _youThePeople)
+        vn.admit-65.during(e1),
+        [|vn.admit-65.location(_merryWeatherHigh)] -> [|vn.organization(_merryWeatherHigh)],
+        [|vn.admit-65.welcome(e1)] -> [|vn.admit-65.admit(e1)], synsets
+]
 
 =============================================================
     It is my first morning of high school. 
@@ -91,9 +331,11 @@ BACKGROUND:<
 
 It  is               my            first               morning                   of     high               school.
 NP  (Sdcl\NP)/NP     NP/N          N/N                 N/PP                      PP/NP  N/N                N
-it  λxλyλe.eq(x,y,e) λp.sk         λpλx.p(x)∧first(x)  λxλy.morning(y)∧ARG(x,y)  λx.x   λpλx.p(x)∧high(x)  λx.school.(x)
+it  λxλyλe.eq(x,y,e) λp.sk         λpλx.p(x)∧first(x)  λxλy.morning(y)ARG(x,y)   λx.x   λpλx.p(x)∧high(x)  λx.school.(x)
                           λx.p(x)
-L   L                T             L                   L                         L      L                  L
+it  λQλx.Q(λy[|eq(x,y)]            λPλy.[|first(y)];P(y)                         λPλP'λxλp.P(x);[p|p:P'(y)];[|attribute(p,x)]
+                     λPλx.[x,p|my(x),p:P(x)]           λy.[y|morning(y)]                λPλx.[|high(x)];P(x)      
+                                                                                                           λx.[x|school(x)]
                                                                                         ____________ N _________________
                                                                                         λx.school.(x)∧high(x)
                                                                                         ____________ NP ________________
@@ -121,36 +363,149 @@ ________________________________________________________ S[dcl] ________________
         λx.morning(x)∧ARG(sk                     ,x)∧first(x)
                             λy.school.(y)∧high(y)
 
+Notes:
+    "my" indicates a narrator perspective, since this is the first "my" its a new narration.
+    Every time we encounter a N during the derivation and the N does not include a PP, then we lookup to see if 
+        its a multi-word-entity.
+    WN Lookups 
+        morning: wn.noun.time
+        high-school: wn.noun.group
+    Construction Rules:
+        1. We have two levels of construction
+           a) Lambda construction rules appy to DRS, i.e. variables are DRS, not referents.
+           b) DRS construction is via merge operation, infix operator ';'
+              Merge works like application in lambda calculus, i.e. right to left.
+              This is the merge function in our python implementation.
+              Need to add list of equate tuples to merge().
+        2. We have two levels of binding.
+           a) Do not support bound referents in the lamda definition.
+              Given λP.P(x) with DRS P, x is always free in the lamda declaration 
+                    but x can be a free variable in DRS P, or bound in P
+           b) Do not support free DRS in the lamda definition
+              i.e. λP.P(x);G(y) is not supported
+                   λPλG.P(x);G(y) is OK
+        3. Lambda application:
+           λP.P(x) {P(x)=G(x)} == G(x)
+           λP.P(x) {P(x)=G(y)} == G(y)
+        4. Lambda function composition
+           λP.P(x).λQ.Q(y) == λPλQ.P(x);Q(y) == read as P merge Q
+               iff x is a bound in DRS P and y is bound in DRS Q 
+           λP.P(x).λQ.Q(y) == λPλQ.P(x);Q(y=x) 
+               iff y is a free variable in DRS Q and x is bound, or free, in DRS P
+           λP.P(x).λQ.Q(y) == λPλQ.P(x=y);Q(y) 
+               iff x is a free variable in DRS P and y is bound, or free, in DRS Q
+        6. Merge is typically delayed until construction is complete, however we can do partial merge in cases such as
+           P(x);Q(x) => merge(P(x),Q(x))
+           λG.P(x);Q(x);G(x) => λG.merge(P(x),Q(x));G(x)
+        7. Construction base types are built from CCG
+           N/N = adjective
+               = λP;[|adjective(x)];P(x)
+           N   = noun
+               = [x|noun(x)]
+           PP/NP = start of prepositional phrase P(x)
+               = λP.P(x)
+           N/PP = noun Q(x) before prepositional phrase P(y)
+               = λQλP.P(y);[z|z:Q(x)];[|g(z,y)] where g(z,y) defines a relation z (is a) g (of) y.
+                 iff x is bound in DRS Q(x)
+               = λQλP.P(y);Q(x=z);[z|];[|g(z,y)]
+                 iff x is free in DRS Q(x)
+                 Not sure if this is possible
+           "of": g(z,y) = attribute(z,y)
+               Need to define these for all preposional phrase starts
+        
+    DRS Lookups during construction:
+        λP.[|high(x)];P(x) {P:=[x|school(x)]}
+            = [|high(x)];[x|school(x)]
+            = [x|high(x),school(x)]
+            = [x|high-school(x)]
+            = [x|eq(x,_merryWeatherHigh@1),high-school(x)]
+            
+    Construction Issues:
+        A. Want adjectival phrases parsed left to right since the noun is to the right in english.
+        B. Want adjectival phrases parsed and merged before other DRS merges.
+        In this example A and B are not satisified bacause the DRS describing "first morning" is
+        not constructed as a single DRS before merge into the prepositional phrase. 
+        We want to combine N/N with N/PP first
+           This fails,
+           P(x) = [x|eq(x,_merryWeatherHigh@1),high-school(x)]
+           Q(y) = [y|morning(y)]
+           
+           N/PP PP/NP => λQλP.P(x);[z|z:Q(y)];[|attribute(z,x)]
+              [x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|morning(y)]];[|attribute(z,x)]
+           N/N => λP.[|first(x)];P(x)
+              [|first(x)];[x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|morning(y)]];[|attribute(z,x)]
+              
+    Solution to construction issues:
+        1. We only have one type in our model :- the DRS. So all CCG functions map to DRS functions
+           N/N => DRS/DRS
+           N\N => DRS\DRS
+           N/NP => DRS/DRS
+           N/PP => DRS/DRS
+        2. We have the following rules when combining N N/N CONJ
+           DRS/DRS  DRS          == DRS  DRS\DRS
+           λP.Q(x);P(x) {P=R(x)} == λP.P(x);R(x) {P=Q(x)}
+        3. Only have rule for PP, not PP/NP so we have to build up to the point where the PP/NP is applied
+           to the parse.
+           Now we have N/N N/PP PP => DRS/DRS DRS/DRS DRS == DRS DRS\DRS <PREP-RULE> DRS
+           [|first(x)]    [x|morning(x)]         PREP-RULE (DRS\DRS)/DRS             [x|eq(x,_merryWeatherHigh@1),high-school(x)]
+           DRS            DRS\DRS                λQλP.P(y);[z|z:Q(x)];[|g(z,y)]
+           [|first(x)]    λP.P(x);[x|morning(x)] 
+           
+It  is               my            first               morning                   of     high               school.
+NP  (Sdcl\NP)/NP     NP/N          N/N                 N/PP                      PP/NP  N/N                N
+DRS (DRS\DRS)/DRS    DRS/DRS       DRS/DRS             DRS/DRS                   DRS/DRS DRS/DRS           DRS
+    λPλQ.P(x);[|eq(x,y)];Q(y)      [|first(y)]         [y|morning(y)]                   [|high(x)]         [x|school(x)]
+[x|]                 λP.[|own(x,y)];P(y)
+                                                                                        λP.[|high(x)];P(x) P(x)
+                                                                                        ____________ N _________________
+                                                                                        [x|high(x),school(x)]
+                                                                                        [x|eq(x,_merryWeatherHigh@1),high-school(x)]
+                                                                                        ____________ NP ________________
+                                                                                 _________________ PP __________________
+DRS (DRS\DRS)/DRS    DRS/DRS       DRS/DRS             DRS/DRS                   DRS
+DRS (DRS\DRS)/DRS    DRS/DRS       DRS                 DRS\DRS                   (DRS\Q)/P
+                     λP.[x|me(x)];[own(x,y)];P(y)                                λQλP.P(x);[z|z:Q(y)];[|attribute(z,x)]
+                                   [|first(y)]         λP.P(y);[y|morning(y)]
+                                                       ______________________________ N ________________________________
+                                                       λP.P(y);[y|morning(y)]    λQλP.P(x);[z|z:Q(y)];[|attribute(z,x)]
+                                   ________________________________________ N __________________________________________
+                                   Q=[|first(y)];[y|morning(y)]                  λQλP.P(x);[z|z:Q(y)];[|attribute(z,x)]
+                                   Q=[y|first(y),morning(y)]
+                                   P=[x|eq(x,_merryWeatherHigh@1),high-school(x)]
+                                   [x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|first(y),morning(y)]];[|attribute(z,x)]
+                     __________________________________________________ NP _____________________________________________
+    λPλQ.P(u);[|eq(u,z)];Q(z)
+[u|]                 λP.[|own(u,z)];P(z)
+                     [|own(u,z)];[x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|first(y),morning(y)]];[|attribute(z,x)]
+    _______________________________________________________ S[dcl]\NP __________________________________________________
+    λP.P(u);[|eq(u,z)];[|own(u,z)];[x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|first(y),morning(y)]];[|attribute(z,x)]
+________________________________________________________ S[dcl] ________________________________________________________
+[u|eq(u,z)];[|own(u,z)];[x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|first(y),morning(y)]];[|attribute(z,x)]
+[u|eq(u,z)];[|own(u,z)];[x|eq(x,_merryWeatherHigh@1),high-school(x)];[z|z:[y|first(y),morning(y)],attribute(z,x)]
+[u|eq(u,z)];[|own(u,z)];[x,z|eq(x,_merryWeatherHigh@1),high-school(x),z:[y|first(y),morning(y)],attribute(z,x)]
+[u,x,z|eq(u,z),own(u,z),eq(x,_merryWeatherHigh@1),high-school(x),z:[y|first(y),morning(y)],attribute(z,x)]
 
-"my" indicates a narrator perspective, since this is the first "my" its a new narration.
-"morning" == wordnet.noun.time
-"high school" == wordnet.noun.group
-TEMPLATE: first|last|second|third NP1 of NP2
-NP1: what to call?
-NP2: anchor
-NARRATION:<
-    {
-        +X2,            # my
-        _highSchool,    # constant
-        +E1,            # it
-        X3              # time proposition
-    },
-    {
-        X3: <{},{sequence(X3), first(X3), morning(X3), anchor(X3, _highSchool)}>,
-        event(E1),
-        event_time(E1, X3),
-        event_participant(E1, X2)
-    }
->
+On each partial merge we should do some processing. Did this with high-school.
 
-IMPLIED:<
-    {},
-    {
-        human(X2),
-        student_at(X2, _highSchool),
-        <{},{freshman(X2, _highSchool)}> <=> <{},{ninth_grader(X2, _highSchool)}>
-    }
->
+first   -> indicates a sequence, if a noun then wn.noun.relation|wn.noun.quantity|wn.noun.time|wn.noun.act|wn.noun.communication|wn.noun.artifact
+morning -> wn.noun.time|wn.noun.communication|wn.noun.event
+
+So try: wn.noun.time|wn.noun.communication
+    Not sure how to determine which wn.noun type. 
+
+Ideally this is what we want:
+    DRT(narration): 2:[x1, e, x2 |
+        me(x1),
+        eq(x2, _merryWeatherHigh@1),
+        high-school(x2),
+        e:[y |first(y), morning(y)],
+        event(e),
+        event_agent(e, x1),
+        event_theme(e, x2)
+    ]
+
+IMPLIED:
+    [|person(x1),narrator(x1),student_at(x1,_merryWeatherHigh@1),freshman(x1,_merryWeatherHigh@1),ninth_grader(x1,_merryWeatherHigh@1)]
 
 =============================================================
     I have seven new notebooks, a skirt I hate, and a stomachache. 
@@ -182,9 +537,15 @@ i   λxλyλe.have(e)∧A0(y,e)∧A1(x,e)  λp.sk         λpλx.p(x)∧new(x)  
 S[dcl]_____________________________________________________________________________________________________________________________________________________________________________
 λe.have(e)∧ARG0(i,e)∧ARG1({{sk                               ,sk                        },sk                 },e)
                               λx.skirt(x)∧i(x)∧hate(x)∧new(x)   λy.skirt(y)∧i(y)∧hate(y)    λz.stomachache(z)
-    
 
 "I" indicates an continuation on X2
+DRT(continuation): 3:[x2,e1|
+        eq(x2,x2@2),
+        p1: [y|seven(y),new(y),notebooks(y)]
+        e1: [y,q|eq(y,_merryWeatherHigh@1),attribute(y,x2),high-school(y),q:[z|time(z,y),first(z),morning(z)],
+        event(e1),
+]
+
 CONTINUATION:<
     {
         X2,     # I
@@ -202,10 +563,29 @@ CONTINUATION:<
 
 =============================================================
     The school bus wheezes to my corner. 
+    
 *** RAW ***
 (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>) (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>) (<L N NN NN corner. N>) ) ) ) )
 #e.(wheeze(e)&ARG0(sk(#x.(bus(x)&school(x))),e)&ARG(sk(#y.corner.(y)),e))
 *** RAW ***
+
+
+The           school               bus        wheezes                            to     my            corner.
+NP/N          N/N                  N          (S[dcl]\NP)/PP                     PP/NP  NP/N          N
+λp.sk         λpλx.p(x)∧school(x)  λx.bus(x)  λxλyλe.wheeze(e)∧A0(y,e)∧A1(x,e)   λx.x   λp.sk         λx.corner(x)
+     λx.p(x)                                                                                 λx.p(x)
+              N_____________________________                                            NP________________________
+              λx.bus(x)∧school(x)                                                       sk
+                                                                                          λx.corner(x)
+NP__________________________________________                                     PP_______________________________
+sk                                                                               sk
+  λx.bus(x)∧school(x)                                                              λx.corner(x)
+                                              S[dcl]\NP___________________________________________________________
+                                              λxλe.wheeze(e)∧A0(x,e)∧A1(sk            ,e)
+                                                                          λy.corner(y)
+S[dcl]____________________________________________________________________________________________________________
+λe.wheeze(e)∧A0(sk                   ,e)∧A1(sk            ,e)
+                  λx.bus(x)∧school(x)         λy.corner(y)
 
 "my" indicates continuation
 "school bus" is a vehicle so "corner" means "street corner"    
@@ -243,11 +623,28 @@ IMPLIED:<
 
 =============================================================
     The door opens and I step up.
-    
+
+*** RAW ***
 (<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) ) (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>) (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )
-    
 #e.(open(e)&ARG1(sk(#x.door(x)),e)&step(e)&ARG1(i,e)&DIR(up.,e))
-    
+*** RAW ***
+
+The           door        opens                 and   I   step                  up.
+NP/N          N           S[dcl]\NP             conj  NP  S[dcl]\NP             (S\NP)\(S\NP)
+λp.sk         λx.door(x)  λxλe.open(e)∧A1(x,e)  and   i   λxλe.step(e)∧A1(x,e)  λpλxλe.p(x,e)∧DIR(up,e)
+     λx.p(x)
+NP______________________                                  S[dcl]\NP____________________________________
+sk                                                        λxλe.step(e)∧A1(x,e)∧DIR(up,e)
+  λx.door(x)
+S[dcl]________________________________________            S[dcl]_______________________________________
+λe.open(e)∧A1(sk          ,e)                             λe.step(e)∧A1(i,e)∧DIR(up,e)
+                λx.door(x)
+                                                S[dcl]\S[dcl]__________________________________________
+                                                λpλe.p(e)∧step(e)∧A1(i,e)∧DIR(up,e)
+S[dcl]_________________________________________________________________________________________________
+λe.open(e)∧A1(sk          ,e)∧step(e)∧A1(i,e)∧DIR(up,e)
+                λx.door(x)
+
 The _door => presupposition. Must be able to query referents of previous DRT to see if any has a door. Only possibility is the school bus.
 I resolves to X2
 ELABORATION:<
@@ -272,27 +669,66 @@ ELABORATION:<
     I am the first pickup of the day. 
     
     
-    The driver pulls away 
-    from the curb while I stand in the aisle. Where to sit? I've 
-    never been a backseat wasteease. If I sit in the middle, a 
-    stranger could sit next to me. If I sit in the front, it will make 
-    me look like a little kid, but I figure it's the best chance I have 
-    to make eye contact with one of my friends, if any of them 
-    have decided to talk to me yet. 
+=============================================================
+    The driver pulls away from the curb while I stand in the aisle. 
+    
+=============================================================
+    Where to sit? I've never been a backseat wasteease. 
+    
+=============================================================
+    If I sit in the middle, a stranger could sit next to me. 
+    
+=============================================================
+    If I sit in the front, it will make me look like a little kid, 
+    but I figure it's the best chance I have to make eye contact 
+    with one of my friends, if any of them have decided to talk to
+    me yet. 
 
-The bus picks up students in groups of four or five. As they 
-walk down the aisle, people who were my middle-school lab 
-partners or gym buddies glare at me. I close my eyes. This is 
-what I've been dreading. As we leave the last stop, I am the 
-only person sitting alone. 
+=============================================================
+#### END OF PARAGRAPH
 
-The driver downshifts to drag us over the hills. The engine 
-clanks, which makes the guys in the back holler something 
-obscene. Someone is wearing too much cologne. I try to open 
-my window, but the little latches won't move. A guy behind 
-me unwraps his breakfast and shoots the wrapper at the back 
-of my head. It bounces into my lap — a Ho-Ho. 
+=============================================================
 
+The bus picks up students in groups of four or five. 
+
+=============================================================
+As they walk down the aisle, people who were my middle-school lab 
+partners or gym buddies glare at me. 
+
+=============================================================
+I close my eyes. 
+
+=============================================================
+This is what I've been dreading. 
+
+=============================================================
+As we leave the last stop, I am the only person sitting alone. 
+
+=============================================================
+#### END OF PARAGRAPH
+
+=============================================================
+
+The driver downshifts to drag us over the hills. 
+
+=============================================================
+The engine clanks, which makes the guys in the back holler something 
+obscene. 
+=============================================================
+Someone is wearing too much cologne. 
+=============================================================
+I try to open my window, but the little latches won't move.
+=============================================================
+A guy behind me unwraps his breakfast and shoots the wrapper at the back 
+of my head. 
+
+=============================================================
+It bounces into my lap — a Ho-Ho. 
+
+=============================================================
+#### END OF PARAGRAPH
+
+=============================================================
 We pass janitors painting over the sign in front of the high 
 school. The school board has decided that "Merryweather 
 High — Home of the Trojans" didn't send a strong abstinence 
