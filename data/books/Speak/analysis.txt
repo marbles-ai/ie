@@ -333,9 +333,6 @@ It  is               my            first               morning                  
 NP  (Sdcl\NP)/NP     NP/N          N/N                 N/PP                      PP/NP  N/N                N
 it  λxλyλe.eq(x,y,e) λp.sk         λpλx.p(x)∧first(x)  λxλy.morning(y)ARG(x,y)   λx.x   λpλx.p(x)∧high(x)  λx.school.(x)
                           λx.p(x)
-it  λQλx.Q(λy[|eq(x,y)]            λPλy.[|first(y)];P(y)                         λPλP'λxλp.P(x);[p|p:P'(y)];[|attribute(p,x)]
-                     λPλx.[x,p|my(x),p:P(x)]           λy.[y|morning(y)]                λPλx.[|high(x)];P(x)      
-                                                                                                           λx.[x|school(x)]
                                                                                         ____________ N _________________
                                                                                         λx.school.(x)∧high(x)
                                                                                         ____________ NP ________________
@@ -412,6 +409,10 @@ Notes:
                  Not sure if this is possible
            "of": g(z,y) = attribute(z,y)
                Need to define these for all preposional phrase starts
+        8. Promotion to a proposition
+            λP.P(x);Q(x)   {P=R(x,y)}   := [u|u:R(x,y)];Q(x)
+            λP.P(x);Q(x)   {Q=R(x,y)}   := P(x);[u|u:R(x,y)]
+            λP.[x|relation(x,y)];P(y)   {P=R(x,y)}  := [x|relation(x,z)];[z|R(x1,y1)]
         
     DRS Lookups during construction:
         λP.[|high(x)];P(x) {P:=[x|school(x)]}
@@ -508,12 +509,32 @@ IMPLIED:
     [|person(x1),narrator(x1),student_at(x1,_merryWeatherHigh@1),freshman(x1,_merryWeatherHigh@1),ninth_grader(x1,_merryWeatherHigh@1)]
 
 =============================================================
-    I have seven new notebooks, a skirt I hate, and a stomachache. 
+    I have seven new notebooks, a skirt I hate, and a stomachache.
 
 *** RAW ***
 (<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBP VBP have (S[dcl]\NP)/NP>) (<T NP 0 2> (<T NP 0 2> (<T NP/N 0 2> (<T NP/N 0 2> (<L NP/N CD CD seven NP/N>) (<L N/N JJ JJ new N/N>) ) (<T (NP/N)\(NP/N) 1 2> (<L ; NN NN notebooks, ;>) (<L NP/N DT DT a NP/N>) ) ) (<T N 0 2> (<T N 0 2> (<L N NN NN skirt N>) (<L N\N PRP PRP I N\N>) ) (<L N\N VBP VBP hate, N\N>) ) ) (<T NP\NP 1 2> (<L conj CC CC and conj>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN stomachache. N>) ) ) ) ) )
 #e.(have(e)&ARG0(i,e)&ARG1({{sk(#x.(skirt(x)&i(x)&hate,(x)&new(x))), sk(#y.(skirt(y)&i(y)&hate,(y)))}, sk(#z.stomachache.(z))},e))
 *** RAW ***
+
+I   have                            seven         new               notebooks,  a             skirt        I               hate,              and   a             stomachache.
+NP  (S[dcl]\NP)/NP                  NP/N          N/N               N           NP/N          N            N\N             N\N                conj  NP/N          N
+DRS (DRS\DRS)/DRS                   DRS/DRS       DRS/DRS           ??          DRS/DRS       DRS          DRS\DRS         DRS\DRS                  DRS/DRS       DRS
+[x|me(x)]                           [|seven(x)]   [|new(x)]   [x|notebooks(x)]  [|exists(x)]  [x|skirt(x)] [x|eq(x,?)]     [|hate(x)]               [|exists(x)]  [x|stomachache(x)]
+     λPλQ.P(x);[|have(x,y)];Q(y)
+                                    NP/N__________________________  (NP/N)\(NP/N)___________  N__________________________                           NP_____________________________
+                                    λP.[|seven(x)];P(x)             λP.[x|notebooks(x)];P(x)  [x|skirt(x)] λP.P(x);[x|eq(x,?)]                      λP.[|exists(x)];P(x)
+                                                                                 λQ.[|exists(x)];Q(x)
+                                                                                 
+                                    [|seven(x),new(x)]              λQ.[x|notebooks(x)];[|exists(x)];Q(x)                                          [|exists(x)];[x|stomachache(x)]
+                                                                                              [y|skirt(y)];[x|eq(x,?)]
+                                    NP/N____________________________________________________  N_____________________________________________  NP\NP________________________________
+                                    [|seven(x),new(x)]
+                                    NP______________________________________________________________________________________________________
+                                    NP_____________________________________________________________________________________________________________________________________________
+    S[dcl]\NP______________________________________________________________________________________________________________________________________________________________________
+S[dcl]_____________________________________________________________________________________________________________________________________________________________________________
+
+
 
 I   have                            seven         new               notebooks,  a             skirt        I               hate,              and   a             stomachache.
 NP  (S[dcl]\NP)/NP                  NP/N          N/N               ;           NP/N          N            N\N             N\N                conj  NP/N          N
@@ -569,6 +590,32 @@ CONTINUATION:<
 #e.(wheeze(e)&ARG0(sk(#x.(bus(x)&school(x))),e)&ARG(sk(#y.corner.(y)),e))
 *** RAW ***
 
+
+The           school               bus        wheezes                            to     my            corner.
+NP/N          N/N                  N          (S[dcl]\NP)/PP                     PP/NP  NP/N          N
+DRS/DRS       DRS/DRS              DRS        (DRS/DRS)/DRS                    DRS/DRS  DRS/DRS       DRS
+[|exist(x)]   [|school(x)]         [x]|bus(x)]                                          [x|me(x)];[|own(x,y)]
+                                              [|wheeze(x,y)]                                          [x|corner(x)]
+              N_____________________________                                            NP________________________
+              λP.[|school(x)];P(x)                                                      λP.[x|me(x)];[|own(x,y)];P(y)
+              [|school(x)];[x|bus(x)]                                                   [x|me(x)];[|own(x,y)];[y|corner(y)]
+              [x|school(x)],bus(x)]
+NP__________________________________________                                     PP_______________________________
+λP.[|exist(x)];P(x)                                                              λP.P(x)
+[|exist(x)];[x|school(x)],bus(x)]
+[x|exist(x),school(x)],bus(x)]
+                                              S[dcl]\NP___________________________________________________________
+                                              λP.[|wheeze(x,y)];P(y)
+                                              [|wheeze(x,y)];[z|me(z)];[|own(z,y)];[y|corner(y)]
+S[dcl]____________________________________________________________________________________________________________
+                                              λP.P(x);[|wheeze(x,y)];[z|me(z)];[|own(z,y)];[y|corner(y)]
+[x|exist(x),school(x)],bus(x)];[|wheeze(x,u)];[u|u:[z,y|me(z),own(z,y),corner(y)]]
+[x,u|exist(x),school(x),bus(x),wheeze(x,u),u:[z,y|me(z),own(z,y),corner(y)]]
+
+Construction Rule: Promotion to a proposition
+    λP.P(x);Q(x)   {P=R(x,y)}   := [u|u:R(x,y)];Q(x)
+    λP.P(x);Q(x)   {Q=R(x,y)}   := P(x);[u|u:R(x,y)]
+    
 
 The           school               bus        wheezes                            to     my            corner.
 NP/N          N/N                  N          (S[dcl]\NP)/PP                     PP/NP  NP/N          N
