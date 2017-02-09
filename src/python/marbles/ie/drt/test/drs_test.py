@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+
 import unittest
 from ..drs import *
 from ..common import *
 from ..parse import parse_drs
 from ..utils import compare_lists_eq
+from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
 from pysmt.shortcuts import Solver
 
 
@@ -299,18 +302,33 @@ class DrsTest(unittest.TestCase):
         x = dexpr('([r],[A(c), (([z1],[B(r,z1,z,a)]) -> ([z2],[C(r,z1,z2,a)]))])')
         self.assertEquals(x, d)
 
-    def __test11_Unify(self):
-        """A man walked in. He ordered a beer"""
-        d1 = parse_drs('<{e,x,l},{location(l),<{},{walked_in(e,x,l)}> -> <{},{entered(e,x,l)}>,<{},{man(x)}> -> <{},{male(x),person(x)}>}>')
-        d2 = parse_drs('<{e,y,z},{beer(z),order(e,y,z),<{},{PRON(y)}> -> <{},{male(y),person(x)}>}>')
-        d3 = Merge(d1,d2)
-        d4 = d3.purify().resolve_merges()
-        fol, _ = d4.to_fol()
-        formula = fol.to_smt()
-        with Solver(name='z3', quantified=True) as solver:
-            solver.add_assertion(formula)
-            if solver.solve():
-                pass
-            else:
-                pass
-        s = d4.show(SHOW_SET)
+    def test11_Compose(self):
+        cl = CompositionList()
+        # [|exist(x)];[x|school(x)],bus(x)]
+        cl.push_right(dexpr('([],[exists(x)])'))
+        cl.push_right(dexpr('([],[school(x)])'))
+        cl.push_right(dexpr('([x],[bus(x)])'))
+        self.assertEquals(0, len(cl.freerefs))
+        self.assertTrue(compare_lists_eq([DRSRef('x')], cl.universe))
+
+        cl = CompositionList().push_right(cl)
+
+        fn = FunctionComposition(ArgLeft, DRSRef('x'), FunctionComposition(ArgRight, DRSRef('y'), dexpr('([],[wheeze(x,y)])')))
+        self.assertEquals(repr(fn), 'λQλP.P(x);[| wheeze(x,y)];Q(y)')
+        cl.push_right(fn)
+
+        fn = PropComposition(ArgRight, DRSRef('p'))
+        self.assertEquals(repr(fn), 'λP.[p| p: P(*)]')
+        cl.push_right(fn)
+
+        # λP.[x|me(x),own(x,y)];P(y)
+        fn = FunctionComposition(ArgRight, DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
+        self.assertEquals(repr(fn), 'λP.[x| me(x),own(x,y)];P(y)')
+        cl.push_right(fn)
+        cl.push_right(dexpr('([x],[corner(x)])'))
+
+        d = cl.apply()
+        s = d.drs.show(SHOW_SET)
+        x = u'<{x,y},{exists(x),school(x),bus(x),wheeze(x,y),y: <{x1,y1},{me(x1),own(x1,y1),corner(y1)}>}>'
+        self.assertEquals(x, s)
+
