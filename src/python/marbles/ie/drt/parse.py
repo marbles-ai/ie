@@ -8,6 +8,7 @@ from .pdrs import MAP, PDRS, LambdaPDRS, PDRSRef, PRef, LambdaPDRSRef
 from .pdrs import PCond, PNeg, PRel, PProp, PImp, POr, PDiamond, PBox
 from .drs import DRS, DRSRef,  LambdaDRS, LambdaDRSRef
 from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
+from .ccg2drs import FunctionComposition, PropComposition, DrsComposition, CompositionList, ArgRight, ArgLeft
 
 
 ###########################################################################
@@ -386,5 +387,68 @@ def parse_drs(s, grammar=None):
     drs = pt[1].to_drs()
     return drs
 
+
+###########################################################################
+# EasySRL Grammar
+## @cond
+
+# (<T S[dcl] 1 2>
+#   (<T NP 0 2>
+#       (<L NP/N DT DT The NP/N>)
+#       (<T N 1 2>
+#           (<L N/N NN NN school N/N>)
+#           (<L N NN NN bus N>)
+#       )
+#   )
+#   (<T S[dcl]\NP 0 2>
+#       (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
+#       (<T PP 0 2>
+#           (<L PP/NP TO TO to PP/NP>)
+#           (<T NP 0 2>
+#               (<L NP/N PRP$ PRP$ my NP/N>)
+#               (<L N NN NN corner. N>)
+#           )
+#       )
+#   )
+# )
+
+CcgBasicType = re.compile(r'S(?:\[[a-z]+\])?|NP|N|PP|conj')
+CcgArgSep = re.compile(r'/|\\')
+
+class CcgSimpleFunctionType(List):
+    grammar = CcgBasicType, CcgArgSep, CcgBasicType
+
+class CcgComplexArg(List):
+    grammar = '(', CcgSimpleFunctionType, ')'
+
+LType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)\s[^>]*\1')
+TType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)')
+
+class EsrlTTypeExpr(List):
+    grammar = '<', 'T', TType, PosInt, PosInt, '>'
+
+class EsrlLTypeDecl(List):
+    grammar = '<', 'L', LType, '>'
+
+class EsrlTTypeDecl(List):
+    grammar = None
+
+class EsrlChoice(List):
+    grammar = [EsrlTTypeDecl, EsrlLTypeDecl]
+
+class EsrlDecl(List):
+    # Grammar is recursive so must declare with None
+    grammar = '(', EsrlChoice, ')'
+
+EsrlTTypeDecl.grammar = EsrlTTypeExpr, some(EsrlDecl)
+
+## @endcond
+
+def parse_easysrl(s):
+    p = Parser()
+    if isinstance(s, str):
+        s = s.decode('utf-8')
+    pt = p.parse(s, EsrlDecl)
+    return
 
 

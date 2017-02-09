@@ -328,3 +328,6 @@ class PropComposition(FunctionComposition):
         d = arg.apply()
         assert isinstance(d, DrsComposition)
         return DrsComposition(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
+
+
+
