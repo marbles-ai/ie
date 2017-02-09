@@ -101,9 +101,9 @@ class AbstractDRS(Showable):
         """Returns the list of all free DRSRef's in this DRS.
 
         Remarks:
-            Same as get_freerefs(None)
+            Same as get_freerefs(self)
         """
-        return self.get_freerefs()
+        return self.get_freerefs(self)
 
     @property
     def variables(self):
@@ -268,7 +268,7 @@ class AbstractDRS(Showable):
         Returns:
             A list of DRSRef's unioned with `u`.
         """
-        if u is None: return []
+        if u is None: return set()
         return u
 
     def get_constants(self, u=None):
@@ -281,7 +281,7 @@ class AbstractDRS(Showable):
         Returns:
             A list of constant DRSRef's unioned with `u`.
         """
-        if u is None: return []
+        if u is None: return set()
         return u
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:drsUniverses</a>
@@ -712,7 +712,7 @@ class DRS(AbstractDRS):
             u: An initial list. If None `u` is set to [].
 
         Returns:
-            A list of bound DRSRef's unioned with `u`.
+            A set of bound DRSRef's unioned with `u`.
         """
         if u is None:
             u = set(self._refs) # shallow copy
@@ -720,7 +720,7 @@ class DRS(AbstractDRS):
             u = set(self._refs).union(u)
         for c in self._conds:
             u = c.get_variables(u)
-        return sorted(u)
+        return u
 
     def get_constants(self, u=None):
         """Returns the list of all constant DRSRef's in this DRS.
@@ -729,7 +729,7 @@ class DRS(AbstractDRS):
             u: An initial list. If None `u` is set to [].
 
         Returns:
-            A list of constant DRSRef's unioned with `u`.
+            A set of constant DRSRef's unioned with `u`.
         """
         if u is None:
             u = set(self._refs) # shallow copy
@@ -737,7 +737,7 @@ class DRS(AbstractDRS):
             u = set(self._refs).union(u)
         for c in self._conds:
             u = c.get_constants(u)
-        return sorted(u)
+        return u
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsUniverses</a>
     ##
@@ -893,7 +893,7 @@ class DRS(AbstractDRS):
         elif notation == SHOW_LINEAR:
             ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
-            return u'[' + ul + u': ' + cl + u']'
+            return u'[' + ul + u'| ' + cl + u']'
         elif notation == SHOW_SET:
             ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
@@ -940,7 +940,7 @@ class Merge(AbstractDRS):
         if not self._drsA._ispure_helper(rs, gd): return False
         y = []
         y.extend(rs)
-        y = self._drsA.get_variables(y)
+        y = sorted(self._drsA.get_variables(set(y)))
         return self._drsB._ispure_helper(y, gd)
 
     @property
@@ -1664,7 +1664,7 @@ class Neg(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = self._drs.get_variables(rs)
+        rs = sorted(self._drs.get_variables(set(rs)))
         return True, rs
 
     def _get_freerefs(self, ld, gd, pvar=None):
@@ -1790,9 +1790,9 @@ class Imp(AbstractDRSCond):
 
     def _ispure(self, ld, gd, rs):
         if not self._drsA._ispure_helper(rs, gd): return (False, None)
-        rs = self._drsA.get_variables(rs)
+        rs = sorted(self._drsA.get_variables(set(rs)))
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
-        rs = self._drsB.get_variables(rs)
+        rs = sorted(self._drsB.get_variables(set(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -1938,9 +1938,9 @@ class Or(AbstractDRSCond):
 
     def _ispure(self, ld, gd, rs):
         if not self._drsA._ispure_helper(rs, gd): return (False, None)
-        rs = self._drsA.get_variables(rs)
+        rs = sorted(self._drsA.get_variables(set(rs)))
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
-        rs = self._drsB.get_variables(rs)
+        rs = sorted(self._drsB.get_variables(set(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2079,7 +2079,7 @@ class Prop(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not _pure_refs(ld, gd, [self._ref], rs) or not self._drs._ispure_helper(rs, gd):
             return (False, None)
-        rs = self._drs.get_variables(rs)
+        rs = sorted(self._drs.get_variables(set(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2205,7 +2205,7 @@ class Diamond(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = self._drs.get_variables(rs)
+        rs = sorted(self._drs.get_variables(set(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2322,7 +2322,7 @@ class Box(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = self._drs.get_variables(rs)
+        rs = sorted(self._drs.get_variables(set(rs)))
         return True, rs
 
     def _universes(self, u):
