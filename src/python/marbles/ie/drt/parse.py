@@ -8,7 +8,7 @@ from .pdrs import MAP, PDRS, LambdaPDRS, PDRSRef, PRef, LambdaPDRSRef
 from .pdrs import PCond, PNeg, PRel, PProp, PImp, POr, PDiamond, PBox
 from .drs import DRS, DRSRef,  LambdaDRS, LambdaDRSRef
 from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
-from .ccg2drs import FunctionComposition, PropComposition, DrsComposition, CompositionList, ArgRight, ArgLeft
+from .ccg2drs import CcgType
 
 
 ###########################################################################
@@ -415,40 +415,101 @@ def parse_drs(s, grammar=None):
 CcgBasicType = re.compile(r'S(?:\[[a-z]+\])?|NP|N|PP|conj')
 CcgArgSep = re.compile(r'/|\\')
 
-class CcgSimpleFunctionType(List):
-    grammar = CcgBasicType, CcgArgSep, CcgBasicType
-
-class CcgComplexArg(List):
-    grammar = '(', CcgSimpleFunctionType, ')'
-
 LType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)\s[^>]*\1')
 TType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)')
 
-class EsrlTTypeExpr(List):
-    grammar = '<', 'T', TType, PosInt, PosInt, '>'
+LPosType = re.compile(r'[A-Z\$]+(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
+LWord    = re.compile(r'[^>\s]+(?=\s)')
+CcgComplexTypeBegin = re.compile(r'([()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)+(?=\s)')
+CcgComplexTypeEnd   = re.compile(r'([()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)+(?=[>])')
+
+
+class EsrlCcgTypeBegin(List):
+    grammar = (CcgComplexTypeBegin)
+
+    def to_list(self):
+        # DRS is the only type in our model
+        return self[0]
+
+
+class EsrlCcgTypeEnd(List):
+    grammar = (CcgComplexTypeEnd)
+
+    def to_list(self):
+        return self[0]
+
+
+class EsrlLTypeExpr(List):
+    grammar = some(LPosType), LWord
+
+    def to_list(self):
+        r = [self[-1]]
+        r.extend(self[0:-1])
+        return r
+
+
+class EsrlLTypeDecl2(List):
+    grammar = '<', 'L', EsrlCcgTypeBegin, EsrlLTypeExpr, EsrlCcgTypeEnd, '>'
+
+    def to_list(self):
+        r = [self[0].to_list()]
+        r.extend([x.to_list() for x in self[1:-1]])
+        return r
+
 
 class EsrlLTypeDecl(List):
     grammar = '<', 'L', LType, '>'
 
+    def to_list(self):
+        return self[0]
+
+
+class EsrlTTypeExpr(List):
+    grammar = '<', 'T', TType, PosInt, PosInt, '>'
+
+    def to_list(self):
+        return [self[0], int(self[1]), int(self[2])]
+
+
 class EsrlTTypeDecl(List):
+    # Grammar is recursive so must declare with None
     grammar = None
 
+    def to_list(self):
+        return [x.to_list() for x in self]
+
+
 class EsrlChoice(List):
-    grammar = [EsrlTTypeDecl, EsrlLTypeDecl]
+    grammar = [EsrlTTypeDecl, EsrlLTypeDecl2]
+
+    def to_list(self):
+        return self[0].to_list()
+
 
 class EsrlDecl(List):
-    # Grammar is recursive so must declare with None
     grammar = '(', EsrlChoice, ')'
 
-EsrlTTypeDecl.grammar = EsrlTTypeExpr, some(EsrlDecl)
+    def to_list(self):
+        return self[0].to_list()
 
+
+EsrlTTypeDecl.grammar = EsrlTTypeExpr, some(EsrlDecl)
 ## @endcond
 
+
+def process_easysrl(pt):
+    """Process the EasySRL parse tree"""
+    if pt is None or len(pt) == 0:
+        return None
+    assert len(pt[0]) == 3
+
 def parse_easysrl(s):
+    """Parse EasySRL's ccgout data"""
     p = Parser()
     if isinstance(s, str):
         s = s.decode('utf-8')
     pt = p.parse(s, EsrlDecl)
-    return
+    return pt[1].to_list()
+
 
 

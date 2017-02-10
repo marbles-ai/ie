@@ -3,7 +3,7 @@
 import unittest
 from ..drs import *
 from ..common import *
-from ..parse import parse_drs, parse_easysrl
+from ..parse import parse_drs, parse_easysrl, process_easysrl
 from ..utils import compare_lists_eq
 from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
 from pysmt.shortcuts import Solver
@@ -334,8 +334,12 @@ class DrsTest(unittest.TestCase):
 
     def test12_ParseEasySrl(self):
         txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
-        (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
+        (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[mno] 1 2>
         (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
         (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
-        parse_easysrl(txt)
+        pt = parse_easysrl(txt)
+        self.assertIsNotNone(pt)
+        composer = process_easysrl(pt)
+        self.assertIsNotNone(composer)
+
 

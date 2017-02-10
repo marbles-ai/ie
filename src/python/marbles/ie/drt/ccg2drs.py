@@ -4,6 +4,7 @@ from drs import DRS, DRSRef, Merge, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from drs import get_new_drsrefs
 from utils import iterable_type_check, intersect, union, compare_lists_eq
 from common import SHOW_LINEAR
+import collections, re
 
 
 class DrsComposeError(Exception):
@@ -306,7 +307,7 @@ class FunctionComposition(Composition):
 
 
 class PropComposition(FunctionComposition):
-    def __init__(self, position, referent):
+    def __init__(self, position, referent, composition=None):
         super(PropComposition, self).__init__(position, referent)
 
     def _repr_helper2(self, i):
@@ -330,4 +331,70 @@ class PropComposition(FunctionComposition):
         return DrsComposition(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
 
 
+class CcgType(object):
+    _AllTypes = {
+        # DRS
+        r'P': None,
+        r'T': None,
+        # Functions
+        r'T/T': (FunctionComposition, ArgRight, DRSRef('x'), None),
+        r'T\T': (FunctionComposition, ArgLeft, DRSRef('x'), None),
+        r'(T/T)/T': (FunctionComposition, ArgRight, DRSRef('y'), (FunctionComposition, ArgRight, DRSRef('x'), None)),
+        r'(T/T)\T': (FunctionComposition, ArgRight, DRSRef('y'), (FunctionComposition, ArgLeft, DRSRef('x'), None)),
+        r'(T\T)/T': (FunctionComposition, ArgLeft, DRSRef('y'), (FunctionComposition, ArgRight, DRSRef('x'), None)),
+        r'T/P': (PropComposition, ArgRight, DRSRef('p'), None),
+    }
+    _TypeChangerAll = re.compile(r'S(?:\[[a-z]+\])?|NP|N|PP|conj')
+    _TypeChangerNoPP = re.compile(r'S(?:\[[a-z]+\])?|NP|N|conj')
 
+    def __init__(self, ccgTypeName, word):
+        self._ccgTypeName = ccgTypeName
+        self._word = word.lower()
+        self._drsTypeName = self._TypeChangerAll.sub('P', self._TypeChangerNoPP.sub('T', ccgTypeName))
+        self._drs
+
+        if not self._AllTypes.has_key(self._drsTypeName):
+            raise DrsComposeError('CCG type %s maps to unknown DRS composition type %s' %
+                                  (ccgTypeName, self._drsTypeName))
+
+    def get_composer(self):
+        compose = self._AllTypes[self._drsTypeName]
+        if compose is None:
+            # Simple type
+            # Handle prepositions 'P'
+            if self._ccgTypeName == 'N':
+                return DrsComposition(DRS([DRSRef('x')], [Rel(self._word, DRSRef('x'))]))
+            else:
+                return DrsComposition(DRS([], [Rel(self._word, DRSRef('x'))]))
+        else:
+            # Functions
+            if self._ccgTypeName == 'NP/N':
+                if self._word in ['a', 'an']:
+                    return FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists_maybe', DRSRef('x'))]))
+                elif self._word in ['the', 'thy']:
+                    return FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists', DRSRef('x'))]))
+                else:
+                    return FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel(self._word, DRSRef('x'))]))
+            if compose[0] == FunctionComposition:
+                stk = [ compose ]
+                refs = [ compose[2] ]
+                while stk[-1][3] is not None:
+                    refs.append(compose[2])
+                    stk.append(compose[3])
+
+                compose = stk[-1]
+                fn = compose[0](compose[1], compose[2], DRS([],[Rel(self._word, refs)]))
+                stk.pop()
+                while len(stk) != 0:
+                    compose = stk[-1]
+                    fn = compose[0](compose[1], compose[2], fn)
+                    stk.pop()
+                return fn
+            else:
+                assert compose[0] == PropComposition
+                return compose[0](compose[1], compose[2])
+
+
+def build_composer(ccgTypespec, word):
+    ccgt = CcgType(ccgTypespec, word)
+    return ccgt.get_composer()
