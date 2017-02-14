@@ -281,33 +281,6 @@ class CompositionList(Composition):
         universe = set(universe)
         lambda_refs = filter(lambda x: x in universe, self.lambda_refs)
 
-        """
-        dprev = rstk[0] if len(rstk) != 0 else None
-        ers = []
-        for d in rstk[1:]:
-            # Alpha convert (old,new)
-            dlr = d.lambda_refs
-            plr = dprev.lambda_refs
-            rs = zip(dlr, plr)
-            # If d has more refs than dprev, make sure names don't conflict
-            ors = intersect(dlr[len(rs):], plr)
-            if len(ors) != 0:
-                nrs = get_new_drsrefs(ors, union(dlr, plr, ers))
-                ers = union(ers, nrs)
-                xrs = zip(ors, nrs)
-                d.rename_vars(xrs)
-            d.rename_vars(rs)
-            # Ensure these names are never resolved as we progress
-            ers = union(ers, plr[len(rs):])
-
-            rn = intersect(d.universe, dprev.universe)
-            if len(rn) != 0:
-                # FIXME: should this be allowed?
-                # Alpha convert bound vars in both self and arg
-                xrs = zip(rn, get_new_drsrefs(rn, union(d.lambda_refs, plr)))
-                d.rename_vars(xrs)
-        """
-
         refs = []
         conds = []
         proper = len(rstk) != 0
@@ -628,6 +601,7 @@ __pron = [
     ('ourself', '([x],[([],[ourself(x)])->([],[our(x)])])'),
     ('ourselves','([x],[([],[ourselves(x)])->([],[our(x)])])'),
     ('ours',    '([],[([],[ours(x)])->([y],[us(y),owns(y,x)])])'),
+    ('our',     '([],[([],[our(x)])->([y],[us(y),owns(y,x)])])'),
     # 2nd person plural
     ('yourselves', '([x],[([],[yourselves(x)])->([],[you(x),plural(x)])])'),
     # 3rd person plural
@@ -782,7 +756,8 @@ class CcgType(object):
                     lambda_refs = []
                     lambda_refs.extend(refs)
                     lambda_refs.append(DRSRef('e'))
-                    fn = DrsComposition(DRS([DRSRef('e')], conds), lambda_refs)
+                    fn = DrsComposition(DRS([DRSRef('e')], conds))
+                    fn.set_lambda_refs(lambda_refs)
                 elif self.isadverb and _ADV.has_key(self._word):
                     adv = _ADV[self._word]
                     fn =  DrsComposition(adv[0], [x for x in adv[1]])
