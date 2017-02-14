@@ -4,11 +4,10 @@ from __future__ import unicode_literals, print_function
 from pypeg2 import *
 import re
 from .drs import DRSRelation
-from .pdrs import MAP, PDRS, LambdaPDRS, PDRSRef, PRef, LambdaPDRSRef
+from .pdrs import MAP, PDRS, PDRSRef, PRef
 from .pdrs import PCond, PNeg, PRel, PProp, PImp, POr, PDiamond, PBox
-from .drs import DRS, DRSRef,  LambdaDRS, LambdaDRSRef
+from .drs import DRS, DRSRef
 from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
-from .ccg2drs import CcgType
 
 
 ###########################################################################
@@ -453,7 +452,9 @@ class EsrlLTypeDecl2(List):
 
     def to_list(self):
         r = [self[0].to_list()]
-        r.extend([x.to_list() for x in self[1:-1]])
+        for x in self[1:-1]:
+            r.extend(x.to_list())
+        #r.extend([x.to_list() for x in self[1:-1]])
         return r
 
 
@@ -483,7 +484,14 @@ class EsrlChoice(List):
     grammar = [EsrlTTypeDecl, EsrlLTypeDecl2]
 
     def to_list(self):
-        return self[0].to_list()
+        if isinstance(self[0], EsrlTTypeDecl):
+            r = self[0].to_list()
+            r.append('T')
+            return r
+        else:
+            r = self[0].to_list()
+            r.append('L')
+            return r
 
 
 class EsrlDecl(List):
@@ -496,12 +504,6 @@ class EsrlDecl(List):
 EsrlTTypeDecl.grammar = EsrlTTypeExpr, some(EsrlDecl)
 ## @endcond
 
-
-def process_easysrl(pt):
-    """Process the EasySRL parse tree"""
-    if pt is None or len(pt) == 0:
-        return None
-    assert len(pt[0]) == 3
 
 def parse_easysrl(s):
     """Parse EasySRL's ccgout data"""

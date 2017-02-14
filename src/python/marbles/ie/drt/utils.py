@@ -12,20 +12,19 @@ def iterable_type_check(theList, type_info, emptyOK=True):
     return True
 
 
-def union(a, b, sorted=False):
+def union(a, *args):
     '''Union two lists.'''
-    if sorted:
-        # optimize for sorted lists
-        pass
     y = []
     y.extend(a)
-    y.extend(filter(lambda x: x not in a, b))
+    for b in args:
+        y.extend(filter(lambda x: x not in a, b))
     return y
 
 
-def union_inplace(a, b, sorted=False):
-    for x in b:
-        if x not in a: a.append(x)
+def union_inplace(a, *args):
+    for b in args:
+        for x in b:
+            if x not in a: a.append(x)
     return a
 
 

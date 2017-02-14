@@ -74,6 +74,10 @@ class AbstractDRS(Showable):
         return True
 
     @property
+    def isempty(self):
+        return False
+
+    @property
     def accessible_drs(self):
         """Returns the next accessible DRS or None."""
         return None if self._accessible_drs is None else self._accessible_drs() # weak de-ref
@@ -650,6 +654,10 @@ class DRS(AbstractDRS):
         return r
 
     @property
+    def isempty(self):
+        return len(self._refs) == 0 and len(self._conds) == 0
+
+    @property
     def referents(self):
         """Similar to universe but will only returns referents for a DRS. No shallow copy."""
         return self._refs
@@ -942,6 +950,10 @@ class Merge(AbstractDRS):
         y.extend(rs)
         y = sorted(self._drsA.get_variables(set(y)))
         return self._drsB._ispure_helper(y, gd)
+
+    @property
+    def isempty(self):
+        return self._drsA.isempty and self._drsB.isempty
 
     @property
     def ldrs(self):
