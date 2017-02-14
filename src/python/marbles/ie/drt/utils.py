@@ -62,6 +62,17 @@ def rename_var(v, rs):
     return v
 
 
+def remove_dups(orig):
+    """Remove duplicates from a list but maintain ordering"""
+    uniq = set(orig)
+    r = []
+    for o in orig:
+        if o in uniq:
+            r.append(o)
+            uniq.discard(o)
+    return r
+
+
 def compare_lists_eq(l1, l2):
     if len(l1) != len(l2):
         return False

@@ -2,22 +2,36 @@
 
 from drs import DRS, DRSRef, Merge, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from drs import get_new_drsrefs
-from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var
+from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var, \
+    remove_dups
 from common import SHOW_LINEAR
 import collections, re
 from parse import parse_drs
 import weakref
+
+## @{
+## @ingroup gconst
+## @defgroup CCG to DRS Constants
+
+## Compose option
+CO_REMOVE_UNARY_PROPS = 0x1
+
+## Function argument position
+ArgRight = True
+
+## Function argument position
+ArgLeft  = False
+## @}
 
 
 class DrsComposeError(Exception):
     pass
 
 
-ArgRight = True
-ArgLeft  = False
-
-
 class Composition(object):
+    def __init__(self):
+        self._lambda_refs = None
+        self._options = 0
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -36,36 +50,63 @@ class Composition(object):
 
     @property
     def lambda_refs(self):
-        raise NotImplementedError
+        return self._lambda_refs.universe if self._lambda_refs is not None else []
 
     @property
     def conditions(self):
         return []
 
     @property
+    def compose_options(self):
+        return self._options
+
+    @property
     def isproper_noun(self):
         return False
+
+    def set_options(self, options):
+        self._options = int(options)
+
+    def set_lambda_refs(self, refs):
+        if refs is None:
+            self._lambda_refs = None
+        else:
+            self._lambda_refs = DRS(refs,[])
+
+    def rename_lambda_refs(self, rs):
+        if self._lambda_refs is not None:
+            self._lambda_refs.alpha_convert(rs)
 
     def rename_vars(self, rs):
         raise NotImplementedError
 
 
 class DrsComposition(Composition):
-    def __init__(self, drs, lambdaRefs=None, properNoun=False):
+    def __init__(self, drs, properNoun=False):
+        super(DrsComposition, self).__init__()
         if not isinstance(drs, DRS):
             raise TypeError
         self._drs = drs
         self._nnp = properNoun
-        if lambdaRefs is None:
-            self._lambda_refs = DRS(union_inplace(drs.universe, drs.freerefs),[])
-        else:
-            self._lambda_refs = DRS(lambdaRefs,[])
 
     def __repr__(self):
-        return ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + '.' + self.drs.show(SHOW_LINEAR).encode('utf-8')
+        refs = self.lambda_refs
+        if len(refs) != 0:
+            return ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + '.' + self.drs.show(SHOW_LINEAR).encode('utf-8')
+        return self.drs.show(SHOW_LINEAR).encode('utf-8')
 
     def __str__(self):
-        return self.drs.show(SHOW_LINEAR).encode('utf-8')
+        return self.__repr__()
+
+    @property
+    def lambda_refs(self):
+        # For DRS we treat None as a special case meaning infer from DRS. This may not be always the best
+        # policy so in the code we prefer to explicitly set which refs can be resolved during a merge
+        if self._lambda_refs is None:
+            r = self._drs.freerefs
+            r.extend(self._drs.universe)
+            return r
+        return self._lambda_refs.universe
 
     @property
     def isproper_noun(self):
@@ -78,10 +119,6 @@ class DrsComposition(Composition):
     @property
     def freerefs(self):
         return self._drs.freerefs
-
-    @property
-    def lambda_refs(self):
-        return self._lambda_refs.universe
 
     @property
     def isempty(self):
@@ -98,12 +135,13 @@ class DrsComposition(Composition):
     def rename_vars(self, rs):
         self._drs = self._drs.alpha_convert(rs)
         self._drs = self._drs.substitute(rs)
-        self._lambda_refs = self._lambda_refs.alpha_convert(rs)
+        self.rename_lambda_refs(rs)
 
 
 class CompositionList(Composition):
 
     def __init__(self, compList=None):
+        super(CompositionList, self).__init__()
         if compList is None:
             compList = []
         if isinstance(compList, (DRS, Merge)):
@@ -117,7 +155,10 @@ class CompositionList(Composition):
         self._compList = compList
 
     def __repr__(self):
-        return '#'.join([repr(x) for x in self._compList])
+        lr = self.lambda_refs
+        if len(lr) == 0:
+            return '<' + '#'.join([repr(x) for x in self._compList]) + '>'
+        return  ''.join(['λ'+v.var.to_string() for v in lr]) + '.<' + '#'.join([repr(x) for x in self._compList]) + '>'
 
     @property
     def isproper_noun(self):
@@ -138,14 +179,6 @@ class CompositionList(Composition):
         return sorted(u.difference(self.universe))
 
     @property
-    def lambda_refs(self):
-        # must preserve ordering
-        u = []
-        for d in self._compList:
-            u = union_inplace(d.lambda_refs)
-        return u
-
-    @property
     def isempty(self):
         return len(self._compList) == 0
 
@@ -163,6 +196,7 @@ class CompositionList(Composition):
         self._compList = compList
 
     def rename_vars(self, rs):
+        self.rename_lambda_refs(rs)
         for d in self._compList:
             d.rename_vars(rs)
 
@@ -172,6 +206,7 @@ class CompositionList(Composition):
         if merge and isinstance(other, CompositionList):
             self._compList.extend(other._compList)
         else:
+            other.set_options(self.compose_options)
             self._compList.append(other)
         return self
 
@@ -183,6 +218,7 @@ class CompositionList(Composition):
             compList.extend(self._compList)
             self._compList = compList
         else:
+            other.set_options(self.compose_options)
             compList = [other]
             compList.extend(self._compList)
             self._compList = compList
@@ -229,9 +265,26 @@ class CompositionList(Composition):
             else:
                 rstk.append(d)
 
-        dprev = rstk[-1] if len(rstk) != 0 else None
+        universe = []
+        for i in range(len(rstk)):
+            d = rstk[i]
+            rn = intersect(d.universe, universe)
+            if len(rn) != 0:
+                # FIXME: should this be allowed?
+                # Alpha convert bound vars in both self and arg
+                xrs = zip(rn, get_new_drsrefs(rn, universe))
+                d.rename_vars(xrs)
+                for j in range(i+1,len(rstk)):
+                    rstk[j].rename_vars(xrs)
+            universe = union(universe, d.universe)
+
+        universe = set(universe)
+        lambda_refs = filter(lambda x: x in universe, self.lambda_refs)
+
+        """
+        dprev = rstk[0] if len(rstk) != 0 else None
         ers = []
-        for d in rstk[:-1]:
+        for d in rstk[1:]:
             # Alpha convert (old,new)
             dlr = d.lambda_refs
             plr = dprev.lambda_refs
@@ -253,6 +306,7 @@ class CompositionList(Composition):
                 # Alpha convert bound vars in both self and arg
                 xrs = zip(rn, get_new_drsrefs(rn, union(d.lambda_refs, plr)))
                 d.rename_vars(xrs)
+        """
 
         refs = []
         conds = []
@@ -264,18 +318,22 @@ class CompositionList(Composition):
         if proper:
             # Hyphenate name
             if len(refs) != 1 or any(filter(lambda x: not isinstance(x, Rel) or len(x.referents) != 1, conds)):
-                raise DrsComposeError('bad proper noun DRS condition')
+                raise DrsComposeError('bad proper noun in DRS condition')
             name = '-'.join([c.relation.to_string() for c in conds])
             conds = [Rel(name,refs)]
         lambda_refs = rstk[0].lambda_refs if len(rstk) != 0 else []
         drs = DRS(refs, conds).purify()
         assert drs.ispure
-        return DrsComposition(drs, lambda_refs, proper)
+        d = DrsComposition(drs, proper)
+        if len(lambda_refs) != 0:
+            d.set_lambda_refs(lambda_refs)
+        return d
 
 
 class FunctionComposition(Composition):
 
     def __init__(self, position, referent, composition=None):
+        super(FunctionComposition, self).__init__()
         if composition is not None:
             if isinstance(composition, (DRS, Merge)):
                 composition = DrsComposition(composition)
@@ -287,8 +345,11 @@ class FunctionComposition(Composition):
         self._pos  = position or False
         self._drsref = DRS([referent],[])
         self._outer = None
-        if self._comp is not None and isinstance(self._comp, FunctionComposition):
-            self._comp._set_outer(self)
+        if self._comp is not None:
+            if isinstance(self._comp, FunctionComposition):
+                self._comp._set_outer(self)
+            else:   # Only set once we apply()
+                self._comp.set_lambda_refs([])
 
     def _set_outer(self, outer):
         if outer is not None:
@@ -341,13 +402,30 @@ class FunctionComposition(Composition):
         return u
 
     def _get_lambda_refs(self, u):
-        u = union_inplace(u, self._drsref.referents)
+        # Get lambda vars orderd by function scope
+        u.extend(self._drsref.referents)
         if self._comp is not None:
             if self._comp.isfunction:
-                u = self._comp._get_lambda_refs(u)
+                u.extend(self._comp._get_lambda_refs(u))
             else:
-                u = union_inplace(u, self._comp.lambda_refs)
+                u.extend(self._comp.lambda_refs)
         return u
+
+    def _get_position(self):
+        # Get position in function scope
+        g = self
+        i = 0
+        while g.outer is not None:
+            g = g.outer
+            i += 1
+        return i
+
+    @property
+    def global_scope(self):
+        g = self
+        while g.outer is not None:
+            g = g.outer
+        return g
 
     @property
     def outer(self):
@@ -367,11 +445,8 @@ class FunctionComposition(Composition):
 
     @property
     def lambda_refs(self):
-        # Get global scope
-        g = self
-        while g.outer is not None:
-            g = g.outer
-        return g._get_lambda_refs([])
+        # Get unique referents, ordered by function scope
+        return remove_dups(self._get_lambda_refs([]))
 
     @property
     def isarg_right(self):
@@ -387,6 +462,12 @@ class FunctionComposition(Composition):
     def isfunction(self):
         return True
 
+    def set_options(self, options):
+        # Pass down options to nested function
+        super(FunctionComposition, self).set_options(options)
+        if self._comp is not None:
+            self._comp.set_options(options)
+
     def rename_vars(self, rs):
         self._drsref = self._drsref.alpha_convert(rs)
         if self._comp is not None:
@@ -400,7 +481,7 @@ class FunctionComposition(Composition):
             self._comp = self._comp.apply()
         d = DrsComposition(DRS(self._drsref.universe,[]))
         d = self.apply(d)
-        return d.apply()
+        return d
 
     def apply(self, arg):
         if self._comp is not None and self._comp.isfunction:
@@ -411,13 +492,10 @@ class FunctionComposition(Composition):
 
         # Alpha convert (old,new)
         alr = arg.lambda_refs
-        # remove outer scope referents
         slr = self.lambda_refs
-        i = slr.index(self._drsref.referents[0])
-        slr = slr[i:]
         rs = zip(alr, slr)
-        # If arg has more refs than self, make sure names don't conflict
-        ors = intersect(alr[len(rs):], slr)
+        # Make sure names don't conflict with global scope
+        ors = intersect(alr[len(rs):], complement(self.global_scope.lambda_refs, slr))
         if len(ors) != 0:
             xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
             arg.rename_vars(xrs)
@@ -430,6 +508,7 @@ class FunctionComposition(Composition):
             arg.rename_vars(xrs)
 
         if arg.isfunction:
+            arg.set_options(self.compose_options)
             if self._comp is not None:
                 if arg._comp is None:
                     arg._comp = self._comp
@@ -440,6 +519,7 @@ class FunctionComposition(Composition):
                         self._comp.push_left(arg._comp, merge=True)
                     else:
                         cl = CompositionList(arg._comp)
+                        cl.set_options(self.compose_options)
                         cl.push_right(self._comp)
                         arg._comp = cl
                 elif self.isarg_right and arg.isarg_right:
@@ -449,16 +529,26 @@ class FunctionComposition(Composition):
                         self._comp.push_right(arg._comp, merge=True)
                     else:
                         cl = CompositionList(self._comp)
+                        cl.set_options(self.compose_options)
                         cl.push_right(arg._comp)
                         arg._comp = cl
                 else:
                     raise DrsComposeError('Function application of functions requires same argument ordering')
             self._comp = None
             self._drsref = DRS([], [])
-            self._outer = None
+            self._set_outer(None)
             return arg
 
+        # Remove resolved referent from lambda refs list
+        gscope = self.global_scope
+        i = gscope._get_position()
+        cr = gscope._get_lambda_refs([])
+        nr = cr[0:i]
+        nr.extend(cr[i+1:])
+        cr = remove_dups(nr)
+
         if self._comp is None:
+            arg.set_lambda_refs(cr)
             return arg
         elif isinstance(self._comp, CompositionList):
             c = self._comp
@@ -468,8 +558,12 @@ class FunctionComposition(Composition):
             c.push_right(arg)
         else:
             c.push_left(arg)
+        c.set_options(self.compose_options)
+        c = c.apply()
+        c.set_lambda_refs(cr)
         self._comp = None
         self._drsref = DRS([],[])
+        self._set_outer(None)
         return c
 
 
@@ -498,6 +592,11 @@ class PropComposition(FunctionComposition):
             arg = CompositionList([arg])
         d = arg.apply()
         assert isinstance(d, DrsComposition)
+        # FIXME: removing proposition from a proper noun causes an exception during CompositionList.apply()
+        if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.drs.referents) == 1 and not d.isproper_noun:
+            rs = d.drs.referents[0], self._drsref.referents[0]
+            d.rename_vars(rs)
+            return d
         return DrsComposition(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
 
 
@@ -707,6 +806,7 @@ def process_easysrl_node(pt, cl):
     """Recursively process the parse tree"""
     if pt[-1] == 'T':
         cl2 = CompositionList()
+        cl2.set_options(cl.compose_options)
         for nd in pt[1:-1]:
             # FIXME: prefer tail end recurrsion
             process_easysrl_node(nd, cl2)
@@ -719,11 +819,13 @@ def process_easysrl_node(pt, cl):
     cl.push_right(ccgt.get_composer())
 
 
-def process_easysrl(pt):
+def process_easysrl(pt, options=None):
     """Process the EasySRL parse tree"""
     if pt is None or len(pt) == 0:
         return None
     cl = CompositionList()
+    if options is not None:
+        cl.set_options(options)
     process_easysrl_node(pt, cl)
     d = cl.apply()
     # Handle verbs with null left arg

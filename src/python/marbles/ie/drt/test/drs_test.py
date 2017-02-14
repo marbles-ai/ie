@@ -6,7 +6,7 @@ from ..common import *
 from ..parse import parse_drs, parse_easysrl
 from ..utils import compare_lists_eq
 from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..ccg2drs import process_easysrl
+from ..ccg2drs import process_easysrl, CO_REMOVE_UNARY_PROPS
 from pysmt.shortcuts import Solver
 
 
@@ -315,16 +315,16 @@ class DrsTest(unittest.TestCase):
         cl = CompositionList().push_right(cl)
 
         fn = FunctionComposition(ArgLeft, DRSRef('x'), FunctionComposition(ArgRight, DRSRef('y'), dexpr('([],[wheeze(x,y)])')))
-        self.assertEquals(repr(fn), 'λQλP.P(x);[| wheeze(x,y)];Q(y)')
+        self.assertEquals(repr(fn), 'λQλPλxλy.P(x);[| wheeze(x,y)];Q(y)')
         cl.push_right(fn)
 
         fn = PropComposition(ArgRight, DRSRef('p'))
-        self.assertEquals(repr(fn), 'λP.[p| p: P(*)]')
+        self.assertEquals(repr(fn), 'λPλp.[p| p: P(*)]')
         cl.push_right(fn)
 
         # λP.[x|me(x),own(x,y)];P(y)
         fn = FunctionComposition(ArgRight, DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
-        self.assertEquals(repr(fn), 'λP.[x| me(x),own(x,y)];P(y)')
+        self.assertEquals(repr(fn), 'λPλy.[x| me(x),own(x,y)];P(y)')
         cl.push_right(fn)
         cl.push_right(dexpr('([x],[corner(x)])'))
 
@@ -337,13 +337,13 @@ class DrsTest(unittest.TestCase):
         # Welcome to MerryWeather High
         txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
-        #pt = parse_easysrl(txt)
-        #self.assertIsNotNone(pt)
-        #d = process_easysrl(pt)
-        #self.assertIsNotNone(d)
-        #s = d.drs.show(SHOW_LINEAR)
-        #x = u'[x,e,x1| event(e),welcome(e),event.agent(e,x),event.theme(e,x1),x1: [x2| merryweather-high(x2)]]'
-        #self.assertEquals(x, s)
+        pt = parse_easysrl(txt)
+        self.assertIsNotNone(pt)
+        d = process_easysrl(pt)
+        self.assertIsNotNone(d)
+        s = d.drs.show(SHOW_LINEAR)
+        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| merryweather-high(x1)]]'
+        self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
         txt = '''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>)
@@ -355,7 +355,7 @@ class DrsTest(unittest.TestCase):
         d = process_easysrl(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,x1| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,x1),x1: [x2| my(x2),corner(x2)]]'
+        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -368,8 +368,31 @@ class DrsTest(unittest.TestCase):
         d = process_easysrl(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,x1,e1| exists(x),door(x),event(e),opens(e),event.agent(e,x),[| i(x1)] \u21D2 [| me(x1)],event(e1),step(e1),event.agent(e1,x1),up(e1),direction(e1)]'
+        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),step(e),event.agent(e,x),up(e),direction(e)]'
         self.assertEquals(x, s)
 
+    # TODO: renable this part of test when proper noun FIXME is resolved
+    def __test13_ParseEasySrl(self):
+        # Welcome to MerryWeather High
+        txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
+            (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
+        pt = parse_easysrl(txt)
+        d = process_easysrl(pt, CO_REMOVE_UNARY_PROPS)
+        self.assertIsNotNone(d)
+        s = d.drs.show(SHOW_LINEAR)
+        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),merryweather-high(y)]'
+        self.assertEquals(x, s)
 
+        # The school bus wheezes to my corner.
+        txt = '''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>)
+            (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
+            (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
+            (<L N NN NN corner. N>) ) ) ) )'''
+        pt = parse_easysrl(txt)
+        self.assertIsNotNone(pt)
+        d = process_easysrl(pt, CO_REMOVE_UNARY_PROPS)
+        self.assertIsNotNone(d)
+        s = d.drs.show(SHOW_LINEAR)
+        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),my(y),corner(y)]]'
+        self.assertEquals(x, s)
 
