@@ -26,7 +26,7 @@ class DrsTest(unittest.TestCase):
         x = u'\u250C---\u2510\n|   |\n\u251C---\u2524\n|   |\n|   |\n\u2514---\u2518\n'
         self.assertEquals(x,s)
         s = d.show(SHOW_LINEAR)
-        x = u'[: ]'
+        x = u'[| ]'
         self.assertEquals(x,s)
         f, _ = d.to_fol()
         s = f.show(SHOW_SET)
@@ -43,7 +43,7 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x,s)
         self.assertEquals(parse_drs(x), d)
         s = d.show(SHOW_LINEAR)
-        x = u'[x: man(x),happy(x)]'
+        x = u'[x| man(x),happy(x)]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
@@ -87,7 +87,7 @@ class DrsTest(unittest.TestCase):
 '''
         self.assertEquals(x,s)
         s = d.show(SHOW_LINEAR)
-        x = u'[x: man(x),\u00AC[: happy(x)]]'
+        x = u'[x| man(x),\u00AC[| happy(x)]]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
@@ -114,7 +114,7 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x,s)
         self.assertEquals(parse_drs('<{},{<{x,y},{farmer(x),donkey(y),owns(x,y)}> -> <{},{feeds(x,y)}>}>'), d)
         s = d.show(SHOW_LINEAR)
-        x = u'[: [x,y: farmer(x),donkey(y),owns(x,y)] \u21D2 [: feeds(x,y)]]'
+        x = u'[| [x,y| farmer(x),donkey(y),owns(x,y)] \u21D2 [| feeds(x,y)]]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
@@ -139,7 +139,7 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x,s)
         self.assertEquals(parse_drs('<{x,y,p},{man(x),woman(y),believes(x,p),p: <{},{loves(x,y)}>}>'), d)
         s = d.show(SHOW_LINEAR)
-        x = u'[x,y,p: man(x),woman(y),believes(x,p),p: [: loves(x,y)]]'
+        x = u'[x,y,p| man(x),woman(y),believes(x,p),p: [| loves(x,y)]]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
@@ -163,7 +163,7 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x,s)
         self.assertEquals(parse_drs('<{x},{man(x),happy(x),not<{},{sad(x)}>}>'), d)
         s = d.show(SHOW_LINEAR)
-        x = u'[x: man(x),happy(x),\u00AC[: sad(x)]]'
+        x = u'[x| man(x),happy(x),\u00AC[| sad(x)]]'
         self.assertEquals(x,s)
         self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
@@ -188,7 +188,7 @@ class DrsTest(unittest.TestCase):
         s = p.show(SHOW_SET)
         self.assertEquals(x, s)
         s = m.show(SHOW_LINEAR)
-        x = u'[x,x1: man(x),happy(x),man(x1),\u00AC[: happy(x1)]]'
+        x = u'[x,x1| man(x),happy(x),man(x1),\u00AC[| happy(x1)]]'
         self.assertEquals(x,s)
         d = m.resolve_merges()
         s = d.show(SHOW_LINEAR)
