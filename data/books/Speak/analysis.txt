@@ -236,7 +236,7 @@ PARSE:
     WELCOME TO MERRYWEATHER HIGH
 
 *** RAW ***
-(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )
+
 #x#e.(welcome(e)&ARG(x,e)&ARG2(merryweather-high.,e))
 *** RAW ***
 
@@ -587,7 +587,7 @@ DRS/DRS       DRS/DRS              DRS        (DRS\DRS)/DRS                    D
               [|school(x)];[x|bus(x)]                                                   [x|me(x),own(x,y)];[y|corner(y)]
               [x|school(x)],bus(x)]                                                     [x,y|me(x),own(x,y),corner(y)]
 NP__________________________________________                                     PP_______________________________
-[|exist(x)];[x|school(x)],bus(x)]                                                [u|u:[x,y|me(x),own(x,y),corner(y)]]
+[|exist(x)];[x|school(x)];[bus(x)]                                               [u|u:[x,y|me(x),own(x,y),corner(y)]]
 [x|exist(x),school(x)],bus(x)]
                                               S[dcl]\NP___________________________________________________________
                                               λQ.Q(x);[|wheeze(x,u)];[u|u:[x1,y|me(x1),own(x1,y),corner(y)]]
@@ -649,27 +649,30 @@ vn.spatial_configuration-47.6.opens:
     Theme V
     position(E, Theme, Pos)
 
+
 The           door        opens                 and   I         step                  up.
 NP/N          N           S[dcl]\NP             conj  NP        S[dcl]\NP             (S\NP)\(S\NP)
 DRS/DRS       DRS         DRS\DRS                     DRS       DRS\DRS               (DRS\DRS)\(DRS\DRS)
-              [x|door(x)] λP.P(x);[|opens(x)]         [x|me(x)]                       λQ.Q(x);[y|direction(y),up(y)]
-λP.[|exists(x)];P(x)                            λP.[p|p:P(*)]   λP.P(x);[|step(x,y)]
+              [x|door(x)] λPλxλe.P(x);[e|event(e),event.agent(x),opens(e)]         
+                                                      [x|me(x)]                       λQλxλy.Q(x);[|direction(y),up(y)]
+λPλx.[|exists(x)];P(x)                          λPλp.[p|p:P(*)] λPλxλe.P(x);[e|event(e),event.agent(x),step(e)]
 NP______________________                                        S[dcl]\NP____________________________________
-λP.[|exists(x)];P(x) { P(x)=[x|door(x)] }                       λQ.Q(x);[y|direction(y),up(y)] { Q(x)=λP.P(x);[|step(x,y)] }
-[|exists(x)];[x|door(x)]                                        λP.P(x);[|step(x,y)];[y|direction(y),up(y)]
-[x|exists(x),door(x)]                                           λP.P(x);[y|step(x,y),direction(y),up(y)]
+λPλx.[|exists(x)];P(x) { P(x)=[x|door(x)] }                     λQλxλe.Q(x);[|direction(e),up(e)] { Q(x)=λPλxλe.P(x);[e|event(e),event.agent(x),step(e), y=e] }
+λx.[|exists(x)];[x|door(x)]                                     λPλxλe.P(x);[e|event(e),event.agent(x),step(e)];[|direction(e),up(e)]
+λx.[x|exists(x),door(x)]                                        λPλxλe.P(x);[e|event(e),event.agent(x),step(e),direction(e),up(e)]
 S[dcl]________________________________________                  S[dcl]_______________________________________
-[x|exists(x),door(x)];[|opens(x)]                               [x|me(x)];[y|step(x,y),direction(y),up(y)]
-[x|exists(x),door(x),opens(x)]                                  [x,y|me(x),step(x,y),direction(y),up(y)]
+                          λPλxλe.P(x);[e|event(e),event.agent(x),opens(e)] { P(x)=λx.[x|exists(x),door(x)]}
+                                                                λPλxλe.P(x);[e|event(e),event.agent(x),step(e),direction(e),up(e)] { P(x)=[x|me(x)] }
+λxλe.[x|exists(x),door(x)];[e|event(e),event.agent(x),opens(e)]
+                                                                λxλe.[x|me(x)];[e|event(e),event.agent(x),step(e),direction(e),up(e)]
+λxλe.[x,e|exists(x),door(x),event(e),event.agent(x),opens(e)]   λxλe.[x,e|me(x),event(e),event.agent(x),step(e),direction(e),up(e)]
                                                 S[dcl]\S[dcl]__________________________________________
-                                                promote to proposition
-                                                λP.[p|p:P(*)] { P(*)=[x,y|me(x),step(x,y),direction(y),up(y)] }
-                                                [p|p:[x,y|me(x),step(x,y),direction(y),up(y)]]
                                                 functionize S[dcl]\S[dcl]
-                                                λP.P(x);[p|p:[x1,y|me(x1),step(x1,y),direction(y),up(y)]]
+                                                λPλxλe.P(y);[x,e|me(x),event(e),event.agent(x),step(e),direction(e),up(e)]
 S[dcl]_________________________________________________________________________________________________
-[x|exists(x),door(x),opens(x)];[p|p:[x1,y|me(x1),step(x1,y),direction(y),up(y)]]
-[x,p|exists(x),door(x),opens(x),p:[x1,y|me(x1),step(x1,y),direction(y),up(y)]]
+λPλxλe.P(*);[x,e|me(x),event(e),event.agent(x),step(e),direction(e),up(e)] {P(y)=λxλe.[x,e|exists(x),door(x),event(e),event.agent(x),opens(e)]}
+λyλxλe.[y| y:[x,e|exists(x),door(x),event(e),event.agent(x),opens(e)];[x,e|me(x),event(e),event.agent(x),step(e),direction(e),up(e)]
+[x,y,e|y:[x1,e1|exists(x1),door(x1),event(e1),event.agent(x1),opens(e1)],me(x),event(e),event.agent(x),step(e),direction(e),up(e)]
 
 
 The           door        opens                 and   I   step                  up.
