@@ -12,7 +12,7 @@ import ai.marbles.grpc.Request;
 import ai.marbles.grpc.QuerySpec;
 import ai.marbles.grpc.QueryInput;
 
-import ai.marbles.easysrl.CcgServiceHandler;
+import edu.uw.easysrl.main.CcgServiceHandler;
 
 import com.google.protobuf.ByteString;
 
@@ -80,7 +80,9 @@ public class EasySRLDaemonTest {
 			}};
 
 			System.out.println("Starting EasySRLDaemonTest...");
-			server = new ServiceAcceptor(port, new CcgServiceHandler());
+			CcgServiceHandler svc = new CcgServiceHandler("/Users/paul/EasySRL/model/text");
+			svc.init();
+			server = new ServiceAcceptor(port, svc);
 			server.start();
 			System.out.println("QA at port " + port);
 

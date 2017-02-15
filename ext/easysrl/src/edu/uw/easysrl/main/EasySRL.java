@@ -232,7 +232,7 @@ public class EasySRL {
 		}
 	}
 
-	private static ParserBuilder<?> getParserBuilder(final CommandLineArguments o) {
+	static ParserBuilder<?> getParserBuilder(final CommandLineArguments o) {
 		final ParserBuilder<? extends ParserBuilder<?>> result;
 		if (o.getParsingAlgorithm().equals("astar")) {
 			result = new ParserAStar.Builder(new File(o.getModel()));
@@ -245,7 +245,7 @@ public class EasySRL {
 				.supertaggerWeight(o.getSupertaggerWeight());
 	}
 
-	private static PipelineSRLParser makePipelineParser(final File folder,
+	static PipelineSRLParser makePipelineParser(final File folder,
 			final CommandLineArguments commandLineOptions, final double supertaggerBeam,
 			final boolean outputDependencies) throws IOException {
 		final POSTagger posTagger = POSTagger.getStanfordTagger(new File(folder, "posTagger"));
