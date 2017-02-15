@@ -1,0 +1,12 @@
+apply plugin: 'application'
+
+mainClassName = 'edu.uw.easysrl.main.EasySRL'
+
+dependencies {
+	compile project(':ext:easysrl')
+}
+
+test {
+	// OpenEphyra opens files relative to its project directory
+	workingDir 'easysrl'
+}

@@ -1,0 +1,3 @@
+rootProject.name = 'ie'
+
+include 'ext', 'ext:easysrl'

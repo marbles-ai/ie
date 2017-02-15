@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+option java_multiple_files = true;
+option java_package = "ai.marbles.grpc";
+option java_outer_classname = "ServiceProto";
+//option cc_enable_arenas = true;
+
+package lucida;
+
+// QueryInput for non-streaming requests
+message QueryInput {
+  // type of data
+  string type = 1;
+
+  // list of data
+  repeated bytes data = 2;
+
+  // tags to pass information about data
+  repeated string tags = 3;
+}
+
+// QuerySpec for non-streaming requests
+message QuerySpec {
+  string name = 1;
+  repeated QueryInput content = 2;
+}
+
+// RPC request non-streaming
+message Request { 
+  string LUCID = 1;
+  QuerySpec spec = 2;
+}
+
+message Response {
+  string msg = 1;
+}
+
+// The service definition
+service LucidaService {
+  // create an intelligent instance based on supplied LUCID
+  rpc create(Request) returns (google.protobuf.Empty) {}
+
+  // tell the intelligent instance to learn based on data supplied in the query
+  rpc learn(Request) returns (google.protobuf.Empty) {}
+
+  // ask the intelligence to infer using the data supplied in the query
+  rpc infer(Request) returns (Response) {}
+}
+

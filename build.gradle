@@ -1,0 +1,215 @@
+apply plugin: 'com.google.protobuf'
+
+// FIXME: This should be set globally during configuration of deps
+def grpcVersion = '1.0.0'
+
+// Use allprojects scope so dependencies are passed down to subprojects.
+allprojects {
+	apply plugin: 'java'
+
+	// If using TLS then change to 1.8
+	//sourceCompatibility = 1.7
+	//targetCompatibility = 1.7
+	version = '0.1.0'
+	group = 'ai.marbles'
+
+	repositories {
+		mavenCentral()
+		mavenLocal()
+	}
+
+	dependencies {
+		testCompile 'junit:junit:4.12'
+	}
+
+	// Java8 has strict javadoc html rules which breaks the build.
+	// Revert to Java7's permissive behavior.
+	if (JavaVersion.current().isJava8Compatible()) {
+		tasks.withType(Javadoc) {
+			options.addStringOption('Xdoclint:none', '-quiet')
+		}
+	}
+
+	// Path to JNI libs
+	tasks.withType(Test) {
+		systemProperty "java.library.path", "${rootDir}/ext/easysrl"
+	}
+}
+
+// All subprojects depend on the root project
+subprojects {
+	//startScripts.enabled = false
+	dependencies {
+		compile project(':')
+	}
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Information Extraction Service',
+                   'Implementation-Version': version
+    }
+}
+
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+        // From Google:
+		// ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
+		// gradle versions
+		classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+	}
+}
+
+// Root project dependencies
+dependencies {
+	compile "io.grpc:grpc-netty:${grpcVersion}"
+	compile "io.grpc:grpc-protobuf:${grpcVersion}"
+	compile "io.grpc:grpc-stub:${grpcVersion}"
+	compile "org.slf4j:slf4j-simple:1.7.21"
+}
+
+protobuf {
+	protoc {
+		// FIXME: This should be set globally during configuration of deps
+		// The version of protoc must match protobuf-java. If you don't depend on
+		// protobuf-java directly, you will be transitively depending on the
+		// protobuf-java version that grpc depends on.
+		artifact = 'com.google.protobuf:protoc:3.0.0'
+	}
+	plugins {
+		grpc {
+			artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+		}
+	}
+	generateProtoTasks {
+		all()*.plugins {
+			grpc {
+				// To generate deprecated interfaces and static bindService method,
+				// turn the enable_deprecated option to true below:
+				option 'enable_deprecated=false'
+                
+			}
+		}
+	}
+}
+
+// Inform IntelliJ projects about the generated code.
+apply plugin: 'idea'
+
+idea {
+	project {
+		languageLevel = '1.7'
+		vcs = 'Git'
+		ipr {
+			withXml { provider ->
+				def node = provider.node.component.find { it.@name == 'JavadocGenerationManager' };
+				// Ensure gradle and idea save javadoc to same location
+				node.option.find { it.@name == 'OUTPUT_DIRECTORY' }.@value = '$PROJECT_DIR$/build/docs/javadoc';
+				// Java8 has strict javadoc html rules which breaks the build.
+				// Revert to Java7's permissive behavior.
+				node.option.find { it.@name == 'OTHER_OPTIONS' }.@value = '-Xdoclint:none -quiet';
+			}
+		}
+	}
+	workspace.iws {
+	    // FIXME: keep for the moment
+		// OpenEphra loads files from qna/OpenEphyra. Ensure we pass this info the Idea.
+		withXml { provider ->
+			def cnode = provider.node.component.find { it.@name == 'RunManager' };
+			def anode = cnode.configuration.find { it.@type == 'Application' };
+			def jnode = cnode.configuration.find { it.@type == 'JUnit' };
+			anode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
+			jnode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
+		}
+	}
+	module {
+		// Not using generatedSourceDirs because of
+		// https://discuss.gradle.org/t/support-for-intellij-2016/15294/8
+		// sourceDirs += file("${projectDir}/build/generated/source/proto/main/java");
+		// sourceDirs += file("${projectDir}/build/generated/source/proto/main/grpc");
+		sourceDirs += file("${rootDir}/build/generated/source/proto/main/java");
+		sourceDirs += file("${rootDir}/build/generated/source/proto/main/grpc");
+		downloadJavadoc = true
+		downloadSources = true
+	}
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.14'
+}
+
+// FIXME: there must be a better way to get this list
+def exportedProjects= [
+	":",
+	":ext",
+	":ext:easysrl",
+]
+
+// Build documentation for all projects
+task alljavadoc(type: Javadoc) {
+	source exportedProjects.collect {
+		project(it).sourceSets.main.allJava
+	}
+	classpath = files(exportedProjects.collect {
+		project(it).sourceSets.main.compileClasspath
+	})
+	destinationDir = file("${buildDir}/docs/javadoc")
+}
+
+// Create gRPC interfaces for otherlanguages
+task grpcOther() {
+	description "Build Python and CPP gRPC interface."
+   
+	doFirst {
+		new ByteArrayOutputStream().withStream { os ->
+			def result = exec {
+				commandLine 'which', 'grpc_python_plugin'
+				standardOutput = os
+			}
+			ext.pyPlugin = os.toString().trim()
+		}
+		logger.info("Found Python gRPC plugin ${pyPlugin}")
+		new ByteArrayOutputStream().withStream { os ->
+			def result = exec {
+				commandLine 'which', 'grpc_cpp_plugin' 
+				standardOutput = os
+			}
+			ext.cppPlugin = os.toString().trim()
+		}
+		logger.info("Found C++ gRPC plugin ${pyPlugin}")
+	}
+
+    // Add some extension properties
+    ext.cppout = new File("${buildDir}/grpc/cpp")
+    ext.pyout  = new File("${buildDir}/grpc/python")
+    ext.proto_filename = "marbles_service.proto"
+    ext.proto_dirname = "${rootDir}/src/main/proto"
+
+    // Set io for up-to-date checks
+    inputs.file "${proto_dirname}/${proto_filename}"
+    outputs.dir cppout
+    
+    // Execute protoc compiler with plugin 
+    doLast {
+		// Create output directories first
+        cppout.mkdirs()
+        pyout.mkdirs()
+        // By separating the exec phase we allow incremetal executions of this task
+        // - could not get it to work when this task was Exec type
+        tasks.create("grpcPython", Exec) {
+            workingDir = "${proto_dirname}" 
+            commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}", "--plugin=protoc-gen-grpc=${pyPlugin}", "${proto_filename}"]
+        }.execute()
+        tasks.create("grpcCpp", Exec) {
+            workingDir = "${proto_dirname}" 
+            commandLine = ['protoc', "--cpp_out=${cppout}", '-I./', "--grpc_out=${cppout}", "--plugin=protoc-gen-grpc=${cppPlugin}", "${proto_filename}"]
+        }.execute()
+    }
+}
+
+// Ensure our task is called after build
+build.finalizedBy(grpcOther)
+

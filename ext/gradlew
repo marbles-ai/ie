@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Just delegate execution to the project root
+../gradlew
