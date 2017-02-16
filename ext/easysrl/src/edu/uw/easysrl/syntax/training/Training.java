@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 import lbfgsb.DifferentiableFunction;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multiset;
@@ -160,7 +160,7 @@ public class Training {
 									}
 
 									for (final double beam : parseDoubles(trainingSettings, "beta_for_decoding")) {
-										System.out.println(Objects.toStringHelper("Settings").add("DecodingBeam", beam)
+										System.out.println(MoreObjects.toStringHelper("Settings").add("DecodingBeam", beam)
 												.add("MinFeatureCount", minFeatureCount).add("maxChart", maxChart)
 												.add("sigmaSquared", sigmaSquared)
 												.add("cost_function_weight", costFunctionWeight)
