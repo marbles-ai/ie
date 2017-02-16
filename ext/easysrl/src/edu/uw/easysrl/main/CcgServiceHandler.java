@@ -4,12 +4,10 @@ package edu.uw.easysrl.main;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static io.grpc.stub.ClientCalls.blockingUnaryCall;
-import static io.grpc.stub.ClientCalls.blockingServerStreamingCall;
 
 import io.grpc.stub.StreamObserver;
 import com.google.protobuf.Empty;
@@ -115,6 +113,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	 */
 	public CcgServiceHandler(String pathToModel) {
 		commandLineOptions = new ConfigOptions(pathToModel);
+		infer_lock = new ReentrantLock();
 	}
 
 	public void init() throws IOException, InterruptedException {
@@ -131,16 +130,17 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(commandLineOptions.getOutputFormat().toUpperCase());
 		this.printer = outputFormat.printer;
 
+		SRLParser parser2;
 		if (pipelineFolder.exists()) {
 			// Joint model
 			final POSTagger posTagger = POSTagger.getStanfordTagger(new File(pipelineFolder, "posTagger"));
 			final PipelineSRLParser pipeline = EasySRL.makePipelineParser(pipelineFolder, commandLineOptions, 0.000001,
 					printer.outputsDependencies());
-			this.parser = new BackoffSRLParser(new JointSRLParser(EasySRL.getParserBuilder(commandLineOptions).build(),
+			parser2 = new BackoffSRLParser(new JointSRLParser(EasySRL.getParserBuilder(commandLineOptions).build(),
 					posTagger), pipeline);
 		} else {
 			// Pipeline
-			this.parser = EasySRL.makePipelineParser(modelFolder, commandLineOptions, 0.000001, printer.outputsDependencies());
+			parser2 = EasySRL.makePipelineParser(modelFolder, commandLineOptions, 0.000001, printer.outputsDependencies());
 		}
 
 		this.reader = InputReader.make(EasySRL.InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase()));
@@ -149,6 +149,19 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			throw new Error("Must use \"-i POSandNERtagged\" for this output");
 		}
 		logger.debug("===Model loaded: parsing...===");
+
+		infer_lock.lock(); // limit concurrency because EasySRL is not thread-safe
+		this.parser = parser2;
+		infer_lock.unlock();
+	}
+
+	public String parse(String sentence) {
+		if (parser != null) {
+			List<CCGandSRLparse> parses = parser.parseTokens(reader.readInput(sentence)
+					.getInputWords());
+			return printer.printJointParses(parses, -1);
+		}
+		return "";
 	}
 
 	@Override
@@ -190,12 +203,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			final StringBuilder output = new StringBuilder();
 			for (int i = 0; i < queryInput.getDataList().size(); ++i) {
 				String sentence = queryInput.getDataList().get(i).toString("UTF-8");
-
-				final List<CCGandSRLparse> parses = parser.parseTokens(reader.readInput(sentence)
-						.getInputWords());
-				final String ccgout = printer.printJointParses(parses, i + 1);
-
-				output.append(ccgout);
+				output.append(parse(sentence));
 				output.append("\n");
 			}
 
