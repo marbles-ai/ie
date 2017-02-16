@@ -81,3 +81,7 @@ ENV/
 
 # OSX finder
 .DS_Store
+
+# gradle
+.idea
+.gradle
