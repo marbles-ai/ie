@@ -37,21 +37,21 @@ shift $((OPTIND-1))
 [ "x$1" != "" ] || die "missing cmd $*"
 
 # Check if we are running
-[ -e $RUNDIR/run/server.pid ] && kill -0 `cat ${RUNDIR}/run/server.pid` &>/dev/null && die "stop server first" 
-mkdir -p $RUNDIR/running
+[ -e ${RUNDIR}/run/server.pid ] && kill -0 `cat ${RUNDIR}/run/server.pid` &>/dev/null && die "stop server first"
+mkdir -p ${RUNDIR}/running
 
-[ "x$SERVER_SRC" == "x" ] || source $SERVER_SRC || die "cannot source $SERVER_SRC"
+[ "x$SERVER_SRC" == "x" ] || source ${SERVER_SRC} || die "cannot source $SERVER_SRC"
 echo "====================================================="
 echo "Running server '$*'"
 echo "  To stop run stop_server.sh in the current directory"
 echo "  The pid will be saved at `pwd`/run/server.pid"
-[ $SERVER_DBG -eq 0 ] && $* &
+[ ${SERVER_DBG} -eq 0 ] && $* &
 PID="$!"
 # Use RUNDIR incase source script changed working dir
-[ $SERVER_DBG -eq 0 ] && echo "$PID" > $RUNDIR/run/server.pid
+[ ${SERVER_DBG} -eq 0 ] && echo "$PID" > ${RUNDIR}/run/server.pid
 #wait $PID
-[ $SERVER_DBG -ne 0 ] && echo "while kill -0 \$PID &> /dev/null; do sleep 1; done"
-[ $SERVER_DBG -eq 0 ] && while kill -0 $PID &> /dev/null; do sleep 1; done
-[ $SERVER_DBG -ne 0 ] && echo "rm -f $RUNDIR/run/server.pid &>/dev/null"
-[ $SERVER_DBG -eq 0 ] && rm -f $RUNDIR/run/server.pid &>/dev/null
+[ ${SERVER_DBG} -ne 0 ] && echo "while kill -0 \$PID &> /dev/null; do sleep 1; done"
+[ ${SERVER_DBG} -eq 0 ] && while kill -0 ${PID} &> /dev/null; do sleep 1; done
+[ ${SERVER_DBG} -ne 0 ] && echo "rm -f ${RUNDIR}/run/server.pid &>/dev/null"
+[ ${SERVER_DBG} -eq 0 ] && rm -f ${RUNDIR}/run/server.pid &>/dev/null
 exit 0
