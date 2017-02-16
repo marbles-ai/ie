@@ -6,6 +6,7 @@ def grpcVersion = '1.0.0'
 // Use allprojects scope so dependencies are passed down to subprojects.
 allprojects {
 	apply plugin: 'java'
+	apply plugin: 'com.github.johnrengelman.shadow'
 
 	// If using TLS then change to 1.8
 	//sourceCompatibility = 1.7
@@ -54,12 +55,18 @@ jar {
 buildscript {
 	repositories {
 		mavenCentral()
+		maven {
+			url 'https://plugins.gradle.org/m2/'
+		}
 	}
 	dependencies {
         // From Google:
 		// ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
 		// gradle versions
 		classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+
+		// MAKES FAT JARS
+		classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
 	}
 }
 

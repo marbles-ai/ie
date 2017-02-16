@@ -1,3 +1,7 @@
+//plugins {
+//    id "com.github.johnrengelman.shadow" version "1.2.4"
+//}
+
 jar {
     manifest {
         attributes 'Implementation-Title': 'EasySRL',
@@ -6,7 +10,7 @@ jar {
 }
 
 dependencies {
-    compile 'com.google.guava:guava:21.0'
+    compile 'com.google.guava:guava:19.0'
     compile fileTree(dir: 'lib/', include: ['*.jar'])
 }
 
