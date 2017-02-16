@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import ai.marbles.grpc.ServiceAcceptor;
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
 import uk.co.flamingpenguin.jewel.cli.Option;
@@ -88,9 +89,14 @@ public class EasySRL {
 		@Option(shortName = "w", defaultValue = "1.0", description = "Use a specified supertagger weight, instead of the pretrained value.")
 		double getSupertaggerWeight();
 
-		@Option(helpRequest = true, description = "Display this message", shortName = "h")
+		@Option(helpRequest = true, description = "Display this message.", shortName = "h")
 		boolean getHelp();
 
+		@Option(shortName = "d", description = "Run as a gRPC daemon.")
+		boolean getDaemonize();
+
+		@Option(shortName = "p", defaultValue = "8084", description = "Set the port to listen for gRPC connection. Only valid with --daemonize option.")
+		int getPort();
 	}
 
 	// Set of supported InputFormats
@@ -121,6 +127,17 @@ public class EasySRL {
 
 			if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
+			}
+
+			// PWG: run as a gRPC service
+			if (commandLineOptions.getDaemonize()) {
+				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
+				svc.init();
+				ServiceAcceptor server = new ServiceAcceptor(commandLineOptions.getPort(), svc);
+				server.start();
+				System.out.println("EasySRL at port " + commandLineOptions.getPort());
+				server.blockUntilShutdown();
+				return;
 			}
 
 			final File pipelineFolder = new File(modelFolder, "/pipeline");
@@ -230,6 +247,16 @@ public class EasySRL {
 			System.err.println(e.getMessage());
 			System.err.println(CliFactory.createCli(CommandLineArguments.class).getHelpMessage());
 		}
+	}
+
+	static void daemonize(String modelPath) throws IOException, InterruptedException {
+		CcgServiceHandler svc = new CcgServiceHandler("/Users/paul/EasySRL/model/text");
+		svc.init();
+		ServiceAcceptor server = new ServiceAcceptor(8084, svc);
+		server.start();
+		System.out.println("EasySRL at port 8084");
+		server.blockUntilShutdown();
+
 	}
 
 	static ParserBuilder<?> getParserBuilder(final CommandLineArguments o) {

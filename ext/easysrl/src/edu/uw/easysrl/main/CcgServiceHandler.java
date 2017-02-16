@@ -41,40 +41,24 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	public class ConfigOptions implements EasySRL.CommandLineArguments {
 		private String modelPath;
 
-		ConfigOptions(String modelPath) {
-			this.modelPath = modelPath;
-		}
+		ConfigOptions(String modelPath) { this.modelPath = modelPath; }
 
-		public String getModel() {
-			return modelPath;
-		}
+		public String getModel() { return modelPath; }
 
-		public String getInputFile() {
-			return "";
-		}
+		public String getInputFile() { return ""; }
 
 		// defaultValue = "tokenized", description = "(Optional) Input Format: one of \"tokenized\", \"POStagged\" (word|pos), or \"POSandNERtagged\" (word|pos|ner)")
-		public String getInputFormat() {
-			return "tokenized";
-		}
+		public String getInputFormat() { return "tokenized"; }
 
-		public String getOutputFormat() {
-			return "ccgbank";
-		}
+		public String getOutputFormat() { return "ccgbank"; }
 
-		public String getParsingAlgorithm() {
-			return "astar";
-		}
+		public String getParsingAlgorithm() { return "astar"; }
 
 		// "(Optional) Maximum length of sentences in words. Defaults to 70.")
-		public int getMaxLength() {
-			return 70;
-		}
+		public int getMaxLength() { return 70; }
 
 		// "(Optional) Number of parses to return per sentence. Values >1 are only supported for A* parsing. Defaults to 1.")
-		public int getNbest() {
-			return 1;
-		}
+		public int getNbest() { return 1; }
 
 		// defaultValue = { "S[dcl]", "S[wq]", "S[q]", "S[b]\\NP", "NP" }, description = "(Optional) List of valid categories for the root node of the parse. Defaults to: S[dcl] S[wq] S[q] NP S[b]\\NP")
 		public List<Category> getRootCategories() {
@@ -88,22 +72,19 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		}
 
 		// defaultValue = "0.01", description = "(Optional) Prunes lexical categories whose probability is less than this ratio of the best category. Decreasing this value will slightly improve accuracy, and give more varied n-best output, but decrease speed. Defaults to 0.01 (currently only used for the joint model).")
-		public double getSupertaggerbeam() {
-			return 0.01;
-		}
+		public double getSupertaggerbeam() { return 0.01; }
 
 		// defaultValue = "1.0", description = "Use a specified supertagger weight, instead of the pretrained value.")
-		public double getSupertaggerWeight() {
-			return 1.0;
-		}
+		public double getSupertaggerWeight() { return 1.0; }
 
-		public boolean getHelp() {
-			return true;
-		}
+		public boolean getHelp() { return true; }
 
+		public boolean getDaemonize() { return true; }
+
+		public int getPort() { return 8084; }
 	}
 
-	private ConfigOptions commandLineOptions;
+	private EasySRL.CommandLineArguments commandLineOptions;
 	private SRLParser parser;
 	private InputReader reader;
 	private ParsePrinter printer;
@@ -116,18 +97,24 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		infer_lock = new ReentrantLock();
 	}
 
+	public CcgServiceHandler(EasySRL.CommandLineArguments cmdLine) {
+		commandLineOptions = cmdLine;
+		infer_lock = new ReentrantLock();
+	}
+
 	public void init() throws IOException, InterruptedException {
 
 		final EasySRL.InputFormat input = EasySRL.InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
 		final File modelFolder = Util.getFile(commandLineOptions.getModel());
 
 		if (!modelFolder.exists()) {
-			throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
+			logger.error("Couldn't load model from {}", commandLineOptions.getModel());
+			throw new InputMismatchException("Couldn't load model from from: " + commandLineOptions.getModel());
 		}
 
 		final File pipelineFolder = new File(modelFolder, "/pipeline");
-		logger.debug("====Starting loading model====");
-		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(commandLineOptions.getOutputFormat().toUpperCase());
+		logger.debug("Loading model from {} ...", commandLineOptions.getModel());
+		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf("CCGBANK");
 		this.printer = outputFormat.printer;
 
 		SRLParser parser2;
@@ -146,9 +133,11 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		this.reader = InputReader.make(EasySRL.InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase()));
 		if ((outputFormat == EasySRL.OutputFormat.PROLOG || outputFormat == EasySRL.OutputFormat.EXTENDED)
 				&& input != EasySRL.InputFormat.POSANDNERTAGGED) {
-			throw new Error("Must use \"-i POSandNERtagged\" for this output");
+			String msg = "Must use \"-i POSandNERtagged\" for this output";
+			logger.error(msg);
+			throw new Error(msg);
 		}
-		logger.debug("===Model loaded: parsing...===");
+		logger.debug("Model loaded: gRPC parser ready");
 
 		infer_lock.lock(); // limit concurrency because EasySRL is not thread-safe
 		this.parser = parser2;
