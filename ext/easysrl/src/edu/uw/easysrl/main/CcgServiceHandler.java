@@ -105,7 +105,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	public void init() throws IOException, InterruptedException {
 
 		final EasySRL.InputFormat input = EasySRL.InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
-		final File modelFolder = Util.getFile(commandLineOptions.getModel());
+		final File modelFolder = Util.getFile(EasySRL.absolutePath(commandLineOptions.getModel()));
 
 		if (!modelFolder.exists()) {
 			logger.error("Couldn't load model from {}", commandLineOptions.getModel());

@@ -16,6 +16,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.nio.file.Path;
+import java.nio.file.FileSystems;
 
 import ai.marbles.grpc.ServiceAcceptor;
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
@@ -123,7 +125,7 @@ public class EasySRL {
 		try {
 			final CommandLineArguments commandLineOptions = CliFactory.parseArguments(CommandLineArguments.class, args);
 			final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
-			final File modelFolder = Util.getFile(commandLineOptions.getModel());
+			final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
 
 			if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
@@ -249,6 +251,12 @@ public class EasySRL {
 		}
 	}
 
+	public static String absolutePath(String path) {
+		Path basePath = FileSystems.getDefault().getPath(path.replaceFirst("^~", System.getProperty("user.home")));
+		path = basePath.toAbsolutePath().normalize().toString();
+		return path;
+	}
+
 	static void daemonize(String modelPath) throws IOException, InterruptedException {
 		CcgServiceHandler svc = new CcgServiceHandler("/Users/paul/EasySRL/model/text");
 		svc.init();
@@ -262,7 +270,7 @@ public class EasySRL {
 	static ParserBuilder<?> getParserBuilder(final CommandLineArguments o) {
 		final ParserBuilder<? extends ParserBuilder<?>> result;
 		if (o.getParsingAlgorithm().equals("astar")) {
-			result = new ParserAStar.Builder(new File(o.getModel()));
+			result = new ParserAStar.Builder(new File(absolutePath(o.getModel())));
 		} else {
 			throw new IllegalArgumentException("Unknown parsing algorithm: " + o.getParsingAlgorithm());
 		}
@@ -339,7 +347,7 @@ public class EasySRL {
 	@Deprecated
 	public static Parser makeParser(final CommandLineArguments commandLineOptions, final int maxChartSize,
 			final ModelFactory modelFactory) throws IOException {
-		final File modelFolder = Util.getFile(commandLineOptions.getModel());
+		final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
 		Coindexation.parseMarkedUpFile(new File(modelFolder, "markedup"));
 
 		final ParsingAlgorithm algorithm = ParsingAlgorithm.valueOf(commandLineOptions.getParsingAlgorithm()
@@ -366,7 +374,7 @@ public class EasySRL {
 	public static Parser makeParser(final CommandLineArguments commandLineOptions, final int maxChartSize,
 			final boolean joint, final Optional<Double> supertaggerWeight, final boolean loadSupertagger)
 			throws IOException {
-		final File modelFolder = Util.getFile(commandLineOptions.getModel());
+		final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
 		Coindexation.parseMarkedUpFile(new File(modelFolder, "markedup"));
 		final File cutoffsFile = new File(modelFolder, "cutoffs");
 		final CutoffsDictionaryInterface cutoffs = cutoffsFile.exists() ? Util.deserialize(cutoffsFile) : null;
