@@ -1,6 +1,6 @@
-apply plugin: 'application'
+//apply plugin: 'application'
 
-mainClassName = 'edu.uw.easysrl.main.EasySRL'
+//mainClassName = 'edu.uw.easysrl.main.EasySRL'
 
 dependencies {
 	compile project(':ext:easysrl')

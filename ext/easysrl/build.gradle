@@ -2,6 +2,12 @@
 //    id "com.github.johnrengelman.shadow" version "1.2.4"
 //}
 
+apply plugin: 'gradle-one-jar'
+
+task standaloneJar(type: OneJar) {
+    mainClass = 'edu.uw.easysrl.main.EasySRLDaemon'
+}
+
 jar {
     manifest {
         attributes 'Implementation-Title': 'EasySRL',
@@ -21,4 +27,9 @@ sourceSets {
         }
     }
 }
+
+// Ensure our task is called after build
+build.finalizedBy(standaloneJar)
+
+
 
