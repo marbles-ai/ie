@@ -64,7 +64,7 @@ public final class ServiceConnector {
 
 	/**
 	 * Construct client for accessing a Lucida service at {@code host:port}.
-	 * If port=443 then the channel will be secure via TLS, otherwisethe channel
+	 * If port=443 then the channel will be secure via TLS, otherwise the channel
 	 * is insecure. No authentication is provided in either case.
 	 *
 	 * @param host  Fully qualified host name

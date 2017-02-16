@@ -33,6 +33,7 @@
 package ai.marbles.grpc;
 
 //Java packages
+import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -47,6 +48,12 @@ public class ServiceTest {
 			responseObserver.onNext(reply);
 			responseObserver.onCompleted();
 		}
+		@Override
+		public void create(Request request, StreamObserver<Empty> responseObserver) {
+			responseObserver.onNext(Empty.newBuilder().build());
+			responseObserver.onCompleted();
+		}
+
 	}
 
 	@Test
@@ -57,6 +64,7 @@ public class ServiceTest {
 			server.start();
 
 			ServiceConnector client = new ServiceConnector("localhost", 9001);
+			client.create("1");
 			Request req = Request.newBuilder().build();
 			String resp = client.infer(req);
 			assertTrue(resp.equals("got infer"));
@@ -75,6 +83,7 @@ public class ServiceTest {
 			server.start();
 
 			ServiceConnector client = new ServiceConnector("localhost", 9002);
+			client.create("1");
 			Request req = Request.newBuilder().build();
 
 			ListenableFuture<Response> rpc = client.getFutureStub().infer(req);
