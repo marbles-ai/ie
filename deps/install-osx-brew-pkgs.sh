@@ -27,3 +27,6 @@ brew_install boost
 brew_install boost-python
 brew_install bison
 brew_install flex
+
+# GIT-HUB Large File Support
+brew_install git-lfs
