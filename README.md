@@ -22,7 +22,6 @@ This must be done once. From the main directory run:
 ```
 cd deps
 make
-sudo make install
 ```
 
 This will install all missing dependencies so it may need root access. We assume
@@ -34,35 +33,33 @@ root because this will create a whole bunch of files in the build tree owned by 
 The model file ares are too large to store directly on github. We use the
 [git-lfs extension](https://git-lfs.github.com/) to accommodate large files. 
 After the you have installed the dependencies you will need to setup large
-file support as described here.
+file support as described below.
 
-I have done this on home brew and the suggestion is to run the following
-commands prior to accessing large files.
+Install the git-lfs extension then run:
 
 ```
 git lfs install
-git lfs install --system
 ```
 
-After which you must set the file types that are stored in LFS. We are currently
-only storing compressed files so run these commands from the top level directory.
+Home brew also recommends running `git lfs install --system` however this is only
+required if you want lfs support in XCode.  We don't need it for this project so
+it's up to you.
+
+The `.gitattributes` file in the main directory contains the list of extensions
+we use to indicate large files. To see the list run:
 
 ```
-git lfs track "*.gz"
-git lfs track "*.zip"
-git lfs track "*.tgz"
-git lfs track "*.bz2"
-```
-    
-Finally make sure .gitattributes is tracked
-
-```
-git add .gitattributes
+git lfs track
 ```
 
 ## Building
 
-- From the root checkout directory, type: `gradle build -x test`. If you 
+- Before building ensure the grammar models are untar'ed. This only needs to be 
+done after a fresh checkout. Run `./scripts/extract_lfs.sh` from the main project
+directory. This step requires you complete the LFS setup described in the previous
+section.
+
+- From the main project directory, type: `gradle build -x test`. If you 
   want to run unit tests then omit `-x test`. Tests have to load the 
   models so they take about 1.5 minutes to complete.
     - `gradle build`: to build and run tests with minimal output.
