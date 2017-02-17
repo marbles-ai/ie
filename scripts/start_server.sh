@@ -1,57 +1,43 @@
 #!/bin/bash
 
-die () {
-	echo "Error: $1"
-	exit 1
-}
+source $(dirname $0)/common_source.sh
 
 usage() {
 cat << EOF
-start_server.sh [options] -c cmd [args ...]
-  -d: debug, just print what will be executed.
-  -S <bash script>: source this script in start_server before running cmd.
+start_server.sh [options] service-name
+  -D: debug, just print what will be executed.
 
 EOF
 exit 0
 }
 
-# Get Lucida root path
-pushd $(dirname $0) &> /dev/null
-cd ..
-LUCIDAROOT=`pwd`
-popd &> /dev/null
-RUNDIR=`pwd`
-
 # Process command line options
-SERVER_DBG=0
-SERVER_SRC=
-while getopts ":dS:" OPTION; do
+DEBUG_ON=0
+SERVICE=
+while getopts ":d" OPTION; do
 case $OPTION in
-d ) SERVER_DBG=1;;
-S ) SERVER_SRC=$OPTARG;;
-h ) usage;;
+d ) DEBUG_ON=1;;
 * ) usage;;
 esac
 done
 shift $((OPTIND-1))   
-[ "x$1" != "" ] || die "missing cmd $*"
+[ "x$1" != "" ] || die "missing service name $*"
+SERVICE="$1"
+[ "x$SERVICE" != "x" ] && [ -f $PROJROOT/daemons/$SERVICE ] || die "bad service name $SERVICE"
+PIDFILE=$PROJROOT/daemons/running/$SERVICE.pid
+LOGFILE=$PROJROOT/daemons/log/$(create_logfile_name $SERVICE)
+mkdir -p $PROJROOT/daemons/running > /dev/null
+mkdir -p $PROJROOT/daemons/log > /dev/null
 
 # Check if we are running
-[ -e ${RUNDIR}/run/server.pid ] && kill -0 `cat ${RUNDIR}/run/server.pid` &>/dev/null && die "stop server first"
-mkdir -p ${RUNDIR}/running
+[ -e $PIDFILE ] && kill -0 `cat $PIDFILE` &>/dev/null && die "stop server first"
+rm -f $PIDFILE > /dev/null
 
-[ "x$SERVER_SRC" == "x" ] || source ${SERVER_SRC} || die "cannot source $SERVER_SRC"
 echo "====================================================="
-echo "Running server '$*'"
-echo "  To stop run stop_server.sh in the current directory"
-echo "  The pid will be saved at `pwd`/run/server.pid"
-[ ${SERVER_DBG} -eq 0 ] && $* &
-PID="$!"
-# Use RUNDIR incase source script changed working dir
-[ ${SERVER_DBG} -eq 0 ] && echo "$PID" > ${RUNDIR}/run/server.pid
-#wait $PID
-[ ${SERVER_DBG} -ne 0 ] && echo "while kill -0 \$PID &> /dev/null; do sleep 1; done"
-[ ${SERVER_DBG} -eq 0 ] && while kill -0 ${PID} &> /dev/null; do sleep 1; done
-[ ${SERVER_DBG} -ne 0 ] && echo "rm -f ${RUNDIR}/run/server.pid &>/dev/null"
-[ ${SERVER_DBG} -eq 0 ] && rm -f ${RUNDIR}/run/server.pid &>/dev/null
+echo "Running service $SERVICE"
+echo "  To stop run stop_server.sh $SERVICE"
+echo "  The pid will be saved at $PIDFILE"
+[ $DEBUG_ON -eq 0 ] && $PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE
+[ $DEBUG_ON -ne 0 ] && echo "$PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE"
 exit 0
+

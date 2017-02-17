@@ -1,16 +1,25 @@
 #!/bin/bash
 
-EXTPATH="$(dirname $0)/.."
-PROJPATH="$EXTPATH/.."
-ESRLPATH="$EXTPATH/easysrl"
+source $(dirname $0)/../scripts/common_source.sh
+
+ESRLPATH="$PROJROOT/ext/easysrl"
+PIDFILE=$1
+LOGFILE=$2
 VERSION="0.1.0"
 
-die () {
-	echo "Error: $1"
-	exit 1
-}
+[ -e $ESRLPATH/build/libs/easysrl-${VERSION}-standalone.jar ] || die "$ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar missing, run gradle build"
+[ -e $PROJROOT/build/libs/ie-${VERSION}.jar ] || die "$PROJROOT/build/libs/ie-$VERSION.jar missing, run gradle build"
+[ -e $ESRLPATH/model/text/categories ] || die "$ESRLPATH/model/text missing, run scripts/extract_lfs.sh"
 
-[ -e ${ESRLPATH}/build/libs/easysrl-${VERSION}.jar ] || die "$ESRLPATH/build/libs/easysrl-$VERSION.jar missing, run gradle build"
-[ -e ${PROJPATH}/build/libs/ie-${VERSION}.jar ] || die "$PROJPATH/build/libs/ie-$VERSION.jar missing, run gradle build"
-
-java -jar ${ESRLPATH}/build/libs/easysrl-0.1.0-standalone.jar --model /Users/paul/EasySRL/model/text --daemon
+EXEC="java -jar $ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar --model $ESRLPATH/model/text --daemonize"
+if [ "x$PIDFILE" == "x" ]; then
+	$EXEC
+else 
+	if [ "x$LOGFILE" == "x" ]; then
+		nohup $EXEC &
+	else
+		nohup $EXEC > $LOGFILE &
+	fi
+	PID="$!"
+	echo "$PID" > $PIDFILE
+fi

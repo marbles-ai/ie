@@ -88,3 +88,6 @@ ENV/
 ie.iml
 ie.iws
 ie.ipr
+
+# nohup
+nohup.out
