@@ -1,5 +1,14 @@
-import re, sys
+#! /usr/bin/env python
+import re
+import sys
+import os
+import imp
+import grpc
 from optparse import OptionParser
+
+
+projectPath = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+grpcSrvc = os.path.join(projectPath, 'build', 'grpc', 'python', 'marbles_service_pb2.py')
 
 
 def die(s):
@@ -7,12 +16,49 @@ def die(s):
     sys.exit(1)
 
 
-def write_title(fd, title):
-    pass
+if not os.path.exists(grpcSrvc):
+    die('gRPC service "%s" does not exist, run gradle build' % grpcSrvc)
+marbles_svc = imp.load_source("module.lucida_service", grpcSrvc)
 
 
-def write_line(fd, line):
-    pass
+def create_query_input(typename, data):
+    query_input = marbles_svc.QueryInput()
+    query_input.type = typename
+    query_input.data.append(str(data))
+    return query_input
+
+
+def create_query_spec(name, query_input_list):
+    query_spec = marbles_svc.QuerySpec()
+    query_spec.name = name
+    query_spec.content.extend(query_input_list)
+    return query_spec
+
+
+def get_client_transport(host, port):
+    channel = grpc.insecure_channel('%s:%u' % (host, port))
+    stub = marbles_svc.LucidaServiceStub(channel)
+    return stub, channel
+
+
+def ccg_parse(client, sentence):
+    query_input = create_query_input('text', sentence)
+    request = marbles_svc.Request()
+    request.LUCID = "1"
+    request.spec.name = 'infer'
+    request.spec.content.extend([query_input])
+    response = client.infer(request)
+    return response.msg
+
+
+def write_title(fd, id, title, ccg):
+    fd.write('TITLE:%d:%s\n' % (id, title))
+    fd.write('CCG:%d:%s\n' % (id, ccg))
+
+
+def write_line(fd, id, line, ccg):
+    fd.write('SENTENCE:%d:%s\n' % (id, line))
+    fd.write('CCG:%d:%s\n' % (id, ccg))
 
 
 def write_hdr(fd):
@@ -23,45 +69,61 @@ def write_footer(fd):
     pass
 
 
-def openfile(outfile):
-    if outfile == sys.stdout:
-        return outfile
-    return open(outfile, 'w')
-
-
-def process_file(out, titleSrch, wordsep):
+def process_file(out, args, titleSrch, wordsep):
+    stub, _ = get_client_transport('localhost', 8084)
+    id = 0
     for fn in args:
         line = ''
         write_hdr(out)
-        with open(fn, 'r') as fd:
-            while True:
-                ln = fd.readline()
-                if len(ln) == 0:
-                    # end of file
-                    write_footer(out)
-                    break
-                ln = ln.strip()
-                if len(ln) == 0: continue
-                ln = line + ln
+        line_number = 0
+        try:
+            with open(fn, 'r') as fd:
+                while True:
+                    ln = fd.readline()
+                    line_number += 1
+                    if len(ln) == 0:
+                        # end of file
+                        write_footer(out)
+                        break
+                    ln = ln.strip()
+                    if len(ln) == 0:
+                        line = ''
+                        continue
 
-                m = titleSrch.match(ln)
-                if m is not None:
-                    write_title(out, ln)
-                    continue
-                else:
-                    sentences = ln.split('.')
-                    for s in sentences[:-1]:
-                        write_line(out, s)
-                    if sentences[-1][-1] == wordsep:
-                        line = sentences[-1][:-1]
+                    m = titleSrch.match(ln)
+                    if m is not None:
+                        line = ''
+                        ccg = ccg_parse(stub, ln)
+                        write_title(out, id, ln, ccg)
+                        continue
+                    else:
+                        ln = line + ln
+                        sentences = ln.split('.')
+                        for s in sentences[:-1]:
+                            x = s.strip()
+                            if len(x) == 0: continue
+                            id += 1
+                            ccg = ccg_parse(stub, x)
+                            write_line(out, id, x, ccg)
+
+                        if len(sentences) != 0:
+                            s = sentences[-1].strip()
+                            if len(s) != 0:
+                                if sentences[-1][-1] == wordsep:
+                                    line = sentences[-1][0:-1]
+                                else:
+                                    line = sentences[-1] + ' '
+        except:
+            print('Exception while processing file "%s" at line %d' % (fn, line_number))
+            raise
 
 
 if __name__ == '__main__':
     usage = 'Usage: %prog [options] input-file(s)'
     parser = OptionParser(usage)
-    parser.add_option('-s', '--wordsep', type='string', action='append', dest='wordsep', help='word separator, defaults to hyphen')
-    parser.add_option('-t', '--title', type='string', action='append', dest='title', help='title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
-    parser.add_option('-f', '--file', type='string', action='append', dest='outfile', help='output file name')
+    parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='word separator, defaults to hyphen')
+    parser.add_option('-t', '--title', type='string', action='store', dest='title', help='title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
+    parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name')
 
     (options, args) = parser.parse_args()
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
@@ -73,8 +135,8 @@ if __name__ == '__main__':
 
     titleSrch = re.compile(titleRe)
     if outfile is None:
-        process_file(sys.stdout, titleSrch, wordsep)
+        process_file(sys.stdout, args, titleSrch, wordsep)
     else:
-        with openfile(outfile) as out:
-            process_file(sys.stdout, titleSrch, wordsep)
+        with open(outfile, 'w') as fd:
+            process_file(fd, args, titleSrch, wordsep)
 
