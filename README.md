@@ -32,7 +32,7 @@ root because this will create a whole bunch of files in the build tree owned by 
 
 The model file ares are too large to store directly on github. We use the
 [git-lfs extension](https://git-lfs.github.com/) to accommodate large files. 
-After the you have installed the dependencies you will need to setup large
+After you have installed the dependencies you will need to setup large
 file support as described below.
 
 Install the git-lfs extension then run:
@@ -98,8 +98,8 @@ as part of the gradle test suite.
    to the service provided. We refer to it as \<service-name\>.
 2. Add the build tree for the existing source as a subdir of \<service-name\>.
    Add a build.gradle to this directory.
-3. Create a build.gradle file in \<service-name\>. Use the file [ext/build.gradle](ext/build.gradle)
-   as a reference.
+3. Create a build.gradle file in \<service-name\>. Use the file
+   [ext/easysrl/build.gradle](ext/easysrl/build.gradle) as a reference.
 4. Add the new projects to [settings.gradle](settings.gradle).
 
 
@@ -128,22 +128,25 @@ Currently we are not using any C++ services. If we need to change this behavior 
 copy files from the [eTutor project](https://github.com/marbles-ai/etutor).
 
 
-# Running the EasySRL service
-Not currently working. For the moment run `./ext/daemons/easysrl.sh` in a shell and 
-Ctrl-C to exit the service.
+# EasySRL Service
 
-IGNORE THIS
-- To start the EasySRL CCG parser gRPC service run:
-  ```
-  ./scripts/start_server.sh ./ext/daemons/easysrl.sh
-  ```
+## Running the EasySRL service
 
-  This will spawn a gnu screen for the backend service as well as the 
-  web site. To see the list of active screens run `screen -list`. Once
-  they all start running,  open your browser and visit `http://localhost:3000/`.
+You can start the service in a local shell or run it as a daemon in the background.
+To run locally just execute `./daemons/easysrl` from the main project folder.  When
+you run as a daemon a time-stamped log file is stored at ./daemons/log.
+
+To start EasySRL as a daemon run `./scripts/start_server.sh easysrl`.
+
+To stop the EasySRL daemon run `./scripts/stop_server.sh easysrl`.
   
-- To stop the EasySRL parser service run:
-  ```
-  ./scripts/stop_server ./ext/daemons/easysrl.sh
-  ```
+To view the list of running daemons run `./scripts/stop_server.sh`.
 
+## Modifications to Original EasySRL
+
+I have directly integrated the gRPC daemon into the EasySRL project and added a 
+`--daemonize` command line option. The daemon code is located at
+[edu.uw.easysrl.main.CcgServiceHandler](ext/easysrl/src/edu/uw/easysrl/main/CcgServiceHandler.java).
+
+It is important to build a jar with all dependencies. The [onejar](http://one-jar.sourceforge.net/)
+gradle plugin is used for this purpose.  The jar file is tagged with a standalone suffix.
