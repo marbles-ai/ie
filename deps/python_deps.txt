@@ -5,3 +5,5 @@ nltk
 SPARQLWrapper
 pysmt
 statistics
+grpcio
+grpcio-tools

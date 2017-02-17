@@ -48,18 +48,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Any dependencies that need to be built locally should be added to this list.
-PROJECT_DEPS := \
-	protoc \
-	protobuf_cpp \
-	protobuf_java \
-	protobuf_py \
-	grpc \
-	vpython \
-	caffe \
-	indri \
-	gtest
-
 ifeq "$(findstring Darwin,$(shell python -mplatform))" "Darwin"
 LINUX=0
 ifeq "$(USER)" "$(shell stat /usr/local/bin | awk '{ print $$5}')"
@@ -88,6 +76,13 @@ LINUX=1
 OSXPORTS=0
 OSXBREW=0
 SUDO=sudo
+endif
+
+# Any dependencies that need to be built locally should be added to this list.
+ifeq ($(LINUX),1)
+PROJECT_DEPS := java protoc protocbuf_py protocbuf_java grpc
+else
+PROJECT_DEPS := protoc protocbuf_py protocbuf_java grpc
 endif
 
 INSTALL_TEMPLATE = @if ./build-tool.sh $(1) check; then \
@@ -158,6 +153,7 @@ else
 	./pkg-installer.py -iv linux_pkg_deps.conf
 endif
 endif
+ifeq ($(LINUX),1)
 	if python -c "import sys;print sys.version" | grep -i 'anaconda\|continuum' >/dev/null 2>/dev/null; \
 		then if which python | grep '^$(HOME)'; \
 			then ./pkg-installer.py -iv --noroot python_deps.conf; \
@@ -165,6 +161,7 @@ endif
 			fi; \
 		else ./pkg-installer.py -iv python_deps.conf; \
 		fi
+endif
 
 install: $(INSTALL_TARGETS)
 
