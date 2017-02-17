@@ -5,7 +5,7 @@
 apply plugin: 'gradle-one-jar'
 
 task standaloneJar(type: OneJar) {
-    mainClass = 'edu.uw.easysrl.main.EasySRLDaemon'
+    mainClass = 'edu.uw.easysrl.main.EasySRL'
 }
 
 jar {
