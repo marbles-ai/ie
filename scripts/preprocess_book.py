@@ -18,7 +18,7 @@ def die(s):
 
 if not os.path.exists(grpcSrvc):
     die('gRPC service "%s" does not exist, run gradle build' % grpcSrvc)
-marbles_svc = imp.load_source("module.lucida_service", grpcSrvc)
+marbles_svc = imp.load_source("lucida_service", grpcSrvc)
 
 
 def create_query_input(typename, data):
