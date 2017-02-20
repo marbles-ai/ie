@@ -32,6 +32,6 @@ popd
 mkdir -p ${PROJROOT}/data/ldc
 pushd ${PROJROOT}/data/ldc
 if [ ! -d ./ccgbank_1_1 ]; then
-	tar -zxf ../LCD2005T13.tgz
+	tar -zxf ../LDC2005T13.tgz
 fi
 popd
