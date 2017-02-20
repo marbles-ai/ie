@@ -15,7 +15,6 @@ popd &> /dev/null
 [ -e ${PROJROOT}/ext/easysrl/model/model.tar.gz ] || die "Missing model.tar.gz"
 
 pushd ${PROJROOT}/ext/easysrl/model
-
 if [ ! -e ./questions/categories ]; then
 	rm -rf questions
 	tar -zxf model_questions.tar.gz
@@ -27,3 +26,12 @@ if [ ! -e ./text/categories ]; then
 	tar -zxf model.tar.gz
 	mv model text
 fi
+popd
+
+[ -e ${PROJROOT}/data/LDC2005T13.tgz ] || die "Missing LDC2005T13.tgz"
+mkdir -p ${PROJROOT}/data/ldc
+pushd ${PROJROOT}/data/ldc
+if [ ! -d ./ccgbank_1_1 ]; then
+	tar -zxf ../LCD2005T13.tgz
+fi
+popd
