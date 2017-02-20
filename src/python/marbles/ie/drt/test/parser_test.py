@@ -1,9 +1,15 @@
 import unittest
-from ..pdrs import *
-from ..parse import parse_pdrs, parse_drs
-from ..drs import DRSRelation
+import os
+from ..parse import parse_pdrs, parse_drs, parse_ccgtype
 from ..pdrs import *
 from ..drs import *
+from ..ccg2drs import CcgTypeMapper
+
+
+def dirname(filepath, up):
+    for u in range(up):
+        filepath = os.path.dirname(filepath)
+    return filepath
 
 
 class ParserTest(unittest.TestCase):
@@ -26,4 +32,42 @@ class ParserTest(unittest.TestCase):
                 [Rel(DRSRelation('man'),[DRSRef('x')]),
                  Neg(DRS([],[Rel(DRSRelation('happy'),[DRSRef('x')])]))])
         self.assertEquals(x, p)
+
+    def test2_CCGCategories(self):
+        pt = parse_ccgtype('NP')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype('PP')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype('N')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype('S')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype('S[dcl]')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype('N/N')
+        self.assertIsNotNone(pt)
+        pt = parse_ccgtype(r'(S/NP)\NP')
+        self.assertIsNotNone(pt)
+        self.assertEqual(3, len(pt))
+        pt = parse_ccgtype('((N/(S\NP))\(N/(S\NP)))/NP')
+        self.assertIsNotNone(pt)
+        self.assertEqual(3, len(pt))
+
+    def test3_CCGCategories(self):
+        categories = os.path.join(dirname(__file__, 7), 'ext', 'easysrl', 'model', 'text', 'categories')
+        with open(categories, 'r') as fd:
+            lines = fd.readlines()
+            for ln in lines:
+                ln = ln.strip()
+                if len(ln) == 0:
+                    continue
+                pt = parse_ccgtype(ln)
+                self.assertIsNotNone(pt)
+                self.assertLessEqual(len(pt), 3)
+
+    def test3_CCGCategories(self):
+        categories = os.path.join(dirname(__file__, 7), 'ext', 'easysrl', 'model', 'text', 'categories')
+        rem = CcgTypeMapper.add_model_categories(categories)
+        self.assertIsNone(rem)
+
 

@@ -411,16 +411,16 @@ def parse_drs(s, grammar=None):
 #   )
 # )
 
-CcgBasicType = re.compile(r'S(?:\[[a-z]+\])?|NP|N|PP|conj')
+CcgBasicType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB|[,\.:;]')
 CcgArgSep = re.compile(r'/|\\')
 
-LType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)\s[^>]*\1')
-TType = re.compile(r'((?:[()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)*)')
+LType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)*)\s[^>]*\1')
+TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)*)')
 
 LPosType = re.compile(r'[A-Z\$]+(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
 LWord    = re.compile(r'[^>\s]+(?=\s)')
-CcgComplexTypeBegin = re.compile(r'([()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)+(?=\s)')
-CcgComplexTypeEnd   = re.compile(r'([()/\\]|S(?:\[[a-z]+\])?|NP|N|PP|conj)+(?=[>])')
+CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)+(?=\s)')
+CcgComplexTypeEnd   = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)+(?=[>])')
 
 
 class EsrlCcgTypeBegin(List):
@@ -513,5 +513,79 @@ def parse_easysrl(s):
     pt = p.parse(s, EsrlDecl)
     return pt[1].to_list()
 
+###########################################################################
+# CCG/DRS Category Parser
+
+# Include DRS categories T,Z
+CcgBaseType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB|Z|T|[,\.:;]')
 
 
+class CCGType(List):
+    grammar = CcgBaseType
+
+    def to_list(self):
+        return self[0]
+
+
+class CCGSimpleFunc(List):
+    grammar = CcgBaseType, CcgArgSep, CcgBaseType
+
+    def to_list(self):
+        return [x for x in self]
+
+
+class CCGFunc(List):
+    grammar = None
+
+    def to_list(self):
+        return self[0].to_list()
+
+
+class CCGHigherOrderFunc1(List):
+    grammar = '(', CCGFunc, ')', CcgArgSep, CCGType
+
+    def to_list(self):
+        return [self[0].to_list(), self[1], self[2].to_list()]
+
+
+class CCGHigherOrderFunc2(List):
+    grammar = '(', CCGFunc, ')', CcgArgSep, '(', CCGFunc, ')'
+
+    def to_list(self):
+        return [self[0].to_list(), self[1], self[2].to_list()]
+
+
+class CCGHigherOrderFunc3(List):
+    grammar = CCGType, CcgArgSep, '(', CCGFunc, ')'
+
+    def to_list(self):
+        return [self[0].to_list(), self[1], self[2].to_list()]
+
+
+class CCGHigherOrderFunc(List):
+    grammar = [CCGHigherOrderFunc2, CCGHigherOrderFunc1, CCGHigherOrderFunc3]
+
+    def to_list(self):
+        return self[0].to_list()
+
+
+CCGFunc.grammar = [CCGSimpleFunc, CCGHigherOrderFunc]
+
+
+class CCGCategory(List):
+    grammar = [CCGHigherOrderFunc, CCGSimpleFunc, CCGType]
+
+    def to_list(self):
+        return self[0].to_list()
+
+
+def parse_ccgtype(s):
+    """Parse a CCG category"""
+    p = Parser()
+    if isinstance(s, str):
+        s = s.decode('utf-8')
+    pt = p.parse(s, CCGCategory)
+    pt = pt[1].to_list()
+    if not isinstance(pt, list):
+        return [pt]
+    return pt
