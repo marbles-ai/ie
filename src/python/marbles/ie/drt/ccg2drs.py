@@ -6,7 +6,7 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
     remove_dups
 from common import SHOW_LINEAR
 import collections, re
-from parse import parse_drs
+from parse import parse_drs, parse_ccgtype
 import weakref
 
 ## @{
@@ -352,8 +352,8 @@ class FunctionComposition(Composition):
             return '%s(%s)' % (v, r)
 
     def __repr__(self):
-        return self._repr_helper1(ord('P')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + \
-               '.' + self._repr_helper2(ord('P'))
+        return self._repr_helper1(ord('Z')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + \
+               '.' + self._repr_helper2(ord('Z'))
 
     def __str__(self):
         return self.__repr__()
@@ -628,42 +628,84 @@ for k,u,v in __adv:
     _ADV[k] = (parse_drs(v, 'nltk'), parse_drs(u, 'nltk').universe)
 
 
-class CcgType(object):
+class CcgTypeMapper(object):
+    """Mapping from CCG types to DRS types and the construction rules.
+
+    Construction Rules:
+    -# We have two levels of construction.
+        - Lambda construction rules apply to DRS, i.e. variables are DRS, not referents.
+        - DRS construction is via merge operation, infix operator ';'
+          Merge works like application in lambda calculus, i.e. right to left.
+          <b>Note:</b> This is not the merge function in our python DRS implementation.
+    -# We have two levels of binding.
+       - Referents in the lambda definition.
+         Given λPλx.P(x) with DRS P, x is always free in the lambda declaration
+         but x can be a free variable in DRS P, or bound in P
+       - Do not support free DRS in the lambda definition<br>
+         i.e. λPλxλy.P(x);G(y) is not supported,<br>
+         λPλGλxλy.P(x);G(y) is OK
+    -# DRS constructions rules can be separated into class:
+       - Functions: Rules which take DRS base types (T,Z) as arguments. Functions can return a base type, another
+         function, or a combinator.
+       - Combinators: Rules which take a function as the argument and return a function of the same type. Combinators
+         can take a variable number of referents, indicated by *. When applying combinators the resultant must
+         produce a function, or combinator, where the DRS merges are adjacent
+         - For λP.P(*);R[...] {P=λQ.Q(*);U[...] } is OK<br>
+         - For λP.P(*);R[...] {P=λQ.U[...];Q(*) } is an invalid combinator application because it produces a function
+           λQ.U[...];Q(*);R[...] and U and R are not adjacent.
+    -# Lambda application:
+       - λPλx.P(x) {P(x=x)=G[x|...]} == G[x|...]
+       - λPλx.P(x) {P(x=y)=G[y|...])} == G[y|...]
+    -# Lambda function composition
+       - λPλx.P(x).λQλy.Q(y) == λPλQλxλy.P(x);Q(y) == read as P merge Q<br>
+         iff x is a bound in DRS P and y is bound in DRS Q
+       - λPλx.P(x).λQλy.Q(y) == λPλQλx.P(x);Q(x)<br>
+         iff y is a free variable in DRS Q and x is bound, or free, in DRS P
+       - λPλx.P(x).λQλy.Q(y) == λPλQλy.P(y);Q(y)<br>
+         iff x is a free variable in DRS P and y is bound in DRS Q
+    -# Merge is typically delayed until construction is complete, however we can do partial merge when all
+       combinators have been applied at some point during the construction phase.<br>
+       P[x|...];Q[x|...] := merge(P[x|...],Q[x|...])
+    -# Promotion to a proposition. This is done to ensure the number of referents agree in a lambda definition.<br>
+       λPλx.P(x);Q[x|...] {P=R[x,y|...]} := [u|u:R[x,y|...]];Q[u|...]<br>
+       λQλx.P[x|...];Q(x) {Q=R[x,y|...]} := P[u|...];[u|u:R[x,y|...]]
+    -# Proposition simplification.<br>
+       [p|p:Q[x|...]] can be simplified to Q(x=p) if p is the only bound referent.
+    """
     _AllTypes = {
-        # DRS
-        'P':            None,
+        # DRS base types
+        'Z':            None,
         'T':            None,
         'conj':         None,
-        # Functions
-        r'P/T':         [(PropComposition, ArgRight, DRSRef('p'))],
+        # Simple DRS functions
+        r'Z/T':         [(PropComposition, ArgRight, DRSRef('p'))],
+        r'T/Z':         [(FunctionComposition, ArgRight, DRSRef('p'))],
         r'T/T':         [(FunctionComposition, ArgRight, DRSRef('x'))],
         r'T\T':         [(FunctionComposition, ArgLeft, DRSRef('x'),)],
-        # Verbs
+        # DRS Verb functions
         r'S/T':         [(FunctionComposition, ArgRight, DRSRef('x'))],
         r'S\T':         [(FunctionComposition, ArgLeft, DRSRef('x'))],
-        r'(S\T)\(S\T)': [(FunctionComposition, ArgLeft, DRSRef('x'))],
         r'(S/T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('x'))],
         r'(S/T)\T':     [(FunctionComposition, ArgLeft, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y'))],
         r'(S\T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x'))],
+        r'(S\T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x'))],
+        r'(S/T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('x'))],
         r'S\S':         [(FunctionComposition, ArgLeft, DRSRef('x'))],
         r'S/S':         [(FunctionComposition, ArgRight, DRSRef('x'))],
+        # Combinators
+        r'(S\T)\(S\T)': [(FunctionComposition, ArgLeft, DRSRef('x'))],
 
-        r'(S\T)/P':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x'))],
-        r'(S/T)/P':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('x'))],
-
-        r'T/P':         [(FunctionComposition, ArgRight, DRSRef('p'))],
     }
     _EventPredicates = ['agent', 'theme', 'extra']
-    _TypeChangerAll = re.compile(r'NP|N|PP')
-    _TypeChangerNoPP = re.compile(r'NP|N')
+    _TypeChangerAll = re.compile(r'NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
+    _TypeChangerNoPP = re.compile(r'NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
     _TypeSimplyS = re.compile(r'S(?:\[[a-z]+\])?')
 
     def __init__(self, ccgTypeName, word, posTags=None):
         self._ccgTypeName = ccgTypeName
         self._word = word.lower().rstrip('?.,:;')
         self._pos  = posTags or []
-        self._drsTypeName = self._TypeChangerAll.sub('P',
-                            self._TypeChangerNoPP.sub('T', self._TypeSimplyS.sub('S', ccgTypeName)))
+        self._drsTypeName = self.get_drs_typename(ccgTypeName)
 
         if not self._AllTypes.has_key(self._drsTypeName):
             raise DrsComposeError('CCG type %s maps to unknown DRS composition type %s' %
@@ -671,6 +713,157 @@ class CcgType(object):
 
     def __repr__(self):
         return '<' + self._word + ' ' + self.partofspeech + ' ' + self._ccgTypeName + '->' + self._drsTypeName + '>'
+
+    @classmethod
+    def get_base_type(cls, pt):
+        """Get a base type and return the remainder of the rule to be process. Combinators are extracted.
+
+        Args:
+            pt: A parse tree of DRS type.
+
+        Returns:
+            A tuple of the base DRS type and the remainder of the parse tree.
+        """
+        if len(pt) == 3 and isinstance(pt[0], list) and isinstance(pt[2], list) and repr(pt[0]) == repr(pt[2]):
+            # Combinator with DRS T[...], * means any number of referents
+
+            # Determine the number of arguments
+
+            if pt[1] == '/':
+                # λP.T[...];P(*)
+                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('x'))]
+            else:
+                # λP.P(*);T[...]
+                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('x'))]
+        elif len(pt) == 3 and isinstance(pt[0], list) and len(pt[0]) == 3 and \
+                ((isinstance(pt[2], str) and repr(pt[0][0]) == repr(pt[0][2])) or \
+                         (repr(pt[0][0]) == repr(pt[0][2]) and repr(pt[2]) == repr(pt[0][2]))):
+            if pt[1] == '/':
+                if pt[0][1] == '/':
+                    cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                        (FunctionComposition, ArgRight, DRSRef('x'))]
+                else:
+                    cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                        (FunctionComposition, ArgRight, DRSRef('x'))]
+            elif pt[0][1] == '/':
+                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
+            else:
+                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
+        elif len(pt) == 3 and isinstance(pt[2], list) and len(pt[2]) == 3 and \
+                ((isinstance(pt[0], str) and repr(pt[2][0]) == repr(pt[2][2])) or \
+                         (repr(pt[0]) == repr(pt[2][0]) and repr(pt[2][0]) == repr(pt[2][2]))):
+            if pt[1] == '/':
+                if pt[2][1] == '/':
+                    cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                        (FunctionComposition, ArgRight, DRSRef('x'))]
+                else:
+                    cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                        (FunctionComposition, ArgRight, DRSRef('x'))]
+            elif pt[2][1] == '/':
+                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
+            else:
+                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
+        elif d in result:
+            result[d].append(c)
+        else:
+            result[d] = [c]
+
+
+    @classmethod
+    def get_drs_typename(cls, ccgTypeName):
+        return cls._TypeChangerAll.sub('Z', cls._TypeChangerNoPP.sub('T', cls._TypeSimplyS.sub('S', ccgTypeName)))
+
+    @classmethod
+    def convert_model_categories(cls, lines):
+        results = set()
+        for ln in lines:
+            c = ln.strip()
+            if len(c) == 0 or c[0] == '#':
+                continue
+            # TODO: handle punctuation
+            if c in ['.', '.', ':', ';']:
+                continue
+            d = cls.get_drs_typename(c)
+            if d in cls._AllTypes:
+                continue
+            results.add(d)
+        return sorted(results)
+
+    @classmethod
+    def add_model_categories(cls, filename):
+        """Add the CCG categories file and update the DRS types.
+
+        Args:
+            filename: The categories file from the model folder.
+
+        Returns:
+            A list of DRS categories that could not be added to_AllTypes dictionary or None.
+        """
+        result = {}
+        with open(filename, 'r') as fd:
+            lines = fd.readlines()
+            for ln in lines:
+                c = ln.strip()
+                # TODO: handle punctuation
+                if c in ['.', '.', ':', ';']:
+                    continue
+                d = cls.get_drs_typename(c)
+                if d in cls._AllTypes:
+                    continue
+                # Use DRS categories since this results in less types
+                pt = parse_ccgtype(d)
+                if len(pt) == 3 and isinstance(pt[0], list) and isinstance(pt[2], list) and repr(pt[0]) == repr(pt[2]):
+                    # Combinator with DRS T[...], * means any number of referents
+
+                    # Determine the number of arguments
+
+                    if pt[1] == '/':
+                        # λP.T[...];P(*)
+                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('x'))]
+                    else:
+                        # λP.P(*);T[...]
+                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('x'))]
+                elif len(pt) == 3 and isinstance(pt[0], list) and len(pt[0]) == 3 and \
+                        ((isinstance(pt[2], str) and repr(pt[0][0]) == repr(pt[0][2])) or \
+                             (repr(pt[0][0]) == repr(pt[0][2]) and repr(pt[2]) == repr(pt[0][2]))):
+                    if pt[1] == '/':
+                        if pt[0][1] == '/':
+                            cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                                (FunctionComposition, ArgRight, DRSRef('x'))]
+                        else:
+                            cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                                (FunctionComposition, ArgRight, DRSRef('x'))]
+                    elif pt[0][1] == '/':
+                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
+                    else:
+                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
+                elif len(pt) == 3 and isinstance(pt[2], list) and len(pt[2]) == 3 and \
+                        ((isinstance(pt[0], str) and repr(pt[2][0]) == repr(pt[2][2])) or \
+                             (repr(pt[0]) == repr(pt[2][0]) and repr(pt[2][0]) == repr(pt[2][2]))):
+                    if pt[1] == '/':
+                        if pt[2][1] == '/':
+                            cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                                (FunctionComposition, ArgRight, DRSRef('x'))]
+                        else:
+                            cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                                (FunctionComposition, ArgRight, DRSRef('x'))]
+                    elif pt[2][1] == '/':
+                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
+                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
+                    else:
+                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
+                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
+                elif d in result:
+                    result[d].append(c)
+                else:
+                    result[d] = [c]
+        return None if len(result) == 0 else result
 
     @property
     def ispronoun(self):
@@ -713,7 +906,7 @@ class CcgType(object):
         compose = self._AllTypes[self._drsTypeName]
         if compose is None:
             # Simple type
-            # Handle prepositions 'P'
+            # Handle prepositions 'Z'
             if self.isconj:
                 if self._word in ['or', 'nor']:
                     raise NotImplementedError
@@ -773,7 +966,7 @@ class CcgType(object):
 
 
 def build_composer(ccgTypespec, word):
-    ccgt = CcgType(ccgTypespec, word)
+    ccgt = CcgTypeMapper(ccgTypespec, word)
     return ccgt.get_composer()
 
 
@@ -790,7 +983,7 @@ def process_easysrl_node(pt, cl):
 
     # L Node in parse tree
     assert pt[-1] == 'L'
-    ccgt = CcgType(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
+    ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
 
 
