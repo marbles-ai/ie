@@ -3,10 +3,10 @@
 import unittest
 from ..drs import *
 from ..common import *
-from ..parse import parse_drs, parse_easysrl
+from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..ccg2drs import process_easysrl, CO_REMOVE_UNARY_PROPS
+from ..ccg2drs import process_ccg_pt, CO_REMOVE_UNARY_PROPS
 from pysmt.shortcuts import Solver
 
 
@@ -337,9 +337,9 @@ class DrsTest(unittest.TestCase):
         # Welcome to MerryWeather High
         txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
-        pt = parse_easysrl(txt)
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_easysrl(pt)
+        d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| merryweather-high(x1)]]'
@@ -350,9 +350,9 @@ class DrsTest(unittest.TestCase):
             (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
             (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
             (<L N NN NN corner. N>) ) ) ) )'''
-        pt = parse_easysrl(txt)
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_easysrl(pt)
+        d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
@@ -363,9 +363,9 @@ class DrsTest(unittest.TestCase):
             (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
             (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
             (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
-        pt = parse_easysrl(txt)
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_easysrl(pt)
+        d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),step(e),event.agent(e,x),up(e),direction(e)]'
@@ -376,8 +376,8 @@ class DrsTest(unittest.TestCase):
         # Welcome to MerryWeather High
         txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
-        pt = parse_easysrl(txt)
-        d = process_easysrl(pt, CO_REMOVE_UNARY_PROPS)
+        pt = parse_ccg_derivation(txt)
+        d = process_ccg_pt(pt, CO_REMOVE_UNARY_PROPS)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),merryweather-high(y)]'
@@ -388,9 +388,9 @@ class DrsTest(unittest.TestCase):
             (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
             (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
             (<L N NN NN corner. N>) ) ) ) )'''
-        pt = parse_easysrl(txt)
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_easysrl(pt, CO_REMOVE_UNARY_PROPS)
+        d = process_ccg_pt(pt, CO_REMOVE_UNARY_PROPS)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),my(y),corner(y)]]'

@@ -25,10 +25,12 @@ ArgLeft  = False
 
 
 class DrsComposeError(Exception):
+    """Drs Composition Error."""
     pass
 
 
 class Composition(object):
+    """An abstract composition."""
     def __init__(self):
         self._lambda_refs = None
         self._options = 0
@@ -37,52 +39,90 @@ class Composition(object):
         return id(self) == id(other)
 
     @property
+    def isempty(self):
+        """Test if the composition is an empty."""
+        return False
+
+    @property
     def isfunction(self):
+        """Test if this class is a function composition."""
         return False
 
     @property
     def universe(self):
+        """Get the universe of the referents."""
         raise NotImplementedError
 
     @property
     def freerefs(self):
+        """Get the free referents."""
         raise NotImplementedError
 
     @property
     def lambda_refs(self):
+        """Get the lambda function referents"""
         return self._lambda_refs.universe if self._lambda_refs is not None else []
 
     @property
     def conditions(self):
+        """Get the DRS conditions for this composition."""
         return []
 
     @property
     def compose_options(self):
+        """Get the compose opions."""
         return self._options
 
     @property
     def isproper_noun(self):
+        """Test if the composition resolved to a proper noun"""
         return False
 
     def set_options(self, options):
+        """Set the compose opions.
+
+        Args:
+            options: The compose options.
+        """
         self._options = int(options)
 
     def set_lambda_refs(self, refs):
+        """Set the lambda referents for this composition.
+
+        Args:
+            refs: The lambda referents.
+        """
         if refs is None:
             self._lambda_refs = None
         else:
             self._lambda_refs = DRS(refs,[])
 
     def rename_lambda_refs(self, rs):
+        """Perform alpha conversion on the lambda referents.
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+        """
         if self._lambda_refs is not None:
             self._lambda_refs.alpha_convert(rs)
 
     def rename_vars(self, rs):
+        """Perform alpha conversion on the composition data.
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+        """
         raise NotImplementedError
 
 
 class DrsComposition(Composition):
     def __init__(self, drs, properNoun=False):
+        """Constructor.
+
+        Args:
+            drs: A marbles.ie.drt.DRS instance.
+            properNoun: True is a proper noun.
+        """
         super(DrsComposition, self).__init__()
         if not isinstance(drs, DRS):
             raise TypeError
@@ -100,6 +140,7 @@ class DrsComposition(Composition):
 
     @property
     def lambda_refs(self):
+        """Get the lambda function referents"""
         # For DRS we treat None as a special case meaning infer from DRS. This may not be always the best
         # policy so in the code we prefer to explicitly set which refs can be resolved during a merge
         if self._lambda_refs is None:
@@ -110,36 +151,47 @@ class DrsComposition(Composition):
 
     @property
     def isproper_noun(self):
+        """Test if the composition resolved to a proper noun"""
         return self._nnp
 
     @property
     def universe(self):
+        """Get the universe of the referents."""
         return self._drs.universe
 
     @property
     def freerefs(self):
+        """Get the free referents."""
         return self._drs.freerefs
 
     @property
     def isempty(self):
+        """Test if the composition is an empty DRS."""
         return self._drs.isempty
 
     @property
     def conditions(self):
+        """Get the DRS conditions for this composition."""
         return self._drs.conditions
 
     @property
     def drs(self):
+        """Get the DRS data attached to this composition."""
         return self._drs
 
     def rename_vars(self, rs):
+        """Perform alpha conversion on the composition data.
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+        """
         self._drs = self._drs.alpha_convert(rs)
         self._drs = self._drs.substitute(rs)
         self.rename_lambda_refs(rs)
 
 
 class CompositionList(Composition):
-
+    """A list of compositions."""
     def __init__(self, compList=None):
         super(CompositionList, self).__init__()
         if compList is None:
@@ -162,10 +214,12 @@ class CompositionList(Composition):
 
     @property
     def isproper_noun(self):
+        """Test if the composition resolved to a proper noun"""
         return all([x.isproper_noun for x in self._compList])
 
     @property
     def universe(self):
+        """Get the universe of the referents."""
         u = set()
         for d in self._compList:
             u = u.union(d.universe)
@@ -173,6 +227,7 @@ class CompositionList(Composition):
 
     @property
     def freerefs(self):
+        """Get the free referents."""
         u = set()
         for d in self._compList:
             u = u.union(d.freerefs)
@@ -180,9 +235,11 @@ class CompositionList(Composition):
 
     @property
     def isempty(self):
+        """Test if the composition is an empty DRS."""
         return len(self._compList) == 0
 
     def flatten(self):
+        """Convert any subordinate CompositionList's to a FunctionComposition or  DrsComposition."""
         compList = []
         for i in range(len(self._compList)):
             d = self._compList[i]
@@ -196,11 +253,26 @@ class CompositionList(Composition):
         self._compList = compList
 
     def rename_vars(self, rs):
+        """Perform alpha conversion on the composition data.
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+        """
         self.rename_lambda_refs(rs)
         for d in self._compList:
             d.rename_vars(rs)
 
     def push_right(self, other, merge=False):
+        """Push an argument to the right of the list.
+
+        Args:
+            other: The argument to push.
+            merge: True if other is a CompositionList instance and you want to
+            merge lists (like extend). If False other is added as is (like append).
+
+        Returns:
+            The self instance.
+        """
         if isinstance(other, DRS):
             other = DrsComposition(other)
         if merge and isinstance(other, CompositionList):
@@ -211,6 +283,16 @@ class CompositionList(Composition):
         return self
 
     def push_left(self, other, merge=False):
+        """Push an argument to the left of the list.
+
+        Args:
+            other: The argument to push.
+            merge: True if other is a CompositionList instance and you want to
+            merge lists (like extend). If False other is added as is (like append).
+
+        Returns:
+            The self instance.
+        """
         if isinstance(other, DRS):
             other = DrsComposition(other)
         if merge and isinstance(other, CompositionList):
@@ -225,7 +307,11 @@ class CompositionList(Composition):
         return self
 
     def apply(self):
-        """Merge, returns a DrsComposition"""
+        """Applies all functions, runs merge, and returns a DrsComposition instance.
+
+        Returns:
+            A DrsComposition instance.
+        """
         if len(self._compList) == 0:
             return None
 
@@ -304,7 +390,7 @@ class CompositionList(Composition):
 
 
 class FunctionComposition(Composition):
-
+    """A function composition. All functions are curried."""
     def __init__(self, position, referent, composition=None):
         super(FunctionComposition, self).__init__()
         if composition is not None:
@@ -352,8 +438,8 @@ class FunctionComposition(Composition):
             return '%s(%s)' % (v, r)
 
     def __repr__(self):
-        return self._repr_helper1(ord('Z')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + \
-               '.' + self._repr_helper2(ord('Z'))
+        return self._repr_helper1(ord('P')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) + \
+               '.' + self._repr_helper2(ord('P'))
 
     def __str__(self):
         return self.__repr__()
@@ -395,6 +481,7 @@ class FunctionComposition(Composition):
 
     @property
     def global_scope(self):
+        """Get the outer most function in this composition or self."""
         g = self
         while g.outer is not None:
             g = g.outer
@@ -402,51 +489,75 @@ class FunctionComposition(Composition):
 
     @property
     def outer(self):
+        """The outer function or None."""
         return None if self._outer is None else self._outer() # weak deref
 
     @property
     def isempty(self):
+        """Test if the composition is an empty DRS."""
         return self._drsref.isempty and (self._comp is None or self._comp.isempty)
 
     @property
     def freerefs(self):
+        """Get the free referents."""
         return self._get_freerefs([])
 
     @property
     def universe(self):
+        """Get the universe of the referents."""
         return self._get_universe([])
 
     @property
     def lambda_refs(self):
+        """Get the lambda function referents"""
         # Get unique referents, ordered by function scope
         return remove_dups(self._get_lambda_refs([]))
 
     @property
     def isarg_right(self):
+        """Test if the function takes a right argument."""
         if self._comp is not None and self._comp.isfunction:
             return self._comp.isarg_right
         return self._pos
 
     @property
     def isarg_left(self):
+        """Test if the function takes a left argument."""
         return not self.isarg_right
 
     @property
     def isfunction(self):
+        """Test if this class is a function composition. Always True for FunctionComposition innstances."""
         return True
 
     def set_options(self, options):
+        """Set the compose opions.
+
+        Args:
+            options: The compose options.
+        """
         # Pass down options to nested function
         super(FunctionComposition, self).set_options(options)
         if self._comp is not None:
             self._comp.set_options(options)
 
     def rename_vars(self, rs):
+        """Perform alpha conversion on the composition data.
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+        """
         self._drsref = self._drsref.alpha_convert(rs)
         if self._comp is not None:
             self._comp.rename_vars(rs)
 
     def apply_null_left(self):
+        """Apply a null left argument `$` to the function. This is necessary for processing
+        the imperative form of a verb.
+
+        Returns:
+            A Composition instance.
+        """
         # TODO: Check if we have a proper noun accessible to the right and left
         if self.isarg_right or self._comp is None or self._comp.isfunction:
             raise DrsComposeError('invalid apply null left to function')
@@ -457,6 +568,14 @@ class FunctionComposition(Composition):
         return d
 
     def apply(self, arg):
+        """Function application.
+
+        Arg:
+            The substitution argument.
+
+        Returns:
+            A Composition instance.
+        """
         if self._comp is not None and self._comp.isfunction:
             self._comp = self._comp.apply(arg)
             if self._comp.isfunction:
@@ -541,6 +660,7 @@ class FunctionComposition(Composition):
 
 
 class PropComposition(FunctionComposition):
+    """A proposition function."""
     def __init__(self, position, referent, composition=None):
         super(PropComposition, self).__init__(position, referent)
 
@@ -551,16 +671,27 @@ class PropComposition(FunctionComposition):
 
     @property
     def freerefs(self):
+        """Get the free referents. Always empty for a proposition."""
         return []
 
     @property
     def universe(self):
+        """Get the universe of the referents."""
         return self._drsref.universe
 
     def apply_null_left(self):
+        """It is an error to call this method for propositions"""
         raise DrsComposeError('cannot apply null left to a proposition function')
 
     def apply(self, arg):
+        """Function application.
+
+        Arg:
+            The substitution argument.
+
+        Returns:
+            A Composition instance.
+        """
         if not isinstance(arg, CompositionList):
             arg = CompositionList([arg])
         d = arg.apply()
@@ -572,7 +703,7 @@ class PropComposition(FunctionComposition):
             return d
         return DrsComposition(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
 
-
+## @cond
 __pron = [
     # 1st person singular
     ('i',       '([x],[([],[i(x)])->([],[me(x)])])'),
@@ -626,6 +757,7 @@ __adv = [
 _ADV = {}
 for k,u,v in __adv:
     _ADV[k] = (parse_drs(v, 'nltk'), parse_drs(u, 'nltk').universe)
+## endcond
 
 
 class CcgTypeMapper(object):
@@ -646,13 +778,19 @@ class CcgTypeMapper(object):
          λPλGλxλy.P(x);G(y) is OK
     -# DRS constructions rules can be separated into class:
        - Functions: Rules which take DRS base types (T,Z) as arguments. Functions can return a base type, another
-         function, or a combinator.
+         function, or a combinator. Functions are always constructed from outer types to inner types. For example:
+         the application order for (S\T)/T is: /T, \T, S
        - Combinators: Rules which take a function as the argument and return a function of the same type. Combinators
-         can take a variable number of referents, indicated by *. When applying combinators the resultant must
-         produce a function, or combinator, where the DRS merges are adjacent
-         - For λP.P(*);R[...] {P=λQ.Q(*);U[...] } is OK<br>
-         - For λP.P(*);R[...] {P=λQ.U[...];Q(*) } is an invalid combinator application because it produces a function
-           λQ.U[...];Q(*);R[...] and U and R are not adjacent.
+         are always constructed from inner types to outer types. For example: the application order of (S/T)/(S/T) is:
+         /T, S, /(S/T)
+       - When applying combinators the resultant must produce a function, or combinator, where the DRS merges are
+         adjacent. For example:
+         - (S/T)/(S/T) combinator:=λP.T[...];P(x) and (S/T) type:=λQ.R[...];Q(x)<br>
+           => λQ.T[...];R[...];Q(x) which is OK<br>
+         - (S/T)\(S/T) combinator:=λP.P(x);T[...] and (S/T) type:=λQ.R[...];Q(x)<br>
+           => λQ.R[...];Q(x);T[...] which is not OK<br>
+       - The CCG parse tree gives us the construction order so we don't need to differentiate between combinators and
+         functions during composition.
     -# Lambda application:
        - λPλx.P(x) {P(x=x)=G[x|...]} == G[x|...]
        - λPλx.P(x) {P(x=y)=G[y|...])} == G[y|...]
@@ -674,15 +812,18 @@ class CcgTypeMapper(object):
     """
     _AllTypes = {
         # DRS base types
+        # ==============
         'Z':            None,
         'T':            None,
         'conj':         None,
         # Simple DRS functions
+        # ====================
         r'Z/T':         [(PropComposition, ArgRight, DRSRef('p'))],
         r'T/Z':         [(FunctionComposition, ArgRight, DRSRef('p'))],
         r'T/T':         [(FunctionComposition, ArgRight, DRSRef('x'))],
         r'T\T':         [(FunctionComposition, ArgLeft, DRSRef('x'),)],
         # DRS Verb functions
+        # ==================
         r'S/T':         [(FunctionComposition, ArgRight, DRSRef('x'))],
         r'S\T':         [(FunctionComposition, ArgLeft, DRSRef('x'))],
         r'(S/T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('x'))],
@@ -692,9 +833,31 @@ class CcgTypeMapper(object):
         r'(S/T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('x'))],
         r'S\S':         [(FunctionComposition, ArgLeft, DRSRef('x'))],
         r'S/S':         [(FunctionComposition, ArgRight, DRSRef('x'))],
-        # Combinators
+        r'(((S\T)/Z)/T)/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('z')),
+                             (PropComposition, ArgRight, DRSRef('p')), (FunctionComposition, ArgLeft, DRSRef('x'))],
+        # Simple combinators
+        # ==================
+        # S\T:=λQλx.Q(x);U[...], combinator(S\T)\(S\T):=λPλx.P(x);T[...] => λQλx.Q(x);U[...];T[...]
         r'(S\T)\(S\T)': [(FunctionComposition, ArgLeft, DRSRef('x'))],
+        # S\T:=λQλx.Q(x);U[...], combinator(S\T)/(S\T):=λPλx.T[...];P(x) => λQλx.T[...];Q(x);U[...]
+        # combinator((S\T)/(S\T))/((S\T)/(S\T)):=λP'λx.T'[...];P'(x) => λQλx.T'[...];T[...];Q(x);U[...]
+        # combinator(((S\T)/(S\T))/((S\T)/(S\T)))/(((S\T)/(S\T))/((S\T)/(S\T))):=λP''λx.T''[...];P''(x)
+        # => λQλx.T''[...];T'[...];T[...];Q(x);U[...]
+        r'(((S\T)/(S\T))/((S\T)/(S\T)))/(((S\T)/(S\T))/((S\T)/(S\T)))': [(FunctionComposition, ArgRight, DRSRef('x'))],
+        # Functions returning combinators
+        # ===============================
+        # (((S\T)/(S\T))/(S\T))/T
+        # (*)/T:=λx.U[...];Q(x), S\T:=λQ'λx.Q'(x);U'[...]
+        # combinator(*)/(S\T):=λPλx.T[...];P(x) => λQ'λx.T[...];Q'(x);U'[...]
+        # combinator(S\T)/(S\T):=λP'λx.T'[...];P'(x) => λQ'λx.T'[...];T[...];Q'(x);U'[...]
 
+        r'(((S\T)/(S\T))/(S\T))/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft,
+                                                                                    DRSRef('x'))],
+        r'(((S\T)/(S\T))/Z)/T': [(FunctionComposition, ArgRight, DRSRef('y')), (PropComposition, ArgRight, DRSRef('p')),
+                                 (FunctionComposition, ArgLeft, DRSRef('x'))],
+        r'(((S\T)/S)/(S\T))/T': [(FunctionComposition, ArgRight, DRSRef('z')), (FunctionComposition, ArgLeft,
+                                                                                [DRSRef('y'), DRSRef('x')])],
+        #r'(((S\T)/Z)/Z)/(S\T)':
     }
     _EventPredicates = ['agent', 'theme', 'extra']
     _TypeChangerAll = re.compile(r'NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
@@ -715,72 +878,33 @@ class CcgTypeMapper(object):
         return '<' + self._word + ' ' + self.partofspeech + ' ' + self._ccgTypeName + '->' + self._drsTypeName + '>'
 
     @classmethod
-    def get_base_type(cls, pt):
-        """Get a base type and return the remainder of the rule to be process. Combinators are extracted.
+    def get_drs_typename(cls, ccgTypeName):
+        """Get the DRS type from a CCG type.
 
         Args:
-            pt: A parse tree of DRS type.
+            ccgTypeName: A CCG type.
 
         Returns:
-            A tuple of the base DRS type and the remainder of the parse tree.
+            A DRS type.
         """
-        if len(pt) == 3 and isinstance(pt[0], list) and isinstance(pt[2], list) and repr(pt[0]) == repr(pt[2]):
-            # Combinator with DRS T[...], * means any number of referents
-
-            # Determine the number of arguments
-
-            if pt[1] == '/':
-                # λP.T[...];P(*)
-                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('x'))]
-            else:
-                # λP.P(*);T[...]
-                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('x'))]
-        elif len(pt) == 3 and isinstance(pt[0], list) and len(pt[0]) == 3 and \
-                ((isinstance(pt[2], str) and repr(pt[0][0]) == repr(pt[0][2])) or \
-                         (repr(pt[0][0]) == repr(pt[0][2]) and repr(pt[2]) == repr(pt[0][2]))):
-            if pt[1] == '/':
-                if pt[0][1] == '/':
-                    cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                        (FunctionComposition, ArgRight, DRSRef('x'))]
-                else:
-                    cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                        (FunctionComposition, ArgRight, DRSRef('x'))]
-            elif pt[0][1] == '/':
-                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
-            else:
-                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
-        elif len(pt) == 3 and isinstance(pt[2], list) and len(pt[2]) == 3 and \
-                ((isinstance(pt[0], str) and repr(pt[2][0]) == repr(pt[2][2])) or \
-                         (repr(pt[0]) == repr(pt[2][0]) and repr(pt[2][0]) == repr(pt[2][2]))):
-            if pt[1] == '/':
-                if pt[2][1] == '/':
-                    cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                        (FunctionComposition, ArgRight, DRSRef('x'))]
-                else:
-                    cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                        (FunctionComposition, ArgRight, DRSRef('x'))]
-            elif pt[2][1] == '/':
-                cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
-            else:
-                cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                    (FunctionComposition, ArgLeft, DRSRef('x'))]
-        elif d in result:
-            result[d].append(c)
-        else:
-            result[d] = [c]
-
-
-    @classmethod
-    def get_drs_typename(cls, ccgTypeName):
         return cls._TypeChangerAll.sub('Z', cls._TypeChangerNoPP.sub('T', cls._TypeSimplyS.sub('S', ccgTypeName)))
 
     @classmethod
-    def convert_model_categories(cls, lines):
+    def convert_model_categories(cls, ccg_categories):
+        """Convert the list of CCG categories to DRS categories.
+
+        Args:
+            ccg_categories: The list of CCG categories. This can be obtained by reading the model
+                categories at ext/easysrl/model/text/categories.
+
+        Returns:
+            A list of DRS categories.
+
+        Remarks:
+            Categories starting with # and empty categories are silently ignored.
+        """
         results = set()
-        for ln in lines:
+        for ln in ccg_categories:
             c = ln.strip()
             if len(c) == 0 or c[0] == '#':
                 continue
@@ -801,7 +925,7 @@ class CcgTypeMapper(object):
             filename: The categories file from the model folder.
 
         Returns:
-            A list of DRS categories that could not be added to_AllTypes dictionary or None.
+            A list of DRS categories that could not be added to the types dictionary or None.
         """
         result = {}
         with open(filename, 'r') as fd:
@@ -867,42 +991,56 @@ class CcgTypeMapper(object):
 
     @property
     def ispronoun(self):
+        """Test if the word attached to this category is a pronoun."""
         return (self._pos is not None and self._pos and self._pos[0] in ['PRP', 'PRP$', 'WP', 'WP$']) or \
                     _PRON.has_key(self._word)
     @property
     def ispreposition(self):
+        """Test if the word attached to this category is a preposition."""
         return self.partofspeech == 'IN'
 
     @property
     def isadverb(self):
+        """Test if the word attached to this category is an adverb."""
         return self.partofspeech in ['RB', 'RBR', 'RBS']
 
     @property
     def isverb(self):
+        """Test if the word attached to this category is a verb."""
         # FIXME: use dictionary to get type
         return self.partofspeech in ['VB', 'VBD', 'VBN', 'VBP', 'VBZ']
 
     @property
     def isconj(self):
+        """Test if the word attached to this category is a conjoin."""
         return self._ccgTypeName == 'conj'
 
     @property
     def isgerund(self):
+        """Test if the word attached to this category is a gerund."""
         return self.partofspeech == 'VBG'
 
     @property
     def isproper_noun(self):
+        """Test if the word attached to this category is a proper noun."""
         return self.partofspeech == 'NNP'
 
     @property
     def partofspeech(self):
+        """Get part of speech of the word attached to this category."""
         return self._pos[0] if self._pos is not None else 'UNKNOWN'
 
     @property
     def ccgtype(self):
+        """Get the CCG category type."""
         return self._ccgTypeName
 
     def get_composer(self):
+        """Get the composition model for this category.
+
+        Returns:
+            A Composition instance.
+        """
         compose = self._AllTypes[self._drsTypeName]
         if compose is None:
             # Simple type
@@ -970,14 +1108,18 @@ def build_composer(ccgTypespec, word):
     return ccgt.get_composer()
 
 
-def process_easysrl_node(pt, cl):
-    """Recursively process the parse tree"""
+def _process_ccg_node(pt, cl):
+    """Internal helper for recursively processing the CCG parse tree.
+
+    See Also:
+        process_ccg_pt
+    """
     if pt[-1] == 'T':
         cl2 = CompositionList()
         cl2.set_options(cl.compose_options)
         for nd in pt[1:-1]:
             # FIXME: prefer tail end recurrsion
-            process_easysrl_node(nd, cl2)
+            _process_ccg_node(nd, cl2)
         cl.push_right(cl2.apply())
         return
 
@@ -987,14 +1129,22 @@ def process_easysrl_node(pt, cl):
     cl.push_right(ccgt.get_composer())
 
 
-def process_easysrl(pt, options=None):
-    """Process the EasySRL parse tree"""
+def process_ccg_pt(pt, options=None):
+    """Process the CCG parse tree.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg.
+        options: None or CO_REMOVE_UNARY_PROPS to simplify propositions.
+
+    Returns:
+        A DrsComposition instance.
+    """
     if pt is None or len(pt) == 0:
         return None
     cl = CompositionList()
     if options is not None:
         cl.set_options(options)
-    process_easysrl_node(pt, cl)
+    _process_ccg_node(pt, cl)
     d = cl.apply()
     # Handle verbs with null left arg
     if d.isfunction and d.isarg_left:

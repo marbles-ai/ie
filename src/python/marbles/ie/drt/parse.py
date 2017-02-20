@@ -505,8 +505,21 @@ EsrlTTypeDecl.grammar = EsrlTTypeExpr, some(EsrlDecl)
 ## @endcond
 
 
-def parse_easysrl(s):
-    """Parse EasySRL's ccgout data"""
+def parse_ccg_derivation(s):
+    """Parse the CCG syntactic derivation for a sentence.
+
+    The syntactic derivation is the same format as used by LDC 200T13. See
+    files data/ldc/2005T13/ccgbank_1_1/data/AUTO. EasySRL outputs this format
+    when running as a gRPC daemon, or from the command line using the --ccgbank
+    option.
+
+    Args:
+        s: The CCG syntactic derivation.
+
+    Returns:
+        A parse tree for the syntactic derivation. This should be passed to
+        marbles.ie.drt.ccg2drs.process_ccg_pt to convert to a DRS.
+    """
     p = Parser()
     if isinstance(s, str):
         s = s.decode('utf-8')
@@ -516,6 +529,7 @@ def parse_easysrl(s):
 ###########################################################################
 # CCG/DRS Category Parser
 
+## @cond
 # Include DRS categories T,Z
 CcgBaseType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB|Z|T|[,\.:;]')
 
@@ -579,8 +593,20 @@ class CCGCategory(List):
         return self[0].to_list()
 
 
+## @endcond
+
 def parse_ccgtype(s):
-    """Parse a CCG category"""
+    """Parse a CCG category type.
+
+    Args:
+        s: A ccg type string, for example `'(S[dcl]/NP)/NP'`
+
+    Returns:
+        A parse tree.
+
+    Remarks:
+        Used by marbles.ie.drt.ccg2drs.CcgTypeMapper.
+    """
     p = Parser()
     if isinstance(s, str):
         s = s.decode('utf-8')
