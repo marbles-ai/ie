@@ -18,7 +18,7 @@ def die(s):
 
 
 if __name__ == '__main__':
-    usage = 'Converts CCG types to DRS types\nUsage: %prog [options] model-category-file(s)\n'
+    usage = 'Converts CCG types to DRS types\nUsage: %prog [options] model-category-file(s)'
     parser = OptionParser(usage)
     parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name, default is stdout')
 
