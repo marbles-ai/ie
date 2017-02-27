@@ -411,16 +411,15 @@ def parse_drs(s, grammar=None):
 #   )
 # )
 
-CcgBasicType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB|[,\.:;]')
+CcgBasicType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[,.:;]')
 CcgArgSep = re.compile(r'/|\\')
 
-LType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)*)\s[^>]*\1')
-TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)*)')
+TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+)*)')
 
-LPosType = re.compile(r'[A-Z\$]+(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
-LWord    = re.compile(r'[^>\s]+(?=\s)')
-CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)+(?=\s)')
-CcgComplexTypeEnd   = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|PP|conj|PR|RQU|RRB|LQU|LRB)+(?=[>])')
+LPosType = re.compile(r'([A-Z\$]+|[.,:;])(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
+LWord = re.compile(r'[^>\s]+(?=\s)')
+CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[.,:;])+(?=\s)')
+CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[.,:;]|_\d+)+(?=[>])')
 
 
 class EsrlCcgTypeBegin(List):
@@ -447,7 +446,7 @@ class EsrlLTypeExpr(List):
         return r
 
 
-class EsrlLTypeDecl2(List):
+class EsrlLTypeDecl(List):
     grammar = '<', 'L', EsrlCcgTypeBegin, EsrlLTypeExpr, EsrlCcgTypeEnd, '>'
 
     def to_list(self):
@@ -456,13 +455,6 @@ class EsrlLTypeDecl2(List):
             r.extend(x.to_list())
         #r.extend([x.to_list() for x in self[1:-1]])
         return r
-
-
-class EsrlLTypeDecl(List):
-    grammar = '<', 'L', LType, '>'
-
-    def to_list(self):
-        return self[0]
 
 
 class EsrlTTypeExpr(List):
@@ -481,7 +473,7 @@ class EsrlTTypeDecl(List):
 
 
 class EsrlChoice(List):
-    grammar = [EsrlTTypeDecl, EsrlLTypeDecl2]
+    grammar = [EsrlTTypeDecl, EsrlLTypeDecl]
 
     def to_list(self):
         if isinstance(self[0], EsrlTTypeDecl):
