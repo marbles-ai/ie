@@ -98,10 +98,15 @@ WARN_LOGFILE           =
 # configuration options related to the input files
 #---------------------------------------------------------------------------
 INPUT                  = ie-help.py \ 
-                         ../../src/python/marbles/ie/pdrt/common.py \
-						 ../../src/python/marbles/ie/pdrt/drs.py \
-						 ../../src/python/marbles/ie/pdrt/pdrs.py \
-						 ../../src/python/marbles/ie/pdrt/parse.py \
+                         ../../src/python/marbles/ie/drt/common.py \
+						 ../../src/python/marbles/ie/drt/drs.py \
+						 ../../src/python/marbles/ie/drt/pdrs.py \
+						 ../../src/python/marbles/ie/drt/ccg2drs.py \
+						 ../../src/python/marbles/ie/drt/parse.py \
+						 ../../src/python/marbles/ie/drt/fol.py \
+						 ../../src/main/java/ai/marbles/grpc/ \
+						 ../../build/grpc/python/ \
+						 ../../build/generated/source/proto/main/grpc/ai/marbles/grpc/ \
 						 ../../ext/easysrl/src/edu/uw/easysrl/corpora/ \
 						 ../../ext/easysrl/src/edu/uw/easysrl/dependencies/ \
 						 ../../ext/easysrl/src/edu/uw/easysrl/lemmatizer/ \

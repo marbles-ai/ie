@@ -114,18 +114,18 @@ class AbstractDRS(Showable):
         """Returns the list of all bound DRSRef's in this DRS.
 
         Remarks:
-            Same as get_variables(None)
+            Same as sorted(get_variables(None))
         """
-        return self.get_variables(None)
+        return sorted(self.get_variables(None))
 
     @property
     def constants(self):
         """Returns the list of all constant DRSRef's in this DRS.
 
         Remarks:
-            Same as get_constants(None)
+            Same as sorted(get_constants(None))
         """
-        return self.get_constants(None)
+        return sorted(self.get_constants(None))
 
     @property
     def universes(self):
@@ -202,6 +202,10 @@ class AbstractDRS(Showable):
     def isfol(self):
         """Test whether this DRS can be translated into a FOLForm instance."""
         return self.isresolved and self.ispure and self.isproper
+
+    def simplify_props(self):
+        """Simplify propositions"""
+        return self
 
     def find_subdrs(self, d):
         """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
@@ -677,6 +681,15 @@ class DRS(AbstractDRS):
         """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
         return all([x.isresolved for x in self._refs]) and all([x.isresolved for x in self._conds])
 
+    def simplify_props(self):
+        """Simplify propositions"""
+        if not self.ispure:
+            return self
+        conds = []
+        for c in self._conds:
+            conds.extend(c.simplify_props())
+        return DRS(self.universe, conds)
+
     def clone(self):
         return DRS(self._refs, [c.clone() for c in self._conds])
 
@@ -809,7 +822,7 @@ class DRS(AbstractDRS):
         # In case we do not want to rename ambiguous bindings:
         # purifyRefs (ld@(DRS u _),ers) gd = (DRS u1 c2,u1 ++ ers1)
         ors = intersect(self._refs, ers)
-        d = self.alpha_convert(zip(ors, get_new_drsrefs(ors, union_inplace(gd.get_variables(),ers))))
+        d = self.alpha_convert(zip(ors, get_new_drsrefs(ors, union_inplace(gd.variables,ers))))
         r = union(d.universe, ers)
         conds = []
         for c in d._conds:
@@ -982,6 +995,10 @@ class Merge(AbstractDRS):
     def referents(self):
         """Returns the universe of a DRS. Alias for universe property."""
         return union(self._drsA.referents, self._drsB.referents)
+
+    def simplify_props(self):
+        """Simplify propositions"""
+        Merge(self._drsA.referents.simplify_props(), self._drsB.referents.simplify_props())
 
     def clone(self):
         return Merge(self._drsA.clone(), self._drsB.clone())
@@ -1164,8 +1181,8 @@ def merge(d1, d2):
         # orig haskell code Merge.hs and Variable.hs
         p1 = d1.resolve_merges().purify()
         p2 = d2.resolve_merges().purify()
-        ors = intersect(p2.get_variables(), p1.get_variables())
-        nrs = get_new_drsrefs(ors, union(p2.get_variables(), p1.get_variables()))
+        ors = sorted(p2.get_variables().intersection(p1.variables))
+        nrs = get_new_drsrefs(ors, sorted(p2.get_variables().union(p1.get_variables())))
         da = p2.alpha_convert(zip(ors,nrs))
         return DRS(union(p1.universe, da.universe), union(p1.conditions, da.conditions))
 
@@ -1492,6 +1509,14 @@ class AbstractDRSCond(Showable):
         """Helper for DRS function of same name."""
         return False
 
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The referents that were removed.
+        """
+        raise NotImplementedError
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
         """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
@@ -1604,6 +1629,14 @@ class Rel(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return all([x.isresolved for x in self._refs])
 
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The referents that were removed.
+        """
+        return [self]
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
@@ -1715,6 +1748,14 @@ class Neg(AbstractDRSCond):
     @property
     def drs(self):
         return self._drs
+
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The new condition.
+        """
+        return [type(self)(self._drs.simplify_props())]
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
@@ -1847,6 +1888,14 @@ class Imp(AbstractDRSCond):
     def consequent(self):
         """Get the consequent DRS"""
         return self._drsB
+
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The new condition.
+        """
+        return [type(self)(self._drsA.simplify_props(), self._drsB.simplify_props())]
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
@@ -1996,6 +2045,14 @@ class Or(AbstractDRSCond):
         """Get the right DRS operand"""
         return self._drsB
 
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The new condition.
+        """
+        return [type(self)(self._drsA.simplify_props(), self._drsB.simplify_props())]
+
     def clone(self):
         return Or(self._drsA.clone(), self._drsB.clone())
 
@@ -2131,6 +2188,20 @@ class Prop(AbstractDRSCond):
         """Get the DRS hypothesis in this proposition"""
         return self._drs
 
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The simplified conditions.
+        """
+        d = self._drs.simplify_props()
+        if len(d.referents) == 1:
+            rs = [(d.referents[0], self._ref)]
+            d = d.alpha_convert(rs)
+            return d.conditions
+        else:
+            return [type(self)(self._ref, d)]
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
@@ -2248,6 +2319,14 @@ class Diamond(AbstractDRSCond):
     def drs(self):
         return self._drs
 
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The new condition.
+        """
+        return type(self)(self._ref, self._drs.simplify_props())
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
@@ -2364,6 +2443,14 @@ class Box(AbstractDRSCond):
     @property
     def drs(self):
         return self._drs
+
+    def simplify_props(self):
+        """Simply propositions.
+
+        Returns:
+            The simplfied condition.
+        """
+        return type(self)(self._ref, self._drs.simplify_props())
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
