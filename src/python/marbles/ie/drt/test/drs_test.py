@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import os
 from ..drs import *
 from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..ccg2drs import process_ccg_pt, CO_REMOVE_UNARY_PROPS
-from pysmt.shortcuts import Solver
+from ..ccg2drs import process_ccg_pt, CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
+#from pysmt.shortcuts import Solver
 
 
 # Like NLTK's dexpr()
@@ -329,11 +330,199 @@ class DrsTest(unittest.TestCase):
         cl.push_right(dexpr('([x],[corner(x)])'))
 
         d = cl.apply()
-        s = d.drs.show(SHOW_SET)
+        d = d.drs.simplify_props()
+        s = d.show(SHOW_SET)
         x = u'<{x,y},{exists(x),school(x),bus(x),wheeze(x,y),y: <{x1,y1},{me(x1),own(x1,y1),corner(y1)}>}>'
         self.assertEquals(x, s)
 
-    def test12_ParseEasySrl(self):
+    def test12_Wsj0002_1(self):
+        # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
+        # Rudolph Agnew, 55 years old and former chairman of Consolidated Gold Fields PLC, was named a nonexecutive
+        # director of this British industrial conglomerate.
+        # (<T S[dcl] 0 2>
+        #   (<T S[dcl] 1 2>
+        #       (<T NP 0 2>
+        #           (<T NP 0 2>
+        #               (<T NP 0 2>
+        #                   (<T NP 0 1>
+        #                       (<T N 1 2>
+        #                           (<L N/N NNP NNP Rudolph N_72/N_72>)
+        #                           (<L N NNP NNP Agnew N>)
+        #                       )
+        #                   )
+        #                   (<L , , , , ,>)
+        #               )
+        #               (<T NP\NP 0 1>
+        #                   (<T S[adj]\NP 0 2>
+        #                       (<T S[adj]\NP 1 2>
+        #                           (<T NP 0 1>
+        #                               (<T N 1 2>
+        #                                   (<L N/N CD CD 55 N_92/N_92>)
+        #                                   (<L N NNS NNS years N>)
+        #                               )
+        #                           )
+        #                           (<L (S[adj]\NP)\NP JJ JJ old (S[adj]\NP_82)\NP_83>)
+        #                       )
+        #                       (<T S[adj]\NP[conj] 1 2>
+        #                           (<L conj CC CC and conj>)
+        #                           (<T NP 0 2>
+        #                               (<T NP 0 1>
+        #                                   (<T N 1 2>
+        #                                       (<L N/N JJ JJ former N_102/N_102>)
+        #                                       (<L N NN NN chairman N>)
+        #                                   )
+        #                               )
+        #                               (<T NP\NP 0 2>
+        #                                   (<L (NP\NP)/NP IN IN of (NP_111\NP_111)/NP_112>)
+        #                                   (<T NP 0 1>
+        #                                       (<T N 1 2>
+        #                                           (<L N/N NNP NNP Consolidated N_135/N_135>)
+        #                                           (<T N 1 2>
+        #                                               (<L N/N NNP NNP Gold N_128/N_128>)
+        #                                               (<T N 1 2>
+        #                                                   (<L N/N NNP NNP Fields N_121/N_121>)
+        #                                                   (<L N NNP NNP PLC N>)
+        #                                               )
+        #                                           )
+        #                                       )
+        #                                   )
+        #                               )
+        #                           )
+        #                       )
+        #                   )
+        #               )
+        #           )
+        #           (<L , , , , ,>)
+        #       )
+        #       (<T S[dcl]\NP 0 2>
+        #           (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP_10)/(S[pss]_11\NP_10:B)_11>)
+        #           (<T S[pss]\NP 0 2>
+        #               (<L (S[pss]\NP)/NP VBN VBN named (S[pss]\NP_18)/NP_19>)
+        #                   (<T NP 0 2> (<T NP 1 2>
+        #                       (<L NP[nb]/N DT DT a NP[nb]_33/N_33>)
+        #                       (<T N 1 2>
+        #                           (<L N/N JJ JJ nonexecutive N_28/N_28>)
+        #                           (<L N NN NN director N>)
+        #                       )
+        #                   )
+        #                   (<T NP\NP 0 2>
+        #                       (<L (NP\NP)/NP IN IN of (NP_41\NP_41)/NP_42>)
+        #                       (<T NP 1 2>
+        #                           (<L NP[nb]/N DT DT this NP[nb]_63/N_63>)
+        #                           (<T N 1 2>
+        #                               (<L N/N JJ JJ British N_58/N_58>)
+        #                               (<T N 1 2>
+        #                                   (<L N/N JJ JJ industrial N_51/N_51>)
+        #                                   (<L N NN NN conglomerate N>)
+        #                               )
+        #                           )
+        #                       )
+        #                   )
+        #               )
+        #           )
+        #       )
+        #   )
+        #   (<L . . . . .>)
+        # )
+        txt = '''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 0 2> (<T NP 0 1> (<T N 1 2>
+            (<L N/N NNP NNP Rudolph N_72/N_72>) (<L N NNP NNP Agnew N>) ) ) (<L , , , , ,>) ) (<T NP\NP 0 1>
+            (<T S[adj]\NP 0 2> (<T S[adj]\NP 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N CD CD 55 N_92/N_92>)
+            (<L N NNS NNS years N>) ) ) (<L (S[adj]\NP)\NP JJ JJ old (S[adj]\NP_82)\NP_83>) ) (<T S[adj]\NP[conj] 1 2>
+            (<L conj CC CC and conj>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ former N_102/N_102>)
+            (<L N NN NN chairman N>) ) ) (<T NP\NP 0 2> (<L (NP\NP)/NP IN IN of (NP_111\NP_111)/NP_112>) (<T NP 0 1>
+            (<T N 1 2> (<L N/N NNP NNP Consolidated N_135/N_135>) (<T N 1 2> (<L N/N NNP NNP Gold N_128/N_128>)
+            (<T N 1 2> (<L N/N NNP NNP Fields N_121/N_121>) (<L N NNP NNP PLC N>) ) ) ) ) ) ) ) ) ) ) (<L , , , , ,>) )
+            (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP_10)/(S[pss]_11\NP_10:B)_11>)
+            (<T S[pss]\NP 0 2> (<L (S[pss]\NP)/NP VBN VBN named (S[pss]\NP_18)/NP_19>) (<T NP 0 2> (<T NP 1 2>
+            (<L NP[nb]/N DT DT a NP[nb]_33/N_33>) (<T N 1 2> (<L N/N JJ JJ nonexecutive N_28/N_28>)
+            (<L N NN NN director N>) ) ) (<T NP\NP 0 2> (<L (NP\NP)/NP IN IN of (NP_41\NP_41)/NP_42>) (<T NP 1 2>
+            (<L NP[nb]/N DT DT this NP[nb]_63/N_63>) (<T N 1 2> (<L N/N JJ JJ British N_58/N_58>) (<T N 1 2>
+            (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
+        d = process_ccg_pt(pt)
+        self.assertIsNotNone(d)
+
+    def test12_Wsj0001_1(self):
+        # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
+        # Pierre Vinken, 61 years old, will join the board as a nonexecutive director Nov 29.
+        # (<T S[dcl] 0 2>
+        #   (<T S[dcl] 1 2>
+        #       (<T NP 0 2>
+        #           (<T NP 0 2>
+        #               (<T NP 0 2>
+        #                   (<T NP 0 1>
+        #                       (<T N 1 2>
+        #                           (<L N/N NNP NNP Pierre N_73/N_73>)
+        #                           (<L N NNP NNP Vinken N>)
+        #                       )
+        #                   )
+        #                   (<L , , , , ,>)
+        #               )
+        #               (<T NP\NP 0 1>
+        #                   (<T S[adj]\NP 1 2>
+        #                       (<T NP 0 1>
+        #                           (<T N 1 2>
+        #                               (<L N/N CD CD 61 N_93/N_93>)
+        #                               (<L N NNS NNS years N>)
+        #                           )
+        #                       )
+        #                       (<L (S[adj]\NP)\NP JJ JJ old (S[adj]\NP_83)\NP_84>)
+        #                   )
+        #               )
+        #           )
+        #           (<L , , , , ,>)
+        #       )
+        #       (<T S[dcl]\NP 0 2>
+        #           (<L (S[dcl]\NP)/(S[b]\NP) MD MD will (S[dcl]\NP_10)/(S[b]_11\NP_10:B)_11>)
+        #           (<T S[b]\NP 0 2>
+        #               (<T S[b]\NP 0 2>
+        #                   (<T (S[b]\NP)/PP 0 2>
+        #                       (<L ((S[b]\NP)/PP)/NP VB VB join ((S[b]\NP_20)/PP_21)/NP_22>)
+        #                       (<T NP 1 2>
+        #                           (<L NP[nb]/N DT DT the NP[nb]_29/N_29>)
+        #                           (<L N NN NN board N>)
+        #                       )
+        #                   )
+        #                   (<T PP 0 2>
+        #                       (<L PP/NP IN IN as PP/NP_34>)
+        #                       (<T NP 1 2>
+        #                           (<L NP[nb]/N DT DT a NP[nb]_48/N_48>)
+        #                           (<T N 1 2>
+        #                               (<L N/N JJ JJ nonexecutive N_43/N_43>)
+        #                               (<L N NN NN director N>)
+        #                           )
+        #                       )
+        #                   )
+        #               )
+        #               (<T (S\NP)\(S\NP) 0 2>
+        #                   (<L ((S\NP)\(S\NP))/N[num] NNP NNP Nov. ((S_61\NP_56)_61\(S_61\NP_56)_61)/N[num]_62>)
+        #                   (<L N[num] CD CD 29 N[num]>)
+        #               )
+        #           )
+        #       )
+        #   )
+        #   (<L . . . . .>)
+        # )
+        txt = '''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 0 2> (<T NP 0 1> (<T N 1 2>
+            (<L N/N NNP NNP Pierre N_73/N_73>) (<L N NNP NNP Vinken N>) ) ) (<L , , , , ,>) ) (<T NP\NP 0 1>
+            (<T S[adj]\NP 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N CD CD 61 N_93/N_93>) (<L N NNS NNS years N>) ) )
+            (<L (S[adj]\NP)\NP JJ JJ old (S[adj]\NP_83)\NP_84>) ) ) ) (<L , , , , ,>) ) (<T S[dcl]\NP 0 2>
+            (<L (S[dcl]\NP)/(S[b]\NP) MD MD will (S[dcl]\NP_10)/(S[b]_11\NP_10:B)_11>) (<T S[b]\NP 0 2>
+            (<T S[b]\NP 0 2> (<T (S[b]\NP)/PP 0 2> (<L ((S[b]\NP)/PP)/NP VB VB join ((S[b]\NP_20)/PP_21)/NP_22>)
+            (<T NP 1 2> (<L NP[nb]/N DT DT the NP[nb]_29/N_29>) (<L N NN NN board N>) ) ) (<T PP 0 2>
+            (<L PP/NP IN IN as PP/NP_34>) (<T NP 1 2> (<L NP[nb]/N DT DT a NP[nb]_48/N_48>) (<T N 1 2>
+            (<L N/N JJ JJ nonexecutive N_43/N_43>) (<L N NN NN director N>) ) ) ) ) (<T (S\NP)\(S\NP) 0 2>
+            (<L ((S\NP)\(S\NP))/N[num] NNP NNP Nov. ((S_61\NP_56)_61\(S_61\NP_56)_61)/N[num]_62>)
+            (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
+        #d = process_ccg_pt(pt)
+        self.assertIsNotNone(d)
+
+    def test13_ParseEasySrl(self):
         # Welcome to MerryWeather High
         txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
@@ -343,6 +532,20 @@ class DrsTest(unittest.TestCase):
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| merryweather-high(x1)]]'
+        self.assertEquals(x, s)
+
+        # The door opens and I step up.
+        txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
+            (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
+            (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
+            (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt)
+        self.assertIsNotNone(d)
+        d = d.drs.simplify_props()
+        s = d.show(SHOW_LINEAR)
+        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),step(e),event.agent(e,x),up(e),direction(e)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -358,41 +561,34 @@ class DrsTest(unittest.TestCase):
         x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
         self.assertEquals(x, s)
 
-        # The door opens and I step up.
-        txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
-            (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
-            (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
-            (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt)
-        self.assertIsNotNone(d)
-        s = d.drs.show(SHOW_LINEAR)
-        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),step(e),event.agent(e,x),up(e),direction(e)]'
-        self.assertEquals(x, s)
+    def test14_LCDWSJ_0001_1(self):
+        pass
 
-    # TODO: renable this part of test when proper noun FIXME is resolved
-    def __test13_ParseEasySrl(self):
-        # Welcome to MerryWeather High
-        txt = '''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
-            (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        d = process_ccg_pt(pt, CO_REMOVE_UNARY_PROPS)
-        self.assertIsNotNone(d)
-        s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),merryweather-high(y)]'
-        self.assertEquals(x, s)
+    def test100_ParseLdc2005T13(self):
+        allfiles = []
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO')
+        dirlist1 = os.listdir(ldcpath)
+        for dir1 in dirlist1:
+            ldcpath1 = os.path.join(ldcpath, dir1)
+            if os.path.isdir(ldcpath1):
+                dirlist2 = os.listdir(ldcpath1)
+                for dir2 in dirlist2:
+                    ldcpath2 = os.path.join(ldcpath1, dir2)
+                    if os.path.isfile(ldcpath2):
+                        allfiles.append(ldcpath2)
 
-        # The school bus wheezes to my corner.
-        txt = '''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>)
-            (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
-            (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
-            (<L N NN NN corner. N>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_REMOVE_UNARY_PROPS)
-        self.assertIsNotNone(d)
-        s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),my(y),corner(y)]]'
-        self.assertEquals(x, s)
+        for fn in allfiles:
+            with open(fn, 'r') as fd:
+                lines = fd.readlines()
+            for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
+                print(hdr.strip())
+                pt = parse_ccg_derivation(ccgbank)
+                self.assertIsNotNone(pt)
+                d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
+                #d = process_ccg_pt(pt)
+                self.assertIsNotNone(d)
+                s = d.drs.show(SHOW_LINEAR)
+
 
