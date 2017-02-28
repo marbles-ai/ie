@@ -6,8 +6,9 @@ from ..drs import *
 from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
-from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..ccg2drs import process_ccg_pt, CcgTypeMapper, CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
+from ..compose import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
+from ..compose import CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
+from ..ccg2drs import process_ccg_pt, CcgTypeMapper
 #from pysmt.shortcuts import Solver
 
 
@@ -518,8 +519,8 @@ class DrsTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
-        #d = process_ccg_pt(pt)
+        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
+        d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
 
     def test13_ParseEasySrl(self):
@@ -561,14 +562,14 @@ class DrsTest(unittest.TestCase):
         x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
         self.assertEquals(x, s)
 
-    def test14_ModelCategories(self):
+    def __test14_ModelCategories(self):
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
         modelpath = os.path.join(projdir, 'ext', 'easysrl', 'model', 'text', 'categories')
         missing = CcgTypeMapper.add_model_categories(modelpath)
         self.assertIsNone(missing)
 
-    def test100_ParseLdc2005T13(self):
+    def __test100_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
