@@ -1559,9 +1559,17 @@ class AbstractDRSCond(Showable):
 
 
 class Rel(AbstractDRSCond):
-    """A relation defined on a set of referents"""
+    """A relation defined on a set of referents."""
     def __init__(self, drsRel, drsRefs):
-        if not iterable_type_check(drsRefs, AbstractDRSRef):
+        """Constructor.
+
+        Args:
+            drsRel: A DRSRelation instance or string. The string will be converted to a DRSRelation.
+            drsRefs: Either a list of DRSRefs or a DRSRef.
+        """
+        if isinstance(drsRefs, AbstractDRSRef):
+            drsRefs = [drsRefs]
+        elif not iterable_type_check(drsRefs, AbstractDRSRef):
             raise TypeError
         if isinstance(drsRel, str):
             drsRel = DRSRelation(drsRel)
