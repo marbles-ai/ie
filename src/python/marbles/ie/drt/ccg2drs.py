@@ -292,6 +292,12 @@ class CompositionList(Composition):
                 return True
         return False
 
+    def clone(self):
+        cl = CompositionList([x for x in self._compList])
+        cl.set_options(self.compose_options)
+        cl.set_lambda_refs(self.lambda_refs)
+        return cl
+
     def flatten(self):
         """Merge subordinate CompositionList's into the current list."""
         compList = []
@@ -712,16 +718,27 @@ class FunctionComposition(Composition):
             p = PropComposition(ArgRight, slr[0])
             arg = p.apply(arg)
             alr = arg.lambda_refs
-        rs = zip(alr, slr)
-        # Make sure names don't conflict with global scope
-        ors = intersect(alr[len(rs):], complement(self.global_scope.lambda_refs, slr))
-        if len(ors) != 0:
-            xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
-            arg.rename_vars(xrs)
-        arg.rename_vars(rs)
+
+        if self.iscombinator:
+            rs = zip(slr, alr)
+            # Make sure names don't conflict with global scope
+            ors = intersect(alr[len(rs):], complement(self.global_scope.lambda_refs, slr))
+            if len(ors) != 0:
+                xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
+                self.rename_vars(xrs)
+            self.rename_vars(rs)
+        else:
+            rs = zip(alr, slr)
+            # Make sure names don't conflict with global scope
+            ors = intersect(alr[len(rs):], complement(self.global_scope.lambda_refs, slr))
+            if len(ors) != 0:
+                xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
+                arg.rename_vars(xrs)
+            arg.rename_vars(rs)
 
         rn = intersect(arg.universe, self.universe)
         if len(rn) != 0:
+            # FIXME: should we allow this or hide behind propositions
             # Alpha convert bound vars in both self and arg
             xrs = zip(rn, get_new_drsrefs(rn, union(arg.lambda_refs, slr)))
             arg.rename_vars(xrs)
@@ -769,7 +786,7 @@ class FunctionComposition(Composition):
             raise DrsComposeError('Invalid function placement during function application')
 
         # Remove resolved referents from lambda refs list
-        lr = complement(self.global_scope.lambda_refs, self.local_lambda_refs)
+        lr = complement(self.lambda_refs, self.local_lambda_refs)
         if self._comp is None:
             arg.set_options(self.compose_options)
             self.clear()
@@ -901,6 +918,10 @@ __pron = [
     ('themselves','([x],[([],[themselves(x)])->([],[them(x)])])'),
     ('theirs',  '([x],[([],[theirs(x)])->([y],[them(y),owns(y,x)])])'),
     ('their',   '([],[([],[their(x)])->([y],[them(y),owns(y,x)])])'),
+    # it
+    ('it',      '([x],[it(x)])'),
+    ('its',     '([x],[([],[its(x)])->([y],[it(y),owns(y,x)])])'),
+    ('itself',  '([x],[([],[itself(x)])->([],[it(x)])])'),
 ]
 _PRON = {}
 for k,v in __pron:
@@ -983,29 +1004,43 @@ class CcgTypeMapper(object):
         r'T/T':         [(FunctionComposition, ArgRight, DRSRef('x')), None],
         r'T\T':         [(FunctionComposition, ArgLeft, DRSRef('x')), None],
         r'(T\T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), None],
+        r'(T/T)/T':     [(FunctionComposition, ArgRight, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), None],
+        r'(T/T)\T':     [(FunctionComposition, ArgLeft, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), None],
+        r'(T\T)\T':     [(FunctionComposition, ArgLeft, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), None],
+        r'(T\T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), None],
+        r'(T/T)/Z':     [(FunctionComposition, ArgRight, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), None],
         # DRS Verb functions
         # ==================
         r'S/T':         [(FunctionComposition, ArgRight, DRSRef('x')), DRSRef('e')],
         r'S\T':         [(FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/T':     [(FunctionComposition, ArgRight, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
-        r'(S/T)\T':     [(FunctionComposition, ArgLeft, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
-        r'(S\T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
-        r'(S\T)\T':     [(FunctionComposition, ArgLeft, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
-        r'(S\T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/Z':     [(FunctionComposition, ArgRight, DRSRef('x')), (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
+        r'(S/T)/T':     [(FunctionComposition, ArgRight, DRSRef('x')),
+                         (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
+        r'(S/T)\T':     [(FunctionComposition, ArgLeft, DRSRef('x')),
+                         (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
+        r'(S\T)/T':     [(FunctionComposition, ArgRight, DRSRef('y')),
+                         (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
+        r'(S\T)\T':     [(FunctionComposition, ArgLeft, DRSRef('y')),
+                         (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
+        r'(S\T)/Z':     [(FunctionComposition, ArgRight, DRSRef('y')),
+                         (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
+        r'(S/T)/Z':     [(FunctionComposition, ArgRight, DRSRef('x')),
+                         (FunctionComposition, ArgRight, DRSRef('y')), DRSRef('e')],
         r'S\S':         [(FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
         r'S/S':         [(FunctionComposition, ArgRight, DRSRef('x'))],
-        r'(((S\T)/Z)/T)/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('z')),
-                             (FunctionComposition, ArgRight, DRSRef('p')), (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
+        r'(((S\T)/Z)/T)/T': [(FunctionComposition, ArgRight, DRSRef('y')),
+                             (FunctionComposition, ArgRight, DRSRef('z')),
+                             (FunctionComposition, ArgRight, DRSRef('p')),
+                             (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
         r'((S\T)/Z)/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgRight, DRSRef('z')),
                              (FunctionComposition, ArgLeft, DRSRef('x')), DRSRef('e')],
-        r'((S\T)\(S\T))/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft, [DRSRef('x'), DRSRef('e')]), None],
+        r'((S\T)\(S\T))/T': [(FunctionComposition, ArgRight, DRSRef('y')), (FunctionComposition, ArgLeft,
+                                                                            [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
         # Simple combinators
         # ==================
         # S\T:=λQλx.Q(x);U[...], combinator(S\T)\(S\T):=λPλx.P(x);T[...]
         # => λQλx.Q(x);U[...];T[...]
-        r'(S\T)\(S\T)': [(FunctionComposition, ArgLeft, [DRSRef('x'), DRSRef('e')]), None],
-        r'(S\T)/(S\T)': [(FunctionComposition, ArgRight, [DRSRef('x'), DRSRef('e')]), None],
+        r'(S\T)\(S\T)': [(FunctionComposition, ArgLeft, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
+        r'(S\T)/(S\T)': [(FunctionComposition, ArgRight, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
         # S\T:=λQλx.Q(x);U[...], combinator(S\T)/(S\T):=λPλx.T[...];P(x) => λQλx.T[...];Q(x);U[...]
         # combinator((S\T)/(S\T))/((S\T)/(S\T)):=λP'λx.T'[...];P'(x) => λQλx.T'[...];T[...];Q(x);U[...]
         # combinator(((S\T)/(S\T))/((S\T)/(S\T)))/(((S\T)/(S\T))/((S\T)/(S\T))):=λP''λx.T''[...];P''(x)
@@ -1027,15 +1062,20 @@ class CcgTypeMapper(object):
         #r'(((S\T)/Z)/Z)/(S\T)':
     }
     _EventPredicates = ['agent', 'theme', 'extra']
-    _TypeChangerAll = re.compile(r'NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
-    _TypeChangerNoPP = re.compile(r'NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
-    _TypeSimplyS = re.compile(r'S(?:\[[a-z]+\])?')
+    _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
+    _TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
+    _TypeSimplyS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
+    _TypeSimplyN = re.compile(r'N(?:\[[a-z]+\])?')
+    _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|December)$')
 
     def __init__(self, ccgTypeName, word, posTags=None):
         self._ccgTypeName = ccgTypeName
-        self._word = word.lower().rstrip('?.,:;')
         self._pos  = posTags or []
         self._drsTypeName = self.get_drs_typename(ccgTypeName)
+        if self.isproper_noun:
+            self._word = word.title().rstrip('?.,:;')
+        else:
+            self._word = word.lower().rstrip('?.,:;')
 
         if not self._AllTypes.has_key(self._drsTypeName):
             raise DrsComposeError('CCG type "%s" maps to unknown DRS composition type "%s"' %
@@ -1141,12 +1181,12 @@ r
                 categories at ext/easysrl/model/text/categories.
 
         Returns:
-            A list of DRS categories.
+            A list of CCG categories that could not be converted or None.
 
         Remarks:
             Categories starting with # and empty categories are silently ignored.
         """
-        results = set()
+        results = []
         for ln in ccg_categories:
             c = ln.strip()
             if len(c) == 0 or c[0] == '#':
@@ -1157,8 +1197,27 @@ r
             d = cls.get_drs_typename(c)
             if d in cls._AllTypes:
                 continue
-            results.add(d)
-        return sorted(results)
+            if cls.iscombinator_signature(d):
+                sig = cls.split_signature(d)
+                if sig[0] == sig[2]:
+                    if sig[0] in cls._AllTypes:
+                        cls._AllTypes[d] = cls._AllTypes[sig[0]]
+                        continue
+
+                elif len(sig[0]) < len(sig[2]) and sig[0] in sig[2] and cls.iscombinator_signature(sig[0]):
+                    sig2 = cls.split_signature(sig[2])
+                    if sig2[0] == sig[0] and sig2[2] == sig[0]:
+                        if sig[0] in cls._AllTypes:
+                            cls._AllTypes[d] = cls._AllTypes[sig[0]]
+                            continue
+                elif len(sig[2]) < len(sig[0]) and sig[2] in sig[0] and cls.iscombinator_signature(sig[2]):
+                    sig0 = cls.split_signature(sig[0])
+                    if sig0[0] == sig[2] and sig0[2] == sig[2]:
+                        if sig[2] in cls._AllTypes:
+                            cls._AllTypes[d] = cls._AllTypes[sig[2]]
+                            continue
+            results.append(c)
+        return results if len(results) != 0 else None
 
     @classmethod
     def add_model_categories(cls, filename):
@@ -1168,69 +1227,16 @@ r
             filename: The categories file from the model folder.
 
         Returns:
-            A list of DRS categories that could not be added to the types dictionary or None.
+            A list of CCG categories that could not be added to the types dictionary or None.
         """
-        result = {}
         with open(filename, 'r') as fd:
-            lines = fd.readlines()
-            for ln in lines:
-                c = ln.strip()
-                # TODO: handle punctuation
-                if c in ['.', '.', ':', ';']:
-                    continue
-                d = cls.get_drs_typename(c)
-                if d in cls._AllTypes:
-                    continue
-                # Use DRS categories since this results in less types
-                pt = parse_ccgtype(d)
-                if len(pt) == 3 and isinstance(pt[0], list) and isinstance(pt[2], list) and repr(pt[0]) == repr(pt[2]):
-                    # Combinator with DRS T[...], * means any number of referents
+            lns = fd.readlines()
 
-                    # Determine the number of arguments
-
-                    if pt[1] == '/':
-                        # λP.T[...];P(*)
-                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('x'))]
-                    else:
-                        # λP.P(*);T[...]
-                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('x'))]
-                elif len(pt) == 3 and isinstance(pt[0], list) and len(pt[0]) == 3 and \
-                        ((isinstance(pt[2], str) and repr(pt[0][0]) == repr(pt[0][2])) or \
-                             (repr(pt[0][0]) == repr(pt[0][2]) and repr(pt[2]) == repr(pt[0][2]))):
-                    if pt[1] == '/':
-                        if pt[0][1] == '/':
-                            cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                                (FunctionComposition, ArgRight, DRSRef('x'))]
-                        else:
-                            cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                                (FunctionComposition, ArgRight, DRSRef('x'))]
-                    elif pt[0][1] == '/':
-                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
-                    else:
-                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
-                elif len(pt) == 3 and isinstance(pt[2], list) and len(pt[2]) == 3 and \
-                        ((isinstance(pt[0], str) and repr(pt[2][0]) == repr(pt[2][2])) or
-                         (repr(pt[0]) == repr(pt[2][0]) and repr(pt[2][0]) == repr(pt[2][2]))):
-                    if pt[1] == '/':
-                        if pt[2][1] == '/':
-                            cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                                (FunctionComposition, ArgRight, DRSRef('x'))]
-                        else:
-                            cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                                (FunctionComposition, ArgRight, DRSRef('x'))]
-                    elif pt[2][1] == '/':
-                        cls._AllTypes[d] = [(FunctionComposition, ArgRight, DRSRef('y')),
-                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
-                    else:
-                        cls._AllTypes[d] = [(FunctionComposition, ArgLeft, DRSRef('y')),
-                                            (FunctionComposition, ArgLeft, DRSRef('x'))]
-                elif d in result:
-                    result[d].append(c)
-                else:
-                    result[d] = [c]
-        return None if len(result) == 0 else result
+        lns_prev = []
+        while lns is not None and len(lns_prev) != len(lns):
+            lns_prev = lns
+            lns = cls.convert_model_categories(lns)
+        return lns
 
     @property
     def ispronoun(self):
@@ -1268,6 +1274,16 @@ r
         return self.partofspeech == 'NNP'
 
     @property
+    def isnumber(self):
+        """Test if the word attached to this category is a number."""
+        return self.partofspeech == 'CD'
+
+    @property
+    def isadjective(self):
+        """Test if the word attached to this category is an adjective."""
+        return self.partofspeech == 'JJ'
+
+    @property
     def partofspeech(self):
         """Get part of speech of the word attached to this category."""
         return self._pos[0] if self._pos is not None else 'UNKNOWN'
@@ -1276,6 +1292,56 @@ r
     def ccgtype(self):
         """Get the CCG category type."""
         return self._ccgTypeName
+
+    def build_predicates(self, p_vars, refs, evt=None, conds=None):
+        """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
+        not use this for verbs or adverbs.
+
+        Args:
+            p_vars: DRSRef's used in the predicates.
+            refs: lambda refs for curried function, excluding evt.
+            evt: An optional event DRSRef.
+            conds: A list of existing DRS conditions.
+
+        Returns:
+            A list if marbles.ie.drt.Rel instances.
+        """
+        assert p_vars is not None
+        assert refs is not None
+        if conds is None:
+            conds = []
+        if isinstance(p_vars, DRSRef):
+            p_vars = [p_vars]
+        evt_vars = None
+        if evt is not None:
+            evt_vars = []
+            evt_vars.extend(p_vars)
+            evt_vars.append(evt)
+
+        if self.iscombinator_signature(self._drsTypeName):
+            if evt is not None:
+                refs.append(evt)
+            conds.append(Rel(self._word, refs))
+        elif self.isadjective:
+            if evt_vars is not None:
+                raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
+                                      % (self._word, self._drsTypeName))
+            conds.append(Rel(self._word, refs))
+        else:
+            conds.append(Rel(self._word, p_vars))
+            if self.isproper_noun:
+                if self._TypeMonth.match(self._word):
+                    conds.append(Rel('is.date', p_vars))
+                    if evt_vars is not None:
+                        conds.append(Rel('event.date', evt_vars))
+                        evt_vars = None
+            elif self.isnumber:
+                conds.append(Rel('is.number', p_vars))
+
+            if evt_vars is not None:
+                # Undefined relationship
+                conds.append(Rel('event.related', evt_vars))
+        return conds
 
     def get_composer(self):
         """Get the composition model for this category.
@@ -1297,6 +1363,13 @@ r
                 return d
             elif self._ccgTypeName == 'N':
                 d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=self.isproper_noun)
+                d.set_lambda_refs(d.drs.universe)
+                return d
+            elif self._TypeSimplyN.match(self._ccgTypeName):
+                if self.isnumber:
+                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.number', [DRSRef('x')])]))
+                else:
+                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
                 d.set_lambda_refs(d.drs.universe)
                 return d
             elif self.isadverb and _ADV.has_key(self._word):
@@ -1341,19 +1414,23 @@ r
                             refs.append(c[2])
                     else:   # arg left
                         if isinstance(c[2], list):
-                            r = c[2]
+                            r = [x for x in c[2]]
                         else:
                             r = [c[2]]
                         r.extend(refs)
                         refs = r
 
                 refs_without_combinator = refs_without_combinator or refs
+                if ev is not None and ev in refs:
+                    refs = filter(lambda a: a != ev, refs)
 
                 if self.isverb:
                     if ev is None:
+                        raise DrsComposeError('Verb signature "%s" does not include event variable' % self._drsTypeName)
+                    elif self.iscombinator_signature(self._drsTypeName):
                         # passive case
+                        refs.append(ev)
                         fn = DrsComposition(DRS([], [Rel(self._word, refs)]))
-                        # fn.set_lambda_refs(refs)
                     else:
                         # TODO: use verbnet to get semantics
                         conds = [Rel('event', [ev]), Rel(self._word, [ev])]
@@ -1364,17 +1441,20 @@ r
                                 conds.append(Rel('event.extra.%d' % i, [ev, refs[i]]))
                         fn = DrsComposition(DRS([ev], conds))
                         fn.set_lambda_refs([ev])
-                elif self.isadverb and _ADV.has_key(self._word):
-                    adv = _ADV[self._word]
-                    fn = DrsComposition(adv[0], [x for x in adv[1]])
+                elif self.isadverb:
+                    if ev is None:
+                        raise DrsComposeError('Adverb signature "%s" does not include event variable' % self._drsTypeName)
+                    if _ADV.has_key(self._word):
+                        adv = _ADV[self._word]
+                        fn = DrsComposition(adv[0], [x for x in adv[1]])
+                    else:
+                        fn = DrsComposition(DRS([], self.build_predicates(compose[0][2], refs, ev)))
+                    fn.set_lambda_refs([ev])
+                else:
+                    fn = DrsComposition(DRS([], self.build_predicates(compose[0][2], refs, ev)),
+                                        properNoun=self.isproper_noun)
                     if ev is not None:
                         fn.set_lambda_refs([ev])
-                else:
-                    # don't include combinators in refs
-                    if len(refs_without_combinator) == 0:
-                        raise DrsComposeError('Missing arguments for DRS relation %s()' % self._word)
-                    fn = DrsComposition(DRS([], [Rel(self._word, refs_without_combinator)]), properNoun=self.isproper_noun)
-                    # fn.set_lambda_refs(refs)
 
                 for c, s in zip(compose[:-1], signatures):
                     if (c[1] and s[1] != '/') or (not c[1] and s[1] != '\\'):
@@ -1391,11 +1471,6 @@ r
                 return fn
 
 
-def build_composer(ccgTypespec, word):
-    ccgt = CcgTypeMapper(ccgTypespec, word)
-    return ccgt.get_composer()
-
-
 def _process_ccg_node(pt, cl):
     """Internal helper for recursively processing the CCG parse tree.
 
@@ -1410,7 +1485,16 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             n += _process_ccg_node(nd, cl2)
         if n == 0:
-            # n == 0 means we cannot do a partial application on cl2
+            # n == 0 means we possibly can do a partial application on cl2
+            cl3 = cl2.clone()
+            try:
+                cl2 = cl2.apply()
+            except Exception:
+                cl2 = cl3
+            cl.push_right(cl2, merge=True)
+            return 0
+        elif n < 0:
+            # n <= 0 means we cannot do a partial application on cl2
             cl.push_right(cl2, merge=True)
             return 0
         else:
@@ -1424,7 +1508,7 @@ def _process_ccg_node(pt, cl):
         return 0    # TODO: handle punctuation
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
-    return 0 if ccgt.isconj else 1
+    return -10000 if ccgt.isconj else 1
 
 
 def process_ccg_pt(pt, options=None):
