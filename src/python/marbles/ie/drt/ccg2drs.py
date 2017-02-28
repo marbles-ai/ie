@@ -749,8 +749,7 @@ class FunctionComposition(Composition):
             if self._comp is not None:
                 if arg._comp is None:
                     arg._comp = self._comp
-                elif self.isarg_left and arg.isarg_left or \
-                        (self.iscombinator and self.iscombinator and self.isarg_right and arg.isarg_left):
+                elif (self.isarg_left and arg.isarg_left) or (self.iscombinator and self.isarg_left):
                     if isinstance(arg._comp, CompositionList):
                         arg._comp.push_right(self._comp, merge=True)
                     elif isinstance(self._comp, CompositionList):
@@ -761,8 +760,7 @@ class FunctionComposition(Composition):
                         cl.set_options(self.compose_options)
                         cl.push_right(self._comp)
                         arg._comp = cl
-                elif self.isarg_right and arg.isarg_right or \
-                        (self.iscombinator and self.iscombinator and self.isarg_left and arg.isarg_right):
+                elif (self.isarg_right and arg.isarg_right) or (self.iscombinator and self.isarg_right):
                     if isinstance(arg._comp, CompositionList):
                         arg._comp.push_left(self._comp, merge=True)
                     elif isinstance(self._comp, CompositionList):
