@@ -7,7 +7,7 @@ from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..ccg2drs import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..ccg2drs import process_ccg_pt, CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
+from ..ccg2drs import process_ccg_pt, CcgTypeMapper, CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
 #from pysmt.shortcuts import Solver
 
 
@@ -531,7 +531,7 @@ class DrsTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| merryweather-high(x1)]]'
+        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| Merryweather-High(x1)]]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -561,8 +561,12 @@ class DrsTest(unittest.TestCase):
         x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
         self.assertEquals(x, s)
 
-    def test14_LCDWSJ_0001_1(self):
-        pass
+    def test14_ModelCategories(self):
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        modelpath = os.path.join(projdir, 'ext', 'easysrl', 'model', 'text', 'categories')
+        missing = CcgTypeMapper.add_model_categories(modelpath)
+        self.assertIsNone(missing)
 
     def test100_ParseLdc2005T13(self):
         allfiles = []
