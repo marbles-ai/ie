@@ -85,6 +85,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		SRLParser getParser();
 		InputReader getReader();
 		ParsePrinter getPrinter();
+		EasySRL.OutputFormat getOutputFormat();
 		void lock();
 		void unlock();
 	}
@@ -92,12 +93,14 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	public class SynchronizedSession implements Session  {
 		private SRLParser parser_;
 		private InputReader reader_;
-		private ParsePrinter printer_;
+		private EasySRL.OutputFormat outputFormat_;
 		private Lock inferLock_;
 
 		public SRLParser getParser() { return parser_; }
 		public InputReader getReader() { return reader_; }
-		public ParsePrinter getPrinter() { return printer_; }
+		public ParsePrinter getPrinter() { return outputFormat_.printer; }
+		public EasySRL.OutputFormat getOutputFormat() { return outputFormat_; }
+
 		public void lock() {
 			inferLock_.lock();
 		}
@@ -105,10 +108,10 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			inferLock_.unlock();
 		}
 
-		public SynchronizedSession(SRLParser parser, InputReader reader, ParsePrinter printer) {
+		public SynchronizedSession(SRLParser parser, InputReader reader, EasySRL.OutputFormat outputFmt) {
 			this.parser_ = parser;
 			this.reader_  = reader;
-			this.printer_ = printer;
+			this.outputFormat_ = outputFmt;
 			this.inferLock_ = new ReentrantLock();
 		}
 	}
@@ -171,7 +174,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		}
 
 		InputReader reader;
-		if (oformat == "EXTENDED" || oformat == "PROLOG")
+		if (outputFormat == EasySRL.OutputFormat.EXTENDED || outputFormat == EasySRL.OutputFormat.PROLOG)
 			reader = InputReader.make(EasySRL.InputFormat.valueOf("POSandNERtagged".toUpperCase()));
 		else
 			reader = InputReader.make(EasySRL.InputFormat.valueOf(commandLineOptions_.getInputFormat().toUpperCase()));
@@ -186,14 +189,19 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		*/
 		logger.debug("Model loaded: gRPC parser ready");
 
-		return new SynchronizedSession(parser2, reader, printer);
+		return new SynchronizedSession(parser2, reader, outputFormat);
 	}
 
 	public static String parse(Session session, String sentence) {
 		if (session.getParser() != null) {
 			List<CCGandSRLparse> parses = session.getParser().parseTokens(session.getReader().readInput(sentence)
 					.getInputWords());
-			return session.getPrinter().printJointParses(parses,0);
+			if (session.getOutputFormat() == EasySRL.OutputFormat.HTML)
+				// id <= -1 means header and footer are not printed.
+				return session.getPrinter().printJointParses(parses,0);
+			else
+				// id -1 disables printing id for CCGBANK
+				return session.getPrinter().printJointParses(parses, -1);
 		}
 		return "";
 	}
