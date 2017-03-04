@@ -102,6 +102,8 @@ INPUT                  = ie-help.py \
 						 ../../src/python/marbles/ie/drt/drs.py \
 						 ../../src/python/marbles/ie/drt/pdrs.py \
 						 ../../src/python/marbles/ie/drt/ccg2drs.py \
+						 ../../src/python/marbles/ie/drt/ccgcat.py \
+						 ../../src/python/marbles/ie/drt/compose.py \
 						 ../../src/python/marbles/ie/drt/parse.py \
 						 ../../src/python/marbles/ie/drt/fol.py \
 						 ../../src/main/java/ai/marbles/grpc/ \
