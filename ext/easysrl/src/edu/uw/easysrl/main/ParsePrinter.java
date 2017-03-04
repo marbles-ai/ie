@@ -361,7 +361,8 @@ public abstract class ParsePrinter {
 		@Override
 		protected void printHeader(final int id, final StringBuilder result) {
 
-			result.append("<script>\n"
+			result.append("<html>\n"
+					+ "<script>\n"
 					+ "function drawArrowhead(ctx, locx, locy, angle, sizex, sizey) {\n"
 					+ "    var hx = sizex / 2;\n"
 					+ "    var hy = sizey / 2;\n"
@@ -427,7 +428,9 @@ public abstract class ParsePrinter {
 					+ "      }\n"
 					+ "\n"
 					+ "      drawArrowhead(context, x + radius * Math.cos(angle), y + radius * Math.sin(angle), angle2, 10, 10);\n"
-					+ "}\n" + "</script>\n");
+					+ "}\n"
+					+ "</script>\n"
+					+ "<body>\n");
 		}
 
 		@Override
