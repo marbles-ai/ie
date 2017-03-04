@@ -117,7 +117,7 @@ class RegexCategoryClass(AbstractCategoryClass):
         Returns:
             True if in the class.
         """
-        return self._srch.match(category)
+        return self._srch.match(category.ccg_signature)
 
 
 class Category(object):
@@ -151,6 +151,9 @@ class Category(object):
     def __eq__(self, other):
         return (isinstance(other, Category) and self._signature == other.ccg_signature) or \
                (isinstance(other, AbstractCategoryClass) and other.ismember(self))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __lt__(self, other):
         return isinstance(other, Category) and self._signature < other.ccg_signature
@@ -195,6 +198,15 @@ class Category(object):
         r = self.argument_category
         return r.isfunctor and r.return_category == self.return_category
 
+    @property
+    def isbackward_type_raised(self):
+        return self.isarg_left and self.istype_raised
+
+    @property
+    def isforward_type_raised(self):
+        return self.isarg_left and self.istype_raised
+
+    @property
     def isfunctor(self):
         """Test if the category is a function."""
         return self._splitsig[1] in ['/', '\\', '|']
@@ -207,12 +219,12 @@ class Category(object):
     @property
     def return_category(self):
         """Get the return category if a functor."""
-        return Category(self._splitsig[0])
+        return Category(self._splitsig[0]) if self.isfunctor else Category()
 
     @property
     def argument_category(self):
         """Get the argument category if a functor."""
-        return Category(self._splitsig[0])
+        return Category(self._splitsig[2]) if self.isfunctor else Category()
 
     @property
     def ccg_signature(self):
