@@ -9,6 +9,7 @@ from optparse import OptionParser
 
 projectPath = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 grpcSrvc = os.path.join(projectPath, 'build', 'grpc', 'python', 'marbles_service_pb2.py')
+sessionPrefix, _ = os.path.splitext(os.path.basename(__file__))
 
 
 def die(s):
@@ -41,10 +42,23 @@ def get_client_transport(host, port):
     return stub, channel
 
 
-def ccg_parse(client, sentence):
+def create_session(client, outputFormat):
+    query_input = create_query_input('text', outputFormat.upper())
+    request = marbles_svc.Request()
+    request.LUCID = sessionPrefix.upper() + '-' + outputFormat
+    request.spec.name = 'create'
+    request.spec.content.extend([query_input])
+    # Call create asynchronously
+    create_future = client.create.future(request, 60)
+    notused = create_future.result()
+    #client.create(request)
+    return sessionPrefix.upper() + '-' + outputFormat
+
+
+def ccg_parse(client, sentence, sessionId):
     query_input = create_query_input('text', sentence)
     request = marbles_svc.Request()
-    request.LUCID = "1"
+    request.LUCID = sessionId
     request.spec.name = 'infer'
     request.spec.content.extend([query_input])
     response = client.infer(request)
@@ -69,8 +83,7 @@ def write_footer(fd):
     pass
 
 
-def process_file(out, args, titleSrch, wordsep):
-    stub, _ = get_client_transport('localhost', 8084)
+def process_file(stub, out, args, titleSrch, wordsep, sessionId):
     id = 0
     for fn in args:
         line = ''
@@ -93,7 +106,7 @@ def process_file(out, args, titleSrch, wordsep):
                     m = titleSrch.match(ln)
                     if m is not None:
                         line = ''
-                        ccg = ccg_parse(stub, ln)
+                        ccg = ccg_parse(stub, ln, sessionId)
                         write_title(out, id, ln, ccg)
                         continue
                     else:
@@ -103,7 +116,7 @@ def process_file(out, args, titleSrch, wordsep):
                             x = s.strip()
                             if len(x) == 0: continue
                             id += 1
-                            ccg = ccg_parse(stub, x)
+                            ccg = ccg_parse(stub, x, sessionId)
                             write_line(out, id, x, ccg)
 
                         if len(sentences) != 0:
@@ -124,19 +137,38 @@ if __name__ == '__main__':
     parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='word separator, defaults to hyphen')
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
     parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name')
+    parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
+    parser.add_option('-D', '--direct', action='store_true', dest='direct', default=False, help='direct input from command line args')
 
     (options, args) = parser.parse_args()
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
     wordsep = options.wordsep or '-'
     outfile = options.outfile or None
+    direct = options.direct or False
+
+    sessionId = 'default'
+    stub, _ = get_client_transport('localhost', 8084)
+    if options.ofmt is not None:
+        if options.ofmt.lower() not in ['ccgbank', 'html', 'logic', 'extended']:
+            die('bad output format %s, must be ccgbank|html|logic|extended' % options.ofmt)
+        # Create a session to match output format
+        sessionId = create_session(stub, options.ofmt.upper())
 
     if len(args) == 0:
         die('missing filename')
 
     titleSrch = re.compile(titleRe)
-    if outfile is None:
-        process_file(sys.stdout, args, titleSrch, wordsep)
+    if direct:
+        line = ' '.join(args)
+        ccg = ccg_parse(stub, line, sessionId)
+        if outfile is None:
+            sys.stdout.write(ccg)
+        else:
+            with open(outfile, 'w') as fd:
+                fd.write(ccg)
+    elif outfile is None:
+        process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
     else:
         with open(outfile, 'w') as fd:
-            process_file(fd, args, titleSrch, wordsep)
+            process_file(stub, fd, args, titleSrch, wordsep, sessionId)
 
