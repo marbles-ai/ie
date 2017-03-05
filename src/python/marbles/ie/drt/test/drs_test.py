@@ -7,7 +7,7 @@ from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..compose import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
-from ..compose import CO_REMOVE_UNARY_PROPS, CO_PRINT_DERIVATION
+from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
 from ..ccg2drs import process_ccg_pt, CcgTypeMapper
 #from pysmt.shortcuts import Solver
 
@@ -441,8 +441,7 @@ class DrsTest(unittest.TestCase):
             (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
-        d = process_ccg_pt(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
     def test12_Wsj0001_1(self):
@@ -519,8 +518,223 @@ class DrsTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
-        d = process_ccg_pt(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+
+    def test12_Wsj0003_1(self):
+        # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago, researchers reported.
+        # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
+        # among a group of workers exposed to it more than 30 years ago, researchers reported.
+        # ID=wsj_0003.1 PARSER=GOLD NUMPARSE=1
+        # (<T S[dcl] 0 2>
+        #   (<T S[dcl] 1 2>
+        #       (<T S[dcl] 1 2>
+        #           (<T NP 0 2>
+        #               (<T NP 0 2>
+        #                   (<T NP 1 2>
+        #                       (<L NP[nb]/N DT DT A NP[nb]_166/N_166>)
+        #                       (<L N NN NN form N>)
+        #                   )
+        #                   (<T NP\NP 0 2>
+        #                       (<L (NP\NP)/NP IN IN of (NP_174\NP_174)/NP_175>)
+        #                       (<T NP 0 1>
+        #                           (<L N NN NN asbestos N>)
+        #                       )
+        #                   )
+        #               )
+        #               (<T NP\NP 0 1>
+        #                   (<T S[pss]\NP 1 2>
+        #                       (<L (S\NP)/(S\NP) RB RB once (S_235\NP_230)_235/(S_235\NP_230)_235>)
+        #                       (<T S[pss]\NP 0 2>
+        #                           (<L (S[pss]\NP)/(S[to]\NP) VBN VBN used (S[pss]\NP_187)/(S[to]_188\NP_187:B)_188>)
+        #                           (<T S[to]\NP 0 2>
+        #                               (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP_197)/(S[b]_198\NP_197:B)_198>)
+        #                               (<T S[b]\NP 0 2>
+        #                                   (<L (S[b]\NP)/NP VB VB make (S[b]\NP_205)/NP_206>)
+        #                                   (<T NP 0 1>
+        #                                       (<T N 1 2>
+        #                                           (<L N/N NNP NNP Kent N_222/N_222>)
+        #                                           (<T N 1 2>
+        #                                               (<L N/N NN NN cigarette N_215/N_215>)
+        #                                               (<L N NNS NNS filters N>)
+        #                                           )
+        #                                       )
+        #                                   )
+        #                               )
+        #                           )
+        #                       )
+        #                   )
+        #               )
+        #           )
+        # λx4λe1.P(x4);[| has(e1)];[e1| caused(e1), event.agent(x4), event.theme(p4)];[p4| p4:[p3,p2| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)], among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]]
+        #           (<T S[dcl]\NP 0 2>
+        # λP'λxλe.[| has(e)];P'(x,e)
+        #               (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP_23)/(S[pt]_24\NP_23:B)_24>)
+        # λPλx4λe1.P(x4);[e1| caused(e1), event.agent(x4), event.theme(p4)];[p4| p4:[p3,p2| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)], among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]]
+        #               (<T S[pt]\NP 0 2>
+        # λQλPλxλyλe.P(x);[e| caused(e), event.agent(x), event.theme(y)];Q(y)
+        #                   (<L (S[pt]\NP)/NP VBN VBN caused (S[pt]\NP_31)/NP_32>)
+        # [p3| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)]];[p2| among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]
+        #                       (<T NP 0 2>
+        # [x| a(x), exists.maybe(x), high(x), percentage(x)];[y| of(x,y) cancer(y), deaths(y)]
+        #                           (<T NP 0 2>
+        # λx.[| a(x), exists.maybe(x)];[| high(x)];[x| percentage(x)]
+        #                               (<T NP 1 2>
+        # λPλx.[| a(x), exists.maybe(x)];P(x)
+        #                                   (<L NP[nb]/N DT DT a NP[nb]_46/N_46>)
+        # [| high(x)];[x| percentage(x)]
+        #                                   (<T N 1 2>
+        # λPλx.[| high(x)];P(x)
+        #                                       (<L N/N JJ JJ high N_41/N_41>)
+        # [x| percentage(x)]
+        #                                       (<L N NN NN percentage N>)
+        #                                   )
+        #                               )
+        # λPλx.P(x);[| of(x,y)];[y| cancer(y), deaths(y)]
+        #                               (<T NP\NP 0 2>
+        # λQλPλxλy.P(x);[| of(x,y)];Q(y)
+        #                                   (<L (NP\NP)/NP IN IN of (NP_54\NP_54)/NP_55>)
+        # [x| cancer(x), deaths(x)]
+        #                                   (<T NP 0 1>
+        # [| cancer(x)];[x| deaths(x)]
+        #                                       (<T N 1 2>
+        # λPλx.[| cancer(x)];P(x)
+        #                                           (<L N/N NN NN cancer N_64/N_64>)
+        # [x| deaths]
+        #                                           (<L N NNS NNS deaths N>)
+        #                                       )
+        #                                   )
+        #                               )
+        #                           )
+        # λPλx.P(x);[| among(x,p2)];[p2| p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]
+        #                           (<T NP\NP 0 2>
+        # λQλPλxλy.P(x);[| among(x,y)];Q(y)
+        #                               (<L (NP\NP)/NP IN IN among (NP_73\NP_73)/NP_74>)
+        # [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]
+        #                               (<T NP 0 2>
+        # [x| a(x), exists.maybe(x)];[| group(x)]
+        #                                   (<T NP 1 2>
+        # λPλx.[| a(x), exists.maybe(x)];P(x)
+        #                                       (<L NP[nb]/N DT DT a NP[nb]_81/N_81>)
+        # [x| group(x)]
+        #                                       (<L N NN NN group N>)
+        #                                   )
+        # λPλx1.P(x1);[| of(x1,p)];[p| p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]
+        #                                   (<T NP\NP 0 2>
+        # λQλPλxλy.P(x);[| of(x,y)];Q(y)
+        #                                       (<L (NP\NP)/NP IN IN of (NP_89\NP_89)/NP_90>)
+        # [e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
+        #                                       (<T NP 0 2>
+        # [x| workers(x)];[e,y,z| event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
+        #                                           (<T NP 0 1>
+        # [x| workers(x)]
+        #                                               (<L N NNS NNS workers N>)
+        #                                           )
+        # λPλx.P(x);[e,y,z| event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
+        #                                           (<T NP\NP 0 1>
+        # λP(λR)λxλe.P(x);R(e);[e| event(e), event.agent(x1), event.theme(z)];[z| to(z), z:[x2| it(x2)]];[y| more(e), than(e,y), 30(y), years(y), ago(e)]
+        #                                               (<T S[pss]\NP 0 2>
+        # λPλxλe.P(x);[e| event(e), event.agent(x), event.theme(y)];[y| to(y), y:[x| it(x)]]
+        #                                                   (<T S[pss]\NP 0 2>
+        # λQλPλxλyλe.P(x);[e| event(e), event.agent(x), event.theme(y)];Q(y)
+        #                                                       (<L (S[pss]\NP)/PP VBN VBN exposed (S[pss]\NP_100)/PP_101>)
+        # λp.[p| to(p), p:[x| it(x)]]
+        #                                                       (<T PP 0 2>
+        # λPλp.[p| to(p), p:P(*)]
+        #                                                           (<L PP/NP TO TO to PP/NP_106>)
+        # [x| it(x)]
+        #                                                           (<L NP PRP PRP it NP>)
+        #                                                       )
+        #                                                   )
+        # λP'λxλe.P'(x,e);[y| more(e), than(e,y), 30(y), years(y), ago(e)]
+        #                                                   (<T (S\NP)\(S\NP) 1 2>
+        # λP'λxλe.P'(x,e);(λRλe.R(e);[| more(e)];[y| than(e,y), 30(y), years(y)];[| ago(e)])
+        #                                                       (<T NP 0 1>
+        # λx.(λRλx.R(x);[| more(x)]);[| than(x,y)];[| 30(y), isnumber(y)];[y| years(y)])
+        #                                                           (<T N 1 2>
+        # λPλyλx.(λRλx.R(x);[| more(x)];[| than(x,y)];[| 30(y), isnumber(y)]);P(y)
+        #                                                               (<T N/N 1 2>
+        # λP'λyλx.(λRλx.R(x);[| more(x)]);[| than(x,y)]);P'(y)
+        #                                                                   (<T (N/N)/(N/N) 1 2>
+        # λRλx.R(x);[| more(x)]
+        #                                                                       (<L S[adj]\NP RBR RBR more S[adj]\NP_153>)
+        # λQ'λP'λxλy.Q'(x);[| than(x,y)];P'(y)
+        #                                                                       (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N_147/N_139)_147/(N_147/N_139)_147)\(S[adj]_148\NP_142)_148>)
+        #                                                                   )
+        # λPλx.[| 30(x), isnumber(x)];P(x)
+        #                                                                   (<L N/N CD CD 30 N_131/N_131>)
+        #                                                               )
+        # [x| years(x)]
+        #                                                               (<L N NNS NNS years N>)
+        #                                                           )
+        #                                                       )
+        # λQλP'λxλe.P'(x,e);Q(e);[| ago(e)]
+        #                                                       (<L ((S\NP)\(S\NP))\NP IN IN ago ((S_121\NP_116)_121\(S_121\NP_116)_121)\NP_122>)
+        #                                                   )
+        #                                               )
+        #                                           )
+        #                                       )
+        #                                   )
+        #                               )
+        #                           )
+        #                       )
+        #                   )
+        #               )
+        #           )
+        #           (<T S[dcl]\S[dcl] 1 2>
+        #               (<L , , , , ,>)
+        #               (<T S[dcl]\S[dcl] 1 2>
+        #                   (<T NP 0 1>
+        #                       (<L N NNS NNS researchers N>)
+        #                   )
+        # λQ'λPλxλe.Q'(e);P(x)
+        #                   (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>)
+        #               )
+        #           )
+        #       )
+        #       (<L . . . . .>)
+        #   )
+        txt = '''
+        (<T N 1 2>
+            (<T N/N 1 2>
+                (<T (N/N)/(N/N) 1 2>
+                    (<L S[adj]\NP RBR RBR more S[adj]\NP_153>)
+                    (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N_147/N_139)_147/(N_147/N_139)_147)\(S[adj]_148\NP_142)_148>)
+                )
+                (<L N/N CD CD 30 N_131/N_131>)
+            )
+            (<L N NNS NNS years N>)
+        )'''
+
+        txt = '''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2>
+        (<L NP[nb]/N DT DT A NP[nb]_166/N_166>) (<L N NN NN form N>) ) (<T NP\NP 0 2>
+        (<L (NP\NP)/NP IN IN of (NP_174\NP_174)/NP_175>) (<T NP 0 1> (<L N NN NN asbestos N>) ) ) ) (<T NP\NP 0 1>
+        (<T S[pss]\NP 1 2> (<L (S\NP)/(S\NP) RB RB once (S_235\NP_230)_235/(S_235\NP_230)_235>) (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/(S[to]\NP) VBN VBN used (S[pss]\NP_187)/(S[to]_188\NP_187:B)_188>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP_197)/(S[b]_198\NP_197:B)_198>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/NP VB VB make (S[b]\NP_205)/NP_206>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Kent N_222/N_222>)
+        (<T N 1 2> (<L N/N NN NN cigarette N_215/N_215>) (<L N NNS NNS filters N>) ) ) ) ) ) ) ) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP_23)/(S[pt]_24\NP_23:B)_24>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/NP VBN VBN caused (S[pt]\NP_31)/NP_32>) (<T NP 0 2> (<T NP 0 2> (<T NP 1 2>
+        (<L NP[nb]/N DT DT a NP[nb]_46/N_46>) (<T N 1 2> (<L N/N JJ JJ high N_41/N_41>) (<L N NN NN percentage N>) ) )
+        (<T NP\NP 0 2> (<L (NP\NP)/NP IN IN of (NP_54\NP_54)/NP_55>) (<T NP 0 1> (<T N 1 2>
+        (<L N/N NN NN cancer N_64/N_64>) (<L N NNS NNS deaths N>) ) ) ) ) (<T NP\NP 0 2>
+        (<L (NP\NP)/NP IN IN among (NP_73\NP_73)/NP_74>) (<T NP 0 2> (<T NP 1 2> (<L NP[nb]/N DT DT a NP[nb]_81/N_81>)
+        (<L N NN NN group N>) ) (<T NP\NP 0 2> (<L (NP\NP)/NP IN IN of (NP_89\NP_89)/NP_90>) (<T NP 0 2> (<T NP 0 1>
+        (<L N NNS NNS workers N>) ) (<T NP\NP 0 1> (<T S[pss]\NP 0 2> (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/PP VBN VBN exposed (S[pss]\NP_100)/PP_101>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP_106>)
+        (<L NP PRP PRP it NP>) ) ) (<T (S\NP)\(S\NP) 1 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<T (N/N)/(N/N) 1 2>
+        (<L S[adj]\NP RBR RBR more S[adj]\NP_153>)
+        (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N_147/N_139)_147/(N_147/N_139)_147)\(S[adj]_148\NP_142)_148>) )
+        (<L N/N CD CD 30 N_131/N_131>) ) (<L N NNS NNS years N>) ) )
+        (<L ((S\NP)\(S\NP))\NP IN IN ago ((S_121\NP_116)_121\(S_121\NP_116)_121)\NP_122>) ) ) ) ) ) ) ) ) ) ) )
+        (<T S[dcl]\S[dcl] 1 2> (<L , , , , ,>) (<T S[dcl]\S[dcl] 1 2> (<T NP 0 1> (<L N NNS NNS researchers N>) )
+        (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) (<L . . . . .>) )'''
+
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+        #d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
     def test13_ParseEasySrl(self):
@@ -536,6 +750,25 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x, s)
 
         # The door opens and I step up.
+        # (<T S[dcl] 1 2>
+        #   (<T S[dcl] 1 2>
+        #       (<T NP 0 2>
+        #           (<L NP/N DT DT The NP/N>)
+        #           (<L N NN NN door N>)
+        #       )
+        #       (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>)
+        #   )
+        #   (<T S[dcl]\S[dcl] 1 2>
+        #       (<L conj CC CC and conj>)
+        #       (<T S[dcl] 1 2>
+        #           (<L NP PRP PRP I NP>)
+        #           (<T S[dcl]\NP 0 2>
+        #               (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
+        #               (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>)
+        #           )
+        #       )
+        #   )
+        # )
         txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
             (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
             (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
@@ -569,7 +802,7 @@ class DrsTest(unittest.TestCase):
         missing = CcgTypeMapper.add_model_categories(modelpath)
         self.assertIsNone(missing)
 
-    def __test100_ParseLdc2005T13(self):
+    def test100_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -591,7 +824,7 @@ class DrsTest(unittest.TestCase):
                 print(hdr.strip())
                 pt = parse_ccg_derivation(ccgbank)
                 self.assertIsNotNone(pt)
-                d = process_ccg_pt(pt, CO_PRINT_DERIVATION)
+                d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 #d = process_ccg_pt(pt)
                 self.assertIsNotNone(d)
                 s = d.drs.show(SHOW_LINEAR)
