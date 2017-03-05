@@ -6,9 +6,10 @@ from ..drs import *
 from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
-from ..compose import DrsComposition, ArgLeft, ArgRight, PropComposition, FunctionComposition, CompositionList
+from ..compose import DrsProduction, ArgRight, PropProduction, FunctorProduction, ProductionList
 from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
 from ..ccg2drs import process_ccg_pt, CcgTypeMapper
+from ..ccgcat import Category
 #from pysmt.shortcuts import Solver
 
 
@@ -306,7 +307,7 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(x, d)
 
     def test11_Compose(self):
-        cl = CompositionList()
+        cl = ProductionList()
         # [|exist(x)];[x|school(x)],bus(x)]
         cl.push_right(dexpr('([],[exists(x)])'))
         cl.push_right(dexpr('([],[school(x)])'))
@@ -314,23 +315,27 @@ class DrsTest(unittest.TestCase):
         self.assertEquals(0, len(cl.freerefs))
         self.assertTrue(compare_lists_eq([DRSRef('x')], cl.universe))
 
-        cl = CompositionList().push_right(cl)
+        cl = ProductionList().push_right(cl)
 
-        fn = FunctionComposition(ArgLeft, DRSRef('x'), FunctionComposition(ArgRight, DRSRef('y'), dexpr('([],[wheeze(x,y)])')))
+        fn = FunctorProduction(Category(r'S\NP'), DRSRef('x'), FunctorProduction(Category(r'(S\NP)/NP'), DRSRef('y'),
+                                                                                      dexpr('([],[wheeze(x,y)])')))
         self.assertEquals(repr(fn), 'λQλPλxλy.P(x);[| wheeze(x,y)];Q(y)')
         cl.push_right(fn)
 
-        fn = PropComposition(ArgRight, DRSRef('p'))
+        fn = PropProduction(Category(r'NP/PP'), DRSRef('p'))
         self.assertEquals(repr(fn), 'λPλp.[p| p: P(*)]')
         cl.push_right(fn)
 
         # λP.[x|me(x),own(x,y)];P(y)
-        fn = FunctionComposition(ArgRight, DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
+        cl2 = ProductionList()
+        fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
         self.assertEquals(repr(fn), 'λPλy.[x| me(x),own(x,y)];P(y)')
-        cl.push_right(fn)
-        cl.push_right(dexpr('([x],[corner(x)])'))
+        cl2.push_right(fn)
+        cl2.push_right(dexpr('([x],[corner(x)])'))
+        cl.push_right(cl2.apply_forward().unify())
 
-        d = cl.apply()
+        d = cl.apply_reverse()
+        d = d.unify()
         d = d.drs.simplify_props()
         s = d.show(SHOW_SET)
         x = u'<{x,y},{exists(x),school(x),bus(x),wheeze(x,y),y: <{x1,y1},{me(x1),own(x1,y1),corner(y1)}>}>'
@@ -694,18 +699,6 @@ class DrsTest(unittest.TestCase):
         #       )
         #       (<L . . . . .>)
         #   )
-        txt = '''
-        (<T N 1 2>
-            (<T N/N 1 2>
-                (<T (N/N)/(N/N) 1 2>
-                    (<L S[adj]\NP RBR RBR more S[adj]\NP_153>)
-                    (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N_147/N_139)_147/(N_147/N_139)_147)\(S[adj]_148\NP_142)_148>)
-                )
-                (<L N/N CD CD 30 N_131/N_131>)
-            )
-            (<L N NNS NNS years N>)
-        )'''
-
         txt = '''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2>
         (<L NP[nb]/N DT DT A NP[nb]_166/N_166>) (<L N NN NN form N>) ) (<T NP\NP 0 2>
         (<L (NP\NP)/NP IN IN of (NP_174\NP_174)/NP_175>) (<T NP 0 1> (<L N NN NN asbestos N>) ) ) ) (<T NP\NP 0 1>
@@ -730,11 +723,10 @@ class DrsTest(unittest.TestCase):
         (<L ((S\NP)\(S\NP))\NP IN IN ago ((S_121\NP_116)_121\(S_121\NP_116)_121)\NP_122>) ) ) ) ) ) ) ) ) ) ) )
         (<T S[dcl]\S[dcl] 1 2> (<L , , , , ,>) (<T S[dcl]\S[dcl] 1 2> (<T NP 0 1> (<L N NNS NNS researchers N>) )
         (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) (<L . . . . .>) )'''
-
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        #d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
     def test13_ParseEasySrl(self):
@@ -802,7 +794,7 @@ class DrsTest(unittest.TestCase):
         missing = CcgTypeMapper.add_model_categories(modelpath)
         self.assertIsNone(missing)
 
-    def test100_ParseLdc2005T13(self):
+    def __test100_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
-from compose import CompositionList, FunctionComposition, DrsComposition, PropComposition, DrsComposeError
+from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
-from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, RL_FA, RL_BA, RL_FC, RL_BX, get_rule
+from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, get_rule
 
 import re
 from parse import parse_drs
@@ -156,48 +156,48 @@ class CcgTypeMapper(object):
         'conj':         None,
         # Simple DRS functions
         # ====================
-        r'Z/T':     [(PropComposition, DRSRef('p')), None],
-        r'T/Z':     [(FunctionComposition, DRSRef('p')), None],
-        r'T/T':     [(FunctionComposition, DRSRef('x')), None],
-        r'T\T':     [(FunctionComposition, DRSRef('x')), None],
-        r'(T\T)/T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), None],
-        r'(T/T)/T': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), None],
-        r'(T/T)\T': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), None],
-        r'(T\T)\T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), None],
-        r'(T\T)/Z': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), None],
-        r'(T/T)/Z': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), None],
+        r'Z/T':     [(PropProduction, DRSRef('p')), None],
+        r'T/Z':     [(FunctorProduction, DRSRef('p')), None],
+        r'T/T':     [(FunctorProduction, DRSRef('x')), None],
+        r'T\T':     [(FunctorProduction, DRSRef('x')), None],
+        r'(T\T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
+        r'(T/T)/T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
+        r'(T/T)\T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
+        r'(T\T)\T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
+        r'(T\T)/Z': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
+        r'(T/T)/Z': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
         # DRS Verb functions
         # ==================
-        r'S/T':     [(FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'S\T':     [(FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/T': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), DRSRef('e')],
-        r'(S/T)\T': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), DRSRef('e')],
-        r'(S\T)/T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(S\T)\T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(S\T)/Z': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/Z': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), DRSRef('e')],
-        r'S\S':     [(FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'S/S':     [(FunctionComposition, DRSRef('x'))],
-        r'(((S\T)/Z)/T)/T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('z')),
-                             (FunctionComposition, DRSRef('p')), (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'((S\T)/Z)/T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('z')),
-                         (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(S\S)\T': [(FunctionComposition, DRSRef('x')),
-                     (FunctionComposition, DRSRef('e')), DRSRef('e')],
+        r'S/T':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'S\T':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(S/T)/T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
+        r'(S/T)\T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
+        r'(S\T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(S\T)\T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(S\T)/Z': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(S/T)/Z': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
+        r'S\S':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'S/S':     [(FunctorProduction, DRSRef('x'))],
+        r'(((S\T)/Z)/T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
+                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'((S\T)/Z)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
+                         (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(S\S)\T': [(FunctorProduction, DRSRef('x')),
+                     (FunctorProduction, DRSRef('e')), DRSRef('e')],
         # Mixtures: functions + combinators
-        r'((S\T)\(S\T))/T': [(FunctionComposition, DRSRef('y')),
-                             (FunctionComposition, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'((S\T)\(S\T))\T': [(FunctionComposition, DRSRef('y')),
-                             (FunctionComposition, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'(((S\T)/(S\T))/(S\T))/T': [(FunctionComposition, DRSRef('y')),
-                                     (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(((S\T)/(S\T))/Z)/T': [(FunctionComposition, DRSRef('y')), (PropComposition, DRSRef('p')),
-                                 (FunctionComposition, DRSRef('x')), DRSRef('e')],
-        r'(((S\T)/S)/(S\T))/T': [(FunctionComposition, DRSRef('y')), (FunctionComposition, DRSRef('x')), DRSRef('e')],
+        r'((S\T)\(S\T))/T': [(FunctorProduction, DRSRef('y')),
+                             (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
+        r'((S\T)\(S\T))\T': [(FunctorProduction, DRSRef('y')),
+                             (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
+        r'(((S\T)/(S\T))/(S\T))/T': [(FunctorProduction, DRSRef('y')),
+                                     (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(((S\T)/(S\T))/Z)/T': [(FunctorProduction, DRSRef('y')), (PropProduction, DRSRef('p')),
+                                 (FunctorProduction, DRSRef('x')), DRSRef('e')],
+        r'(((S\T)/S)/(S\T))/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
         # Pure combinators
-        r'(S\T)\(S\T)': [(FunctionComposition, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'(S\T)/(S\T)': [(FunctionComposition, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'((T/T)/(T/T))\(T\T)': [(FunctionComposition, DRSRef('x')), (FunctionComposition, DRSRef('y')), None],
+        r'(S\T)\(S\T)': [(FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
+        r'(S\T)/(S\T)': [(FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
+        r'((T/T)/(T/T))\(T\T)': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
         #r'(((S\T)/Z)/Z)/(S\T)':
     }
     _EventPredicates = ['agent', 'theme', 'extra']
@@ -416,33 +416,33 @@ class CcgTypeMapper(object):
             if self.category == CAT_CONJ:
                 if self._word in ['or', 'nor']:
                     raise NotImplementedError
-                return CompositionList()
+                return ProductionList()
             elif self.ispronoun:
-                d = DrsComposition(_PRON[self._word])
+                d = DrsProduction(_PRON[self._word])
                 d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             elif self.category == CAT_N:
-                d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=self.isproper_noun)
+                d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=self.isproper_noun)
                 d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             elif self.category == CAT_NOUN:
                 if self.isnumber:
-                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.number', [DRSRef('x')])]))
+                    d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.number', [DRSRef('x')])]))
                 else:
-                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
+                    d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
                 d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             elif self.isadverb and self._word in _ADV:
                 adv = _ADV[self._word]
-                d = DrsComposition(adv[0], [x for x in adv[1]])
+                d = DrsProduction(adv[0], [x for x in adv[1]])
                 d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             else:
-                d = DrsComposition(DRS([], [Rel(self._word, [DRSRef('x')])]))
+                d = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x')])]))
                 d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
@@ -453,16 +453,19 @@ class CcgTypeMapper(object):
                 # FIXME: these relations should be added as part of build_predicates()
                 if self.category == CAT_DETERMINER:
                     if self._word in ['a', 'an']:
-                        fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists.maybe', [DRSRef('x')])]))
+                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists.maybe', [DRSRef('x')])]))
                     elif self._word in ['the', 'thy']:
-                        fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
+                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
                     else:
-                        fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
-                fn.set_category(self.category)
+                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
+                elif self.partofspeech == 'DT' and self._word in ['the', 'thy']:
+                    fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
+                else:
+                    fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
                 if ev is not None:
                     fn.set_lambda_refs([ev])
                 return fn
-            if compose[0][0] == FunctionComposition:
+            if compose[0][0] == FunctorProduction:
                 refs = []
                 signatures = []
                 s = self.category
@@ -496,7 +499,7 @@ class CcgTypeMapper(object):
                     elif self.category.iscombinator:
                         # passive case
                         refs.append(ev)
-                        fn = DrsComposition(DRS([], [Rel(self._word, refs)]))
+                        fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
                     else:
                         # TODO: use verbnet to get semantics
                         conds = [Rel('event', [ev]), Rel(self._word, [ev])]
@@ -505,49 +508,48 @@ class CcgTypeMapper(object):
                         if len(refs) > len(self._EventPredicates):
                             for i in range(len(self._EventPredicates), len(refs)):
                                 conds.append(Rel('event.extra.%d' % i, [ev, refs[i]]))
-                        fn = DrsComposition(DRS([ev], conds))
+                        fn = DrsProduction(DRS([ev], conds))
                         fn.set_lambda_refs([ev])
                 elif self.isadverb:
                     if ev is not None:
                         if _ADV.has_key(self._word):
                             adv = _ADV[self._word]
-                            fn = DrsComposition(adv[0], [x for x in adv[1]])
+                            fn = DrsProduction(adv[0], [x for x in adv[1]])
                         else:
-                            fn = DrsComposition(DRS([], self.build_predicates(compose[0][1], refs, ev)))
+                            fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
                         fn.set_lambda_refs([ev])
                     else:
-                        fn = DrsComposition(DRS([], self.build_predicates(compose[0][1], refs)))
+                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs)))
                 else:
-                    fn = DrsComposition(DRS([], self.build_predicates(compose[0][1], refs, ev)),
-                                        properNoun=self.isproper_noun)
+                    fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
+                                       properNoun=self.isproper_noun)
                     if ev is not None:
                         fn.set_lambda_refs([ev])
 
                 fn.set_category(signatures[0].result_category)
                 for c, s in zip(compose[:-1], signatures):
-                    fn = c[0](s.isarg_right, c[1], fn)
-                    fn.set_category(s)
+                    fn = c[0](s, c[1], fn)
                 return fn
             else:
-                assert compose[0][0] == PropComposition
-                fn = compose[0][0](self.category.isarg_right, compose[0][1])
-                fn.set_category(self.category)
+                assert compose[0][0] == PropProduction
+                fn = compose[0][0](self.category, compose[0][1])
                 if ev is not None:
                     fn.set_lambda_refs([ev])
                 return fn
 
-
+debugcount = 0
 def _process_ccg_node(pt, cl):
     """Internal helper for recursively processing the CCG parse tree.
 
     See Also:
         process_ccg_pt()
     """
+    global debugcount
     if pt[-1] == 'T':
         head = int(pt[0][1])
         count = int(pt[0][2])
         result = Category(pt[0][0]).simplify()
-        cl2 = CompositionList()
+        cl2 = ProductionList()
         cl2.set_options(cl.compose_options)
         cl2.set_category(result)
         if count > 2:
@@ -557,18 +559,21 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
 
-        # Head should indicate the processing order however I have found it is not always correct.
-        # Need to check signature and try again.
-        # 1 => is right to left.
+        debugcount += 1
+        if debugcount == 18:
+            debugcount = 18
+
         if cl2.size == 1:
             cl2 = cl2.apply().unify()
         elif cl2.size == 2:
-            cats = [x.category.simplify() if not x.isfunction else x.local_scope.category.simplify() for x in cl2.iterator()]
+            # Get the production rule
+            cats = [x.category.simplify() if not x.isfunctor else x.local_scope.category.simplify() for x in cl2.iterator()]
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
                 raise DrsComposeError('cannot discover composition rule')
-            cl2 = cl2.apply(rule[0]).unify()
+            cl2 = cl2.apply(rule).unify()
         else:
+            # Parse tree is a binary tree
             assert cl2.size == 0
 
         cl.push_right(cl2)
@@ -590,22 +595,22 @@ def process_ccg_pt(pt, options=None):
         options: None or marbles.ie.drt.compose.CO_REMOVE_UNARY_PROPS to simplify propositions.
 
     Returns:
-        A DrsComposition instance.
+        A DrsProduction instance.
 
     See Also:
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
     if pt is None or len(pt) == 0:
         return None
-    cl = CompositionList()
+    cl = ProductionList()
     if options is not None:
         cl.set_options(options)
     _process_ccg_node(pt, cl)
     d = cl.unify()
     # Handle verbs with null left arg
-    if d.isfunction and d.isarg_left:
+    if d.isfunctor and d.isarg_left:
         d = d.apply_null_left().unify()
-    if not isinstance(d, DrsComposition):
+    if not isinstance(d, DrsProduction):
         raise DrsComposeError('composition failed to produce DRS - %s' % repr(d))
     d = d.purify()
     if not d.ispure:

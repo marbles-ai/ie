@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """CCG and DRS signature functions"""
 import re
 
@@ -126,7 +127,7 @@ class Category(object):
     _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
     _TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
     _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
-    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[pss\]')
+    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[(pss|b|dcl)\]')
     _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
     ## @endcond
 
@@ -175,6 +176,24 @@ class Category(object):
     def __hash__(self):
         return hash(str(self))
     ## @endcond
+
+    @classmethod
+    def combine(cls, left, slash, right):
+        """Combine two categories with a slash operator
+
+        Args:
+            left: The left category (result).
+            right: The right category (argument).
+            slash: The slash operator.
+
+        Returns:
+            A Category instance.
+        """
+        assert slash in ['/', '\\']
+        c = Category()
+        c._splitsig = left.ccg_signature, slash, right.ccg_signature
+        c._signature = join_signature(c._splitsig)
+        return c
 
     @property
     def isarg_right(self):
@@ -236,6 +255,11 @@ class Category(object):
         return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
     @property
+    def slash(self):
+        """Get the slash for a functor category."""
+        return self._splitsig[1]
+
+    @property
     def ccg_signature(self):
         """Get the CCG type as a string."""
         return self._signature
@@ -252,7 +276,6 @@ class Category(object):
             A Category instance.
         """
         return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
-
 
 
 ## @{
@@ -287,10 +310,24 @@ CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
 
 ## @}
 
-class Rule(object):
-    """A CCG rule"""
 
+class Rule(object):
+    """A CCG production rule.
+
+    See Also:
+        \ref ccgrule
+    """
     def __init__(self, ruleName, ruleClass=None):
+        """Rule constructor.
+
+        Args:
+            ruleName: The rule name as a string. This must be unique amongst all rules.
+            ruleClass: The class string for a rule. Possible classes are:
+                - 'C': composition
+                - 'A': application
+                - 'GC': generalized composition
+                - 'S': substitution
+        """
         self._ruleName = ruleName
         self._ruleClass = ruleClass if not None else ruleName
 
@@ -306,59 +343,190 @@ class Rule(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return isinstance(other, Rule) and str(self) < str(other)
+
+    def __le__(self, other):
+        return isinstance(other, Rule) and str(self) <= str(other)
+
+    def __gt__(self, other):
+        return not self.__le__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __hash__(self):
+        return hash(str(self))
     ## @endcond
 
+## @{
+## @ingroup gconst
+## @defgroup ccgrule CCG Composition Rules
 
-## @cond
-RL_FA = Rule('FA', 'OTHER')
-RL_BA = Rule('BA', 'OTHER')
-RL_FC = Rule('FC')
-RL_BX = Rule('BX')
-RL_GFC = Rule('GFC')
-RL_GBX = Rule('GBX')
-RL_CONJ = Rule('CONJ')
-RL_RP = Rule('RP')
-RL_LP = Rule('LP')
-RL_FORWARD_TYPERAISE = Rule('FORWARD_TYPERAISE')
+## Forward Application
+## @verbatim
+## X/Y:f Y:a => X: f(a)
+## @endverbatim
+RL_FA = Rule('FA', 'A')
+
+## Backward Application
+## @verbatim
+## Y:a X\Y:f => X: f(a)
+## @endverbatim
+RL_BA = Rule('BA', 'A')
+
+## Forward Composition
+## @verbatim
+## X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+## @endverbatim
+RL_FC = Rule('FC', 'C')
+
+## Forward Crossing Composition
+## @verbatim
+## X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+## @endverbatim
+RL_FX = Rule('FX', 'C')
+
+## Backward Composition
+## @verbatim
+## Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+## @endverbatim
+RL_BC = Rule('BC', 'C')
+
+## Backward Crossing Composition
+## @verbatim
+## Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+## @endverbatim
+RL_BX = Rule('BX', 'C')
+
+## Forward Type-raising
+## @verbatim
+## X:a => T/(T\X): λxf.f(a)
+## @endverbatim
+RL_FORWARD_TYPE_RAISE = Rule('FORWARD_TYPERAISE')
+
+## Backward Type-raising
+## @verbatim
+## X:a => T\(T/X): λxf.f(a)
+## @endverbatim
 RL_BACKWARD_TYPE_RAISE = Rule('BACKWARD_TYPE_RAISE')
-RL_TYPE_CHANGE = Rule('TYPE_CHANGE', 'OTHER')
-RL_PASS = Rule('PASS')
-## @endcond
+
+## Generalized Forward Composition
+RL_GFC = Rule('GFC', 'GC')
+
+## Generalized Forward Crossing Composition
+RL_GFX = Rule('GFX', 'GC')
+
+## Generalized Backward Composition
+RL_GBC = Rule('GBC', 'GC')
+
+## Generalized Backrward Crossing Composition
+RL_GBX = Rule('GBX', 'GC')
+
+## Forward Substitution
+## @verbatim
+## (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+## @endverbatim
+RL_FS = Rule('FS', 'S')
+
+## Backward Substitution
+## @verbatim
+## Y\Z:g (X\Y)\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+## @endverbatim
+RL_BS = Rule('FS', 'S')
+
+## Forward Crossing Substitution
+## @verbatim
+## (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+## @endverbatim
+RL_FXS = Rule('FXS', 'S')
+
+## Backward Crossing Substitution
+## @verbatim
+## Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+## @endverbatim
+RL_BXS = Rule('BXS', 'S')
+
+## Special rule for CONJ and punctuation.
+RL_LPASS = Rule('LP', 'PASS')
+
+## Special rule for CONJ and punctuation.
+RL_RPASS = Rule('RP', 'PASS')
+## @}
 
 
 def get_rule(left, right, result):
-    """Check if arg can be combined with this category and return the rule.
+    """Check if left can be combined with right to produce result.
 
     Args:
         left: The left category.
-        right: The right category:
+        right: The right category.
+        result: The result category.
 
     Returns:
-        A tuple of (functor position, rule), where functor position is True if its the right category, and False if
-        its the left category. A none result indicates the rule could not be found.
+        A production rule instance or None if the rule could not be found.
     """
+
+    # Useful logic for category X.
+    # - If X is not a functor, then X.result_category == X
+
     assert isinstance(left, Category)
     assert isinstance(right, Category)
-    if left.isconj and left == right:
-        return True, RL_PASS
-    elif right.isconj and left == right:
-        return False, RL_PASS
-    elif left == CAT_EMPTY:
-        return True, RL_PASS
-    elif right == CAT_EMPTY:
-        return False, RL_PASS
-    elif left.isarg_right and left.argument_category == right and left.result_category == result:
-        if right.isfunctor:
-            return False, RL_FC
-        else:
-            return False, RL_FA
-    elif right.isarg_left and right.argument_category == left and right.result_category == result:
-        if left.isfunctor:
-            return True, RL_BX
-        else:
-            return True, RL_BA
+    assert isinstance(result, Category)
 
+    if left.isconj and left == right:
+        return RL_RPASS
+    elif right.isconj and left == right:
+        return RL_LPASS
+    elif left == CAT_EMPTY:
+        return RL_RPASS
+    elif right == CAT_EMPTY:
+        return RL_LPASS
+    elif left.isarg_right and left.argument_category == right and left.result_category == result:
+        # Forward Application  X/Y:f Y:a => X: f(a)
+        return RL_FA
+    elif left.isarg_right and right.isfunctor and left.argument_category == right.result_category and \
+                Category.combine(left.result_category, right.slash, right.argument_category) == result:
+        if right.isarg_right:
+            # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+            return RL_FC
+        else:
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            return RL_FX
+    elif right.isarg_left and right.argument_category == left and right.result_category == result:
+        # Backward Application  Y:a X\Y:f => X: f(a)
+        return RL_BA
+    elif right.isarg_left and left.isfunctor and right.argument_category == left.result_category and \
+                Category.combine(right.result_category, left.slash, left.argument_category) == result:
+        if left.isarg_left:
+            # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+            return RL_BC
+        else:
+            # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+            return RL_BX
+    elif left.argument_category == right.argument_category and left.result_category.isarg_right and \
+                left.slash == right.slash and left.result_category.argument_category == right.result_category and \
+                Category.combine(left.result_category.result_category, left.slash, left.argument_category) == result:
+        if right.isarg_right:
+            # Forward Substitution  (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            return RL_FS
+        else:
+            # Forward Crossing Substitution  (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            return RL_FXS
+    elif right.argument_category == left.argument_category and right.result_category.isarg_left and \
+                left.slash == right.slash and right.result_category.argument_category == left.result_category and \
+                Category.combine(right.result_category.result_category, left.slash, right.argument_category) == result:
+        if right.isarg_left:
+            # Backward Substitution  Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            return RL_BS
+        else:
+            # Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            return RL_BXS
+    # TODO: Implement all production rules. Also need to handle in CompositionList.apply().
+    raise NotImplementedError('CCG Rule %s * %s => %s' % (left, right, result))
     return None
+
 
 
 

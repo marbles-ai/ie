@@ -5,7 +5,7 @@ from drs import get_new_drsrefs
 from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var, \
     remove_dups
 from common import SHOW_LINEAR
-from ccgcat import Category, CAT_EMPTY
+from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX
 import weakref
 
 ## @{
@@ -14,9 +14,9 @@ import weakref
 
 ## Compose option: remove propositions containing single referent in the subordinate DRS.
 CO_REMOVE_UNARY_PROPS = 0x1
-## Compose option: print derivations to stdout during composition
+## Compose option: print derivations to stdout during production
 CO_PRINT_DERIVATION = 0x2
-## Compose option: verify signature during composition
+## Compose option: verify signature during production
 CO_VERIFY_SIGNATURES = 0x4
 
 ## Function right argument position
@@ -28,16 +28,21 @@ ArgLeft  = False
 
 
 class DrsComposeError(Exception):
-    """Drs Composition Error."""
+    """Production Error."""
     pass
 
 
-class Composition(object):
-    """An abstract composition."""
-    def __init__(self):
+class Production(object):
+    """An abstract production."""
+    def __init__(self, category=None):
         self._lambda_refs = DRS([], [])
         self._options = 0
-        self._category = CAT_EMPTY
+        if category is None:
+            self._category = CAT_EMPTY
+        elif isinstance(category, Category):
+            self._category = category
+        else:
+            raise TypeError('category must be instance of Category')
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -54,17 +59,17 @@ class Composition(object):
 
     @property
     def isempty(self):
-        """Test if the composition is an empty."""
+        """Test if the production is an empty."""
         return False
 
     @property
-    def isfunction(self):
-        """Test if this class is a function composition."""
+    def isfunctor(self):
+        """Test if this class is a functor production."""
         return False
 
     @property
     def iscombinator(self):
-        """Test if this class is a function combinator. A combinator expects a functions as the argument."""
+        """Test if this class is a combinator. A combinator expects a functors as the argument."""
         return False
 
     @property
@@ -84,7 +89,7 @@ class Composition(object):
 
     @property
     def conditions(self):
-        """Get the DRS conditions for this composition."""
+        """Get the DRS conditions for this production."""
         return []
 
     @property
@@ -94,23 +99,23 @@ class Composition(object):
 
     @property
     def isproper_noun(self):
-        """Test if the composition resolved to a proper noun"""
+        """Test if the production resolved to a proper noun"""
         return False
 
     @property
     def iterator(self):
-        """If a list then iterate the compositions in the list else return self."""
+        """If a list then iterate the productions in the list else return self."""
         yield self
 
     @property
     def size(self):
-        """If a list then get the number of elements in the composition list else return 1."""
+        """If a list then get the number of elements in the production list else return 1."""
         return 1
 
     @property
-    def contains_function(self):
-        """If a list then return true if the list contains 1 or more functions, else returns isfunction()."""
-        return self.isfunction
+    def contains_functor(self):
+        """If a list then return true if the list contains 1 or more functors, else returns isfunctor()."""
+        return self.isfunctor
 
     @property
     def ispure(self):
@@ -138,7 +143,7 @@ class Composition(object):
         self._options = int(options)
 
     def set_lambda_refs(self, refs):
-        """Set the lambda referents for this composition.
+        """Set the lambda referents for this production.
 
         Args:
             refs: The lambda referents.
@@ -158,7 +163,7 @@ class Composition(object):
             self._lambda_refs.alpha_convert(rs)
 
     def rename_vars(self, rs):
-        """Perform alpha conversion on the composition data.
+        """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
@@ -169,7 +174,7 @@ class Composition(object):
         """Perform a DRS unification.
 
         Returns:
-            A Composition instance representing unified result.
+            A Production instance representing unified result.
         """
         return self
 
@@ -177,13 +182,13 @@ class Composition(object):
         """Purify the underlying DRS instance.
 
         Returns:
-            A Composition instance representing purified result.
+            A Production instance representing purified result.
         """
         return self
 
 
-class DrsComposition(Composition):
-    """A DRS composition."""
+class DrsProduction(Production):
+    """A DRS production."""
     def __init__(self, drs, properNoun=False):
         """Constructor.
 
@@ -191,7 +196,7 @@ class DrsComposition(Composition):
             drs: A marbles.ie.drt.DRS instance.
             properNoun: True is a proper noun.
         """
-        super(DrsComposition, self).__init__()
+        super(DrsProduction, self).__init__()
         if not isinstance(drs, DRS):
             raise TypeError
         self._drs = drs
@@ -226,7 +231,7 @@ class DrsComposition(Composition):
 
     @property
     def isproper_noun(self):
-        """Test if the composition resolved to a proper noun"""
+        """Test if the production resolved to a proper noun"""
         return self._nnp
 
     @property
@@ -241,17 +246,17 @@ class DrsComposition(Composition):
 
     @property
     def isempty(self):
-        """Test if the composition is an empty DRS."""
+        """Test if the production is an empty DRS."""
         return self._drs.isempty
 
     @property
     def conditions(self):
-        """Get the DRS conditions for this composition."""
+        """Get the DRS conditions for this production."""
         return self._drs.conditions
 
     @property
     def drs(self):
-        """Get the DRS data attached to this composition."""
+        """Get the DRS data attached to this production."""
         return self._drs
 
     @property
@@ -264,7 +269,7 @@ class DrsComposition(Composition):
         return self._drs.ispure
 
     def rename_vars(self, rs):
-        """Perform alpha conversion on the composition data.
+        """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
@@ -277,26 +282,26 @@ class DrsComposition(Composition):
         """Purify the underlying DRS instance.
 
         Returns:
-            A Composition instance representing purified result.
+            A Production instance representing purified result.
         """
         self._drs = self._drs.purify()
         return self
 
 
-class CompositionList(Composition):
-    """A list of compositions."""
+class ProductionList(Production):
+    """A list of productions."""
     def __init__(self, compList=None):
-        super(CompositionList, self).__init__()
+        super(ProductionList, self).__init__()
         if compList is None:
             compList = []
         if isinstance(compList, (DRS, Merge)):
-            compList = [DrsComposition(compList)]
-        elif isinstance(compList, Composition):
+            compList = [DrsProduction(compList)]
+        elif isinstance(compList, Production):
             compList = [compList]
         elif iterable_type_check(compList, (DRS, Merge)):
-            compList = [DrsComposition(x) for x in compList]
-        elif not iterable_type_check(compList, Composition):
-            raise TypeError('DrsComposition construction')
+            compList = [DrsProduction(x) for x in compList]
+        elif not iterable_type_check(compList, Production):
+            raise TypeError('DrsProduction construction')
         self._compList = compList
 
     def __repr__(self):
@@ -304,7 +309,7 @@ class CompositionList(Composition):
 
     @property
     def isproper_noun(self):
-        """Test if the composition resolved to a proper noun"""
+        """Test if the production resolved to a proper noun"""
         return all([x.isproper_noun for x in self._compList])
 
     @property
@@ -325,51 +330,51 @@ class CompositionList(Composition):
 
     @property
     def isempty(self):
-        """Test if the composition is an empty DRS."""
+        """Test if the production results in an empty DRS."""
         return len(self._compList) == 0
 
     @property
     def size(self):
-        """Get the number of elements in this composition list."""
+        """Get the number of elements in this production list."""
         return len(self._compList)
 
     @property
-    def contains_function(self):
+    def contains_functor(self):
         for c in self._compList:
-            if c.contains_function:
+            if c.contains_functor:
                 return True
         return False
 
     @property
     def signature(self):
-        """The drs type signature."""
+        """The production type signature."""
         return ';'.join([x.signature for x in self._compList])
 
     def iterator(self):
-        """Iterate the compositions in this list."""
+        """Iterate the productions in this list."""
         for c in self._compList:
             yield c
 
     def reversed_iterator(self):
-        """Iterate the compositions in this list."""
+        """Iterate the productions in this list."""
         for c in reversed(self._compList):
             yield c
 
     def clone(self):
-        cl = CompositionList([x for x in self._compList])
+        cl = ProductionList([x for x in self._compList])
         cl.set_options(self.compose_options)
         cl.set_lambda_refs(self.lambda_refs)
         return cl
 
     def flatten(self):
-        """Merge subordinate CompositionList's into the current list."""
+        """Merge subordinate ProductionList's into the current list."""
         compList = []
         for d in self._compList:
             if d.isempty:
                 continue
-            if isinstance(d, CompositionList):
+            if isinstance(d, ProductionList):
                 d = d.apply()
-                if isinstance(d, CompositionList):
+                if isinstance(d, ProductionList):
                     compList.extend(d._compList)
                 else:
                     compList.append(d)
@@ -378,7 +383,7 @@ class CompositionList(Composition):
         self._compList = compList
 
     def rename_vars(self, rs):
-        """Perform alpha conversion on the composition data.
+        """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
@@ -392,15 +397,15 @@ class CompositionList(Composition):
 
         Args:
             other: The argument to push.
-            merge: True if other is a CompositionList instance and you want to
+            merge: True if other is a ProductionList instance and you want to
             merge lists (like extend). If False other is added as is (like append).
 
         Returns:
             The self instance.
         """
         if isinstance(other, DRS):
-            other = DrsComposition(other)
-        if merge and isinstance(other, CompositionList):
+            other = DrsProduction(other)
+        if merge and isinstance(other, ProductionList):
             self._compList.extend(other._compList)
         else:
             other.set_options(self.compose_options)
@@ -412,15 +417,15 @@ class CompositionList(Composition):
 
         Args:
             other: The argument to push.
-            merge: True if other is a CompositionList instance and you want to
+            merge: True if other is a ProductionList instance and you want to
             merge lists (like extend). If False other is added as is (like append).
 
         Returns:
             The self instance.
         """
         if isinstance(other, DRS):
-            other = DrsComposition(other)
-        if merge and isinstance(other, CompositionList):
+            other = DrsProduction(other)
+        if merge and isinstance(other, ProductionList):
             compList = [x for x in other._compList]
             compList.extend(self._compList)
             self._compList = compList
@@ -431,15 +436,15 @@ class CompositionList(Composition):
             self._compList = compList
         return self
 
-    def apply_function(self, fn, arg):
+    def apply_functor(self, fn, arg):
         """Need this because the parse tree is not always clear regarding the order of operations.
 
         Args:
-            fn: A function composition instance.
-            arg: The function argument.
+            fn: A functor production instance.
+            arg: The functor argument.
 
         Returns:
-            A composition.
+            A production.
         """
         if not fn.iscombinator and arg.iscombinator and ((fn.isarg_left and arg.isarg_right) or (fn.isarg_right and arg.isarg_left)):
             d = arg.apply(fn)
@@ -447,7 +452,7 @@ class CompositionList(Composition):
         return d
 
     def apply_forward(self, enableException=False):
-        """Applies all functions. The list size should reduce."""
+        """Applies all functors. The list size should reduce."""
         rstk = self._compList
         rstk.reverse()
         lstk = []
@@ -456,12 +461,12 @@ class CompositionList(Composition):
         while len(rstk) != 0:
             d = rstk[-1]
             rstk.pop()
-            if d.isfunction:
+            if d.isfunctor:
                 if d.isarg_right:
                     if len(rstk) == 0:
                         if len(lstk) != 0:
                             if lstk[-1].iscombinator and lstk[-1].isarg_right:
-                                d = self.apply_function(lstk[-1], d)
+                                d = self.apply_functor(lstk[-1], d)
                                 lstk.pop()
                                 rstk.append(d)
                                 continue
@@ -470,17 +475,17 @@ class CompositionList(Composition):
                             else:
                                 lstk.append(d)
                                 self._compList = lstk
-                                return
+                                return self
                         self._compList = [d]
-                        return
-                    d = self.apply_function(d, rstk[-1])
+                        return self
+                    d = self.apply_functor(d, rstk[-1])
                     rstk.pop()
                     rstk.append(d)
                 else:
                     if len(lstk) == 0:
                         if len(rstk) != 0:
                             if rstk[-1].iscombinator and rstk[-1].isarg_left:
-                                d = self.apply_function(rstk[-1], d)
+                                d = self.apply_functor(rstk[-1], d)
                                 rstk.pop()
                                 rstk.append(d)
                                 continue
@@ -490,13 +495,13 @@ class CompositionList(Composition):
                                 rstk.append(d)
                                 rstk.reverse()
                                 self._compList = rstk
-                                return
+                                return self
                         self._compList = [d]
-                        return
-                    d = self.apply_function(d, lstk[-1])
+                        return self
+                    d = self.apply_functor(d, lstk[-1])
                     lstk.pop()
                     rstk.append(d)
-            elif isinstance(d, CompositionList):
+            elif isinstance(d, ProductionList):
                 # Merge lists
                 for x in d.reversed_iterator():
                     rstk.append(x)
@@ -504,23 +509,24 @@ class CompositionList(Composition):
                 lstk.append(d)
 
         self._compList = lstk
+        return self
 
     def apply_reverse(self, enableException=False):
-        """Applies all functions. The list size should reduce."""
+        """Applies all functors. The list size should reduce."""
         rstk = []
         lstk = self._compList
         self._compList = []
 
-        # Now process function application right to left
+        # Now process functor application right to left
         while len(lstk) != 0:
             d = lstk[-1]
             lstk.pop()
-            if d.isfunction:
+            if d.isfunctor:
                 if d.isarg_right:
                     if len(rstk) == 0:
                         if len(lstk) != 0:
                             if lstk[-1].iscombinator and lstk[-1].isarg_right:
-                                d = self.apply_function(lstk[-1], d)
+                                d = self.apply_functor(lstk[-1], d)
                                 lstk.pop()
                                 lstk.append(d)
                                 continue
@@ -529,17 +535,17 @@ class CompositionList(Composition):
                             else:
                                 lstk.append(d)
                                 self._compList = lstk
-                                return
+                                return self
                         self._compList = [d]
-                        return
-                    d = self.apply_function(d, rstk[-1])
+                        return self
+                    d = self.apply_functor(d, rstk[-1])
                     rstk.pop()
                     lstk.append(d)
                 else:
                     if len(lstk) == 0:
                         if len(rstk) != 0:
                             if rstk[-1].iscombinator and rstk[-1].isarg_left:
-                                d = self.apply_function(rstk[-1], d)
+                                d = self.apply_functor(rstk[-1], d)
                                 rstk.pop()
                                 lstk.append(d)
                                 continue
@@ -549,13 +555,13 @@ class CompositionList(Composition):
                                 rstk.append(d)
                                 rstk.reverse()
                                 self._compList = rstk
-                                return
+                                return self
                         self._compList = [d]
-                        return
-                    d = self.apply_function(d, lstk[-1])
+                        return self
+                    d = self.apply_functor(d, lstk[-1])
                     lstk.pop()
                     lstk.append(d)
-            elif isinstance(d, CompositionList):
+            elif isinstance(d, ProductionList):
                 # Merge lists
                 for x in d.iterator():
                     lstk.append(x)
@@ -564,20 +570,21 @@ class CompositionList(Composition):
 
         rstk.reverse()
         self._compList = rstk
+        return self
 
     def unify(self):
-        """Finalize the composition by performing a unification right to left.
+        """Finalize the production by performing a unification right to left.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
         ml = [x.unify() for x in self._compList]
         self._compList = []
         if len(ml) == 1:
-            if not ml[0].isfunction:
+            if not ml[0].isfunctor:
                 ml[0].set_lambda_refs(self.lambda_refs)
             return ml[0]
-        elif any(filter(lambda x: x.contains_function, ml)):
+        elif any(filter(lambda x: x.contains_functor, ml)):
             self._compList = ml
             return self
 
@@ -610,17 +617,29 @@ class CompositionList(Composition):
             conds = [Rel(name,refs)]
 
         drs = DRS(refs, conds).purify()
-        d = DrsComposition(drs, proper)
+        d = DrsProduction(drs, proper)
         d.set_lambda_refs(self.lambda_refs)
         d.set_category(self.category)
         return d
 
-    def apply(self, reverse=True):
-        """Applies all functions.
+    def apply(self, rule=None):
+        """Applications based on rule.
+
+        Args:
+            rule: A marbles.ie.drt.ccgcat.Rule instance.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
+        if rule is None:
+            reverse = True
+        elif rule in [RL_RPASS, RL_BA]:
+            reverse = True
+        elif rule in [RL_LPASS, RL_FA]:
+            reverse = False
+        else:
+            # TODO: handle all rules
+            raise NotImplementedError
         if len(self._compList) == 0:
             return None
 
@@ -634,29 +653,34 @@ class CompositionList(Composition):
         if len(self._compList) == 1:
             d = self._compList[0]
             self._compList = []
-            d.set_category(self.category)
+            if d.isfunctor:
+                d.local_scope.set_category(self.category)
+            else:
+                d.set_category(self.category)
             return d
         return self
 
 
-class FunctionComposition(Composition):
-    """A function composition. All functions are curried."""
-    def __init__(self, position, referent, composition=None):
-        super(FunctionComposition, self).__init__()
-        if composition is not None:
-            if isinstance(composition, (DRS, Merge)):
-                composition = DrsComposition(composition)
-            elif not isinstance(composition, Composition):
-                raise TypeError('Function argument must be a Composition type')
-        self._comp = composition
-        self._rightArg = position
+class FunctorProduction(Production):
+    """A functor production. All functors are curried."""
+    def __init__(self, category, referent, production=None):
+        super(FunctorProduction, self).__init__(category)
+        if production is not None:
+            if isinstance(production, (DRS, Merge)):
+                production = DrsProduction(production)
+            elif not isinstance(production, Production):
+                raise TypeError('Function argument must be a Production type')
+        if category is None :
+            raise TypeError('category cannot be None for functors')
+        self._comp = production
+        self._category = category
         if isinstance(referent, list):
             self._drsref = DRS(referent, [])
         else:
             self._drsref = DRS([referent], [])
         self._outer = None
         if self._comp is not None:
-            if isinstance(self._comp, FunctionComposition):
+            if isinstance(self._comp, FunctorProduction):
                 self._comp.set_outer(self)
 
     def set_outer(self, outer):
@@ -671,7 +695,7 @@ class FunctionComposition(Composition):
         else:
             dash = ""
         s = 'λ' + chr(i) + dash
-        if self._comp is not None and self._comp.isfunction:
+        if self._comp is not None and self._comp.isfunctor:
             s = self._comp._repr_helper1(i+1) + s
         return s
 
@@ -683,11 +707,11 @@ class FunctionComposition(Composition):
         v = chr(i) + dash
         r = ','.join([x.var.to_string() for x in self._drsref.referents])
         if self._comp is not None:
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 s = self._comp._repr_helper2(i+1)
             else:
                 s = str(self._comp)
-            if self._rightArg:
+            if self._category.isarg_right:
                 return '%s;%s(%s)' % (s, v, r)
             else:
                 return '%s(%s);%s' % (v, r, s)
@@ -703,7 +727,7 @@ class FunctionComposition(Composition):
 
     def _get_freerefs(self, u):
         if self._comp is not None:
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 u = self._comp._get_freerefs(u)
             else:
                 u = union_inplace(u, self._comp.freerefs)
@@ -711,24 +735,24 @@ class FunctionComposition(Composition):
 
     def _get_universe(self, u):
         if self._comp is not None:
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 u = self._comp._get_universe(u)
             else:
                 u = union_inplace(u, self._comp.universe)
         return u
 
     def _get_lambda_refs(self, u):
-        # Get lambda vars ordered by function scope
+        # Get lambda vars ordered by functor scope
         u.extend(self._drsref.referents)
         if self._comp is not None:
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 u.extend(self._comp._get_lambda_refs(u))
             else:
                 u.extend(self._comp.lambda_refs)
         return u
 
     def _get_position(self):
-        # Get position in function scope
+        # Get position in functor scope
         g = self
         i = 0
         while g.outer is not None:
@@ -743,12 +767,12 @@ class FunctionComposition(Composition):
 
     @property
     def signature(self):
-        """Get the function signature."""
+        """Get the functor signature."""
         return self.local_scope._category.drs_signature
 
     @property
     def global_scope(self):
-        """Get the outer most function in this composition or self.
+        """Get the outer most functor in this production or self.
 
         See Also:
             local_scope()
@@ -760,26 +784,31 @@ class FunctionComposition(Composition):
 
     @property
     def local_scope(self):
-        """Get the inner most function in this composition or self.
+        """Get the inner most functor in this production or self.
 
         See Also:
             global_scope()
         """
         c = self._comp
         cprev = self
-        while c is not None and c.isfunction:
+        while c is not None and c.isfunctor:
             cprev = c
             c = c._comp
         return cprev
 
     @property
+    def category(self):
+        """The CCG category"""
+        return self.local_scope._category
+
+    @property
     def outer(self):
-        """The outer function or None."""
+        """The outer functor or None."""
         return None if self._outer is None else self._outer() # weak deref
 
     @property
     def isempty(self):
-        """Test if the composition is an empty DRS."""
+        """Test if the production prduces an empty DRS."""
         return self._drsref.isempty and (self._comp is None or self._comp.isempty)
 
     @property
@@ -795,7 +824,7 @@ class FunctionComposition(Composition):
     @property
     def lambda_refs(self):
         """Get the lambda function referents"""
-        # Get unique referents, ordered by function scope
+        # Get unique referents, ordered by functor scope
         # Reverse because we can have args [(x,e), (y,e), e] =>[x,e,y,e,e] => [x,y,e]
         r = self._get_lambda_refs([])
         r.reverse()
@@ -805,24 +834,24 @@ class FunctionComposition(Composition):
 
     @property
     def isarg_right(self):
-        """Test if the function takes a right argument."""
-        if self._comp is not None and self._comp.isfunction:
+        """Test if the functor takes a right argument."""
+        if self._comp is not None and self._comp.isfunctor:
             return self._comp.isarg_right
-        return self._rightArg
+        return self._category.isarg_right
 
     @property
     def isarg_left(self):
-        """Test if the function takes a left argument."""
+        """Test if the functor takes a left argument."""
         return not self.isarg_right
 
     @property
-    def isfunction(self):
-        """Test if this class is a function composition. Always True for FunctionComposition instances."""
+    def isfunctor(self):
+        """Test if this class is a functor production. Always True for FunctorProduction instances."""
         return True
 
     @property
     def iscombinator(self):
-        """A combinator expects a function as the argument and returns a function."""
+        """A combinator expects a functor as the argument and returns a functor."""
         s = self._category.iscombinator
 
     def set_category(self, cat):
@@ -831,11 +860,12 @@ class FunctionComposition(Composition):
         Args:
             cat: A Category instance.
         """
+        prev = self._category
         self._category = cat
         # sanity check
-        if (cat.isarg_left and self._rightArg) or (cat.isarg_right and not self._rightArg):
+        if (cat.isarg_left and prev.isarg_right) or (cat.isarg_right and prev.isarg_left):
             raise DrsComposeError('Signature %s does not match %s argument position' %
-                                 (cat.ccg_signature, 'right' if self._rightArg else 'left'))
+                                 (cat.ccg_signature, 'right' if prev.isarg_right else 'left'))
 
     def set_options(self, options):
         """Set the compose options.
@@ -843,13 +873,13 @@ class FunctionComposition(Composition):
         Args:
             options: The compose options.
         """
-        # Pass down options to nested function
-        super(FunctionComposition, self).set_options(options)
+        # Pass down options to nested functor
+        super(FunctorProduction, self).set_options(options)
         if self._comp is not None:
             self._comp.set_options(options)
 
     def rename_vars(self, rs):
-        """Perform alpha conversion on the composition data.
+        """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
@@ -859,28 +889,28 @@ class FunctionComposition(Composition):
             self._comp.rename_vars(rs)
 
     def unify(self):
-        """Finalize the composition by performing a unify right to left.
+        """Finalize the production by performing a unify right to left.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
         if self._comp is not None:
             lr = self._comp.lambda_refs
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 self._comp = self._comp.unify()
             else:
                 # Make sure we don't change scoping after unifying combinators.
                 cat = self.category.result_category
                 d = self._comp.unify()
-                if d.isfunction:
+                if d.isfunctor:
                     fr = d.freerefs
                     fr = complement(fr, self.universe)
                     if len(fr) == 0:
                         # Remove functor since unification is complete
                         self._comp = d.local_scope._comp
-                        assert not self._comp.isfunction
+                        assert not self._comp.isfunctor
                     else:
-                        self._comp = CompositionList(d)
+                        self._comp = ProductionList(d)
                 else:
                     self._comp = d
                 self._comp.set_lambda_refs(lr)
@@ -888,18 +918,18 @@ class FunctionComposition(Composition):
         return self
 
     def apply_null_left(self):
-        """Apply a null left argument `$` to the function. This is necessary for processing
+        """Apply a null left argument `$` to the functor. This is necessary for processing
         the imperative form of a verb.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
         # TODO: Check if we have a proper noun accessible to the right and left
-        if self.isarg_right or self._comp is None or self._comp.isfunction:
-            raise DrsComposeError('invalid apply null left to function')
-        if self._comp is not None and isinstance(self._comp, CompositionList):
+        if self.isarg_right or self._comp is None or self._comp.isfunctor:
+            raise DrsComposeError('invalid apply null left to functor')
+        if self._comp is not None and isinstance(self._comp, ProductionList):
             self._comp = self._comp.apply()
-        d = DrsComposition(DRS(self._drsref.universe, []))
+        d = DrsProduction(DRS(self._drsref.universe, []))
         d = self.apply(d)
         return d
 
@@ -909,21 +939,18 @@ class FunctionComposition(Composition):
         self.set_outer(None)
 
     def apply(self, arg):
-        """Function application if arg is a DrsComposition or CompositionList. Otherwise function composition.
+        """Function application if arg is a DrsProduction or ProductionList. Otherwise functor production.
 
         Arg:
             The substitution argument.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
-        if self._comp is not None and self._comp.isfunction:
+        if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(arg)
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 self._comp.set_outer(self)
-                if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
-                    # Force a sanity check by resetting signature
-                    self.set_category(self.category)
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
@@ -935,9 +962,9 @@ class FunctionComposition(Composition):
             alr = arg.universe
         slr = self.lambda_refs
         sllr = self.local_lambda_refs
-        if len(sllr) == 1 and len(alr) != 1 and not arg.isfunction:
+        if len(sllr) == 1 and len(alr) != 1 and not arg.isfunctor:
             # Add proposition
-            p = PropComposition(ArgRight, slr[0])
+            p = PropProduction(Category('PP/NP'), slr[0])
             arg = p.apply(arg)
             alr = arg.lambda_refs
 
@@ -956,13 +983,13 @@ class FunctionComposition(Composition):
             xrs = zip(rn, get_new_drsrefs(rn, union(arg.lambda_refs, slr)))
             arg.rename_vars(xrs)
 
-        if arg.isfunction:
-            # function composition
+        if arg.isfunctor:
+            # functor production
             if arg.iscombinator:
                 # Can't handle at the moment
                 raise DrsComposeError('Combinators arguments %s for combinators %s not supported' %
                                       (arg.signature, self.signature))
-            cl = CompositionList()
+            cl = ProductionList()
             cl.set_options(self.compose_options)
 
             # Apply the combinator
@@ -972,7 +999,7 @@ class FunctionComposition(Composition):
                 lr = self._comp.lambda_refs
                 uv = self._comp.universe
                 uv = filter(lambda x: x in uv, lr) # keep lambda ordering
-                if self._rightArg:
+                if self._category.isarg_right:
                     lr = union_inplace(lr, arg.global_scope.lambda_refs)
                 else:
                     lr = union_inplace(arg.global_scope.lambda_refs, lr)
@@ -988,13 +1015,13 @@ class FunctionComposition(Composition):
                 if arg_comp is None:
                     arg.local_scope._comp = self._comp
                 elif self.isarg_left:
-                    cl2 = CompositionList()
+                    cl2 = ProductionList()
                     cl2.push_right(arg_comp, merge=True)
                     cl2.push_right(self._comp, merge=True)
                     cl2.set_lambda_refs(lr)
                     arg.local_scope._comp = cl2
                 else:
-                    cl2 = CompositionList()
+                    cl2 = ProductionList()
                     cl2.push_right(self._comp, merge=True)
                     cl2.push_right(arg_comp, merge=True)
                     cl2.set_lambda_refs(lr)
@@ -1007,14 +1034,14 @@ class FunctionComposition(Composition):
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
                 print('          := %s' % repr(cl if outer is None else outer.global_scope))
 
-            if outer is None and cl.contains_function:
+            if outer is None and cl.contains_functor:
                 cl = cl.unify()
 
             return cl
 
-        # function application
-        if self._comp is not None and arg.contains_function:
-            raise DrsComposeError('Invalid function placement during function application')
+        # functor application
+        if self._comp is not None and arg.contains_functor:
+            raise DrsComposeError('Invalid functor placement during functor application')
 
         # Remove resolved referents from lambda refs list
         lr = complement(self.lambda_refs, self.local_lambda_refs)
@@ -1023,10 +1050,10 @@ class FunctionComposition(Composition):
             self.clear()
             arg.set_lambda_refs(lr)
             return arg
-        elif isinstance(self._comp, CompositionList):
+        elif isinstance(self._comp, ProductionList):
             c = self._comp
         else:
-            c = CompositionList(self._comp)
+            c = ProductionList(self._comp)
 
         if self.isarg_right:
             c.push_right(arg)
@@ -1045,10 +1072,10 @@ class FunctionComposition(Composition):
         return c
 
 
-class PropComposition(FunctionComposition):
-    """A proposition function."""
-    def __init__(self, position, referent, composition=None):
-        super(PropComposition, self).__init__(position, referent)
+class PropProduction(FunctorProduction):
+    """A proposition functor."""
+    def __init__(self, position, referent, production=None):
+        super(PropProduction, self).__init__(position, referent)
 
     def _repr_helper2(self, i):
         v = chr(i)
@@ -1067,7 +1094,7 @@ class PropComposition(FunctionComposition):
 
     def apply_null_left(self):
         """It is an error to call this method for propositions"""
-        raise DrsComposeError('cannot apply null left to a proposition function')
+        raise DrsComposeError('cannot apply null left to a proposition functor')
 
     def apply(self, arg):
         """Function application.
@@ -1076,21 +1103,21 @@ class PropComposition(FunctionComposition):
             The substitution argument.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
-        if self._comp is not None and self._comp.isfunction:
+        if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(arg)
-            if self._comp.isfunction:
+            if self._comp.isfunctor:
                 self._comp.set_outer(self)
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
             print('DERIVATION:= %s {%s=%s}' % (repr(self.global_scope), chr(ord('P')+self._get_position()), repr(arg)))
-        if not isinstance(arg, CompositionList):
-            arg = CompositionList([arg])
+        if not isinstance(arg, ProductionList):
+            arg = ProductionList([arg])
         d = arg.apply()
-        assert isinstance(d, DrsComposition)
-        # FIXME: removing proposition from a proper noun causes an exception during CompositionList.apply()
+        assert isinstance(d, DrsProduction)
+        # FIXME: removing proposition from a proper noun causes an exception during ProductionList.apply()
         if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.drs.referents) == 1 and not d.isproper_noun:
             rs = zip(d.drs.referents, self._drsref.referents)
             d.rename_vars(rs)
@@ -1101,7 +1128,7 @@ class PropComposition(FunctionComposition):
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
                 print('          := %s' % repr(d))
             return d
-        dd = DrsComposition(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
+        dd = DrsProduction(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
         dd.set_options(self.compose_options)
         g = self.global_scope
         self.clear()
