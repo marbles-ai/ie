@@ -3,7 +3,8 @@
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from compose import CompositionList, FunctionComposition, DrsComposition, PropComposition, DrsComposeError
 from compose import ArgRight, ArgLeft
-from ccgcat import Category, N, NOUN, NP_N, DETERMINER, CONJ
+from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, RL_FA, RL_BA, RL_FC, RL_BX, get_rule
+
 import re
 from parse import parse_drs
 
@@ -274,6 +275,7 @@ class CcgTypeMapper(object):
     def ispronoun(self):
         """Test if the word attached to this category is a pronoun."""
         return (self.partofspeech in ['PRP', 'PRP$', 'WP', 'WP$']) or self._word in _PRON
+
     @property
     def ispreposition(self):
         """Test if the word attached to this category is a preposition."""
@@ -411,56 +413,52 @@ class CcgTypeMapper(object):
         if compose is None:
             # Simple type
             # Handle prepositions 'Z'
-            if self.category == CONJ:
+            if self.category == CAT_CONJ:
                 if self._word in ['or', 'nor']:
                     raise NotImplementedError
                 return CompositionList()
             elif self.ispronoun:
                 d = DrsComposition(_PRON[self._word])
-                d.set_signature(self.category.drs_signature)
+                d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
-            elif self.category == N:
-                if self.isproper_noun:
-                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.proper_noun',
-                                                                                    [DRSRef('x')])]), properNoun=True)
-                else:
-                    d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=False)
-                d.set_signature(self.category.drs_signature)
+            elif self.category == CAT_N:
+                d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=self.isproper_noun)
+                d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
-            elif self.category == NOUN:
+            elif self.category == CAT_NOUN:
                 if self.isnumber:
                     d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.number', [DRSRef('x')])]))
                 else:
                     d = DrsComposition(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
-                d.set_signature(self.category.drs_signature)
+                d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             elif self.isadverb and self._word in _ADV:
                 adv = _ADV[self._word]
                 d = DrsComposition(adv[0], [x for x in adv[1]])
-                d.set_signature(self.category.drs_signature)
+                d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
             else:
                 d = DrsComposition(DRS([], [Rel(self._word, [DRSRef('x')])]))
-                d.set_signature(self.category.drs_signature)
+                d.set_category(self.category)
                 d.set_lambda_refs(d.drs.universe)
                 return d
         else:
             # Functions
             ev = compose[-1]
-            if self.category == NP_N:    # NP*/N class
+            if self.category == CAT_NP_N:    # NP*/N class
                 # FIXME: these relations should be added as part of build_predicates()
-                if self.category == DETERMINER:
+                if self.category == CAT_DETERMINER:
                     if self._word in ['a', 'an']:
                         fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists.maybe', [DRSRef('x')])]))
                     elif self._word in ['the', 'thy']:
                         fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
                     else:
                         fn = FunctionComposition(ArgRight, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
-                fn.set_signature(self.drs_signature)
+                fn.set_category(self.category)
                 if ev is not None:
                     fn.set_lambda_refs([ev])
                 return fn
@@ -486,7 +484,7 @@ class CcgTypeMapper(object):
                             r = [c[1]]
                         r.extend(refs)
                         refs = r
-                    s = s.return_category
+                    s = s.result_category
 
                 refs_without_combinator = refs_without_combinator or refs
                 if ev is not None and ev in refs:
@@ -525,15 +523,15 @@ class CcgTypeMapper(object):
                     if ev is not None:
                         fn.set_lambda_refs([ev])
 
-                fn.set_signature(signatures[0].return_category.ccg_signature)
+                fn.set_category(signatures[0].result_category)
                 for c, s in zip(compose[:-1], signatures):
                     fn = c[0](s.isarg_right, c[1], fn)
-                    fn.set_signature(s.ccg_signature)
+                    fn.set_category(s)
                 return fn
             else:
                 assert compose[0][0] == PropComposition
                 fn = compose[0][0](self.category.isarg_right, compose[0][1])
-                fn.set_signature(self.category.ccg_signature)
+                fn.set_category(self.category)
                 if ev is not None:
                     fn.set_lambda_refs([ev])
                 return fn
@@ -546,11 +544,12 @@ def _process_ccg_node(pt, cl):
         process_ccg_pt()
     """
     if pt[-1] == 'T':
-        cl2 = CompositionList()
-        cl2.set_options(cl.compose_options)
         head = int(pt[0][1])
         count = int(pt[0][2])
-        signature = Category(pt[0][0]).drs_signature
+        result = Category(pt[0][0]).simplify()
+        cl2 = CompositionList()
+        cl2.set_options(cl.compose_options)
+        cl2.set_category(result)
         if count > 2:
             raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
 
@@ -561,14 +560,17 @@ def _process_ccg_node(pt, cl):
         # Head should indicate the processing order however I have found it is not always correct.
         # Need to check signature and try again.
         # 1 => is right to left.
-        cl2 = cl2.apply(head != 0).unify()
-        if signature != cl2.signature:
-            # Try again
-            if isinstance(cl2, CompositionList):
-                cl2 = cl2.apply(head != 0).unify()
-                cl2 = cl2.apply(head == 0).unify()
-            #if signature != cl2.signature:
-            #    raise DrsComposeError('Expected signature %s but got %s' % (signature, d.signature))
+        if cl2.size == 1:
+            cl2 = cl2.apply().unify()
+        elif cl2.size == 2:
+            cats = [x.category.simplify() if not x.isfunction else x.local_scope.category.simplify() for x in cl2.iterator()]
+            rule = get_rule(cats[0], cats[1], result)
+            if rule is None:
+                raise DrsComposeError('cannot discover composition rule')
+            cl2 = cl2.apply(rule[0]).unify()
+        else:
+            assert cl2.size == 0
+
         cl.push_right(cl2)
         return
 

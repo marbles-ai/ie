@@ -5,7 +5,7 @@ from drs import get_new_drsrefs
 from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var, \
     remove_dups
 from common import SHOW_LINEAR
-from ccgcat import Category, EMPTY
+from ccgcat import Category, CAT_EMPTY
 import weakref
 
 ## @{
@@ -37,6 +37,7 @@ class Composition(object):
     def __init__(self):
         self._lambda_refs = DRS([], [])
         self._options = 0
+        self._category = CAT_EMPTY
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -45,6 +46,11 @@ class Composition(object):
     def signature(self):
         """The drs type signature."""
         return 'T'
+
+    @property
+    def category(self):
+        """The CCG category"""
+        return self._category
 
     @property
     def isempty(self):
@@ -115,13 +121,13 @@ class Composition(object):
         """
         return False
 
-    def set_signature(self, sig):
-        """Set the DRS category from a signature string.
+    def set_category(self, cat):
+        """Set the CCG category.
 
         Args:
-            sig: The signature string.
+            cat: A Category instance.
         """
-        pass
+        self._category = cat
 
     def set_options(self, options):
         """Set the compose opions.
@@ -190,7 +196,6 @@ class DrsComposition(Composition):
             raise TypeError
         self._drs = drs
         self._nnp = properNoun
-        self._category = Category()
 
     def __repr__(self):
         return self.drs.show(SHOW_LINEAR).encode('utf-8')
@@ -198,18 +203,10 @@ class DrsComposition(Composition):
     def __str__(self):
         return self.__repr__()
 
-    def set_signature(self, sig):
-        """Set the DRS category from a signature string.
-
-        Args:
-            sig: The signature string.
-        """
-        self._category = Category(sig)
-
     @property
     def signature(self):
         """The drs type signature."""
-        if self._category == EMPTY:
+        if self._category == CAT_EMPTY:
             if len(self._drs.referents) == 1 and len(self._drs.conditions) == 1 and \
                     isinstance(self._drs.conditions[0], Prop):
                 return 'Z'
@@ -615,6 +612,7 @@ class CompositionList(Composition):
         drs = DRS(refs, conds).purify()
         d = DrsComposition(drs, proper)
         d.set_lambda_refs(self.lambda_refs)
+        d.set_category(self.category)
         return d
 
     def apply(self, reverse=True):
@@ -636,6 +634,7 @@ class CompositionList(Composition):
         if len(self._compList) == 1:
             d = self._compList[0]
             self._compList = []
+            d.set_category(self.category)
             return d
         return self
 
@@ -649,7 +648,6 @@ class FunctionComposition(Composition):
                 composition = DrsComposition(composition)
             elif not isinstance(composition, Composition):
                 raise TypeError('Function argument must be a Composition type')
-        self._category = Category()
         self._comp = composition
         self._rightArg = position
         if isinstance(referent, list):
@@ -825,20 +823,19 @@ class FunctionComposition(Composition):
     @property
     def iscombinator(self):
         """A combinator expects a function as the argument and returns a function."""
-        s = self.signature
-        return s[-1] == ')' and s[0] == '(' and not self._category.ismodifier
+        s = self._category.iscombinator
 
-    def set_signature(self, sig):
-        """Set the DRS category from a signature string.
+    def set_category(self, cat):
+        """Set the CCG category.
 
         Args:
-            sig: The signature string.
+            cat: A Category instance.
         """
-        self._category = Category(sig)
+        self._category = cat
         # sanity check
-        if (self._category.isarg_left and self._rightArg) or (self._category.isarg_right and not self._rightArg):
-            raise DrsComposition('Signature %s does not match %s argument position' %
-                                 (sig, 'right' if self._rightArg else 'left'))
+        if (cat.isarg_left and self._rightArg) or (cat.isarg_right and not self._rightArg):
+            raise DrsComposeError('Signature %s does not match %s argument position' %
+                                 (cat.ccg_signature, 'right' if self._rightArg else 'left'))
 
     def set_options(self, options):
         """Set the compose options.
@@ -873,6 +870,7 @@ class FunctionComposition(Composition):
                 self._comp = self._comp.unify()
             else:
                 # Make sure we don't change scoping after unifying combinators.
+                cat = self.category.result_category
                 d = self._comp.unify()
                 if d.isfunction:
                     fr = d.freerefs
@@ -886,6 +884,7 @@ class FunctionComposition(Composition):
                 else:
                     self._comp = d
                 self._comp.set_lambda_refs(lr)
+                self._comp.set_category(cat)
         return self
 
     def apply_null_left(self):
@@ -924,7 +923,7 @@ class FunctionComposition(Composition):
                 self._comp.set_outer(self)
                 if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
                     # Force a sanity check by resetting signature
-                    self.set_signature(self.signature)
+                    self.set_category(self.category)
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
@@ -1001,6 +1000,7 @@ class FunctionComposition(Composition):
                     cl2.set_lambda_refs(lr)
                     arg.local_scope._comp = cl2
 
+            cl.set_category(self.category.result_category)
             cl.push_right(arg, merge=True)
             outer = self.outer
             self.clear()
@@ -1009,6 +1009,7 @@ class FunctionComposition(Composition):
 
             if outer is None and cl.contains_function:
                 cl = cl.unify()
+
             return cl
 
         # function application
@@ -1035,6 +1036,7 @@ class FunctionComposition(Composition):
         c.set_options(self.compose_options)
         #c = c.apply()
         c.set_lambda_refs(lr)
+        c.set_category(self.category.result_category)
         self.clear()
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
