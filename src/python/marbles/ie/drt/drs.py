@@ -633,7 +633,7 @@ class DRS(AbstractDRS):
                and compare_lists_eq(self._conds, other._conds)
 
     def __repr__(self):
-        return 'DRS(%s,%s)' % (repr(self._refs), repr(self._conds))
+        return '[%s| %s]' % (repr(self._refs), repr(self._conds))
 
     def _set_accessible(self, d):
         if self._accessible_drs is None:
@@ -1330,7 +1330,7 @@ class DRSRef(AbstractDRSRef):
         return type(self) == type(other) and self._var == other._var
 
     def __repr__(self):
-        return 'DRSRef(%s)' % self._var
+        return '%s' % self._var
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1441,7 +1441,7 @@ class DRSRelation(AbstractDRSRelation):
         return type(self) == type(other) and self._var == other._var
 
     def __repr__(self):
-        return 'DRSRelation(%s)' % self._var
+        return '%s' % self._var
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1579,7 +1579,7 @@ class Rel(AbstractDRSCond):
         self._refs = drsRefs
 
     def __repr__(self):
-        return 'Rel(%s,%s)' % (repr(self._rel), ','.join([repr(x) for x in self._refs]))
+        return '%s(%s)' % (repr(self._rel), ','.join([repr(x) for x in self._refs]))
 
     def __ne__(self, other):
         return type(self) != type(other) or self._rel != other._rel or not compare_lists_eq(self._refs, other._refs)
@@ -1706,7 +1706,7 @@ class Neg(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return 'Neg(%s)' % repr(self._drs)
+        return 'not %s' % repr(self._drs)
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -1831,7 +1831,7 @@ class Imp(AbstractDRSCond):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return 'Imp(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+        return '%s => %s' % (repr(self._drsA), repr(self._drsB))
 
     def _set_accessible(self, d):
         return self._drsA._set_accessible(d) and self._drsB._set_accessible(self._drsA)
@@ -1988,7 +1988,7 @@ class Or(AbstractDRSCond):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return 'Or(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+        return '%s or %s' % (repr(self._drsA), repr(self._drsB))
 
     def _set_accessible(self, d):
         return self._drsA._set_accessible(d) and self._drsB._set_accessible(d)
@@ -2137,7 +2137,7 @@ class Prop(AbstractDRSCond):
         return type(self) == type(other) and self._ref == other._ref and self._drs == other._drs
 
     def __repr__(self):
-        return 'Prop(%s,%s)' % (repr(self._ref), repr(self._drs))
+        return '%s: %s' % (repr(self._ref), repr(self._drs))
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -2277,7 +2277,7 @@ class Diamond(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return 'Diamond(%s)' % repr(self._drs)
+        return '<>%s' % repr(self._drs)
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -2402,7 +2402,7 @@ class Box(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return 'Box(%s)' % repr(self._drs)
+        return '#%s' % repr(self._drs)
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
