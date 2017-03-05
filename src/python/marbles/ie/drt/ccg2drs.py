@@ -128,11 +128,11 @@ class CcgTypeMapper(object):
          - (S/T)\(S/T) combinator:=λP.P(x);T[...] and (S/T) type:=λQ.R[...];Q(x)<br>
            => λQ.R[...];Q(x);T[...] which is not OK<br>
        - The CCG parse tree gives us the construction order so we don't need to differentiate between combinators and
-         functions during composition.
+         functions during production.
     -# Lambda application:
        - λPλx.P(x) {P(x=x)=G[x|...]} == G[x|...]
        - λPλx.P(x) {P(x=y)=G[y|...])} == G[y|...]
-    -# Lambda function composition
+    -# Lambda function production
        - λPλx.P(x).λQλy.Q(y) == λPλQλxλy.P(x);Q(y) == read as P unify Q<br>
          iff x is a bound in DRS P and y is bound in DRS Q
        - λPλx.P(x).λQλy.Q(y) == λPλQλx.P(x);Q(x)<br>
@@ -176,8 +176,9 @@ class CcgTypeMapper(object):
         r'(S\T)\T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
         r'(S\T)/Z': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
         r'(S/T)/Z': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
-        r'S\S':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'S/S':     [(FunctorProduction, DRSRef('x'))],
+        r'S\S':     [(FunctorProduction, DRSRef('e')), DRSRef('e')],
+        r'S/S':     [(FunctorProduction, DRSRef('e')), DRSRef('e')],
+        r'T/S':     [(FunctorProduction, DRSRef('e')), DRSRef('x')],
         r'(((S\T)/Z)/T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
                              (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
         r'((S\T)/Z)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
@@ -214,7 +215,7 @@ class CcgTypeMapper(object):
         self._drsSignature = self._ccgcat.drs_signature
 
         if self.drs_signature not in self._AllTypes:
-            raise DrsComposeError('CCG type "%s" maps to unknown DRS composition type "%s"' %
+            raise DrsComposeError('CCG type "%s" maps to unknown DRS production type "%s"' %
                                   (ccgTypeName, self.drs_signature))
 
     def __repr__(self):
@@ -404,10 +405,10 @@ class CcgTypeMapper(object):
         return conds
 
     def get_composer(self):
-        """Get the composition model for this category.
+        """Get the production model for this category.
 
         Returns:
-            A Composition instance.
+            A Production instance.
         """
         compose = self._AllTypes[self.drs_signature]
         if compose is None:
@@ -570,7 +571,7 @@ def _process_ccg_node(pt, cl):
             cats = [x.category.simplify() if not x.isfunctor else x.local_scope.category.simplify() for x in cl2.iterator()]
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
-                raise DrsComposeError('cannot discover composition rule')
+                raise DrsComposeError('cannot discover production rule')
             cl2 = cl2.apply(rule).unify()
         else:
             # Parse tree is a binary tree
@@ -611,10 +612,33 @@ def process_ccg_pt(pt, options=None):
     if d.isfunctor and d.isarg_left:
         d = d.apply_null_left().unify()
     if not isinstance(d, DrsProduction):
-        raise DrsComposeError('composition failed to produce DRS - %s' % repr(d))
+        raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
     d = d.purify()
     if not d.ispure:
-        raise DrsComposeError('composition failed to produce pure DRS - %s' % repr(d))
+        raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
     return d
+
+
+def _process_sentence_node(pt, s):
+    if pt[-1] == 'T':
+        for nd in pt[1:-1]:
+            # FIXME: prefer tail end recursion
+            _process_sentence_node(nd, s)
+    else:
+        s.append(pt[1])
+
+
+def sentence_from_pt(pt):
+    """Get the sentence from a CCG parse tree.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+
+    Returns:
+        A string
+    """
+    s = []
+    _process_sentence_node(pt, s)
+    return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 

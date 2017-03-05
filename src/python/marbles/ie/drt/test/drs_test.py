@@ -8,7 +8,7 @@ from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..compose import DrsProduction, ArgRight, PropProduction, FunctorProduction, ProductionList
 from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
-from ..ccg2drs import process_ccg_pt, CcgTypeMapper
+from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper
 from ..ccgcat import Category
 #from pysmt.shortcuts import Solver
 
@@ -525,6 +525,9 @@ class DrsTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
+        d = d.unify()
+        self.assertIsNotNone(d)
+        self.assertIsInstance(d, DrsProduction)
 
     def test12_Wsj0003_1(self):
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago, researchers reported.
@@ -728,6 +731,35 @@ class DrsTest(unittest.TestCase):
         #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
+        d = d.unify()
+        self.assertIsNotNone(d)
+        self.assertIsInstance(d, DrsProduction)
+
+    def test12_Wsj0004_1(self):
+        txt='''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 1> (<L N NNS NNS Yields N>) ) (<T NP\NP 0 2>
+        (<L (NP\NP)/NP IN IN on (NP_111\NP_111)/NP_112>) (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ money-market N_128/N_128>)
+        (<T N 1 2> (<L N/N JJ JJ mutual N_121/N_121>) (<L N NNS NNS funds N>) ) ) ) ) ) (<T S[dcl]\NP 0 2>
+        (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[to]\NP) VBD VBD continued
+        (S[dcl]\NP_10)/(S[to]_11\NP_10:B)_11>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP_20)/(S[b]_21\NP_20:B)_21>)
+        (<L S[b]\NP VB VB slide S[b]\NP_26>) ) ) (<L , , , , ,>) ) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/NP IN IN amid ((S_41\NP_36)_41\(S_41\NP_36)_41)/NP_42>) (<T NP 0 1> (<T N 0 2>
+        (<L N/S[em] NNS NNS signs N/S[em]_47>) (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]_52>)
+        (<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NN NN portfolio N_98/N_98>) (<L N NNS NNS managers N>) ) )
+        (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBP VBP expect (S[dcl]\NP_59)/NP_60>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2>
+        (<L N/N JJ JJ further N_69/N_69>) (<L N NNS NNS declines N>) ) ) (<T NP\NP 0 2>
+        (<L (NP\NP)/NP IN IN in (NP_78\NP_78)/NP_79>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN interest N_88/N_88>)
+        (<L N NNS NNS rates N>) ) ) ) ) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+        #d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        d = d.unify()
+        self.assertIsNotNone(d)
+        self.assertIsInstance(d, DrsProduction)
+        print('\n')
+        print(d.drs.show(SHOW_LINEAR))
 
     def test13_ParseEasySrl(self):
         # Welcome to MerryWeather High
@@ -794,7 +826,7 @@ class DrsTest(unittest.TestCase):
         missing = CcgTypeMapper.add_model_categories(modelpath)
         self.assertIsNone(missing)
 
-    def __test100_ParseLdc2005T13(self):
+    def test100_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -816,9 +848,14 @@ class DrsTest(unittest.TestCase):
                 print(hdr.strip())
                 pt = parse_ccg_derivation(ccgbank)
                 self.assertIsNotNone(pt)
-                d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-                #d = process_ccg_pt(pt)
+                #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+                print(sentence_from_pt(pt))
+                d = process_ccg_pt(pt)
                 self.assertIsNotNone(d)
+                d = d.unify()
+                self.assertIsNotNone(d)
+                self.assertIsInstance(d, DrsProduction)
                 s = d.drs.show(SHOW_LINEAR)
+                print(s)
 
 
