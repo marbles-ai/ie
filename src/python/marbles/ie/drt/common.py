@@ -1,4 +1,5 @@
 from utils import iterable_type_check, compare_lists_eq
+import re
 
 
 ## @defgroup showtypes Show notation
@@ -202,10 +203,15 @@ class AbstractDRSVar(Showable):
 
 class DRSVar(AbstractDRSVar):
     """DRS variable"""
+    _NumSuffix = re.compile(r'^([A-Za-z$@._-]+)(\d*)$')
 
     def __init__(self, name, idx=0):
-        self._name = name
-        self._idx = idx
+        m = self._NumSuffix.match(name)
+        if m is None:
+            raise ValueError('Invalid DRS variable name ' + name)
+        assert m is not None
+        self._name = m.group(1)
+        self._idx = idx if len(m.group(2)) == 0 or idx != 0 else int(m.group(2))
 
     def __repr__(self):
         return 'Var(%s)' % self.to_string()
