@@ -413,15 +413,27 @@ RL_FORWARD_TYPE_RAISE = Rule('FORWARD_TYPERAISE')
 RL_BACKWARD_TYPE_RAISE = Rule('BACKWARD_TYPE_RAISE')
 
 ## Generalized Forward Composition
+## @verbatim
+## X/Y:f (Y/Z)/$:...λz.gz... => (X\Z)/$: ...λz.f(g(z...))
+## @endverbatim
 RL_GFC = Rule('GFC', 'GC')
 
 ## Generalized Forward Crossing Composition
+## @verbatim
+## X/Y:f (Y\Z)$:...λz.gz... => (X\Z)$: ...λz.f(g(z...))
+## @endverbatim
 RL_GFX = Rule('GFX', 'GC')
 
 ## Generalized Backward Composition
+## @verbatim
+## (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
+## @endverbatim
 RL_GBC = Rule('GBC', 'GC')
 
 ## Generalized Backrward Crossing Composition
+## @verbatim
+## (Y\Z)\$:...λz.gz... X\Y:f => (X\Z)\$: ...λz.f(g(z...))
+## @endverbatim
 RL_GBX = Rule('GBX', 'GC')
 
 ## Forward Substitution
@@ -482,7 +494,16 @@ def get_rule(left, right, result):
     elif left == CAT_EMPTY:
         return RL_RPASS
     elif right == CAT_EMPTY:
-        return RL_LPASS
+        if result.result_category == result.argument_category.result_category and \
+                        left == result.argument_category.argument_category:
+            if result.isarg_right and result.argument_category.isarg_left:
+                # X:a => T/(T\X): λxf.f(a)
+                return RL_FORWARD_TYPE_RAISE
+            elif result.isarg_left and result.argument_category.isarg_right:
+                # X:a => T\(T/X): λxf.f(a)
+                return RL_BACKWARD_TYPE_RAISE
+        else:
+            return RL_LPASS
     elif left.isarg_right and left.argument_category == right and left.result_category == result:
         # Forward Application  X/Y:f Y:a => X: f(a)
         return RL_FA
@@ -523,6 +544,31 @@ def get_rule(left, right, result):
         else:
             # Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
+
+
+    elif left.isarg_right and right.isarg_right and left.argument_category == right.result_category.result_category and \
+                    Category.combine(Category.combine(left.result_category, right.result_category.slash, \
+                                                      right.result_category.argument_category), right.slash, \
+                                     right.argument_category) == result:
+        if right.result_category.isarg_right:
+            # Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
+            # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+            return RL_GFC
+        else:
+            # Generalized Forward Crossing Composition  X/Y:f (Y\Z)$:...λz.gz... => (X/Z)$: ...λz.f(g(z...))
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            return RL_GFX
+    elif right.isarg_left and left.isarg_left and right.argument_category == left.result_category.result_category and \
+                    Category.combine(right.result_category, left.slash, left.argument_category) == result:
+        if left.result_category.isarg_left:
+            # Generalized Backward Composition  (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
+            # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+            return RL_GBC
+        else:
+            # Generalized Backrward Crossing Composition  (Y\Z)\$:...λz.gz... X\Y:f => (X\Z)\$: ...λz.f(g(z...))
+            # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+            return RL_GBX
+
     # TODO: Implement all production rules. Also need to handle in CompositionList.apply().
     raise NotImplementedError('CCG Rule %s * %s => %s' % (left, right, result))
     return None

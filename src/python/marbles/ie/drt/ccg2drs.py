@@ -538,14 +538,13 @@ class CcgTypeMapper(object):
                     fn.set_lambda_refs([ev])
                 return fn
 
-debugcount = 0
+
 def _process_ccg_node(pt, cl):
     """Internal helper for recursively processing the CCG parse tree.
 
     See Also:
         process_ccg_pt()
     """
-    global debugcount
     if pt[-1] == 'T':
         head = int(pt[0][1])
         count = int(pt[0][2])
@@ -559,10 +558,6 @@ def _process_ccg_node(pt, cl):
         for nd in pt[1:-1]:
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
-
-        debugcount += 1
-        if debugcount == 18:
-            debugcount = 18
 
         if cl2.size == 1:
             cl2 = cl2.apply().unify()
