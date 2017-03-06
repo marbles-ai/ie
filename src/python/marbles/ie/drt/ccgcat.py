@@ -384,7 +384,7 @@ RL_FC = Rule('FC', 'C')
 
 ## Forward Crossing Composition
 ## @verbatim
-## X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+## X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
 ## @endverbatim
 RL_FX = Rule('FX', 'C')
 
@@ -493,6 +493,7 @@ def get_rule(left, right, result):
         return RL_LPASS
     elif left == CAT_EMPTY:
         return RL_RPASS
+
     elif right == CAT_EMPTY:
         if result.result_category == result.argument_category.result_category and \
                         left == result.argument_category.argument_category:
@@ -504,6 +505,7 @@ def get_rule(left, right, result):
                 return RL_BACKWARD_TYPE_RAISE
         else:
             return RL_LPASS
+
     elif left.isarg_right and left.argument_category == right and left.result_category == result:
         # Forward Application  X/Y:f Y:a => X: f(a)
         return RL_FA
@@ -513,8 +515,9 @@ def get_rule(left, right, result):
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FC
         else:
-            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FX
+
     elif right.isarg_left and right.argument_category == left and right.result_category == result:
         # Backward Application  Y:a X\Y:f => X: f(a)
         return RL_BA
@@ -526,6 +529,7 @@ def get_rule(left, right, result):
         else:
             # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             return RL_BX
+
     elif left.argument_category == right.argument_category and left.result_category.isarg_right and \
                 left.slash == right.slash and left.result_category.argument_category == right.result_category and \
                 Category.combine(left.result_category.result_category, left.slash, left.argument_category) == result:
@@ -535,6 +539,7 @@ def get_rule(left, right, result):
         else:
             # Forward Crossing Substitution  (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FXS
+
     elif right.argument_category == left.argument_category and right.result_category.isarg_left and \
                 left.slash == right.slash and right.result_category.argument_category == left.result_category and \
                 Category.combine(right.result_category.result_category, left.slash, right.argument_category) == result:
@@ -545,7 +550,6 @@ def get_rule(left, right, result):
             # Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
 
-
     elif left.isarg_right and right.isarg_right and left.argument_category == right.result_category.result_category and \
                     Category.combine(Category.combine(left.result_category, right.result_category.slash, \
                                                       right.result_category.argument_category), right.slash, \
@@ -555,9 +559,10 @@ def get_rule(left, right, result):
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_GFC
         else:
-            # Generalized Forward Crossing Composition  X/Y:f (Y\Z)$:...λz.gz... => (X/Z)$: ...λz.f(g(z...))
-            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            # Generalized Forward Crossing Composition  X/Y:f (Y\Z)|$:...λz.gz... => (X/Z)|$: ...λz.f(g(z...))
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
             return RL_GFX
+
     elif right.isarg_left and left.isarg_left and right.argument_category == left.result_category.result_category and \
                     Category.combine(right.result_category, left.slash, left.argument_category) == result:
         if left.result_category.isarg_left:
@@ -569,8 +574,6 @@ def get_rule(left, right, result):
             # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             return RL_GBX
 
-    # TODO: Implement all production rules. Also need to handle in CompositionList.apply().
-    raise NotImplementedError('CCG Rule %s * %s => %s' % (left, right, result))
     return None
 
 

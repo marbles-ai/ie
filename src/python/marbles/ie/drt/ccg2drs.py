@@ -4,7 +4,7 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
 from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, get_rule
-
+from utils import remove_dups, union_inplace, complement
 import re
 from parse import parse_drs
 
@@ -98,6 +98,7 @@ _WEEKDAYS = {
     'Sun':  'Sunday'
 }
 
+
 class CcgTypeMapper(object):
     """Mapping from CCG types to DRS types and the construction rules.
 
@@ -186,7 +187,7 @@ class CcgTypeMapper(object):
         r'(S\S)\T': [(FunctorProduction, DRSRef('x')),
                      (FunctorProduction, DRSRef('e')), DRSRef('e')],
         # Mixtures: functions + combinators
-        r'((S\T)\(S\T))/T': [(FunctorProduction, DRSRef('y')),
+        r'((S\T)\(S\T))/T': [(FunctorProduction, [DRSRef('e'), DRSRef('y')]),
                              (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
         r'((S\T)\(S\T))\T': [(FunctorProduction, DRSRef('y')),
                              (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
@@ -358,21 +359,34 @@ class CcgTypeMapper(object):
             p_vars = [p_vars]
         evt_vars = None
         if evt is not None:
-            evt_vars = []
-            evt_vars.extend(p_vars)
-            evt_vars.append(evt)
+            evt_vars = [evt]
+            evt_vars = union_inplace(p_vars)
+            if len(evt_vars) == 1:
+                # p_vars = [e], evt_vars = [e]
+                evt_vars = None
+                evt = None
+            else:
+                p_vars = complement(p_vars, [evt])
 
-        if self.category.iscombinator:
+        if self.category.ismodifier or self.category.iscombinator:
             if evt is not None:
-                refs.append(evt)
-            conds.append(Rel(self._word, refs))
+                refs = union_inplace([evt], refs)
+                if len(refs) == 1:
+                    conds.append(Rel('event.modifier.' + self._word, refs))
+                elif len(refs) == 2:
+                    conds.append(Rel('event.attribute.' + self._word, refs))
+                elif len(refs) > 2:
+                    conds.append(Rel('event.related.' + self._word, refs))
+            else:
+                conds.append(Rel(self._word, refs))
         elif self.isadjective:
-            if evt_vars is not None:
+            if evt is not None:
                 raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
                                       % (self._word, self.drs_signature))
             conds.append(Rel(self._word, refs))
         else:
             if self.isproper_noun:
+                assert len(p_vars) == 1
                 if self._TypeMonth.match(self._word):
                     if self._word in _MONTHS:
                         conds.append(Rel(_MONTHS[self._word], p_vars))
@@ -381,7 +395,6 @@ class CcgTypeMapper(object):
                     conds.append(Rel('is.date', p_vars))
                     if evt_vars is not None:
                         conds.append(Rel('event.date', evt_vars))
-                        evt_vars = None
                 elif self._TypeWeekday.match(self._word):
                     if self._word in _WEEKDAYS:
                         conds.append(Rel(_WEEKDAYS[self._word], p_vars))
@@ -390,18 +403,21 @@ class CcgTypeMapper(object):
                     conds.append(Rel('is.date', p_vars))
                     if evt_vars is not None:
                         conds.append(Rel('event.date', evt_vars))
-                        evt_vars = None
                 else:
                     conds.append(Rel(self._word, p_vars))
+                    if evt_vars is not None:
+                        conds.append(Rel('event.related', evt_vars))
             elif self.isnumber:
+                assert len(p_vars) == 1
                 conds.append(Rel(self._word, p_vars))
                 conds.append(Rel('is.number', p_vars))
-            else:
-                conds.append(Rel(self._word, refs))
-
-            if evt_vars is not None:
-                # Undefined relationship
+                if evt_vars is not None:
+                    conds.append(Rel('event.related', evt_vars))
+            elif evt_vars is not None and len(p_vars) != 0:
+                conds.append(Rel(self._word, p_vars))
                 conds.append(Rel('event.related', evt_vars))
+            elif len(refs) != 0:
+                conds.append(Rel(self._word, refs))
         return conds
 
     def get_composer(self):
@@ -490,27 +506,28 @@ class CcgTypeMapper(object):
                         refs = r
                     s = s.result_category
 
-                refs_without_combinator = refs_without_combinator or refs
+                refs = remove_dups(refs)
+                refs_without_combinator = remove_dups(refs_without_combinator) if refs_without_combinator is not None \
+                    else refs
                 if ev is not None and ev in refs:
                     refs = filter(lambda a: a != ev, refs)
 
                 if self.isverb:
                     if ev is None:
                         raise DrsComposeError('Verb signature "%s" does not include event variable' % self.drs_signature)
-                    elif self.category.iscombinator:
+                    elif self.category.iscombinator or self.category.ismodifier:
                         # passive case
-                        refs.append(ev)
-                        fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
+                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
                     else:
                         # TODO: use verbnet to get semantics
-                        conds = [Rel('event', [ev]), Rel(self._word, [ev])]
+                        conds = [Rel('event', [ev]), Rel('event.verb.' + self._word, [ev])]
                         for v,e in zip(refs, self._EventPredicates):
                             conds.append(Rel('event.' + e, [ev, v]))
                         if len(refs) > len(self._EventPredicates):
                             for i in range(len(self._EventPredicates), len(refs)):
                                 conds.append(Rel('event.extra.%d' % i, [ev, refs[i]]))
                         fn = DrsProduction(DRS([ev], conds))
-                        fn.set_lambda_refs([ev])
+                    fn.set_lambda_refs([ev])
                 elif self.isadverb:
                     if ev is not None:
                         if _ADV.has_key(self._word):
@@ -579,6 +596,8 @@ def _process_ccg_node(pt, cl):
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
         return  # TODO: handle punctuation
+    if pt[1] == 'signs':
+        pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
 
