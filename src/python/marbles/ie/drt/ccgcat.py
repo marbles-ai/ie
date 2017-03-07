@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""CCG and DRS signature functions"""
+"""CCG Categories and Rules"""
 import re
 
 
@@ -136,7 +136,7 @@ class Category(object):
 
         Args:
             signature: A CCG type signature string.
-            conj: Internally used by simplify.
+            conj: Internally used by simplify. Never set this explicitly.
         """
         if signature is None:
             self._signature = ''
@@ -146,8 +146,11 @@ class Category(object):
             self._signature = signature
             self._splitsig = split_signature(signature)
             self._isconj = 'conj' in signature or conj
+            # Don't need to handle | (= any) because parse tree has no ambiguity
+            assert self._splitsig[1] in ['/', '\\', '']
 
-    ## @cond
+
+            ## @cond
     def __str__(self):
         return self._signature
 
@@ -179,7 +182,7 @@ class Category(object):
 
     @classmethod
     def combine(cls, left, slash, right):
-        """Combine two categories with a slash operator
+        """Combine two categories with a slash operator.
 
         Args:
             left: The left category (result).
@@ -189,7 +192,11 @@ class Category(object):
         Returns:
             A Category instance.
         """
+        # Don't need to handle | (= any) because parse tree has no ambiguity
         assert slash in ['/', '\\']
+        assert not left.isempty
+        if right.isempty:
+            return left
         c = Category()
         c._splitsig = left.ccg_signature, slash, right.ccg_signature
         c._signature = join_signature(c._splitsig)
@@ -222,7 +229,7 @@ class Category(object):
     @property
     def istype_raised(self):
         """Test if the CCG category is type raised."""
-        # X|(X|Y)
+        # X|(X|Y), where | = any slash
         r = self.argument_category
         return r.isfunctor and r.result_category == self.result_category
 
@@ -237,7 +244,7 @@ class Category(object):
     @property
     def isfunctor(self):
         """Test if the category is a function."""
-        return self._splitsig[1] in ['/', '\\', '|']
+        return self._splitsig[1] in ['/', '\\']
 
     @property
     def iscombinator(self):
