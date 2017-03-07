@@ -729,8 +729,16 @@ class ProductionList(Production):
 
 
 class FunctorProduction(Production):
-    """A functor production. All functors are curried."""
+    """A functor production. Functors are curried where the inner most functor is the global scope."""
     def __init__(self, category, referent, production=None):
+        """Constructor.
+
+        Args:
+            category: A marbles.ie.drt.ccgcat.Category instance.
+            referent: Either a list of, or a single, marbles.ie.drt.drs.DRSRef instance.
+            production: Optionally a marbles.ie.drt.drs.DRS instance or a Production instance. The DRS will be converted
+                to a DrsProduction. If production is a functor then the combination is a curried functor.
+        """
         super(FunctorProduction, self).__init__(category)
         if production is not None:
             if isinstance(production, (DRS, Merge)):
@@ -741,6 +749,7 @@ class FunctorProduction(Production):
             raise TypeError('category cannot be None for functors')
         self._comp = production
         self._category = category
+        # Store lambda vars as a DRS with no conditions so we inherit alpha conversion methods.
         if isinstance(referent, list):
             self._drsref = DRS(referent, [])
         elif isinstance(referent, tuple):
@@ -750,9 +759,9 @@ class FunctorProduction(Production):
         self._outer = None
         if self._comp is not None:
             if isinstance(self._comp, FunctorProduction):
-                self._comp.set_outer(self)
+                self._comp._set_outer(self)
 
-    def set_outer(self, outer):
+    def _set_outer(self, outer):
         if outer is not None:
             self._outer = weakref.ref(outer)
         else:
@@ -836,7 +845,12 @@ class FunctorProduction(Production):
 
     @property
     def signature(self):
-        """Get the functor signature."""
+        """Get the functor signature. For functors the signature returned is the signature at the global scope.
+
+        Remarks:
+            Properties local_scope.signature, self.signature both map to global_scope.signature. There is no public
+            method to access the signature of outer curried functors.
+        """
         return self.global_scope._category.drs_signature
 
     @property
@@ -876,8 +890,17 @@ class FunctorProduction(Production):
         return None if self._outer is None else self._outer() # weak deref
 
     @property
+    def iscurried(self):
+        """Test if the functor is curried.
+
+        Remarks:
+            Test is same as `self.global_scope.outer is None`
+        """
+        return self._outer is None and (self._outer is None or not self._comp.isfunctor)
+
+    @property
     def isempty(self):
-        """Test if the production prduces an empty DRS."""
+        """Test if the production produces an empty DRS."""
         return self._drsref.isempty and (self._comp is None or self._comp.isempty)
 
     @property
@@ -892,10 +915,14 @@ class FunctorProduction(Production):
 
     @property
     def lambda_refs(self):
-        """Get the lambda function referents"""
+        """Get the lambda functor referents ordered by functor scope. These are the referents that can be bound with
+        during unification.
+        """
         # Get unique referents, ordered by functor scope
-        # Reverse because we can have args [(x,e), (y,e), e] =>[x,e,y,e,e] => [x,y,e]
         r = self._get_lambda_refs([])
+        # Reverse because we can have args:
+        # - [(x,e), (y,e), e] => [x,e,y,e,e] => [x,y,e] (REDUCTIONS AND PASS THRU)
+        # - [e, (x, e)] => [e, x, e] => [x,e]          (EXPANDERS)
         r.reverse()
         r = remove_dups(r)
         r.reverse()
@@ -926,7 +953,7 @@ class FunctorProduction(Production):
     def clear(self):
         self._comp = None
         self._drsref = DRS([], [])
-        self.set_outer(None)
+        self._set_outer(None)
 
     def set_category(self, cat):
         """Set the CCG category.
@@ -969,13 +996,13 @@ class FunctorProduction(Production):
             A Production instance.
         """
         if self._comp is not None:
-            lr = self._comp.lambda_refs
             if self._comp.isfunctor:
                 self._comp = self._comp.unify()
             else:
-                # Make sure we don't change scoping after unifying combinators.
+                lr = self._comp.lambda_refs
                 cat = self.category.result_category
                 d = self._comp.unify()
+                # Make sure we don't change scoping after unifying combinators.
                 if d.isfunctor:
                     fr = d.freerefs
                     fr = complement(fr, self.universe)
@@ -983,6 +1010,10 @@ class FunctorProduction(Production):
                         # Remove functor since unification is complete
                         self._comp = d.global_scope._comp
                         assert not self._comp.isfunctor
+                        if not compare_lists_eq(lr, self._comp.lambda_refs):
+                            pass
+                        if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
+                            assert compare_lists_eq(lr, self._comp.lambda_refs)
                     else:
                         self._comp = ProductionList(d)
                 else:
@@ -1070,7 +1101,7 @@ class FunctorProduction(Production):
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(arg)
             if self._comp.isfunctor:
-                self._comp.set_outer(self)
+                self._comp._set_outer(self)
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
@@ -1228,7 +1259,7 @@ class PropProduction(FunctorProduction):
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(arg)
             if self._comp.isfunctor:
-                self._comp.set_outer(self)
+                self._comp._set_outer(self)
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
