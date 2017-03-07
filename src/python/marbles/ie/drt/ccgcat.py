@@ -145,7 +145,7 @@ class Category(object):
         else:
             self._signature = signature
             self._splitsig = split_signature(signature)
-            self._isconj = 'conj' in self._splitsig[2] or conj
+            self._isconj = 'conj' in signature or conj
 
     ## @cond
     def __str__(self):
@@ -282,6 +282,7 @@ class Category(object):
 ## @ingroup gconst
 ## @defgroup ccgcat CCG Categories
 
+CAT_NUM = Category('N[num]')
 CAT_EMPTY = Category()
 CAT_COMMA = Category(',')
 CAT_CONJ = Category('conj')
@@ -307,6 +308,7 @@ CAT_ADJECTIVE = Category('N/N')
 CAT_DETERMINER = Category('NP[nb]/N')
 CAT_NOUN = RegexCategoryClass(r'^N(?:\[[a-z]+\])?$')
 CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
+CAT_NP_NP = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/NP$')
 
 ## @}
 
@@ -384,7 +386,7 @@ RL_FC = Rule('FC', 'C')
 
 ## Forward Crossing Composition
 ## @verbatim
-## X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
+## X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
 ## @endverbatim
 RL_FX = Rule('FX', 'C')
 
@@ -465,6 +467,10 @@ RL_LPASS = Rule('LP', 'PASS')
 
 ## Special rule for CONJ and punctuation.
 RL_RPASS = Rule('RP', 'PASS')
+
+## Special rule for numbers
+RL_RNUM = Rule('RNUM')
+RL_LNUM = Rule('LNUM')
 ## @}
 
 
@@ -493,7 +499,8 @@ def get_rule(left, right, result):
         return RL_LPASS
     elif left == CAT_EMPTY:
         return RL_RPASS
-
+    elif left == CAT_NP_NP and right == CAT_NUM:
+        return RL_RNUM
     elif right == CAT_EMPTY:
         if result.result_category == result.argument_category.result_category and \
                         left == result.argument_category.argument_category:
@@ -515,7 +522,7 @@ def get_rule(left, right, result):
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FC
         else:
-            # Forward Crossing Composition  X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             return RL_FX
 
     elif right.isarg_left and right.argument_category == left and right.result_category == result:
