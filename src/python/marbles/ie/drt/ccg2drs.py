@@ -3,7 +3,7 @@
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
-from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, get_rule
+from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
 from utils import remove_dups, union_inplace, complement
 import re
 from parse import parse_drs
@@ -576,18 +576,24 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
 
-        if cl2.size == 1:
-            cl2 = cl2.apply().unify()
-        elif cl2.size == 2:
+        cats = [x.category.simplify() if not x.isfunctor else x.local_scope.category.simplify() for x in cl2.iterator()]
+        if len(cats) == 1:
+            if result.istype_raised:
+                rule = get_rule(cats[0], CAT_EMPTY, result)
+                if rule is None:
+                    raise DrsComposeError('cannot discover production rule')
+                cl2 = cl2.apply().unify()
+            else:
+                cl2 = cl2.apply().unify()
+        elif len(cats) == 2:
             # Get the production rule
-            cats = [x.category.simplify() if not x.isfunctor else x.local_scope.category.simplify() for x in cl2.iterator()]
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
                 raise DrsComposeError('cannot discover production rule')
             cl2 = cl2.apply(rule).unify()
         else:
             # Parse tree is a binary tree
-            assert cl2.size == 0
+            assert len(cats) == 0
 
         cl.push_right(cl2)
         return

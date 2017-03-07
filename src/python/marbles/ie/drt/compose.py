@@ -5,7 +5,8 @@ from drs import get_new_drsrefs
 from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var, \
     remove_dups
 from common import SHOW_LINEAR
-from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX
+from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
+    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE
 import weakref
 
 ## @{
@@ -637,6 +638,9 @@ class ProductionList(Production):
             reverse = True
         elif rule in [RL_LPASS, RL_FA]:
             reverse = False
+        elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
+            # TODO: handle all rules
+            raise NotImplementedError
         else:
             # TODO: handle all rules
             raise NotImplementedError
