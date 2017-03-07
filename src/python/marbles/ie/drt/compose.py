@@ -6,7 +6,7 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
     remove_dups
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
-    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE
+    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE, RL_RNUM
 import weakref
 
 ## @{
@@ -368,13 +368,13 @@ class ProductionList(Production):
         return cl
 
     def flatten(self):
-        """Merge subordinate ProductionList's into the current list."""
+        """Unify subordinate ProductionList's into the current list."""
         compList = []
         for d in self._compList:
             if d.isempty:
                 continue
             if isinstance(d, ProductionList):
-                d = d.apply()
+                d = d.unify()
                 if isinstance(d, ProductionList):
                     compList.extend(d._compList)
                 else:
@@ -453,7 +453,11 @@ class ProductionList(Production):
         return d
 
     def apply_forward(self, enableException=False):
-        """Applies all functors. The list size should reduce."""
+        """Applies all functors. The list size should reduce.
+
+        Remarks:
+            Executes a application on entire list.
+        """
         rstk = self._compList
         rstk.reverse()
         lstk = []
@@ -512,8 +516,12 @@ class ProductionList(Production):
         self._compList = lstk
         return self
 
-    def apply_reverse(self, enableException=False):
-        """Applies all functors. The list size should reduce."""
+    def apply_backward(self, enableException=False):
+        """Applies all functors. The list size should reduce.
+
+        Remarks:
+            Executes a application on entire list.
+        """
         rstk = []
         lstk = self._compList
         self._compList = []
@@ -622,6 +630,46 @@ class ProductionList(Production):
         d.set_lambda_refs(self.lambda_refs)
         d.set_category(self.category)
         return d
+    
+    def compose_forward(self):
+        """Forward composition and forward crossing composition.
+
+        Remarks:
+            Executes a single composition.
+        """
+        fn = self._compList[0]
+        arg = self._compList[1]
+        c = self._compList[1:]
+        assert len(self._compList) > 2
+        # CALL[X/Y](Y|Z)
+        # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+        # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+        d = fn.compose(arg)
+        c[0] = d
+        self._compList = c
+        self.set_lambda_refs(d.set_lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def compose_backward(self):
+        """Backward composition and forward crossing composition.
+
+        Remarks:
+            Executes a single composition.
+        """
+        fn = self._compList[-1]
+        arg = self._compList[-2]
+        c = self._compList[0:-1]
+        assert len(self._compList) > 2
+        # CALL[X\Y](Y|Z)
+        # Backward Composition          Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+        # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+        d = fn.compose(arg)
+        c[-1] = d
+        self._compList = c
+        self.set_lambda_refs(d.set_lambda_refs)
+        self.set_category(d.category)
+        return self
 
     def apply(self, rule=None):
         """Applications based on rule.
@@ -632,12 +680,18 @@ class ProductionList(Production):
         Returns:
             A Production instance.
         """
+        APP = 0
+        COMP = 1
+        model = 0
         if rule is None:
             reverse = True
         elif rule in [RL_RPASS, RL_BA]:
             reverse = True
-        elif rule in [RL_LPASS, RL_FA]:
+        elif rule in [RL_LPASS, RL_FA, RL_RNUM]:
+            # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
             reverse = False
+        elif rule in [RL_FC, RL_FX]:
+            model = COMP
         elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
             # TODO: handle all rules
             raise NotImplementedError
@@ -649,16 +703,25 @@ class ProductionList(Production):
 
         # alpha convert variables
         self.flatten()
-        if reverse:
-            self.apply_reverse()
+        if model == APP:
+            if reverse:
+                self.apply_backward()
+            else:
+                self.apply_forward()
+        elif model == COMP:
+            if reverse:
+                self.compose_backward()
+            else:
+                self.compose_forward()
         else:
-            self.apply_forward()
+            # TODO: handle all rules
+            raise NotImplementedError
 
         if len(self._compList) == 1:
             d = self._compList[0]
             self._compList = []
             if d.isfunctor:
-                d.local_scope.set_category(self.category)
+                d.global_scope.set_category(self.category)
             else:
                 d.set_category(self.category)
             return d
@@ -673,13 +736,15 @@ class FunctorProduction(Production):
             if isinstance(production, (DRS, Merge)):
                 production = DrsProduction(production)
             elif not isinstance(production, Production):
-                raise TypeError('Function argument must be a Production type')
+                raise TypeError('production argument must be a Production type')
         if category is None :
             raise TypeError('category cannot be None for functors')
         self._comp = production
         self._category = category
         if isinstance(referent, list):
             self._drsref = DRS(referent, [])
+        elif isinstance(referent, tuple):
+            self._drsref = DRS(list(referent), [])
         else:
             self._drsref = DRS([referent], [])
         self._outer = None
@@ -765,21 +830,21 @@ class FunctorProduction(Production):
         return i
 
     @property
-    def local_lambda_refs(self):
-        """Get the referents that will be resolved after a call to apply(). """
-        return self.local_scope._drsref.universe
+    def global_lambda_refs(self):
+        """Gets all referents that are available during unification. """
+        return self.global_scope._drsref.universe
 
     @property
     def signature(self):
         """Get the functor signature."""
-        return self.local_scope._category.drs_signature
+        return self.global_scope._category.drs_signature
 
     @property
-    def global_scope(self):
+    def local_scope(self):
         """Get the outer most functor in this production or self.
 
         See Also:
-            local_scope()
+            global_scope()
         """
         g = self
         while g.outer is not None:
@@ -787,11 +852,11 @@ class FunctorProduction(Production):
         return g
 
     @property
-    def local_scope(self):
+    def global_scope(self):
         """Get the inner most functor in this production or self.
 
         See Also:
-            global_scope()
+            local_scope()
         """
         c = self._comp
         cprev = self
@@ -803,7 +868,7 @@ class FunctorProduction(Production):
     @property
     def category(self):
         """The CCG category"""
-        return self.local_scope._category
+        return self.global_scope._category
 
     @property
     def outer(self):
@@ -858,6 +923,11 @@ class FunctorProduction(Production):
         """A combinator expects a functor as the argument and returns a functor."""
         s = self._category.iscombinator
 
+    def clear(self):
+        self._comp = None
+        self._drsref = DRS([], [])
+        self.set_outer(None)
+
     def set_category(self, cat):
         """Set the CCG category.
 
@@ -911,7 +981,7 @@ class FunctorProduction(Production):
                     fr = complement(fr, self.universe)
                     if len(fr) == 0:
                         # Remove functor since unification is complete
-                        self._comp = d.local_scope._comp
+                        self._comp = d.global_scope._comp
                         assert not self._comp.isfunctor
                     else:
                         self._comp = ProductionList(d)
@@ -937,10 +1007,56 @@ class FunctorProduction(Production):
         d = self.apply(d)
         return d
 
-    def clear(self):
+    def pop_local_scope(self):
+        """Remove the local scope and return the DRS composition."""
+        if self._comp is not None and self._comp.isfunctor:
+            return self._comp.pop_local_scope()
+
+        c = self.apply(DrsProduction(DRS([],[])))
         self._comp = None
-        self._drsref = DRS([], [])
-        self.set_outer(None)
+        return c
+
+    def pop_global_scope(self):
+        """Remove the global scope and return the DRS composition."""
+        if self._comp is not None and self._comp.isfunctor:
+            return self._comp.pop_local_scope()
+
+        c = self.apply(DrsProduction(DRS([],[])))
+        self._comp = None
+        return c
+
+    def push_local_scope(self, fn):
+        """Push a production to the local scope."""
+        if self._comp is not None and self._comp.isfunctor:
+            return self._comp.push_local_scope(fn)
+        elif self._comp is not None:
+            raise DrsComposeError('cannot push production to bound local scope')
+        else:
+            self._comp = fn
+
+    def compose(self, arg):
+        """Composition
+
+        Arg:
+            A functor argument.
+
+        Returns:
+            A Production instance.
+        """
+        if not arg.isfunctor:
+            raise DrsComposeError('compose argument must be a functor')
+
+        # CALL[X\Y](Y|Z)
+        # Backward Composition          Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+        # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+        # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+        # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+
+        # FIXME: don't know how far to pop to find functor for argument category.
+        f = self.pop_local_scope()
+        g = arg.pop_global_scope()
+        assert 0 == (self.compose_options & CO_VERIFY_SIGNATURES) or f.category.simplify() == g.simplify()
+        raise NotImplementedError
 
     def apply(self, arg):
         """Function application if arg is a DrsProduction or ProductionList. Otherwise functor production.
@@ -958,14 +1074,14 @@ class FunctorProduction(Production):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.global_scope), chr(ord('P')+self._get_position()), repr(arg)))
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.local_scope), chr(ord('P')+self._get_position()), repr(arg)))
 
         # Alpha convert (old,new)
         alr = arg.lambda_refs
         if len(alr) == 0:
             alr = arg.universe
         slr = self.lambda_refs
-        sllr = self.local_lambda_refs
+        sllr = self.global_lambda_refs
         if len(sllr) == 1 and len(alr) != 1 and not arg.isfunctor:
             # Add proposition
             p = PropProduction(Category('PP/NP'), slr[0])
@@ -974,7 +1090,7 @@ class FunctorProduction(Production):
 
         rs = zip(alr, slr)
         # Make sure names don't conflict with global scope
-        ors = intersect(alr[len(rs):], complement(self.global_scope.lambda_refs, slr))
+        ors = intersect(alr[len(rs):], complement(self.local_scope.lambda_refs, slr))
         if len(ors) != 0:
             xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
             arg.rename_vars(xrs)
@@ -998,15 +1114,15 @@ class FunctorProduction(Production):
 
             # Apply the combinator
             if self._comp is not None:
-                arg_comp = arg.local_scope._comp
+                arg_comp = arg.global_scope._comp
                 # Carry forward lambda refs to combinator scope
                 lr = self._comp.lambda_refs
                 uv = self._comp.universe
                 uv = filter(lambda x: x in uv, lr) # keep lambda ordering
                 if self._category.isarg_right:
-                    lr = union_inplace(lr, arg.global_scope.lambda_refs)
+                    lr = union_inplace(lr, arg.local_scope.lambda_refs)
                 else:
-                    lr = union_inplace(arg.global_scope.lambda_refs, lr)
+                    lr = union_inplace(arg.local_scope.lambda_refs, lr)
                 lr = complement(lr, uv)
                 lr.extend(uv)
                 cl.set_lambda_refs(lr)
@@ -1017,26 +1133,26 @@ class FunctorProduction(Production):
                 lr = union_inplace(lr, uv)
 
                 if arg_comp is None:
-                    arg.local_scope._comp = self._comp
+                    arg.global_scope._comp = self._comp
                 elif self.isarg_left:
                     cl2 = ProductionList()
                     cl2.push_right(arg_comp, merge=True)
                     cl2.push_right(self._comp, merge=True)
                     cl2.set_lambda_refs(lr)
-                    arg.local_scope._comp = cl2
+                    arg.global_scope._comp = cl2
                 else:
                     cl2 = ProductionList()
                     cl2.push_right(self._comp, merge=True)
                     cl2.push_right(arg_comp, merge=True)
                     cl2.set_lambda_refs(lr)
-                    arg.local_scope._comp = cl2
+                    arg.global_scope._comp = cl2
 
             cl.set_category(self.category.result_category)
             cl.push_right(arg, merge=True)
             outer = self.outer
             self.clear()
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-                print('          := %s' % repr(cl if outer is None else outer.global_scope))
+                print('          := %s' % repr(cl if outer is None else outer.local_scope))
 
             if outer is None and cl.contains_functor:
                 cl = cl.unify()
@@ -1048,7 +1164,7 @@ class FunctorProduction(Production):
             raise DrsComposeError('Invalid functor placement during functor application')
 
         # Remove resolved referents from lambda refs list
-        lr = complement(self.lambda_refs, self.local_lambda_refs)
+        lr = complement(self.lambda_refs, self.global_lambda_refs)
         if self._comp is None:
             arg.set_options(self.compose_options)
             self.clear()
@@ -1116,7 +1232,7 @@ class PropProduction(FunctorProduction):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.global_scope), chr(ord('P')+self._get_position()), repr(arg)))
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.local_scope), chr(ord('P')+self._get_position()), repr(arg)))
         if not isinstance(arg, ProductionList):
             arg = ProductionList([arg])
         d = arg.apply()
@@ -1126,7 +1242,7 @@ class PropProduction(FunctorProduction):
             rs = zip(d.drs.referents, self._drsref.referents)
             d.rename_vars(rs)
             d.set_options(self.compose_options)
-            g = self.global_scope
+            g = self.local_scope
             self.clear()
             d.set_lambda_refs(g.lambda_refs)
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
@@ -1134,7 +1250,7 @@ class PropProduction(FunctorProduction):
             return d
         dd = DrsProduction(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
         dd.set_options(self.compose_options)
-        g = self.global_scope
+        g = self.local_scope
         self.clear()
         dd.set_lambda_refs(g.lambda_refs)
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
