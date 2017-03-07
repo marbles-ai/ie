@@ -4,7 +4,7 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
 from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
-from utils import remove_dups, union_inplace, complement
+from utils import remove_dups, union_inplace, complement, intersect
 import re
 from parse import parse_drs
 
@@ -117,11 +117,9 @@ class CcgTypeMapper(object):
          λPλGλxλy.P(x);G(y) is OK
     -# DRS constructions rules can be separated into class:
        - Functions: Rules which take DRS base types (T,Z) as arguments. Functions can return a base type, another
-         function, or a combinator. Functions are always constructed from outer types to inner types. For example:
+         function, or a combinator. Functions are always constructed from inner types to outer types. For example:
          the application order for (S\T)/T is: /T, \T, S
-       - Combinators: Rules which take a function as the argument and return a function of the same type. Combinators
-         are always constructed from inner types to outer types. For example: the application order of (S/T)/(S/T) is:
-         /T, S, /(S/T)
+       - Combinators: Rules which take a function as the argument and return a function of the same type.
        - When applying combinators the resultant must produce a function, or combinator, where the DRS unifys are
          adjacent. For example:
          - (S/T)/(S/T) combinator:=λP.T[...];P(x) and (S/T) type:=λQ.R[...];Q(x)<br>
@@ -140,8 +138,7 @@ class CcgTypeMapper(object):
          iff y is a free variable in DRS Q and x is bound, or free, in DRS P
        - λPλx.P(x).λQλy.Q(y) == λPλQλy.P(y);Q(y)<br>
          iff x is a free variable in DRS P and y is bound in DRS Q
-    -# Merge is typically delayed until construction is complete, however we can do partial unify when all
-       combinators have been applied at some point during the construction phase.<br>
+    -# We do partial unification when all functors have been applied at some point during the construction phase.<br>
        P[x|...];Q[x|...] := unify(P[x|...],Q[x|...])
     -# Promotion to a proposition. This is done to ensure the number of referents agree in a lambda definition.<br>
        λPλx.P(x);Q[x|...] {P=R[x,y|...]} := [u|u:R[x,y|...]];Q[u|...]<br>
@@ -155,54 +152,72 @@ class CcgTypeMapper(object):
         'Z':            None,
         'T':            None,
         'conj':         None,
+
         # Simple DRS functions
         # ====================
-        r'Z/T':     [(PropProduction, DRSRef('p')), None],
-        r'T/Z':     [(FunctorProduction, DRSRef('p')), None],
-        r'T/T':     [(FunctorProduction, DRSRef('x')), None],
-        r'T\T':     [(FunctorProduction, DRSRef('x')), None],
-        r'(T\T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
-        r'(T/T)/T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
-        r'(T/T)\T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
-        r'(T\T)\T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
-        r'(T\T)/Z': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None],
-        r'(T/T)/Z': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
+        r'Z/T':     ((PropProduction, DRSRef('p')), None),
+        r'T/Z':     ((FunctorProduction, DRSRef('p')), None),
+        r'T/T':     ((FunctorProduction, DRSRef('x')), None),
+        r'T\T':     ((FunctorProduction, DRSRef('x')), None),
+
+        # ==============================================================================================================
+        # REDUCTIONS: LESS REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
+
+        # NP,PP
+        r'(T\T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
+        r'(T/T)/T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+        r'(T/T)\T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+        r'(T\T)\T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
+        r'(T\T)/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
+        r'(T/T)/Z': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+
         # DRS Verb functions
-        # ==================
-        r'S/T':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'S\T':     [(FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
-        r'(S/T)\T': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
-        r'(S\T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(S\T)\T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(S\T)/Z': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(S/T)/Z': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')],
-        r'S\S':     [(FunctorProduction, DRSRef('e')), DRSRef('e')],
-        r'S/S':     [(FunctorProduction, DRSRef('e')), DRSRef('e')],
-        r'T/S':     [(FunctorProduction, DRSRef('e')), DRSRef('x')],
-        r'(((S\T)/Z)/T)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
-                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'((S\T)/Z)/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
-                         (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(S\S)\T': [(FunctorProduction, DRSRef('x')),
-                     (FunctorProduction, DRSRef('e')), DRSRef('e')],
+        r'S/T':     ((FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'S\T':     ((FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(S/T)/T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
+        r'(S/T)\T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
+        r'(S\T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(S\T)\T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(S\T)/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(S/T)/Z': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
+        r'S\S':     ((FunctorProduction, DRSRef('e')), DRSRef('e')),
+        r'S/S':     ((FunctorProduction, DRSRef('e')), DRSRef('e')),
+        r'T/S':     ((FunctorProduction, DRSRef('e')), DRSRef('x')),
+        r'(((S\T)/Z)/T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
+                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'((S\T)/Z)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
+                         (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(S\S)\T': ((FunctorProduction, DRSRef('x')),
+                     (FunctorProduction, DRSRef('e')), DRSRef('e')),
         # Mixtures: functions + combinators
-        r'((S\T)\(S\T))/T': [(FunctorProduction, [DRSRef('e'), DRSRef('y')]),
-                             (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'((S\T)\(S\T))\T': [(FunctorProduction, DRSRef('y')),
-                             (FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'(((S\T)/(S\T))/(S\T))/T': [(FunctorProduction, DRSRef('y')),
-                                     (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(((S\T)/(S\T))/Z)/T': [(FunctorProduction, DRSRef('y')), (PropProduction, DRSRef('p')),
-                                 (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        r'(((S\T)/S)/(S\T))/T': [(FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')],
-        # Pure combinators
-        r'(S\T)\(S\T)': [(FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'(S\T)/(S\T)': [(FunctorProduction, [DRSRef('x'), DRSRef('e')]), DRSRef('e')],
-        r'((T/T)/(T/T))\(T\T)': [(FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None],
+        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('y')),
+                             (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
+        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('y')),
+                             (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
+        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('y')),
+                                     (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('y')), (PropProduction, DRSRef('p')),
+                                 (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('y'), DRSRef('e'))), (FunctorProduction, DRSRef('x')), DRSRef('e')),
         #r'(((S\T)/Z)/Z)/(S\T)':
+        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+
+        # ==============================================================================================================
+        # PASS THRU - REFERENTS AVALIABLE FOR UNIFICATION REMAIN CONSTANT AFTER APPLICATION
+
+        # Pure combinators
+        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
+        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
+        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x')), None),
+
+        # ==============================================================================================================
+        # EXPANDERS: NEW REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
+
+        r'(S\T)/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
+        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
     }
-    _EventPredicates = ['agent', 'theme', 'extra']
+    _EventPredicates = ('agent', 'theme', 'extra')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 
@@ -338,7 +353,7 @@ class CcgTypeMapper(object):
         """Get the DRS category signature."""
         return self._drsSignature
 
-    def build_predicates(self, p_vars, refs, evt=None, conds=None):
+    def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
         not use this for verbs or adverbs.
 
@@ -357,20 +372,26 @@ class CcgTypeMapper(object):
             conds = []
         if isinstance(p_vars, DRSRef):
             p_vars = [p_vars]
-        evt_vars = None
-        if evt is not None:
-            evt_vars = [evt]
+        elif isinstance(p_vars, tuple):
+            # Production templates are stored as tuples to prevent modification
+            p_vars = list(p_vars)
+        if evt_vars is not None:
+            if isinstance(evt_vars, DRSRef):
+                evt_vars = [evt_vars]
+            else:
+                if isinstance(evt_vars, tuple):
+                    evt_vars = list(evt_vars)
+                evt_vars.reverse()
             evt_vars = union_inplace(p_vars)
             if len(evt_vars) == 1:
                 # p_vars = [e], evt_vars = [e]
                 evt_vars = None
-                evt = None
             else:
-                p_vars = complement(p_vars, [evt])
+                p_vars = complement(p_vars, evt_vars)
 
         if self.category.ismodifier or self.category.iscombinator:
-            if evt is not None:
-                refs = union_inplace([evt], refs)
+            if evt_vars is not None:
+                refs = union_inplace(evt_vars, refs)
                 if len(refs) == 1:
                     conds.append(Rel('event.modifier.' + self._word, refs))
                 elif len(refs) == 2:
@@ -380,7 +401,7 @@ class CcgTypeMapper(object):
             else:
                 conds.append(Rel(self._word, refs))
         elif self.isadjective:
-            if evt is not None:
+            if evt_vars is not None:
                 raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
                                       % (self._word, self.drs_signature))
             conds.append(Rel(self._word, refs))
@@ -464,8 +485,11 @@ class CcgTypeMapper(object):
                 d.set_lambda_refs(d.drs.universe)
                 return d
         else:
-            # Functions
-            ev = compose[-1]
+            # Functor
+
+            # Production templates use tuples so we don't accidentally modify.
+            # Shallow copy of event vars from template
+            ev = compose[-1] if compose[-1] is None or isinstance(compose[-1], DRSRef) else [x for x in compose[-1]]
             if self.category == CAT_NP_N:    # NP*/N class
                 # FIXME: these relations should be added as part of build_predicates()
                 if self.category == CAT_DETERMINER:
@@ -492,14 +516,14 @@ class CcgTypeMapper(object):
                         refs_without_combinator = refs
                     signatures.append(s)
                     if s.isarg_right:
-                        if isinstance(c[1], list):
-                            refs.extend(c[1])
+                        if isinstance(c[1], tuple):
+                            refs.extend(list(c[1]))
                         else:
                             refs.append(c[1])
                     else:
                         assert s.isarg_left
-                        if isinstance(c[1], list):
-                            r = [x for x in c[1]]
+                        if isinstance(c[1], tuple):
+                            r = list(c[1])
                         else:
                             r = [c[1]]
                         r.extend(refs)
@@ -509,8 +533,11 @@ class CcgTypeMapper(object):
                 refs = remove_dups(refs)
                 refs_without_combinator = remove_dups(refs_without_combinator) if refs_without_combinator is not None \
                     else refs
-                if ev is not None and ev in refs:
-                    refs = filter(lambda a: a != ev, refs)
+                if ev is not None:
+                    ev = [ev] if isinstance(ev, DRSRef) else ev
+                    if len(intersect(ev, refs)) != 0:
+                        refs = filter(lambda a: a != ev, refs)
+
 
                 if self.isverb:
                     if ev is None:
@@ -518,16 +545,25 @@ class CcgTypeMapper(object):
                     elif self.category.iscombinator or self.category.ismodifier:
                         # passive case
                         fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
-                    else:
+                    elif len(ev) != 1:
                         # TODO: use verbnet to get semantics
-                        conds = [Rel('event', [ev]), Rel('event.verb.' + self._word, [ev])]
-                        for v,e in zip(refs, self._EventPredicates):
-                            conds.append(Rel('event.' + e, [ev, v]))
+                        conds = [Rel('event', ev[-1]), Rel('event.verb.' + self._word, ev[-1])]
+                        for v,e in zip(ev[0:-1], self._EventPredicates):
+                            conds.append(Rel('event.' + e, [ev[-1], v]))
                         if len(refs) > len(self._EventPredicates):
                             for i in range(len(self._EventPredicates), len(refs)):
-                                conds.append(Rel('event.extra.%d' % i, [ev, refs[i]]))
-                        fn = DrsProduction(DRS([ev], conds))
-                    fn.set_lambda_refs([ev])
+                                conds.append(Rel('event.extra.%d' % i, [ev[-1], refs[i]]))
+                        fn = DrsProduction(DRS(ev, conds))
+                    else:
+                        # TODO: use verbnet to get semantics
+                        conds = [Rel('event', ev), Rel('event.verb.' + self._word, ev)]
+                        for v,e in zip(refs, self._EventPredicates):
+                            conds.append(Rel('event.' + e, [ev[0], v]))
+                        if len(refs) > len(self._EventPredicates):
+                            for i in range(len(self._EventPredicates), len(refs)):
+                                conds.append(Rel('event.extra.%d' % i, [ev[0], refs[i]]))
+                        fn = DrsProduction(DRS(ev, conds))
+                    fn.set_lambda_refs(ev)
                 elif self.isadverb:
                     if ev is not None:
                         if _ADV.has_key(self._word):
@@ -535,14 +571,14 @@ class CcgTypeMapper(object):
                             fn = DrsProduction(adv[0], [x for x in adv[1]])
                         else:
                             fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
-                        fn.set_lambda_refs([ev])
+                        fn.set_lambda_refs(ev)
                     else:
                         fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs)))
                 else:
                     fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
                                        properNoun=self.isproper_noun)
                     if ev is not None:
-                        fn.set_lambda_refs([ev])
+                        fn.set_lambda_refs(ev)
 
                 fn.set_category(signatures[0].result_category)
                 for c, s in zip(compose[:-1], signatures):
@@ -552,7 +588,7 @@ class CcgTypeMapper(object):
                 assert compose[0][0] == PropProduction
                 fn = compose[0][0](self.category, compose[0][1])
                 if ev is not None:
-                    fn.set_lambda_refs([ev])
+                    fn.set_lambda_refs(ev)
                 return fn
 
 
@@ -576,12 +612,12 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
 
-        cats = [x.category.simplify() if not x.isfunctor else x.local_scope.category.simplify() for x in cl2.iterator()]
+        cats = [x.category.simplify() if not x.isfunctor else x.global_scope.category.simplify() for x in cl2.iterator()]
         if len(cats) == 1:
             if result.istype_raised:
                 rule = get_rule(cats[0], CAT_EMPTY, result)
                 if rule is None:
-                    raise DrsComposeError('cannot discover production rule')
+                    raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
                 cl2 = cl2.apply().unify()
             else:
                 cl2 = cl2.apply().unify()
@@ -589,8 +625,9 @@ def _process_ccg_node(pt, cl):
             # Get the production rule
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
-                raise DrsComposeError('cannot discover production rule')
-            cl2 = cl2.apply(rule).unify()
+                raise DrsComposeError('cannot discover production rule %s:=Rule?(%s,%s)' % (result, cats[0], cats[1]))
+            else:
+                cl2 = cl2.apply(rule).unify()
         else:
             # Parse tree is a binary tree
             assert len(cats) == 0
@@ -602,7 +639,7 @@ def _process_ccg_node(pt, cl):
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
         return  # TODO: handle punctuation
-    if pt[1] == 'signs':
+    if pt[1] == 'because':
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
