@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Compositional DRT"""
 
 from drs import DRS, DRSRef, Merge, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from drs import get_new_drsrefs
@@ -680,48 +681,36 @@ class ProductionList(Production):
         Returns:
             A Production instance.
         """
-        APP = 0
-        COMP = 1
-        model = 0
-        if rule is None:
-            reverse = True
-        elif rule in [RL_RPASS, RL_BA]:
-            reverse = True
-        elif rule in [RL_LPASS, RL_FA, RL_RNUM]:
-            # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
-            reverse = False
-        elif rule in [RL_FC, RL_FX]:
-            model = COMP
-        elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
-            # TODO: handle all rules
-            raise NotImplementedError
-        else:
-            # TODO: handle all rules
-            raise NotImplementedError
-        if len(self._compList) == 0:
-            return None
 
         # alpha convert variables
         self.flatten()
-        if model == APP:
-            if reverse:
-                self.apply_backward()
-            else:
-                self.apply_forward()
-        elif model == COMP:
-            if reverse:
-                self.compose_backward()
-            else:
-                self.compose_forward()
+
+        if rule is None:
+            self.apply_backward()
+        elif rule in [RL_RPASS, RL_BA]:
+            self.apply_backward()
+        elif rule in [RL_LPASS, RL_FA, RL_RNUM]:
+            # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
+            self.apply_forward()
+        elif rule in [RL_FC, RL_FX]:
+            self.compose_forward()
+        elif rule in [RL_BC, RL_BX]:
+            self.compose_backward()
+        elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
+            # TODO: handle type raising
+            raise NotImplementedError
         else:
             # TODO: handle all rules
             raise NotImplementedError
+
+        if len(self._compList) == 0:
+            return self
 
         if len(self._compList) == 1:
             d = self._compList[0]
             self._compList = []
             if d.isfunctor:
-                d.global_scope.set_category(self.category)
+                d.inner_scope.set_category(self.category)
             else:
                 d.set_category(self.category)
             return d
@@ -729,7 +718,7 @@ class ProductionList(Production):
 
 
 class FunctorProduction(Production):
-    """A functor production. Functors are curried where the inner most functor is the global scope."""
+    """A functor production. Functors are curried where the inner most functor is the inner scope."""
     def __init__(self, category, referent, production=None):
         """Constructor.
 
@@ -841,24 +830,25 @@ class FunctorProduction(Production):
     @property
     def global_lambda_refs(self):
         """Gets all referents that are available during unification. """
-        return self.global_scope._drsref.universe
+        return self.inner_scope._drsref.universe
 
     @property
     def signature(self):
         """Get the functor signature. For functors the signature returned is the signature at the global scope.
 
         Remarks:
-            Properties local_scope.signature, self.signature both map to global_scope.signature. There is no public
+            Properties outer_scope.signature, self.signature both map to inner_scope.signature. There is no public
             method to access the signature of outer curried functors.
         """
-        return self.global_scope._category.drs_signature
+        return self.inner_scope._category.drs_signature
 
     @property
-    def local_scope(self):
+    def outer_scope(self):
         """Get the outer most functor in this production or self.
 
         See Also:
-            global_scope()
+            marbles.ie.drt.compose.FunctorProduction.inner_scope
+            marbles.ie.drt.compose.FunctorProduction.outer
         """
         g = self
         while g.outer is not None:
@@ -866,11 +856,12 @@ class FunctorProduction(Production):
         return g
 
     @property
-    def global_scope(self):
+    def inner_scope(self):
         """Get the inner most functor in this production or self.
 
         See Also:
-            local_scope()
+            marbles.ie.drt.compose.FunctorProduction.outer_scope
+            marbles.ie.drt.compose.FunctorProduction.inner
         """
         c = self._comp
         cprev = self
@@ -881,22 +872,35 @@ class FunctorProduction(Production):
 
     @property
     def category(self):
-        """The CCG category"""
-        return self.global_scope._category
+        """The CCG category of the inner scope."""
+        return self.inner_scope._category
 
     @property
     def outer(self):
-        """The outer functor or None."""
+        """The immediate outer functor or None.
+
+        See Also:
+            marbles.ie.drt.compose.FunctorProduction.outer_scope
+        """
         return None if self._outer is None else self._outer() # weak deref
+
+    @property
+    def iner(self):
+        """The immediate inner functor or None.
+
+        See Also:
+            marbles.ie.drt.compose.FunctorProduction.inner_scope
+        """
+        return None if self._comp is None or not self._comp.isfunctor else self._comp
 
     @property
     def iscurried(self):
         """Test if the functor is curried.
 
         Remarks:
-            Test is same as `self.global_scope.outer is None`
+            Test is same as `self.inner_scope.outer is None`
         """
-        return self._outer is None and (self._outer is None or not self._comp.isfunctor)
+        return self._outer is None and (self._comp is None or not self._comp.isfunctor)
 
     @property
     def isempty(self):
@@ -922,7 +926,7 @@ class FunctorProduction(Production):
         r = self._get_lambda_refs([])
         # Reverse because we can have args:
         # - [(x,e), (y,e), e] => [x,e,y,e,e] => [x,y,e] (REDUCTIONS AND PASS THRU)
-        # - [e, (x, e)] => [e, x, e] => [x,e]          (EXPANDERS)
+        # - [e, (x, e)] => [e, x, e] => [x,e]           (EXPANDERS)
         r.reverse()
         r = remove_dups(r)
         r.reverse()
@@ -1008,7 +1012,7 @@ class FunctorProduction(Production):
                     fr = complement(fr, self.universe)
                     if len(fr) == 0:
                         # Remove functor since unification is complete
-                        self._comp = d.global_scope._comp
+                        self._comp = d.inner_scope._comp
                         assert not self._comp.isfunctor
                         if not compare_lists_eq(lr, self._comp.lambda_refs):
                             pass
@@ -1066,7 +1070,7 @@ class FunctorProduction(Production):
             self._comp = fn
 
     def compose(self, arg):
-        """Composition
+        """Function Composition.
 
         Arg:
             A functor argument.
@@ -1090,7 +1094,7 @@ class FunctorProduction(Production):
         raise NotImplementedError
 
     def apply(self, arg):
-        """Function application if arg is a DrsProduction or ProductionList. Otherwise functor production.
+        """Function application.
 
         Arg:
             The substitution argument.
@@ -1105,7 +1109,7 @@ class FunctorProduction(Production):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.local_scope), chr(ord('P')+self._get_position()), repr(arg)))
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(arg)))
 
         # Alpha convert (old,new)
         alr = arg.lambda_refs
@@ -1121,7 +1125,7 @@ class FunctorProduction(Production):
 
         rs = zip(alr, slr)
         # Make sure names don't conflict with global scope
-        ors = intersect(alr[len(rs):], complement(self.local_scope.lambda_refs, slr))
+        ors = intersect(alr[len(rs):], complement(self.outer_scope.lambda_refs, slr))
         if len(ors) != 0:
             xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
             arg.rename_vars(xrs)
@@ -1145,15 +1149,15 @@ class FunctorProduction(Production):
 
             # Apply the combinator
             if self._comp is not None:
-                arg_comp = arg.global_scope._comp
+                arg_comp = arg.inner_scope._comp
                 # Carry forward lambda refs to combinator scope
                 lr = self._comp.lambda_refs
                 uv = self._comp.universe
                 uv = filter(lambda x: x in uv, lr) # keep lambda ordering
                 if self._category.isarg_right:
-                    lr = union_inplace(lr, arg.local_scope.lambda_refs)
+                    lr = union_inplace(lr, arg.outer_scope.lambda_refs)
                 else:
-                    lr = union_inplace(arg.local_scope.lambda_refs, lr)
+                    lr = union_inplace(arg.outer_scope.lambda_refs, lr)
                 lr = complement(lr, uv)
                 lr.extend(uv)
                 cl.set_lambda_refs(lr)
@@ -1164,26 +1168,26 @@ class FunctorProduction(Production):
                 lr = union_inplace(lr, uv)
 
                 if arg_comp is None:
-                    arg.global_scope._comp = self._comp
+                    arg.inner_scope._comp = self._comp
                 elif self.isarg_left:
                     cl2 = ProductionList()
                     cl2.push_right(arg_comp, merge=True)
                     cl2.push_right(self._comp, merge=True)
                     cl2.set_lambda_refs(lr)
-                    arg.global_scope._comp = cl2
+                    arg.inner_scope._comp = cl2
                 else:
                     cl2 = ProductionList()
                     cl2.push_right(self._comp, merge=True)
                     cl2.push_right(arg_comp, merge=True)
                     cl2.set_lambda_refs(lr)
-                    arg.global_scope._comp = cl2
+                    arg.inner_scope._comp = cl2
 
             cl.set_category(self.category.result_category)
             cl.push_right(arg, merge=True)
             outer = self.outer
             self.clear()
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-                print('          := %s' % repr(cl if outer is None else outer.local_scope))
+                print('          := %s' % repr(cl if outer is None else outer.outer_scope))
 
             if outer is None and cl.contains_functor:
                 cl = cl.unify()
@@ -1225,8 +1229,8 @@ class FunctorProduction(Production):
 
 class PropProduction(FunctorProduction):
     """A proposition functor."""
-    def __init__(self, position, referent, production=None):
-        super(PropProduction, self).__init__(position, referent)
+    def __init__(self, category, referent, production=None):
+        super(PropProduction, self).__init__(category, referent)
 
     def _repr_helper2(self, i):
         v = chr(i)
@@ -1263,7 +1267,7 @@ class PropProduction(FunctorProduction):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.local_scope), chr(ord('P')+self._get_position()), repr(arg)))
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(arg)))
         if not isinstance(arg, ProductionList):
             arg = ProductionList([arg])
         d = arg.apply()
@@ -1273,7 +1277,7 @@ class PropProduction(FunctorProduction):
             rs = zip(d.drs.referents, self._drsref.referents)
             d.rename_vars(rs)
             d.set_options(self.compose_options)
-            g = self.local_scope
+            g = self.outer_scope
             self.clear()
             d.set_lambda_refs(g.lambda_refs)
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
@@ -1281,9 +1285,129 @@ class PropProduction(FunctorProduction):
             return d
         dd = DrsProduction(DRS(self._drsref.referents, [Prop(self._drsref.referents[0], d.drs)]))
         dd.set_options(self.compose_options)
-        g = self.local_scope
+        g = self.outer_scope
         self.clear()
         dd.set_lambda_refs(g.lambda_refs)
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
             print('          := %s' % repr(dd))
         return dd
+
+
+class OrProduction(FunctorProduction):
+    """An Or functor."""
+    def __init__(self, category, negate=False):
+        super(OrProduction, self).__init__(category, [])
+        self._negate = negate
+
+    ## @cond
+    def __repr__(self):
+        if self._comp is None:
+           return '||'
+        elif self.isarg_left:
+            return '||' + super(OrProduction, self).__repr__()
+        else:
+            return super(OrProduction, self).__repr__() + '||'
+    ## @endcond
+
+    @property
+    def freerefs(self):
+        """Get the free referents. Always empty for a proposition."""
+        inner = self.inner_scope
+        return [] if inner._comp is None else inner._comp.freerefs
+
+    @property
+    def universe(self):
+        """Get the universe of the referents."""
+        inner = self.inner_scope
+        return [] if inner._comp is None else inner._comp.universe
+
+    def set_lambda_refs(self, refs):
+        """Disabled for Or functors."""
+        pass
+
+    def apply_null_left(self):
+        """It is an error to call this method for Or functors"""
+        raise DrsComposeError('cannot apply null left to a Or functor')
+
+    def apply(self, arg):
+        """Function application.
+
+        Arg:
+            The substitution argument.
+
+        Returns:
+            A Production instance.
+        """
+        if self._comp is not None and self._comp.isfunctor:
+            self._comp = self._comp.apply(arg)
+            if self._comp.isfunctor:
+                self._comp._set_outer(self)
+            return self
+
+        # We are at the inner scope
+        if arg.isfunctor:
+            if arg.outer is not None:
+                raise DrsComposeError('cannot apply Or functor to inner scope functors')
+            if self._comp is not None and len(arg.lamba_refs) != (self._comp.lambda_refs):
+                raise DrsComposeError('Or functor requires lamba refs to be same size')
+
+        if self._comp is None:
+            c = ProductionList(arg)
+            c.set_lambda_refs(arg.lambda_refs)
+            self._comp = c
+            return self
+
+        if isinstance(arg, OrProduction):
+            raise DrsComposeError('cannot apply Or production to another Or production.')
+
+        if 0 != (self.compose_options & CO_PRINT_DERIVATION):
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(arg)))
+
+        # Extract inner production
+        p = [x for x in self._comp.iterator()]
+        assert len(p) == 1
+        p = p[0]
+        cl = ProductionList()
+        if p.isfunctor:
+            # unify inner production
+            assert arg.isfunctor
+            arg_inner = arg.inner_scope
+            p_inner = p.inner_scope
+            if self.isarg_left:
+                rs = zip(p.lambda_refs, arg.lambda_refs)
+                p.rename_vars(rs)
+                lr = arg_inner._comp.lambda_refs
+                cl.push_right(arg_inner._comp)
+                cl.push_right(p_inner._comp)
+            else:
+                rs = zip(arg.lambda_refs, p.lambda_refs)
+                arg.rename_vars(rs)
+                lr = p_inner._comp.lambda_refs
+                cl.push_right(p_inner._comp)
+                cl.push_right(arg_inner._comp)
+            cl.set_lambda_refs(lr)
+            d = cl.unify()
+            assert isinstance(d, DrsProduction)
+            p_inner.clear()
+            arg_inner._comp = d
+            d = arg
+        else:
+            assert not arg.isfunctor
+            if self.isarg_left:
+                rs = zip(p.lambda_refs, arg.lambda_refs)
+                p.rename_vars(rs)
+                cl.push_right(arg)
+                cl.push_right(p)
+            else:
+                rs = zip(arg.lambda_refs, p.lambda_refs)
+                arg.rename_vars(rs)
+                cl.push_right(p)
+                cl.push_right(arg)
+            cl.set_lambda_refs(arg.lambda_refs)
+            d = cl.unify()
+            assert isinstance(d, DrsProduction)
+
+        self.clear()
+        if 0 != (self.compose_options & CO_PRINT_DERIVATION):
+            print('          := %s' % repr(d))
+        return d

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+"""CCG to DRS Production Generator"""
 
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
-from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, DrsComposeError
+from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
 from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
 from utils import remove_dups, union_inplace, complement, intersect
@@ -452,8 +453,8 @@ class CcgTypeMapper(object):
             # Simple type
             # Handle prepositions 'Z'
             if self.category == CAT_CONJ:
-                if self._word in ['or', 'nor']:
-                    raise NotImplementedError
+                if self._word == ['or', 'nor']:
+                    return OrProduction(negate=('n' in self._word))
                 return ProductionList()
             elif self.ispronoun:
                 d = DrsProduction(_PRON[self._word])
@@ -612,7 +613,7 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
 
-        cats = [x.category.simplify() if not x.isfunctor else x.global_scope.category.simplify() for x in cl2.iterator()]
+        cats = [x.category.simplify() if not x.isfunctor else x.inner_scope.category.simplify() for x in cl2.iterator()]
         if len(cats) == 1:
             if result.istype_raised:
                 rule = get_rule(cats[0], CAT_EMPTY, result)
