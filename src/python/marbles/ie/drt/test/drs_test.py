@@ -783,8 +783,8 @@ class DrsTest(unittest.TestCase):
         ) ) ) ) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        #d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
         d = d.unify()
         self.assertIsNotNone(d)
@@ -801,7 +801,7 @@ class DrsTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| event(e),welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| Merryweather-High(x1)]]'
+        x = u'[x,e,y| event(e),event.verb.welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| Merryweather-High(x1)]]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
