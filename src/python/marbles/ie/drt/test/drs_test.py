@@ -834,7 +834,7 @@ class DrsTest(unittest.TestCase):
         self.assertIsNotNone(d)
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
-        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),step(e),event.agent(e,x),up(e),direction(e)]'
+        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),event.verb.opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),event.verb.step(e),event.agent(e,x),up(e),direction(e)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -847,7 +847,7 @@ class DrsTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
+        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),event.verb.wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
         self.assertEquals(x, s)
 
     def __test14_ModelCategories(self):
@@ -872,7 +872,7 @@ class DrsTest(unittest.TestCase):
                     if os.path.isfile(ldcpath2):
                         allfiles.append(ldcpath2)
 
-        for fn in allfiles:
+        for fn in allfiles[7:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):

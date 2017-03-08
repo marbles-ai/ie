@@ -217,6 +217,7 @@ class CcgTypeMapper(object):
 
         r'(S\T)/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
         r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
+        r'(S/S)/S': ((FunctorProduction, DRSRef('e1')), (DRSRef('e1'), DRSRef('e2'))),
     }
     _EventPredicates = ('agent', 'theme', 'extra')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')

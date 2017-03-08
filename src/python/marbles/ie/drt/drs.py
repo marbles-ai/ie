@@ -844,6 +844,7 @@ class DRS(AbstractDRS):
         Returns:
             A DRS instance.
         """
+        # FIXME: rename_vars searches list each iter - needs to change
         return DRS([rename_var(r, rs) for r in self._refs], \
                    [c._convert(self, gd, rs) for c in self._conds])
 
