@@ -478,7 +478,20 @@ RL_RPASS = Rule('RP', 'PASS')
 ## Special rule for numbers
 RL_RNUM = Rule('RNUM')
 RL_LNUM = Rule('LNUM')
+
+## Special type changing rule. See LDC manual 2005T13.
+RL_TYPE_CHANGE_VPMOD = Rule('TYPE_CHANGE_VPMOD')
 ## @}
+
+# Special type changing rules - see LDC2005T13 document
+
+## @cond
+CAT_S_NP_TypeChange = RegexCategoryClass(r'^S\[(pss|adj|ng|dcl)\]\\NP$')
+CAT_NP_NP_TypeChange = Category(r'NP\NP')
+CAT_SdclNP = Category(r'S[dcl]/NP')
+CAT_SngNP = Category(r'S[ng]\NP')
+CAT_S_NP_S_NP = Category(r'(S\NP)/(S\NP)')
+## @endcond
 
 
 def get_rule(left, right, result):
@@ -517,8 +530,20 @@ def get_rule(left, right, result):
             elif result.isarg_left and result.argument_category.isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_BACKWARD_TYPE_RAISE
-        else:
-            return RL_LPASS
+        elif left == CAT_S_NP_TypeChange and result == CAT_NP_NP_TypeChange:
+            # See LDC 2005T13 manual, section 3.8
+            # S[pss]\NP => NP\NP
+            # S[adj]\NP => NP\NP
+            # S[ng]\NP => NP\NP
+            raise NotImplementedError
+        elif left == CAT_SdclNP and result == CAT_NP_NP_TypeChange:
+            # See LDC 2005T13 manual, section 3.8
+            # S[dcl]/NP => NP\NP
+            raise NotImplementedError
+        elif left == CAT_SngNP and result == CAT_S_NP_S_NP:
+            # See LDC 2005T13 manual, section 3.8
+            return RL_TYPE_CHANGE_VPMOD
+        return RL_LPASS
 
     elif left.isarg_right and left.argument_category == right and left.result_category == result:
         # Forward Application  X/Y:f Y:a => X: f(a)

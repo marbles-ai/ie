@@ -7,7 +7,7 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
     remove_dups
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
-    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE, RL_RNUM
+    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE, RL_RNUM, RL_TYPE_CHANGE_VPMOD
 import weakref
 
 ## @{
@@ -623,21 +623,38 @@ class ProductionList(Production):
 
         refs = []
         conds = []
-        proper = len(ml) != 0
+        pconds = []
+        lastr = DRSRef('$$$$')
+        proper = 0
         for d in ml:
-            proper = proper and d.isproper_noun
+            if d.isproper_noun:
+                nextr = d.drs.referents[0] if len(d.drs.referents) != 0 else d.drs.freerefs[0]
+                if nextr != lastr:
+                    # Hyphenate name
+                    lastr = nextr
+                    proper += 1
+                    if len(pconds) != 0:
+                        conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
+                    pconds = d.drs.conditions
+                else:
+                    pconds.extend(d.drs.conditions)
+            else:
+                if len(pconds) != 0:
+                    for c in pconds:
+                        if isinstance(c, Prop):
+                            pass
+                    conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
+                lastr = DRSRef('$$$$')
+                pconds = []
+                conds.extend(d.drs.conditions)
             refs.extend(d.drs.referents)
-            conds.extend(d.drs.conditions)
-        if proper:
-            # Hyphenate name
-            # FIXME: Boc Raton and Hot Spring => Boca(x) Raton(x) Hot(x1) Springs(x1)
-            if len(refs) != 1 or any(filter(lambda x: not isinstance(x, Rel) or len(x.referents) != 1, conds)):
-                raise DrsComposeError('bad proper noun in DRS condition')
-            name = '-'.join([c.relation.to_string() for c in conds])
-            conds = [Rel(name,refs)]
+        # FIXME: Boc Raton and Hot Spring => Boca(x) Raton(x) Hot(x1) Springs(x1)
+        # Hyphenate name
+        if len(pconds) != 0:
+            conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
 
         drs = DRS(refs, conds).purify()
-        d = DrsProduction(drs, proper)
+        d = DrsProduction(drs, proper == 1)
         d.set_lambda_refs(self.lambda_refs)
         d.set_category(self.category)
         return d
@@ -658,7 +675,7 @@ class ProductionList(Production):
         d = fn.compose(arg)
         c[0] = d
         self._compList = c
-        self.set_lambda_refs(d.set_lambda_refs)
+        self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
 
@@ -677,6 +694,23 @@ class ProductionList(Production):
         # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
         d = fn.compose(arg)
         c[-1] = d
+        self._compList = c
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def type_change_forward(self):
+        """Special type change rules. See section 3.8 of LDC 2005T13 manual.
+
+        Remarks:
+            Executes a single composition.
+        """
+        assert len(self._compList) >= 2
+        template = self._compList[0]
+        vp = self._compList[1]
+        c = self._compList[1:]
+        d = template.special_type_change(vp)
+        c[0] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
@@ -709,6 +743,8 @@ class ProductionList(Production):
         elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
             # TODO: handle type raising
             raise NotImplementedError
+        elif rule in [RL_TYPE_CHANGE_VPMOD]:
+            self.type_change_forward()
         else:
             # TODO: handle all rules
             raise NotImplementedError
@@ -909,7 +945,7 @@ class FunctorProduction(Production):
         """Test if the functor is curried.
 
         Remarks:
-            Test is same as `self.inner_scope.outer is None`
+            Test is same as `self.inner_scope.outer == self`
         """
         return self._outer is not None or (self._comp is not None and self._comp.isfunctor)
 
@@ -1087,6 +1123,27 @@ class FunctorProduction(Production):
 
         # tail recursion
         return self._comp.push(fn)
+
+    def special_type_change(self, vp):
+        """Special type change. See LDC manual section 3.8.
+
+        Args:
+            vp: The verb phrase. Must be a S\NP category.
+
+        Remarks:
+            self is a template. The inner DrsProduction will be discarded.
+        """
+        slr = self.lambda_refs
+        lr = vp.lambda_refs
+        if len(lr) != len(slr):
+            raise DrsComposeError('mismatch of lambda vars when doing special type change')
+        rs = zip(slr, lr)
+        self.rename_vars(rs)
+        self.pop() # discard inner DrsProduction
+        g = vp.pop()
+        self.push(g)
+        assert lr == self.lambda_refs
+        return self
 
     def compose(self, g):
         """Function Composition.

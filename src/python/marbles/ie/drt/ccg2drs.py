@@ -5,9 +5,11 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from compose import ArgRight, ArgLeft
 from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
+from ccgcat import RL_TYPE_CHANGE_VPMOD
 from utils import remove_dups, union_inplace, complement, intersect
 import re
 from parse import parse_drs
+import copy
 
 
 ## @cond
@@ -200,10 +202,13 @@ class CcgTypeMapper(object):
         r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('y')), (PropProduction, DRSRef('p')),
                                  (FunctorProduction, DRSRef('x')), DRSRef('e')),
         r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, (DRSRef('x'), DRSRef('e'))), None),
         r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('y'), DRSRef('e'))), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        #r'(((S\T)/Z)/Z)/(S\T)':
-        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
 
+        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+
+        #r'(((S\T)/Z)/Z)/(S\T)':
         # ==============================================================================================================
         # PASS THRU - REFERENTS AVALIABLE FOR UNIFICATION REMAIN CONSTANT AFTER APPLICATION
 
@@ -224,8 +229,11 @@ class CcgTypeMapper(object):
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 
     def __init__(self, ccgTypeName, word, posTags=None):
-        self._ccgcat = Category(ccgTypeName)
-        self._pos = posTags or []
+        if isinstance(ccgTypeName, Category):
+            self._ccgcat = ccgTypeName
+        else:
+            self._ccgcat = Category(ccgTypeName)
+        self._pos = posTags or ['UNKNOWN']
         if self.isproper_noun:
             self._word = word.title().rstrip('?.,:;')
         else:
@@ -411,37 +419,60 @@ class CcgTypeMapper(object):
             if self.isproper_noun:
                 assert len(p_vars) == 1
                 if self._TypeMonth.match(self._word):
+                    conds.append(Rel('is.date', p_vars))
+                    if evt_vars is not None:
+                        conds.append(Rel('event.date', evt_vars))
                     if self._word in _MONTHS:
                         conds.append(Rel(_MONTHS[self._word], p_vars))
                     else:
                         conds.append(Rel(self._word, p_vars))
+                elif self._TypeWeekday.match(self._word):
                     conds.append(Rel('is.date', p_vars))
                     if evt_vars is not None:
                         conds.append(Rel('event.date', evt_vars))
-                elif self._TypeWeekday.match(self._word):
                     if self._word in _WEEKDAYS:
                         conds.append(Rel(_WEEKDAYS[self._word], p_vars))
                     else:
                         conds.append(Rel(self._word, p_vars))
-                    conds.append(Rel('is.date', p_vars))
-                    if evt_vars is not None:
-                        conds.append(Rel('event.date', evt_vars))
                 else:
-                    conds.append(Rel(self._word, p_vars))
                     if evt_vars is not None:
                         conds.append(Rel('event.related', evt_vars))
+                    conds.append(Rel(self._word, p_vars))
             elif self.isnumber:
                 assert len(p_vars) == 1
-                conds.append(Rel(self._word, p_vars))
                 conds.append(Rel('is.number', p_vars))
                 if evt_vars is not None:
                     conds.append(Rel('event.related', evt_vars))
-            elif evt_vars is not None and len(p_vars) != 0:
                 conds.append(Rel(self._word, p_vars))
+            elif evt_vars is not None and len(p_vars) != 0:
                 conds.append(Rel('event.related', evt_vars))
+                conds.append(Rel(self._word, p_vars))
             elif len(refs) != 0:
                 conds.append(Rel(self._word, refs))
         return conds
+
+    @staticmethod
+    def remove_events_from_template(templ):
+        """Remove events from a production template."""
+
+        # r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('y')),
+        #                     (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
+        result = []
+        for t in templ[:-1]:
+            if isinstance(t[1], tuple):
+                #result.append((t[0],t[1][0:-1] if t[1] is not None else None))
+                if isinstance(t[1], tuple):
+                    if len(t[1]) > 2:
+                        result.append((t[0],t[1][0:-1]))
+                    else:
+                        result.append((t[0],t[1][0]))
+                else:
+                    result.append(t)
+            else:
+                result.append(t)
+        return tuple(result)
+
+
 
     def get_composer(self):
         """Get the production model for this category.
@@ -469,7 +500,7 @@ class CcgTypeMapper(object):
                 return d
             elif self.category == CAT_NOUN:
                 if self.isnumber:
-                    d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')]), Rel('is.number', [DRSRef('x')])]))
+                    d = DrsProduction(DRS([DRSRef('x')], [Rel('is.number', [DRSRef('x')]), Rel(self._word, [DRSRef('x')])]))
                 else:
                     d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
                 d.set_category(self.category)
@@ -576,6 +607,12 @@ class CcgTypeMapper(object):
                         fn.set_lambda_refs(ev)
                     else:
                         fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs)))
+                elif self.ispreposition:
+                    # Don't attach to event's
+                    c = self.remove_events_from_template(compose)
+                    compose = c
+                    fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
+                                       properNoun=self.isproper_noun)
                 else:
                     fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
                                        properNoun=self.isproper_noun)
@@ -593,13 +630,15 @@ class CcgTypeMapper(object):
                     fn.set_lambda_refs(ev)
                 return fn
 
-
+debugcount = 0
 def _process_ccg_node(pt, cl):
     """Internal helper for recursively processing the CCG parse tree.
 
     See Also:
         process_ccg_pt()
     """
+    global debugcount
+    dbgorig = debugcount
     if pt[-1] == 'T':
         head = int(pt[0][1])
         count = int(pt[0][2])
@@ -614,15 +653,18 @@ def _process_ccg_node(pt, cl):
             # FIXME: prefer tail end recursion
             _process_ccg_node(nd, cl2)
 
+        debugcount += 1
+        if debugcount == 40:
+            pass
         cats = [x.category.simplify() if not x.isfunctor else x.inner_scope.category.simplify() for x in cl2.iterator()]
         if len(cats) == 1:
-            if result.istype_raised:
-                rule = get_rule(cats[0], CAT_EMPTY, result)
-                if rule is None:
-                    raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
-                cl2 = cl2.apply().unify()
-            else:
-                cl2 = cl2.apply().unify()
+            rule = get_rule(cats[0], CAT_EMPTY, result)
+            if rule is None:
+                raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
+            if rule == RL_TYPE_CHANGE_VPMOD:
+                ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
+                cl2.push_left(ccgt.get_composer())
+            cl2 = cl2.apply(rule).unify()
         elif len(cats) == 2:
             # Get the production rule
             rule = get_rule(cats[0], cats[1], result)
@@ -641,8 +683,6 @@ def _process_ccg_node(pt, cl):
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
         return  # TODO: handle punctuation
-    if pt[1] == 'because':
-        pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
 
