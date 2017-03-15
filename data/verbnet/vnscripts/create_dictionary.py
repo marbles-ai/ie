@@ -78,17 +78,26 @@ if __name__ == '__main__':
 
                         MEMBERS[_name] = {'wn':_wn, 'grouping':_grouping}
 
-                #if _i.tag == "THEMROLES":
-                #    for _r in _i:
+                elif _i.tag == "THEMROLES":
+                    for _r in _i:
+                        if _r.tag is etree.Comment:
+                            continue
 
-                #        _type = _r.attrib['type']
-                #        assert _type not in THEMROLES
+                        _type = _r.attrib['type']
+                        assert _type not in THEMROLES
 
-                #        THEMROLES[type] = _r[0].tag
+                        roles = []
+                        for _roles in _r:
+                            roles.append(_roles.tag)
+
+                        THEMROLES[_type] = roles
+
+                    THEMROLES[_name] = roles
 
                 elif _i.tag == "FRAMES":
-
                     for _frame in _i:
+                        if _frame.tag is etree.Comment:
+                            continue
 
                         frame = Frame()
 
@@ -155,6 +164,11 @@ if __name__ == '__main__':
                             FRAMES[_name] = [frame]
                         else:
                             FRAMES[_name].append(frame)
+
+            VNCLASSES[_id] = {'members': MEMBERS, 'themroles': THEMROLES, 'frames': FRAMES}
+
+    for _vnclass, _values in VNCLASSES.iteritems():
+        print _vnclass, ": ", _values
 
 
 
