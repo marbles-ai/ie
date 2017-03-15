@@ -23,10 +23,23 @@ class Frame(object):
         self.syntax = []
         self.semantics = None
 
-    #def __str__(self):
+    def __str__(self):
+        string = ""
+        string += "Description: %s\n" % str(self.description)
 
+        index = 0
+        string += "Examples\n"
+        for example in self.examples:
+            string += "\tEx %d: %s\n" % (index, str(example))
+            index += 1
+        string += "Syntax\n"
+        for pos in self.syntax:
+            string += "\t%s\n" % str(pos)
+        string += "Semantics\n"
+        for sem in self.semantics:
+            string += "\t%s\n" % str(sem)
 
-
+        return string
 
 if __name__ == '__main__':
 
@@ -52,7 +65,7 @@ if __name__ == '__main__':
 
             MEMBERS = {}
             THEMROLES = {}
-            FRAMES = {}
+            FRAMES = []
 
             if root.tag == "VNCLASS":
                 _id = root.attrib['ID']
@@ -91,8 +104,6 @@ if __name__ == '__main__':
                             roles.append(_roles.tag)
 
                         THEMROLES[_type] = roles
-
-                    THEMROLES[_name] = roles
 
                 elif _i.tag == "FRAMES":
                     for _frame in _i:
@@ -160,15 +171,14 @@ if __name__ == '__main__':
 
                                 frame.semantics = semantics
 
-                        if _name not in FRAMES.keys():
-                            FRAMES[_name] = [frame]
-                        else:
-                            FRAMES[_name].append(frame)
+                    FRAMES.append(frame)
 
             VNCLASSES[_id] = {'members': MEMBERS, 'themroles': THEMROLES, 'frames': FRAMES}
 
     for _vnclass, _values in VNCLASSES.iteritems():
-        print _vnclass, ": ", _values
+        print "Class: ", _vnclass
+        for _frame in _values['frames']:
+            print str(_frame)
 
 
 
