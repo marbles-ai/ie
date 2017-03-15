@@ -220,7 +220,7 @@ class Category(object):
     @property
     def ismodifier(self):
         """Test if the CCG category is a modifier."""
-        return self._splitsig[0] == self._splitsig[2]
+        return self._splitsig[0] == self._splitsig[2] and self.isfunctor
 
     @property
     def isconj(self):
@@ -245,6 +245,11 @@ class Category(object):
     def isfunctor(self):
         """Test if the category is a function."""
         return self._splitsig[1] in ['/', '\\']
+
+    @property
+    def isatom(self):
+        """Test if the category is an atom."""
+        return not self.isfunctor and not self.isempty
 
     @property
     def iscombinator(self):
@@ -284,6 +289,61 @@ class Category(object):
         """
         return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
 
+    def _extract_atoms_helper(self, atoms, isresult):
+        if self.ismodifier:
+            # Only need one side
+            return self.result_category._extract_atoms_helper(atoms, isresult)
+        elif self.isfunctor:
+            if self.isarg_right:
+                atoms = self.result_category._extract_atoms_helper(atoms, isresult)
+                return self.argument_category._extract_atoms_helper(atoms, False)
+            else:
+                atoms = self.argument_category._extract_atoms_helper(atoms, False)
+                return self.result_category._extract_atoms_helper(atoms, isresult)
+        elif isresult:
+            atoms[1].append(self)
+            return atoms
+        else:
+            atoms[0].append(self)
+            return atoms
+
+    def extract_atoms(self):
+        """Extract the atomic categories.
+
+        Returns:
+            A list of atomic categories. The list is ordered for unification.
+
+        See Also:
+            can_unify()
+        """
+        if self.isatom:
+            return [self]
+        elif self.isfunctor:
+            atoms = self._extract_atoms_helper([[], []], True)
+            atoms[0].extend(atoms[1])
+            return atoms[0]
+        return None
+
+    def can_unify(self, other):
+        """Test if other can unify with self. Both self and other must be atoms.
+
+        Args:
+            other: An atomic category.
+
+        Returns:
+            True if other and self can unify.
+        """
+        if not self.isatom or not other.isatom:
+            return False
+        s1 = self.ccg_signature
+        s2 = other.ccg_signature
+        if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
+            return True
+        if s1[0] == 'S' and s2[0] == 'S':
+            if len(s1) == 1 or len(s2) == 1:
+                return True
+        return False
+
 
 ## @{
 ## @ingroup gconst
@@ -316,8 +376,9 @@ CAT_DETERMINER = Category('NP[nb]/N')
 CAT_NOUN = RegexCategoryClass(r'^N(?:\[[a-z]+\])?$')
 CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
 CAT_NP_NP = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/NP$')
-
 ## @}
+
+
 
 
 class Rule(object):
@@ -469,11 +530,17 @@ RL_FXS = Rule('FXS', 'S')
 ## @endverbatim
 RL_BXS = Rule('BXS', 'S')
 
-## Special rule for CONJ and punctuation.
+## Special rule for punctuation.
 RL_LPASS = Rule('LP', 'PASS')
 
-## Special rule for CONJ and punctuation.
+## Special rule for CONJ.
+RL_LCONJ = Rule('LCONJ', 'PASS')
+
+## Special rule for punctuation.
 RL_RPASS = Rule('RP', 'PASS')
+
+## Special rule for CONJ.
+RL_RCONJ = Rule('RCONJ', 'PASS')
 
 ## Special rule for numbers
 RL_RNUM = Rule('RNUM')
@@ -481,15 +548,17 @@ RL_LNUM = Rule('LNUM')
 
 ## Special type changing rule. See LDC manual 2005T13.
 RL_TYPE_CHANGE_VPMOD = Rule('TYPE_CHANGE_VPMOD')
+RL_TYPE_CHANGE_NP_NP = Rule('TYPE_CHANGE_NP_NP')
 ## @}
 
 # Special type changing rules - see LDC2005T13 document
 
 ## @cond
 CAT_S_NP_TypeChange = RegexCategoryClass(r'^S\[(pss|adj|ng|dcl)\]\\NP$')
-CAT_NP_NP_TypeChange = Category(r'NP\NP')
+CAT_NP_NP = Category(r'NP\NP')
 CAT_SdclNP = Category(r'S[dcl]/NP')
 CAT_SngNP = Category(r'S[ng]\NP')
+CAT_SadgNP = Category(r'S[adj]\NP')
 CAT_S_NP_S_NP = Category(r'(S\NP)/(S\NP)')
 ## @endcond
 
@@ -514,9 +583,9 @@ def get_rule(left, right, result):
     assert isinstance(result, Category)
 
     if left.isconj and left == right:
-        return RL_RPASS
+        return RL_LCONJ
     elif right.isconj and left == right:
-        return RL_LPASS
+        return RL_RCONJ
     elif left == CAT_EMPTY:
         return RL_RPASS
     elif left == CAT_NP_NP and right == CAT_NUM:
@@ -530,13 +599,15 @@ def get_rule(left, right, result):
             elif result.isarg_left and result.argument_category.isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_BACKWARD_TYPE_RAISE
-        elif left == CAT_S_NP_TypeChange and result == CAT_NP_NP_TypeChange:
+        elif left == CAT_SadgNP and result == CAT_NP_NP:
+            return RL_TYPE_CHANGE_NP_NP
+        elif left == CAT_S_NP_TypeChange and result == CAT_NP_NP:
             # See LDC 2005T13 manual, section 3.8
             # S[pss]\NP => NP\NP
             # S[adj]\NP => NP\NP
             # S[ng]\NP => NP\NP
             raise NotImplementedError
-        elif left == CAT_SdclNP and result == CAT_NP_NP_TypeChange:
+        elif left == CAT_SdclNP and result == CAT_NP_NP:
             # See LDC 2005T13 manual, section 3.8
             # S[dcl]/NP => NP\NP
             raise NotImplementedError
