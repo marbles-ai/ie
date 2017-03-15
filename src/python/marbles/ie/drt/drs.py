@@ -56,6 +56,38 @@ def _pure_refs(ld, gd, rs, srs):
     return all([(r.has_bound(ld, gd) or r not in srs) for r in rs])
 
 
+class ConditionRef(object):
+    """References a condition in a DRS."""
+
+    def __init__(self, ld, gd, cond):
+        """Constructor.
+
+        Args:
+            ld: The local DRS containing the condition, where ls is a subordinate DRS of gd.
+            gd: The global DRS such that gd.universes included of all referents in cond.
+            cond: The condition.
+        """
+        self.ld = ld
+        self.gd = gd
+        self.cond = cond
+        self.gdlevel = 0
+        self.ldlevel = 0
+        while ld != gd:
+            ld = ld.accessible_drs
+            assert ld is not None
+            self.ldlevel += 1
+        while gd is not None:
+            self.ldlevel += 1
+            self.gdlevel += 1
+            gd = gd.accessible_drs
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.cond == other.cond and self.ld == other.ld and self.gd == other.gd
+
+    def remove(self):
+        self.ld.remove_condition(self)
+
+
 class AbstractDRS(Showable):
     """Abstract Core Discourse Representation Structure for DRS and PDRS"""
     def __init__(self):
@@ -209,6 +241,17 @@ class AbstractDRS(Showable):
 
     def find_subdrs(self, d):
         """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
+        return None
+
+    def find_condition(self, c):
+        """Search for a condition matching `c`.
+
+        Args:
+            c: A condition.
+
+        Returns:
+            A tuple of the global DRS, and the condition or (self,None).
+        """
         return None
 
     def test_is_accessible_to(self, d):
@@ -693,6 +736,35 @@ class DRS(AbstractDRS):
     def clone(self):
         return DRS(self._refs, [c.clone() for c in self._conds])
 
+    def remove_condition(self, rc):
+        """Remove a condition from the DRS.
+
+        Args:
+            rc: A ConditionRef returned from find_condition().
+        """
+        if not isinstance(rc, ConditionRef):
+            raise TypeError()
+        if id(rc.ld) == id(self):
+            conds = filter(lambda c: c != rc.cond, self._conds)
+            self._conds = conds
+        elif self.find_subdrs(self.ld) is not None:
+            rc.ld.remove_condition(rc)
+
+    def find_condition(self, c):
+        """Search for a condition matching `c`.
+
+        Args:
+            c: A condition.
+
+        Returns:
+            A tuple of the global DRS, and the found condition or (self,None).
+        """
+        for ctest in self._conds:
+            rc = ctest.find_condition(c, self)
+            if rc is not None:
+                return rc
+        return None
+
     def find_subdrs(self, d):
         """Test whether d is a direct or indirect subordinate DRS of this DRS and return the found subordinate DRS."""
         if self == d:
@@ -996,6 +1068,20 @@ class Merge(AbstractDRS):
     def referents(self):
         """Returns the universe of a DRS. Alias for universe property."""
         return union(self._drsA.referents, self._drsB.referents)
+
+    def find_condition(self, c):
+        """Search for a condition matching `c`.
+
+        Args:
+            c: A condition.
+
+        Returns:
+            A tuple of the global DRS, and the found condition or (self,None).
+        """
+        rc = self._drsA.find_condition(c)
+        if rc is None:
+            return self._drsB.find_condition(c)
+        return rc
 
     def simplify_props(self):
         """Simplify propositions"""
@@ -1518,6 +1604,10 @@ class AbstractDRSCond(Showable):
         """
         raise NotImplementedError
 
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        raise NotImplementedError
+
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsVariables:variables</a>
     def get_variables(self, u):
         """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
@@ -1638,6 +1728,23 @@ class Rel(AbstractDRSCond):
         """Helper for DRS function of same name."""
         return all([x.isresolved for x in self._refs])
 
+    def find_condition(self, c, ld):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._refs)
+            dlast = DRS([],[])
+            gd = ld
+            while gd is not None and gd != dlast:
+                u = u.union(gd.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(ld, gd, self)
+                dlast = gd
+                gd = gd.accessible_drs
+            return ConditionRef(ld, ld.global_drs, self)
+        return None
+ 
     def simplify_props(self):
         """Simply propositions.
 
@@ -1757,6 +1864,24 @@ class Neg(AbstractDRSCond):
     @property
     def drs(self):
         return self._drs
+
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drs.freerefs)
+            if len(rf) == 0:
+                return ConditionRef(gd, gd, self)
+            dlast = DRS([],[])
+            d = gd
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        return self._drs.find_condition(c)
 
     def simplify_props(self):
         """Simply propositions.
@@ -1897,6 +2022,27 @@ class Imp(AbstractDRSCond):
     def consequent(self):
         """Get the consequent DRS"""
         return self._drsB
+
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drsA.freerefs).union(self._drsB.freerefs)
+            if len(rf) == 0:
+                return ConditionRef(gd, gd, self)
+            dlast = DRS([],[])
+            d = self._drsB
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        x = self._drsA.find_condition(c)
+        if x is None:
+            return self._drsB.find_condition(c)
+        return x
 
     def simplify_props(self):
         """Simply propositions.
@@ -2054,6 +2200,27 @@ class Or(AbstractDRSCond):
         """Get the right DRS operand"""
         return self._drsB
 
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drsA.freerefs).union(self._drsB.freerefs)
+            if len(rf) == 0:
+                return ConditionRef(gd, gd, self)
+            dlast = DRS([],[])
+            d = gd
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        x = self._drsA.find_condition(c)
+        if x is None:
+            return self._drsB.find_condition(c)
+        return x
+
     def simplify_props(self):
         """Simply propositions.
 
@@ -2197,6 +2364,23 @@ class Prop(AbstractDRSCond):
         """Get the DRS hypothesis in this proposition"""
         return self._drs
 
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drs.freerefs)
+            rf = rf.union([self._ref])
+            dlast = DRS([],[])
+            d = gd
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        return self._drs.find_condition(c)
+
     def simplify_props(self):
         """Simply propositions.
 
@@ -2328,6 +2512,24 @@ class Diamond(AbstractDRSCond):
     def drs(self):
         return self._drs
 
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drs.freerefs)
+            if len(rf) == 0:
+                return ConditionRef(gd, gd, self)
+            dlast = DRS([],[])
+            d = gd
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        return self._drs.find_condition(c)
+
     def simplify_props(self):
         """Simply propositions.
 
@@ -2452,6 +2654,24 @@ class Box(AbstractDRSCond):
     @property
     def drs(self):
         return self._drs
+
+    def find_condition(self, c, gd):
+        """Search for a condition matching `c` within global DRS gd."""
+        if c == self:
+            u = set()
+            rf = set(self._drs.freerefs)
+            if len(rf) == 0:
+                return ConditionRef(gd, gd, self)
+            dlast = DRS([],[])
+            d = gd
+            while d != dlast:
+                u = u.union(d.universe)
+                rf = rf.difference(u)
+                if len(rf) == 0:
+                    return ConditionRef(d, gd, self)
+                dlast = d
+                d = d.accessible_drs
+        return self._drs.find_condition(c)
 
     def simplify_props(self):
         """Simply propositions.
