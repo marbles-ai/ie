@@ -127,7 +127,7 @@ class Category(object):
     _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
     _TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
     _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
-    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[(pss|b|dcl)\]')
+    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+)\]')
     _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
     ## @endcond
 
@@ -335,6 +335,8 @@ class Category(object):
         """
         if not self.isatom or not other.isatom:
             return False
+        if self in [CAT_PP, CAT_NP, CAT_Sadj] and other in [CAT_PP, CAT_NP, CAT_Sadj]:
+            return True
         s1 = self.ccg_signature
         s2 = other.ccg_signature
         if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
@@ -364,6 +366,7 @@ CAT_PP = Category('PP')
 CAT_PR = Category('PR')
 CAT_PREPOSITION = Category('PP/NP')
 CAT_SEMICOLON = Category(';')
+CAT_Sadj = Category('S[adj]')
 CAT_Sdcl = Category('S[dcl]')
 CAT_Sq = Category('S[q]')
 CAT_Swq = Category('S[wq]')

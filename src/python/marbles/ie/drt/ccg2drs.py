@@ -2,11 +2,11 @@
 """CCG to DRS Production Generator"""
 
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
+from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
-from compose import ArgRight, ArgLeft
-from ccgcat import Category, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
-from ccgcat import RL_TYPE_CHANGE_VPMOD
-from utils import remove_dups, union_inplace, complement, intersect
+from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
+from ccgcat import RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP
+from utils import remove_dups, union, union_inplace, complement, intersect
 import re
 from parse import parse_drs
 import copy
@@ -15,52 +15,53 @@ import copy
 ## @cond
 __pron = [
     # 1st person singular
-    ('i',       '([x],[([],[i(x)])->([],[me(x)])])'),
-    ('me',      '([x],[me(x)])'),
-    ('myself',  '([x],[([],[myself(x)])->([],[me(x)])])'),
-    ('mine',    '([],[([],[mine(x)])->([y],[me(y),owns(y,x)])])'),
-    ('my',      '([],[([],[my(x)])->([y],[me(y),owns(y,x)])])'),
+    ('i',       '([],[([],[i(x1)])->([],[me(x1),is.anaphora(x1)])])'),
+    ('me',      '([],[me(x1),is.anaphora(x1)])'),
+    ('myself',  '([],[([],[myself(x1)])->([],[me(x1),is.anaphora(x1)])])'),
+    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('my',      '([],[([],[my(x1)])->([],[me(x2),is.anaphora(x2),owns(x2,x1)])])'),
     # 2nd person singular
-    ('you',     '([x],[you(x)])'),
-    ('yourself','([x],[([],[yourself(x)])->([],[you(x)])])'),
-    ('yours',   '([],[([],[yours(x)])->([y],[you(y),owns(y,x)])])'),
-    ('your',    '([],[([],[your(x)])->([y],[you(y),owns(y,x)])])'),
+    ('you',     '([],[you(x1),is.anaphora(x1)])'),
+    ('yourself','([],[([],[yourself(x1)])->([],[you(x1),is.anaphora(x1)])])'),
+    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('your',    '([],[([],[your(x1)])->([],[you(x2),is.anaphora(x2),owns(x2,x1)])])'),
     # 3rd person singular
-    ('he',      '([x],[([],[he(x)])->([],[him(x)])])'),
-    ('she',     '([x],[([],[she(x)])->([],[her(x)])])'),
-    ('him',     '([x],[([],[him(x)])->([],[male(x)])])'),
-    ('her',     '([x],[([],[her(x)])->([],[female(x)])])'),
-    ('himself', '([x],[([],[himself(x)])->([],[him(x)])])'),
-    ('herself', '([x],[([],[herself(x)])->([],[her(x)])])'),
-    ('hisself', '([x],[([],[hisself(x)])->([],[himself(x)])])'),
-    ('his',     '([],[([],[his(x)])->([y],[him(y),owns(y,x)])])'),
-    ('hers',    '([],[([],[hers(x)])->([y],[her(y),owns(y,x)])])'),
+    ('he',      '([],[([],[he(x1)])->([],[him(x1),is.anaphora(x1)])])'),
+    ('she',     '([],[([],[she(x1),is.anaphora(x1)])->([],[her(x1)])])'),
+    ('him',     '([],[([],[him(x1),is.anaphora(x1)])->([],[male(x1)])])'),
+    ('her',     '([],[([],[her(x1),is.anaphora(x1)])->([],[female(x1)])])'),
+    ('himself', '([],[([],[himself(x1)])->([],[him(x1),is.anaphora(x1)])])'),
+    ('herself', '([],[([],[herself(x1)])->([],[her(x1),is.anaphora(x1)])])'),
+    ('hisself', '([],[([],[hisself(x1)])->([],[himself(x1),is.anaphora(x1)])])'),
+    ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])'),
+    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),is.anaphora(x2),owns(x2,x1)])])'),
     # 1st person plural
-    ('we',      '([x],[([],[we(x)])->([],[us(x)])])'),
-    ('us',      '([x],[us(x)])'),
-    ('ourself', '([x],[([],[ourself(x)])->([],[our(x)])])'),
-    ('ourselves','([x],[([],[ourselves(x)])->([],[our(x)])])'),
-    ('ours',    '([],[([],[ours(x)])->([y],[us(y),owns(y,x)])])'),
-    ('our',     '([],[([],[our(x)])->([y],[us(y),owns(y,x)])])'),
+    ('we',      '([],[([],[we(x1)])->([],[us(x1),is.anaphora(x1)])])'),
+    ('us',      '([],[us(x1)])'),
+    ('ourself', '([],[([],[ourself(x1)])->([],[our(x1),is.anaphora(x1)])])'),
+    ('ourselves','([],[([],[ourselves(x1)])->([],[our(x1),is.anaphora(x1)])])'),
+    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('our',     '([],[([],[our(x1)])->([],[us(x2),is.anaphora(x2),owns(x2,x1)])])'),
     # 2nd person plural
-    ('yourselves', '([x],[([],[yourselves(x)])->([],[you(x),plural(x)])])'),
+    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),is.anaphora(x1),is.plural(x1)])])'),
     # 3rd person plural
-    ('they',    '([x],[([],[i(x)])->([],[them(x)])])'),
-    ('them',    '([x],[them(x)])'),
-    ('themself','([x],[([],[themself(x)])->([],[them(x)])])'),
-    ('themselves','([x],[([],[themselves(x)])->([],[them(x)])])'),
-    ('theirs',  '([x],[([],[theirs(x)])->([y],[them(y),owns(y,x)])])'),
-    ('their',   '([],[([],[their(x)])->([y],[them(y),owns(y,x)])])'),
+    ('they',    '([],[([],[they(x1)])->([],[them(x1),is.anaphora(x1)])])'),
+    ('them',    '([],[them(x1),is.anaphora(x1)])'),
+    ('themself','([],[([],[themself(x1)])->([],[them(x1),is.anaphora(x1)])])'),
+    ('themselves','([],[([],[themselves(x1)])->([],[them(x1),is.anaphora(x1)])])'),
+    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('their',   '([],[([],[their(x1)])->([],[them(x2),is.anaphora(x2),owns(x2,x1)])])'),
     # it
-    ('it',      '([x],[it(x)])'),
-    ('its',     '([x],[([],[its(x)])->([y],[it(y),owns(y,x)])])'),
-    ('itself',  '([x],[([],[itself(x)])->([],[it(x)])])'),
+    ('it',      '([],[it(x1),is.anaphora(x1)])'),
+    ('its',     '([],[([],[its(x1)])->([],[it(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('itself',  '([],[([],[itself(x1)])->([],[it(x1),is.anaphora(x1)])])'),
 ]
 _PRON = {}
 for k,v in __pron:
     _PRON[k] = parse_drs(v, 'nltk')
 
 
+# Order of referents is lambda_ref binding order
 __adv = [
     ('up',      '([x,e],[])', '([],[up(e),direction(e)])'),
     ('down',    '([x,e],[])', '([],[down(e),direction(e)])'),
@@ -158,71 +159,71 @@ class CcgTypeMapper(object):
 
         # Simple DRS functions
         # ====================
-        r'Z/T':     ((PropProduction, DRSRef('p')), None),
-        r'T/Z':     ((FunctorProduction, DRSRef('p')), None),
-        r'T/T':     ((FunctorProduction, DRSRef('x')), None),
-        r'T\T':     ((FunctorProduction, DRSRef('x')), None),
+        r'Z/T':     ((PropProduction, DRSRef('x1')), None),
+        r'T/Z':     ((FunctorProduction, DRSRef('x1')), None),
+        r'T/T':     ((FunctorProduction, DRSRef('x1')), None),
+        r'T\T':     ((FunctorProduction, DRSRef('x1')), None),
 
         # ==============================================================================================================
         # REDUCTIONS: LESS REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
 
         # NP,PP
-        r'(T\T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
-        r'(T/T)/T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
-        r'(T/T)\T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
-        r'(T\T)\T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
-        r'(T\T)/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), None),
-        r'(T/T)/Z': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+        r'(T\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
+        r'(T/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
+        r'(T/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
+        r'(T\T)\T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
+        r'(T\T)/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
+        r'(T/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
 
         # DRS Verb functions
-        r'S/T':     ((FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'S\T':     ((FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(S/T)/T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
-        r'(S/T)\T': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
-        r'(S\T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(S\T)\T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(S\T)/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(S/T)/Z': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), DRSRef('e')),
-        r'S\S':     ((FunctorProduction, DRSRef('e')), DRSRef('e')),
-        r'S/S':     ((FunctorProduction, DRSRef('e')), DRSRef('e')),
-        r'T/S':     ((FunctorProduction, DRSRef('e')), DRSRef('x')),
-        r'(((S\T)/Z)/T)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
-                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'((S\T)/Z)/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('z')),
-                         (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(S\S)\T': ((FunctorProduction, DRSRef('x')),
-                     (FunctorProduction, DRSRef('e')), DRSRef('e')),
+        r'S/T':     ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'S\T':     ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
+        r'(S/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
+        r'(S\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S\T)\T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S\T)/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
+        r'S\S':     ((FunctorProduction, DRSRef('e1')), DRSRef('e2')),
+        r'S/S':     ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
+        r'T/S':     ((FunctorProduction, DRSRef('e1')), DRSRef('x1')),
+        r'(((S\T)/Z)/T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
+                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((S\T)/Z)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
+                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S\S)\T': ((FunctorProduction, DRSRef('x1')),
+                     (FunctorProduction, DRSRef('e1')), DRSRef('e2')),
         # Mixtures: functions + combinators
-        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('y')),
-                             (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
-        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('y')),
-                             (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
-        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('y')),
-                                     (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('y')), (PropProduction, DRSRef('p')),
-                                 (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('y')), (FunctorProduction, DRSRef('x')), DRSRef('e')),
-        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('y')), (FunctorProduction, (DRSRef('x'), DRSRef('e'))), None),
-        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('y'), DRSRef('e'))), (FunctorProduction, DRSRef('x')), DRSRef('e')),
+        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                                     (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x2')), (PropProduction, DRSRef('p')),
+                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), None),
+        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('e1'))), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
 
-        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
-        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x')), (FunctorProduction, DRSRef('y')), None),
+        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
 
         #r'(((S\T)/Z)/Z)/(S\T)':
         # ==============================================================================================================
         # PASS THRU - REFERENTS AVALIABLE FOR UNIFICATION REMAIN CONSTANT AFTER APPLICATION
 
         # Pure combinators
-        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
-        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
-        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x')), None),
+        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x1')), None),
+        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x1')), None),
 
         # ==============================================================================================================
         # EXPANDERS: NEW REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
 
-        r'(S\T)/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
-        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e')), (DRSRef('x'), DRSRef('e'))),
-        r'(S/S)/S': ((FunctorProduction, DRSRef('e1')), (DRSRef('e1'), DRSRef('e2'))),
+        r'(S\T)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e1')), (DRSRef('x1'), DRSRef('e1'))),
+        r'(S/S)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('e2')), DRSRef('e2')),
     }
     _EventPredicates = ('agent', 'theme', 'extra')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
@@ -401,6 +402,8 @@ class CcgTypeMapper(object):
 
         if self.category.ismodifier or self.category.iscombinator:
             if evt_vars is not None:
+                evt_vars.reverse()
+                refs.reverse()
                 refs = union_inplace(evt_vars, refs)
                 if len(refs) == 1:
                     conds.append(Rel('event.modifier.' + self._word, refs))
@@ -470,9 +473,65 @@ class CcgTypeMapper(object):
                     result.append(t)
             else:
                 result.append(t)
+        result.append(None)
         return tuple(result)
 
+    @classmethod
+    def get_template_vars(cls, cat, vlist=None):
+        if vlist is None:
+            vlist = []
 
+        if cat.ismodifier:
+            # Only need one side
+            return cls.get_template_vars(cat.result_category, vlist)
+        elif cat.isfunctor:
+            if cat.isarg_left:
+                vtmp = cls.get_template_vars(cat.result_category, [])
+                vtmp.extend(vlist)
+                return cls.get_template_vars(cat.argument_category, vtmp)
+            else:
+                vlist = cls.get_template_vars(cat.argument_category, vlist)
+                vlist = cls.get_template_vars(cat.result_category, vlist)
+                return vlist
+        else:
+            vlist.append(cat)
+            return vlist
+
+    @staticmethod
+    def create_production_template(cat):
+        """Create a production template from a category.
+
+        Args:
+            cat: The category.
+        """
+        if cat.isatom:
+            return None # do it manually on get_composer()
+
+        vs = cat.extract_atoms()
+        rs = []
+        ei = 0
+        for v in vs:
+            if v == CAT_NOUN or v == CAT_Sadj:
+                rs.append(DRSRef(DRSVar('x',len(rs)-ei)))
+            else:
+                assert v.ccg_signature[0] == 'S'
+                ei += 1
+                rs.append(DRSRef(DRSVar('e', ei)))
+
+        stk = [cat]
+        while len(stk) != 0:
+            cat = stk.pop()
+            if cat.ismodifier:
+                stk.append(cat.result_category)
+            elif cat.iscombinator:
+                stk.append(cat.argument_category)
+                stk.append(cat.result_category)
+            elif cat.isfunctor:
+                stk.append(cat.argument_category)
+                stk.append(cat.result_category)
+            else:
+                # atom
+                pass
 
     def get_composer(self):
         """Get the production model for this category.
@@ -491,20 +550,21 @@ class CcgTypeMapper(object):
             elif self.ispronoun:
                 d = DrsProduction(_PRON[self._word])
                 d.set_category(self.category)
-                d.set_lambda_refs(d.drs.universe)
+                d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
+                assert len(d.lambda_refs) == 1
                 return d
             elif self.category == CAT_N:
-                d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]), properNoun=self.isproper_noun)
+                d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=self.isproper_noun)
                 d.set_category(self.category)
-                d.set_lambda_refs(d.drs.universe)
+                d.set_lambda_refs([DRSRef('x1')])
                 return d
             elif self.category == CAT_NOUN:
                 if self.isnumber:
-                    d = DrsProduction(DRS([DRSRef('x')], [Rel('is.number', [DRSRef('x')]), Rel(self._word, [DRSRef('x')])]))
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel('is.number', [DRSRef('x1')]), Rel(self._word, [DRSRef('x1')])]))
                 else:
-                    d = DrsProduction(DRS([DRSRef('x')], [Rel(self._word, [DRSRef('x')])]))
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]))
                 d.set_category(self.category)
-                d.set_lambda_refs(d.drs.universe)
+                d.set_lambda_refs([DRSRef('x1')])
                 return d
             elif self.isadverb and self._word in _ADV:
                 adv = _ADV[self._word]
@@ -515,7 +575,7 @@ class CcgTypeMapper(object):
             else:
                 d = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x')])]))
                 d.set_category(self.category)
-                d.set_lambda_refs(d.drs.universe)
+                d.set_lambda_refs([DRSRef('x')])
                 return d
         else:
             # Functor
@@ -527,15 +587,15 @@ class CcgTypeMapper(object):
                 # FIXME: these relations should be added as part of build_predicates()
                 if self.category == CAT_DETERMINER:
                     if self._word in ['a', 'an']:
-                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists.maybe', [DRSRef('x')])]))
+                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists.maybe', [DRSRef('x1')])]))
                     elif self._word in ['the', 'thy']:
-                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
+                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists', [DRSRef('x1')])]))
                     else:
-                        fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
+                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel(self._word, [DRSRef('x1')])]))
                 elif self.partofspeech == 'DT' and self._word in ['the', 'thy']:
-                    fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel('exists', [DRSRef('x')])]))
+                    fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists', [DRSRef('x1')])]))
                 else:
-                    fn = FunctorProduction(self.category, DRSRef('x'), DRS([], [Rel(self._word, [DRSRef('x')])]))
+                    fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel(self._word, [DRSRef('x1')])]))
                 if ev is not None:
                     fn.set_lambda_refs([ev])
                 return fn
@@ -656,12 +716,12 @@ def _process_ccg_node(pt, cl):
         debugcount += 1
         if debugcount == 40:
             pass
-        cats = [x.category.simplify() if not x.isfunctor else x.inner_scope.category.simplify() for x in cl2.iterator()]
+        cats = [x.category.simplify() for x in cl2.iterator()]
         if len(cats) == 1:
             rule = get_rule(cats[0], CAT_EMPTY, result)
             if rule is None:
                 raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
-            if rule == RL_TYPE_CHANGE_VPMOD:
+            if rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_left(ccgt.get_composer())
             cl2 = cl2.apply(rule).unify()
@@ -671,7 +731,7 @@ def _process_ccg_node(pt, cl):
             if rule is None:
                 raise DrsComposeError('cannot discover production rule %s:=Rule?(%s,%s)' % (result, cats[0], cats[1]))
             else:
-                cl2 = cl2.apply(rule).unify()
+                cl2 = cl2.apply(rule)
         else:
             # Parse tree is a binary tree
             assert len(cats) == 0
@@ -683,6 +743,8 @@ def _process_ccg_node(pt, cl):
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
         return  # TODO: handle punctuation
+    if pt[1] in ['more', '30']:
+        pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
 
@@ -712,7 +774,7 @@ def process_ccg_pt(pt, options=None):
         d = d.apply_null_left().unify()
     if not isinstance(d, DrsProduction):
         raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
-    d = d.purify()
+    d = d.resolve_anaphora()
     if not d.ispure:
         raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
     return d

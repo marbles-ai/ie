@@ -836,49 +836,52 @@ class ProductionList(Production):
     def conjoin_forward(self):
         """Forward conjoin of like types."""
         assert len(self._compList) >= 2
-        fn = self._compList[0]
-        arg = self._compList[1]
+        f = self._compList[0]
+        g = self._compList[1]
         c = self._compList[1:]
-        if fn.isfunctor:
-            if not arg.isfunctor:
-                raise DrsComposeError('Conjoin of non-functor with functor')
-            d = fn.conjoin(arg)
+        if f.isfunctor:
+            d = f.conjoin(g)
             c[0] = d
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
-        elif arg.isfunctor:
-            raise DrsComposeError('Conjoin of non-functor with functor')
+        elif g.isfunctor:
+            d = g.conjoin(f)
+            c[0] = d
+            self._compList = c
+            self.set_lambda_refs(d.lambda_refs)
+            self.set_category(d.category)
         else:
-            d = ProductionList(fn)
-            d.push_right(arg)
+            d = ProductionList(f)
+            d.push_right(g)
             d = d.unify()
             c[0] = d
-            self.set_category(fn.category)
+            self.set_category(f.category)
         return self
 
     def conjoin_backward(self):
         """Backward conjoin of like types."""
         assert len(self._compList) >= 2
-        fn = self._compList[-1]
-        arg = self._compList[-2]
-        c = self._compList[0:-1]
-        if fn.isfunctor:
-            if not arg.isfunctor:
-                raise DrsComposeError('Conjoin of non-functor with functor')
-            d = fn.conjoin(arg)
-            c[-1] = d
+        f = self._compList.pop()
+        g = self._compList.pop()
+        c = self._compList
+        if f.isfunctor:
+            d = f.conjoin(g)
+            c.append(d)
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
-        elif arg.isfunctor:
-            raise DrsComposeError('Conjoin of non-functor with functor')
+        elif g.isfunctor:
+            d = g.conjoin(f)
+            c.append(d)
+            self._compList = c
+            self.set_lambda_refs(d.lambda_refs)
+            self.set_category(d.category)
         else:
-            d = ProductionList(fn)
-            d.push_right(arg)
-            d = d.unify()
-            c[-1] = d
-            self.set_category(fn.category)
+            d = ProductionList(f)
+            d.push_right(g)
+            c.append(d.unify())
+            self.set_category(f.category)
         return self
 
     def type_change_forward(self, isvp):
@@ -1137,7 +1140,7 @@ class FunctorProduction(Production):
         """Test if the functor is curried.
 
         Remarks:
-            Test is same as `self.inner_scope.outer == self`
+            Test is same as `self.inner_scope.outer is not None`
         """
         return self._outer is not None or (self._comp is not None and self._comp.isfunctor)
 
@@ -1446,40 +1449,57 @@ class FunctorProduction(Production):
         Remarks:
             CALL[X1|Y1](X2|Y2)
         """
-        if not g.isfunctor:
-            raise DrsComposeError('conjoin argument must be a functor')
+        assert self.outer is None
+        if g.isfunctor:
+            assert g.outer is None
+            ga = g.extract_atoms()
+            fa = self.extract_atoms()
+            for u, v in zip(ga, fa):
+                if not u.can_unify(v):
+                    raise DrsComposeError('conjoin argument must be a like functor')
 
-        if (self.compose_options & CO_VERIFY_SIGNATURES):
-            assert g.outer_scope == g
-            assert self.outer_scope == self
+            if len(g.lambda_refs) != len(self.lambda_refs) or self.inner_scope._get_position() != g.inner_scope._get_position():
+                raise DrsComposeError('cannot cojoin functors with different structure')
 
-        # Rename f so disjoint with g names
-        self.make_vars_disjoint(g)
+            # Rename f so disjoint with g names
+            self.make_vars_disjoint(g)
 
-        if len(g.lambda_refs) != len(self.lambda_refs) or self.inner_scope._get_position() != g.inner_scope._get_position():
-            raise DrsComposeError('cannot cojoin functors with different structure')
+            # Remove resolved vars, for example events - these cannot be unified
+            u = []
+            gc = g.pop()
+            u.extend(gc.lambda_refs)
+            gc.set_lambda_refs([])
+            g.push(gc)
 
-        # Remove resolved vars, for example events - these cannot be unified
-        u = []
-        gc = g.pop()
-        u.extend(gc.lambda_refs)
-        gc.set_lambda_refs([])
-        g.push(gc)
-        fc = self.pop()
-        fclr = fc.lambda_refs
-        u.extend(fclr)
-        fc.set_lambda_refs([])
-        self.push(fc)
+            fc = self.pop()
+            fclr = fc.lambda_refs
+            u.extend(fclr)
+            fc.set_lambda_refs([])
+            self.push(fc)
 
-        rs = zip(complement(g.lambda_refs, u), complement(self.lambda_refs, u))
-        g.rename_vars(rs)
-        gc = g.pop()
-        fc = self.pop()
-        c = ProductionList(fc)
-        c.push_right(gc)
-        c = c.unify()
-        c.set_lambda_refs(fclr)
-        self.push(c)
+            rs = zip(complement(g.lambda_refs, u), complement(self.lambda_refs, u))
+            g.rename_vars(rs)
+            gc = g.pop()
+            fc = self.pop()
+            c = ProductionList(fc)
+            c.push_right(gc)
+            c = c.unify()
+            c.set_lambda_refs(fclr)
+            self.push(c)
+        else:
+            if g.category.simplify() != self.category.simplify():
+                raise DrsComposeError('conjoin argument must be a like type of functor result')
+
+            # Rename f so disjoint with g names
+            self.make_vars_disjoint(g)
+            g.set_lambda_refs([])
+            fc = self.pop()
+            c = ProductionList(fc)
+            c.push_right(g)
+            c.set_lambda_refs(fc.lambda_refs)
+            c.set_category(fc.category)
+            self.push(c.unify())
+
         return self
 
     def apply(self, arg):
@@ -1515,24 +1535,25 @@ class FunctorProduction(Production):
             # FIXME: lambda_refs should always be set
             alr = arg.universe
         slr = self.lambda_refs
-        if len(self._lambda_refs.referents) == 1 and len(alr) != 1 and not arg.isfunctor:
-            # Add proposition
-            p = PropProduction(Category('PP/NP'), slr[0])
-            arg = p.apply(arg)
-            alr = arg.lambda_refs
 
         # Use Category.extract_atoms to get binding region
         # Bind with inner scope
         vs = self.category.argument_category.extract_atoms()
         us = arg.category.extract_atoms()
-        if not isinstance(us, collections.Iterable):
-            pass
+
+        if len(self._lambda_refs.referents) == 1 and len(us) != 1 and len(alr) != 1 and not arg.isfunctor:
+            # Add proposition
+            p = PropProduction(Category('PP/NP'), slr[0])
+            arg = p.apply(arg)
+            alr = arg.lambda_refs
+
         rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify(x[1]),
                     zip(us, vs, alr, self._lambda_refs.referents)))
-        #if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
-        xxx = zip(alr, self._lambda_refs.referents)
-        if len(xxx) != len(rs):
-            pass
+        if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
+            xxx = zip(alr, self._lambda_refs.referents)
+            if len(xxx) != len(rs):
+                pass
+            assert len(xxx) != 0
         arg.rename_vars(self.nodups(rs))
         '''
         # Make sure names don't conflict with global scope
@@ -1583,9 +1604,13 @@ class FunctorProduction(Production):
             else:
                 cl.push_right(scomp)
                 cl.push_right(acomp)
-            cl = cl.unify()
-            arg.push(cl)
-            return arg
+
+            if self.category.ismodifier:
+                arg.push(cl.unify())
+                return arg
+            else:
+                self.clear()
+                return cl.unify()
 
             '''
             if self._comp is not None:
