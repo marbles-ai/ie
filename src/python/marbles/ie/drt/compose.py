@@ -540,23 +540,6 @@ class ProductionList(Production):
             self._compList = compList
         return self
 
-    '''
-    def apply_functor(self, fn, arg):
-        """Need this because the parse tree is not always clear regarding the order of operations.
-
-        Args:
-            fn: A functor production instance.
-            arg: The functor argument.
-
-        Returns:
-            A production.
-        """
-        if not fn.iscombinator and arg.iscombinator and ((fn.isarg_left and arg.isarg_right) or (fn.isarg_right and arg.isarg_left)):
-            d = arg.apply(fn)
-        d = fn.apply(arg)
-        return d
-    '''
-
     def apply_forward(self):
         """Forward application.
 
@@ -574,65 +557,6 @@ class ProductionList(Production):
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
-        '''
-        rstk = self._compList
-        rstk.reverse()
-        lstk = []
-        self._compList = []
-
-        while len(rstk) != 0:
-            d = rstk[-1]
-            rstk.pop()
-            if d.isfunctor:
-                if d.isarg_right:
-                    if len(rstk) == 0:
-                        if len(lstk) != 0:
-                            if lstk[-1].iscombinator and lstk[-1].isarg_right:
-                                d = self.apply_functor(lstk[-1], d)
-                                lstk.pop()
-                                rstk.append(d)
-                                continue
-                            if enableException:
-                                raise DrsComposeError('Function "%s" missing right argument' % repr(d))
-                            else:
-                                lstk.append(d)
-                                self._compList = lstk
-                                return self
-                        self._compList = [d]
-                        return self
-                    d = self.apply_functor(d, rstk[-1])
-                    rstk.pop()
-                    rstk.append(d)
-                else:
-                    if len(lstk) == 0:
-                        if len(rstk) != 0:
-                            if rstk[-1].iscombinator and rstk[-1].isarg_left:
-                                d = self.apply_functor(rstk[-1], d)
-                                rstk.pop()
-                                rstk.append(d)
-                                continue
-                            if enableException:
-                                raise DrsComposeError('Function "%s" missing left argument' % repr(d))
-                            else:
-                                rstk.append(d)
-                                rstk.reverse()
-                                self._compList = rstk
-                                return self
-                        self._compList = [d]
-                        return self
-                    d = self.apply_functor(d, lstk[-1])
-                    lstk.pop()
-                    rstk.append(d)
-            elif isinstance(d, ProductionList):
-                # Merge lists
-                for x in d.reversed_iterator():
-                    rstk.append(x)
-            else:
-                lstk.append(d)
-
-        self._compList = lstk
-        return self
-        '''
 
     def apply_backward(self, enableException=False):
         """Backward application.
@@ -651,67 +575,6 @@ class ProductionList(Production):
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
-
-        '''
-        rstk = []
-        lstk = self._compList
-        self._compList = []
-
-        # Now process functor application right to left
-        while len(lstk) != 0:
-            d = lstk[-1]
-            lstk.pop()
-            if d.isfunctor:
-                if d.isarg_right:
-                    if len(rstk) == 0:
-                        if len(lstk) != 0:
-                            if lstk[-1].iscombinator and lstk[-1].isarg_right:
-                                d = self.apply_functor(lstk[-1], d)
-                                lstk.pop()
-                                lstk.append(d)
-                                continue
-                            if enableException:
-                                raise DrsComposeError('Function "%s" missing right argument' % repr(d))
-                            else:
-                                lstk.append(d)
-                                self._compList = lstk
-                                return self
-                        self._compList = [d]
-                        return self
-                    d = self.apply_functor(d, rstk[-1])
-                    rstk.pop()
-                    lstk.append(d)
-                else:
-                    if len(lstk) == 0:
-                        if len(rstk) != 0:
-                            if rstk[-1].iscombinator and rstk[-1].isarg_left:
-                                d = self.apply_functor(rstk[-1], d)
-                                rstk.pop()
-                                lstk.append(d)
-                                continue
-                            if enableException:
-                                raise DrsComposeError('Function "%s" missing left argument' % repr(d))
-                            else:
-                                rstk.append(d)
-                                rstk.reverse()
-                                self._compList = rstk
-                                return self
-                        self._compList = [d]
-                        return self
-                    d = self.apply_functor(d, lstk[-1])
-                    lstk.pop()
-                    lstk.append(d)
-            elif isinstance(d, ProductionList):
-                # Merge lists
-                for x in d.iterator():
-                    lstk.append(x)
-            else:
-                rstk.append(d)
-
-        rstk.reverse()
-        self._compList = rstk
-        return self
-        '''
 
     def unify(self):
         """Finalize the production by performing a unification right to left.
@@ -1216,6 +1079,7 @@ class FunctorProduction(Production):
 
     def set_lambda_refs(self, refs):
         """Disabled for functors"""
+        pass
             
     def set_category(self, cat):
         """Set the CCG category.
@@ -1541,7 +1405,11 @@ class FunctorProduction(Production):
         vs = self.category.argument_category.extract_atoms()
         us = arg.category.extract_atoms()
 
-        if len(self._lambda_refs.referents) == 1 and len(us) != 1 and len(alr) != 1 and not arg.isfunctor:
+        if us is None or vs is None:
+            pass
+
+        if len(self._lambda_refs.referents) == 1 and (len(us or []) != 1 and len(alr or []) != 1) and \
+                not arg.isfunctor:
             # Add proposition
             p = PropProduction(Category('PP/NP'), slr[0])
             arg = p.apply(arg)
@@ -1555,34 +1423,12 @@ class FunctorProduction(Production):
                 pass
             assert len(xxx) != 0
         arg.rename_vars(self.nodups(rs))
-        '''
-        # Make sure names don't conflict with global scope
-        ors = intersect(alr[len(rs):], complement(self.outer_scope.lambda_refs, slr))
-        if len(ors) != 0:
-            xrs = zip(ors, get_new_drsrefs(ors, union(alr, slr)))
-            arg.rename_vars(self.nodups(xrs))
-        arg.rename_vars(self.nodups(rs))
-
-        ers = union(alr, arg.universe, arg.freerefs)
-        ors = intersect(ers, union(self.lambda_refs, self.universe, self.freerefs))
-        if len(ors) != 0:
-            nrs = get_new_drsrefs(ors, union(ers, ors))
-            xrs = self.nodups(zip(ors, nrs))
-            self.rename_vars(xrs)
-        flr = self.lambda_refs
-        '''
 
         rn = intersect(arg.universe, self.universe)
         if len(rn) != 0:
             pass
         assert len(rn) == 0
-        '''
-        if len(rn) != 0:
-            # FIXME: should we allow this or hide behind propositions
-            # Alpha convert bound vars in both self and arg
-            xrs = zip(rn, get_new_drsrefs(rn, union(arg.lambda_refs, slr)))
-            arg.rename_vars(self.nodups(xrs))
-        '''
+
         if arg.isfunctor:
             assert arg.inner_scope._comp is not None
             # functor production
@@ -1605,60 +1451,8 @@ class FunctorProduction(Production):
                 cl.push_right(scomp)
                 cl.push_right(acomp)
 
-            if self.category.ismodifier:
-                arg.push(cl.unify())
-                return arg
-            else:
-                self.clear()
-                return cl.unify()
-
-            '''
-            if self._comp is not None:
-
-                # Carry forward lambda refs to combinator scope
-                lr = self._comp.lambda_refs
-                uv = self._comp.universe
-                uv = filter(lambda x: x in uv, lr) # keep lambda ordering
-                if self._category.isarg_right:
-                    lr = union_inplace(lr, arg.outer_scope.lambda_refs)
-                else:
-                    lr = union_inplace(arg.outer_scope.lambda_refs, lr)
-                lr = complement(lr, uv)
-                lr.extend(uv)
-                cl.set_lambda_refs(lr)
-
-                # Set arg lambdas, the ordering will be different to above
-                uv = [] if arg_comp is None else complement(lr, arg.lambda_refs)
-                lr = [] if arg_comp is None else arg_comp.lambda_refs
-                lr = union_inplace(lr, uv)
-
-                if arg_comp is None:
-                    arg.inner_scope._comp = self._comp
-                elif self.isarg_left:
-                    cl2 = ProductionList()
-                    cl2.push_right(arg_comp, merge=True)
-                    cl2.push_right(self._comp, merge=True)
-                    cl2.set_lambda_refs(lr)
-                    arg.inner_scope._comp = cl2
-                else:
-                    cl2 = ProductionList()
-                    cl2.push_right(self._comp, merge=True)
-                    cl2.push_right(arg_comp, merge=True)
-                    cl2.set_lambda_refs(lr)
-                    arg.inner_scope._comp = cl2
-
-            cl.set_category(self.category.result_category)
-            cl.push_right(arg, merge=True)
-            outer = self.outer
             self.clear()
-            if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-                print('          := %s' % repr(cl if outer is None else outer.outer_scope))
-
-            if outer is None and cl.contains_functor:
-                cl = cl.unify()
-
-            return cl
-            '''
+            return cl.unify()
 
         # functor application
         if self._comp is not None and arg.contains_functor:

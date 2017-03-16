@@ -195,34 +195,50 @@ class CcgTypeMapper(object):
                      (FunctorProduction, DRSRef('e1')), DRSRef('e2')),
         # Mixtures: functions + combinators
         r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
                              (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
         r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
                              (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
         r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                                     (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x2')), (PropProduction, DRSRef('p')),
-                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), None),
-        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('e1'))), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x3')), (PropProduction, DRSRef('x2')),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('e1'))),
+                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
 
-        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
+        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')),
+                                 (FunctorProduction, DRSRef('x2')),
+                                 (FunctorProduction, DRSRef('x2')), None),
 
         #r'(((S\T)/Z)/Z)/(S\T)':
         # ==============================================================================================================
         # PASS THRU - REFERENTS AVALIABLE FOR UNIFICATION REMAIN CONSTANT AFTER APPLICATION
 
         # Pure combinators
-        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x1')), None),
-        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x1')), None),
+        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                         (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                         (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
+        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
 
         # ==============================================================================================================
         # EXPANDERS: NEW REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
 
         r'(S\T)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e1')), (DRSRef('x1'), DRSRef('e1'))),
+        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e1')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
         r'(S/S)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('e2')), DRSRef('e2')),
     }
     _EventPredicates = ('agent', 'theme', 'extra')
@@ -714,7 +730,7 @@ def _process_ccg_node(pt, cl):
             _process_ccg_node(nd, cl2)
 
         debugcount += 1
-        if debugcount == 40:
+        if debugcount == 170:
             pass
         cats = [x.category.simplify() for x in cl2.iterator()]
         if len(cats) == 1:
