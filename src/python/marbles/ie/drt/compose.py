@@ -6,9 +6,10 @@ from drs import get_new_drsrefs, ConditionRef
 from utils import iterable_type_check, intersect, union, union_inplace, complement, compare_lists_eq, rename_var, \
     remove_dups
 from common import SHOW_LINEAR
-from ccgcat import Category, CAT_EMPTY, RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
+from ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
+    RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
     RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE, RL_RNUM, RL_TYPE_CHANGE_VPMOD, RL_RCONJ, RL_LCONJ, \
-    RL_TYPE_CHANGE_NP_NP
+    RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP
 import weakref
 import collections
 
@@ -73,6 +74,11 @@ class Production(object):
     @property
     def iscombinator(self):
         """Test if this class is a combinator. A combinator expects a functors as the argument."""
+        return False
+
+    @property
+    def ismodifier(self):
+        """A modifier expects a functor as the argument and returns a functor of the same type."""
         return False
 
     @property
@@ -369,8 +375,8 @@ class DrsProduction(Production):
 
 class ProductionList(Production):
     """A list of productions."""
-    def __init__(self, compList=None):
-        super(ProductionList, self).__init__()
+    def __init__(self, compList=None, category=None):
+        super(ProductionList, self).__init__(category)
         if compList is None:
             compList = []
         if isinstance(compList, (DRS, Merge)):
@@ -634,7 +640,7 @@ class ProductionList(Production):
                     pconds.append(ctmp[0])
                     oconds.extend(ctmp[1:])
             else:
-                # FIXME: proper-noun followed by noun, for example Time magazine, should we colate?
+                # FIXME: proper-noun followed by noun, for example Time magazine, should we collate?
                 if len(pconds) != 0:
                     conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
                     conds.extend(oconds)
@@ -644,7 +650,7 @@ class ProductionList(Production):
                 conds.extend(d.drs.conditions)
                 proper += 1
             refs.extend(d.drs.referents)
-        # FIXME: Boc Raton and Hot Spring => Boca(x) Raton(x) Hot(x1) Springs(x1)
+        # FIXME: Boc Raton and Hot Springs => Boca-Raton(x) Hot-Springs(x1)
         # Hyphenate name
         if len(pconds) != 0:
             conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
@@ -703,13 +709,13 @@ class ProductionList(Production):
         g = self._compList[1]
         c = self._compList[1:]
         if f.isfunctor:
-            d = f.conjoin(g)
+            d = f.conjoin(g, False)
             c[0] = d
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         elif g.isfunctor:
-            d = g.conjoin(f)
+            d = g.conjoin(f, True)
             c[0] = d
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
@@ -729,13 +735,13 @@ class ProductionList(Production):
         g = self._compList.pop()
         c = self._compList
         if f.isfunctor:
-            d = f.conjoin(g)
+            d = f.conjoin(g, False)
             c.append(d)
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         elif g.isfunctor:
-            d = g.conjoin(f)
+            d = g.conjoin(f, True)
             c.append(d)
             self._compList = c
             self.set_lambda_refs(d.lambda_refs)
@@ -747,7 +753,7 @@ class ProductionList(Production):
             self.set_category(f.category)
         return self
 
-    def type_change_forward(self, isvp):
+    def type_change_backward(self, isvp, isadj=False):
         """Special type change rules. See section 3.8 of LDC 2005T13 manual.
 
         Args:
@@ -757,11 +763,14 @@ class ProductionList(Production):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        template = self._compList[0]
-        vp = self._compList[1]
-        c = self._compList[1:]
-        d = template.special_type_change(vp, isvp)
-        c[0] = d
+        template = self._compList.pop()
+        vp = self._compList[-1]
+        c = self._compList
+        if isadj:
+            d = template.type_change_np_snp(vp)
+        else:
+            d = template.type_change_snp_npnp(vp, isvp)
+        c[-1] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
@@ -798,9 +807,13 @@ class ProductionList(Production):
         elif rule == RL_RCONJ:
             self.conjoin_forward()
         elif rule == RL_TYPE_CHANGE_VPMOD:
-            self.type_change_forward(True)
+            self.type_change_backward(True)
         elif rule == RL_TYPE_CHANGE_NP_NP:
-            self.type_change_forward(False)
+            self.type_change_backward(False)
+        elif rule == RL_TYPE_CHANGE_MOD:
+            self.type_change_backward(False)
+        elif rule == RL_TYPE_CHANGE_SNP:
+            self.type_change_backward(False, True)
         elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
             # TODO: handle type raising
             raise NotImplementedError
@@ -862,21 +875,13 @@ class FunctorProduction(Production):
             self._outer = None
 
     def _repr_helper1(self, i):
-        if self.iscombinator:
-            dash = "'";
-        else:
-            dash = ""
-        s = 'λ' + chr(i) + dash
+        s = 'λ' + chr(i)
         if self._comp is not None and self._comp.isfunctor:
             s = self._comp._repr_helper1(i+1) + s
         return s
 
     def _repr_helper2(self, i):
-        if self.iscombinator:
-            dash = "'";
-        else:
-            dash = ""
-        v = chr(i) + dash
+        v = chr(i)
         r = ','.join([x.var.to_string() for x in self._lambda_refs.referents])
         if self._comp is not None:
             if self._comp.isfunctor:
@@ -892,7 +897,7 @@ class FunctorProduction(Production):
 
     def __repr__(self):
         return self._repr_helper1(ord('P')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) \
-               + '.' + self._repr_helper2(ord('P'))
+               + '.(' + self._repr_helper2(ord('P')) + ')'
 
     def _get_variables(self, u):
         if self._comp is not None:
@@ -1035,8 +1040,8 @@ class FunctorProduction(Production):
         # Get unique referents, ordered by functor scope
         r = self._get_lambda_refs([])
         # Reverse because we can have args:
-        # - [(x,e), (y,e), e] => [x,e,y,e,e] => [x,y,e] (REDUCTIONS AND PASS THRU)
-        # - [e, (x, e)] => [e, x, e] => [x,e]           (EXPANDERS)
+        # - [(x,e), (y,e), e] => [x,e,y,e,e] => [x,y,e]
+        # - [e, (x, e)] => [e, x, e] => [x,e]
         r.reverse()
         r = remove_dups(r)
         r.reverse()
@@ -1062,7 +1067,52 @@ class FunctorProduction(Production):
     @property
     def iscombinator(self):
         """A combinator expects a functor as the argument and returns a functor."""
-        s = self._category.iscombinator
+        return self.category.iscombinator
+
+    @property
+    def ismodifier(self):
+        """A modifier expects a functor as the argument and returns a functor of the same type."""
+        return self.category.ismodifier
+
+    def get_unify_scopes(self, follow=True):
+        """Get lambda vars ordered by functor scope.
+
+        Args:
+            follow: If True, return refs for argument and result functors recursively. If false just return the refs
+                for the functor.
+
+        See Also:
+            marbles.ie.drt.ccgcat.Category.extract_unify_atoms()
+        """
+        # When the inner_scope is applied it removes the argument category, and returns the result category.
+        # When outer_scope is applied it returns the final result category.
+        # Want same ordering as extract_unify_atoms()
+        if follow:
+            atoms = []
+            atoms.append(self._lambda_refs.referents)
+            c = self._comp
+            while c.isfunctor:
+                atoms.append(c._lambda_refs.referents)
+                c = c._comp
+            atoms.reverse()
+            assert(len(c.lambda_refs) <= 1)     # final result must be a atom
+            atoms.append(c.lambda_refs)
+            return atoms
+        else:
+            atoms = []
+            u = self._lambda_refs.universe
+            u.reverse()
+            atoms.extend(u)
+            c = self._comp
+            while c.isfunctor:
+                u = c._lambda_refs.universe
+                u.reverse()
+                atoms.extend(u)
+                c = c._comp
+            atoms.reverse()
+            assert(len(c.lambda_refs) <= 1)     # final result must be a atom
+            atoms.extend(c.lambda_refs)
+            return atoms
 
     def find_anaphora(self, r):
         """Find anaphora for referent r.
@@ -1091,8 +1141,8 @@ class FunctorProduction(Production):
         self._category = cat
         # sanity check
         if (cat.isarg_left and prev.isarg_right) or (cat.isarg_right and prev.isarg_left):
-            raise DrsComposeError('Signature %s does not match %s argument position' %
-                                 (cat.ccg_signature, 'right' if prev.isarg_right else 'left'))
+            raise DrsComposeError('Signature %s does not match %s argument position, prev was %s' %
+                                 (cat, 'right' if prev.isarg_right else 'left', prev))
 
     def set_options(self, options):
         """Set the compose options.
@@ -1121,8 +1171,13 @@ class FunctorProduction(Production):
         """Finalize the production by performing a unify right to left.
 
         Returns:
-            A Production instance.
+            self
         """
+        if self._comp is not None:
+            self._comp = self._comp.unify()
+        return self
+
+        '''
         if self._comp is not None:
             if self._comp.isfunctor:
                 self._comp = self._comp.unify()
@@ -1149,6 +1204,7 @@ class FunctorProduction(Production):
                 self._comp.set_lambda_refs(lr)
                 self._comp.set_category(cat)
         return self
+        '''
 
     def apply_null_left(self):
         """Apply a null left argument `$` to the functor. This is necessary for processing
@@ -1162,7 +1218,7 @@ class FunctorProduction(Production):
             raise DrsComposeError('invalid apply null left to functor')
         if self._comp is not None and isinstance(self._comp, ProductionList):
             self._comp = self._comp.apply()
-        d = DrsProduction(DRS(self._lambda_refs.universe, []))
+        d = DrsProduction(drs=DRS(self._lambda_refs.universe, []), category=CAT_NP)
         d = self.apply(d)
         return d
 
@@ -1210,7 +1266,7 @@ class FunctorProduction(Production):
             xrs = self.nodups(zip(ors, nrs))
             self.rename_vars(xrs)
 
-    def special_type_change(self, vp, hasevent):
+    def type_change_snp_npnp(self, vp, hasevent):
         """Special type change. See LDC manual section 3.8.
 
         Args:
@@ -1236,8 +1292,39 @@ class FunctorProduction(Production):
                 self.rename_vars(xrs)
         self.rename_vars(rs)
         self.pop() # discard inner DrsProduction
+        if not vp.isfunctor:
+            pass
         g = vp.pop()
         self.push(g)
+        return self
+
+    def type_change_np_snp(self, np):
+        """Special type change. See LDC manual section 3.8.
+
+        Args:
+            np: The noun phrase. Must be a NP category.
+
+        Remarks:
+            self is a template. The inner DrsProduction will be discarded.
+        """
+        slr = self.inner_scope._comp.lambda_refs
+        assert isinstance(np, DrsProduction)
+        lr = np.lambda_refs
+        if len(lr) == 0:
+            lr = np.drs.universe
+            np.set_lambda_refs(lr)
+        if len(lr) != len(slr):
+            if len(slr) != 1:
+                raise DrsComposeError('mismatch of lambda vars when doing special type change')
+            # Add proposition
+            p = PropProduction(category=np.category, referent=slr[0])
+            np = p.apply(np)
+        else:
+            rs = zip(slr, lr)
+            self.rename_vars(rs)
+
+        self.pop() # discard inner DrsProduction
+        self.push(np)
         return self
 
     def compose(self, g):
@@ -1271,21 +1358,21 @@ class FunctorProduction(Production):
             g.make_vars_disjoint(self.outer_scope)
 
         # Get lambdas
-        glr = g.lambda_refs
+        glr = g.get_unify_scopes(False)
         yg = g.pop()
         xf = self.pop()
         assert yg is not None
         assert xf is not None
-        yflr = self.lambda_refs
+        yflr = self.get_unify_scopes(False)
+        assert(len(yflr) == len(glr))
 
         # Get Y unification region
-        fv = self.category.argument_category.extract_atoms()
-        gv = g.result_category.extract_atoms()
-        rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify(x[1]),
+        fv = self.category.argument_category.extract_unify_atoms(False)
+        gv = g.result_category.extract_unify_atoms(False)
+        assert(len(fv) == len(gv))
+        assert(len(fv) == len(yflr))
+        rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
-        if len(zip(yflr, glr)) != len(rs):
-            pass
-
         # Unify
         rs = self.nodups(zip(yflr, glr))
         assert len(rs) != 0
@@ -1301,11 +1388,12 @@ class FunctorProduction(Production):
         g.set_category(cat)
         return g
 
-    def conjoin(self, g):
+    def conjoin(self, g, glambdas):
         """Conjoin Composition.
 
         Arg:
             g: The X2|Y2 functor where self (f) is the X1|Y1 functor.
+            glambdas: If True set lambda from g, else set from self.
 
         Returns:
             A Production instance.
@@ -1314,69 +1402,64 @@ class FunctorProduction(Production):
             CALL[X1|Y1](X2|Y2)
         """
         assert self.outer is None
+        if g.category.simplify() != self.category.simplify():
+            raise DrsComposeError('conjoin argument must be a like type')
+
         if g.isfunctor:
             assert g.outer is None
-            ga = g.extract_atoms()
-            fa = self.extract_atoms()
+            ga = g.category.extract_unify_atoms(False)
+            fa = self.category.extract_unify_atoms(False)
             for u, v in zip(ga, fa):
-                if not u.can_unify(v):
+                if not u.can_unify_atom(v):
                     raise DrsComposeError('conjoin argument must be a like functor')
 
-            if len(g.lambda_refs) != len(self.lambda_refs) or self.inner_scope._get_position() != g.inner_scope._get_position():
-                raise DrsComposeError('cannot cojoin functors with different structure')
-
             # Rename f so disjoint with g names
             self.make_vars_disjoint(g)
 
-            # Remove resolved vars, for example events - these cannot be unified
-            u = []
             gc = g.pop()
-            u.extend(gc.lambda_refs)
+            glr = gc.lambda_refs
             gc.set_lambda_refs([])
-            g.push(gc)
 
             fc = self.pop()
-            fclr = fc.lambda_refs
-            u.extend(fclr)
+            flr = fc.lambda_refs
             fc.set_lambda_refs([])
-            self.push(fc)
 
-            rs = zip(complement(g.lambda_refs, u), complement(self.lambda_refs, u))
-            g.rename_vars(rs)
-            gc = g.pop()
-            fc = self.pop()
             c = ProductionList(fc)
             c.push_right(gc)
-            c = c.unify()
-            c.set_lambda_refs(fclr)
-            self.push(c)
+            c.set_lambda_refs(glr if glambdas else flr)
+            c.set_category(gc.category if glambdas else fc.category)
+            self.push(c.unify())
         else:
-            if g.category.simplify() != self.category.simplify():
-                raise DrsComposeError('conjoin argument must be a like type of functor result')
-
             # Rename f so disjoint with g names
             self.make_vars_disjoint(g)
+            glr = g.lambda_refs
             g.set_lambda_refs([])
             fc = self.pop()
+            flr = fc.lambda_refs
             c = ProductionList(fc)
             c.push_right(g)
-            c.set_lambda_refs(fc.lambda_refs)
+            if glambdas and len(glr) != len(flr):
+                # FIXME: A Production should always have lambda_refs set.
+                c.set_lambda_refs(flr)
+                c.set_category(fc.category)
+            else:
+                c.set_lambda_refs(glr if glambdas else flr)
             c.set_category(fc.category)
             self.push(c.unify())
 
         return self
 
-    def apply(self, arg):
+    def apply(self, g):
         """Function application.
 
         Arg:
-            The substitution argument.
+            g: The application argument.
 
         Returns:
             A Production instance.
         """
         if self._comp is not None and self._comp.isfunctor:
-            self._comp = self._comp.apply(arg)
+            self._comp = self._comp.apply(g)
             if self._comp.isfunctor:
                 self._comp._set_outer(self)
             return self
@@ -1384,98 +1467,90 @@ class FunctorProduction(Production):
         assert self._comp is not None
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(arg)))
+            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(g)))
 
         # Ensure names do not conflict. Need to execute at outer scope so all variables are covered.
         # Try to keep var subscripts increasing left to right.
-        if self.isarg_left or not arg.isfunctor:
-            self.outer_scope.make_vars_disjoint(arg)
+        if self.isarg_left or not g.isfunctor:
+            self.outer_scope.make_vars_disjoint(g)
         else:
-            arg.make_vars_disjoint(self.outer_scope)
+            g.make_vars_disjoint(self.outer_scope)
 
         # Add a proposition if too many variables to bind
-        alr = arg.lambda_refs
-        if len(alr) == 0:
+        glr = g.lambda_refs if not g.isfunctor else g.get_unify_scopes(False)
+        if len(glr) == 0:
             # FIXME: lambda_refs should always be set
-            alr = arg.universe
-        slr = self.lambda_refs
+            assert not g.isfunctor
+            glr = g.universe
 
-        # Use Category.extract_atoms to get binding region
-        # Bind with inner scope
-        vs = self.category.argument_category.extract_atoms()
-        us = arg.category.extract_atoms()
-
-        if us is None or vs is None:
-            pass
-
-        if len(self._lambda_refs.referents) == 1 and (len(us or []) != 1 and len(alr or []) != 1) and \
-                not arg.isfunctor:
+        if not g.isfunctor and len(self._lambda_refs.referents) == 1 and len(glr) != 1:
             # Add proposition
-            p = PropProduction(Category('PP/NP'), slr[0])
-            arg = p.apply(arg)
-            alr = arg.lambda_refs
-
-        rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify(x[1]),
-                    zip(us, vs, alr, self._lambda_refs.referents)))
-        if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
-            xxx = zip(alr, self._lambda_refs.referents)
-            if len(xxx) != len(rs):
+            p = PropProduction(CAT_PPNP, self._lambda_refs.referents[0])
+            g = p.apply(g)
+        else:
+            # Use Category.extract_unify_atoms to get binding region
+            # Bind with inner scope
+            flr = self.get_unify_scopes(False)
+            fs = self.category.argument_category.extract_unify_atoms(False)
+            gs = g.category.extract_unify_atoms(False)
+            if gs is None or fs is None:
                 pass
-            assert len(xxx) != 0
-        arg.rename_vars(self.nodups(rs))
+            assert fs is not None
+            assert gs is not None and len(gs) == len(fs)
 
-        rn = intersect(arg.universe, self.universe)
-        if len(rn) != 0:
-            pass
-        assert len(rn) == 0
+            rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
+                                                    zip(fs, gs, glr, flr)))
+            # Unify
+            g.rename_vars(self.nodups(rs))
 
-        if arg.isfunctor:
-            assert arg.inner_scope._comp is not None
+        ors = intersect(g.universe, self.universe)
+        if len(ors) != 0:
+            # FIXME: Partial unification requires at least one variable
+            #if len(rs) == len(ors):
+            #    raise DrsComposeError('unification not possible')
+            ers = union(g.variables, g.lambda_refs, self.outer_scope.variables, self.outer_scope.lambda_refs)
+            nrs = get_new_drsrefs(ors, ers)
+            g.rename_vars(zip(ors, nrs))
+
+        if g.isfunctor:
+            assert g.inner_scope._comp is not None
             # functor production
-            if arg.iscombinator:
-                # Can't handle at the moment
-                raise DrsComposeError('Combinators arguments %s for combinators %s not supported' %
-                                      (arg.signature, self.signature))
             cl = ProductionList()
             cl.set_options(self.compose_options)
             cl.set_category(self.category.result_category)
 
             # Apply the combinator
-            acomp = arg.pop()
-            scomp = self.pop()
-            cl.set_lambda_refs(union_inplace(acomp.lambda_refs, scomp.lambda_refs))
+            gcomp = g.pop()
+            fcomp = self.pop()
+            # FIXME: is there a case where we should take acomp's lambda_refs?
+            cl.set_lambda_refs(fcomp.lambda_refs)
             if self.isarg_left:
-                cl.push_right(acomp)
-                cl.push_right(scomp)
+                cl.push_right(gcomp)
+                cl.push_right(fcomp)
             else:
-                cl.push_right(scomp)
-                cl.push_right(acomp)
+                cl.push_right(fcomp)
+                cl.push_right(gcomp)
 
             self.clear()
             return cl.unify()
 
         # functor application
-        if self._comp is not None and arg.contains_functor:
+        if self._comp is not None and g.contains_functor:
             raise DrsComposeError('Invalid functor placement during functor application')
 
         # Remove resolved referents from lambda refs list
         assert len(self._lambda_refs.referents) != 0
-        lr = filter(lambda x: x != self._lambda_refs.referents[0], self.lambda_refs)
-        if self._comp is None:
-            arg.set_options(self.compose_options)
-            self.clear()
-            arg.set_lambda_refs(lr)
-            return arg
-        elif isinstance(self._comp, ProductionList):
+        if isinstance(self._comp, ProductionList):
             c = self._comp
         else:
             c = ProductionList(self._comp)
 
         if self.isarg_right:
-            c.push_right(arg)
+            c.push_right(g)
         else:
-            c.push_left(arg)
+            c.push_left(g)
 
+        lr = self._comp.lambda_refs
         c.set_options(self.compose_options)
         c = c.unify()
         c.set_lambda_refs(lr)
@@ -1538,6 +1613,8 @@ class PropProduction(FunctorProduction):
             print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(d)))
         if isinstance(d, ProductionList):
             d = d.unify()
+        if not isinstance(d, DrsProduction):
+            pass
         assert isinstance(d, DrsProduction)
         # FIXME: removing proposition from a proper noun causes an exception during ProductionList.apply()
         if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.drs.referents) == 1 and not d.isproper_noun:
@@ -1563,8 +1640,8 @@ class PropProduction(FunctorProduction):
 
 class OrProduction(FunctorProduction):
     """An Or functor."""
-    def __init__(self, category, negate=False):
-        super(OrProduction, self).__init__(category, [])
+    def __init__(self, negate=False):
+        super(OrProduction, self).__init__(CAT_CONJ, [])
         self._negate = negate
 
     ## @cond
@@ -1594,10 +1671,6 @@ class OrProduction(FunctorProduction):
         """Get the universe of the referents."""
         inner = self.inner_scope
         return [] if inner._comp is None else inner._comp.universe
-
-    def set_lambda_refs(self, refs):
-        """Disabled for Or functors."""
-        pass
 
     def apply_null_left(self):
         """It is an error to call this method for Or functors"""

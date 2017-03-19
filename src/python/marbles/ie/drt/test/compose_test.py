@@ -32,19 +32,19 @@ class ComposeTest(unittest.TestCase):
         cl = ProductionList()
         fn = FunctorProduction(Category(r'S\NP'), DRSRef('x'), FunctorProduction(Category(r'(S\NP)/NP'), DRSRef('y'),
                                                                                  dexpr('([],[wheeze(x,y)])')))
-        self.assertEquals(repr(fn), 'λQλPλxλy.P(x);[| wheeze(x,y)];Q(y)')
+        self.assertEquals('λQλPλxλy.(P(x);[| wheeze(x,y)];Q(y))', repr(fn))
         cl.push_right(fn)
 
         # λP.[x|me(x),own(x,y)];P(y)
         cl2 = ProductionList()
         fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
-        self.assertEquals(repr(fn), 'λPλy.[x| me(x),own(x,y)];P(y)')
+        self.assertEquals('λPλy.([x| me(x),own(x,y)];P(y))', repr(fn))
         cl2.push_right(fn)
-        cl2.push_right(DrsProduction(drs=dexpr('([x],[corner(x)])'),category=Category('N')))
+        cl2.push_right(DrsProduction(drs=dexpr('([x],[corner(x)])'), category=Category('N')))
         cl.push_right(cl2.apply_forward().unify())
 
         fn = PropProduction(Category(r'PP\NP'), DRSRef('p'))
-        self.assertEquals(repr(fn), 'λPλp.[p| p: P(*)]')
+        self.assertEquals('λPλp.([p| p: P(*)])', repr(fn))
         cl.push_right(fn)
 
         cl.apply_backward()
@@ -165,6 +165,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
+        print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -702,7 +703,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| event(e),event.verb.welcome(e),event.agent(e,x),event.theme(e,y),y: [x1| Merryweather-High(x1)]]'
+        x = u'[x5,e1,x4| event(e1),event.verb.welcome(e1),event.agent(e1,x5),event.theme(e1,x4),x4: [x2| Merryweather-High(x2)]]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -731,11 +732,11 @@ class ComposeTest(unittest.TestCase):
             (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
-        x = u'[x1,e1,x,e| exists(x1),door(x1),event(e1),event.verb.opens(e1),event.agent(e1,x1),[| i(x)] \u21D2 [| me(x)],event(e),event.verb.step(e),event.agent(e,x),up(e),direction(e)]'
+        x = u'[x1,e3,e2,x2| exists(x1),door(x1),event(e3),event.verb.opens(e3),event.agent(e3,x1),[| i(x2)] \u21D2 [| me(x2),is.anaphora(x2)],event(e2),event.verb.step(e2),event.agent(e2,x2),up(e2),direction(e2)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -748,7 +749,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x,e,y| exists(x),school(x),bus(x),event(e),event.verb.wheezes(e),event.agent(e,x),event.theme(e,y),y: [x1| my(x1),corner(x1)]]'
+        x = u'[x3,e1,x4| exists(x3),school(x3),bus(x3),event(e1),event.verb.wheezes(e1),event.agent(e1,x3),event.theme(e1,x4),x4: [x2| my(x2),corner(x2)]]'
         self.assertEquals(x, s)
 
     def __test4_ModelCategories(self):

@@ -4,9 +4,10 @@
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
-from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, get_rule
-from ccgcat import RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP
-from utils import remove_dups, union, union_inplace, complement, intersect
+from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
+    CAT_Sany,\
+    get_rule, RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP
+from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
 import re
 from parse import parse_drs
 import copy
@@ -157,17 +158,9 @@ class CcgTypeMapper(object):
         'T':            None,
         'conj':         None,
 
-        # Simple DRS functions
-        # ====================
-        r'Z/T':     ((PropProduction, DRSRef('x1')), None),
-        r'T/Z':     ((FunctorProduction, DRSRef('x1')), None),
-        r'T/T':     ((FunctorProduction, DRSRef('x1')), None),
-        r'T\T':     ((FunctorProduction, DRSRef('x1')), None),
-
-        # ==============================================================================================================
-        # REDUCTIONS: LESS REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
-
         # NP,PP
+        r'Z/T': ((PropProduction, DRSRef('x1')), None),
+        r'T/Z': ((FunctorProduction, DRSRef('x1')), None),
         r'(T\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
         r'(T/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
         r'(T/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
@@ -176,70 +169,66 @@ class CcgTypeMapper(object):
         r'(T/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
 
         # DRS Verb functions
-        r'S/T':     ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'S\T':     ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'S/T': ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'S\T': ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'(S/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
         r'(S/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
         r'(S\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'(S\T)\T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'(S\T)/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'(S/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
-        r'S\S':     ((FunctorProduction, DRSRef('e1')), DRSRef('e2')),
-        r'S/S':     ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
         r'T/S':     ((FunctorProduction, DRSRef('e1')), DRSRef('x1')),
         r'(((S\T)/Z)/T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
-                             (FunctorProduction, DRSRef('p')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+                             (FunctorProduction, DRSRef('x4')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'((S\T)/Z)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
                          (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S\S)\T': ((FunctorProduction, DRSRef('x1')),
-                     (FunctorProduction, DRSRef('e1')), DRSRef('e2')),
-        # Mixtures: functions + combinators
-        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x3')), (PropProduction, DRSRef('x2')),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('e1'))),
+        r'(S\T)/S': ((FunctorProduction, DRSRef('e2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+
+        # Modifiers
+        r'T/T': ((FunctorProduction, DRSRef('x1')), None),
+        r'T\T': ((FunctorProduction, DRSRef('x1')), None),
+        r'S\S': ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
+        r'S/S': ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
+        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
                          (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-
-        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')),
-                                 (FunctorProduction, DRSRef('x2')),
-                                 (FunctorProduction, DRSRef('x2')), None),
-
-        #r'(((S\T)/Z)/Z)/(S\T)':
-        # ==============================================================================================================
-        # PASS THRU - REFERENTS AVALIABLE FOR UNIFICATION REMAIN CONSTANT AFTER APPLICATION
-
-        # Pure combinators
-        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                         (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                         (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
+        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
         r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
         r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
 
-        # ==============================================================================================================
-        # EXPANDERS: NEW REFERENTS AVALIABLE FOR UNIFICATION AFTER APPLICATION
-
-        r'(S\T)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e1')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e1'))), DRSRef('e1')),
-        r'(S/S)/S': ((FunctorProduction, DRSRef('e1')), (FunctorProduction, DRSRef('e2')), DRSRef('e2')),
+        # Mixtures: functions + modifiers
+        r'(S\S)\T': ((FunctorProduction, DRSRef('x1')),
+                     (FunctorProduction, DRSRef('e2')), DRSRef('e1')),
+        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e3'))),
+                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                                     (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x3')), (FunctorProduction, DRSRef('x2')),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
+                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                                 (FunctorProduction, DRSRef('e1')),
+                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
+                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')),
+                                 (FunctorProduction, DRSRef('x2')),
+                                 (FunctorProduction, DRSRef('x2')), None),
+        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e3')),
+                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
+                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        r'(S/S)/S': ((FunctorProduction, DRSRef('e3')), (FunctorProduction, DRSRef('e2')), DRSRef('e1')),
+        #r'(((S\T)/Z)/Z)/(S\T)':
     }
     _EventPredicates = ('agent', 'theme', 'extra')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
@@ -251,6 +240,12 @@ class CcgTypeMapper(object):
         else:
             self._ccgcat = Category(ccgTypeName)
         self._pos = posTags or ['UNKNOWN']
+
+        # We treat modal as verb modifiers - i.e. they don't get their own event
+        if self._pos[0] == 'MD':
+            self._ccgcat = self._ccgcat.simplify()
+            assert self._ccgcat.ismodifier
+
         if self.isproper_noun:
             self._word = word.title().rstrip('?.,:;')
         else:
@@ -380,6 +375,68 @@ class CcgTypeMapper(object):
         """Get the DRS category signature."""
         return self._drsSignature
 
+    def rename_template_vars(self, templ):
+        """Event variables depend on whether S types can be unified. For example: (S\NP)/(S[dcl]\NP) only requires
+        single event variable because S can unify with S[dcl]. However (S[to]\NP)/(S[dcl]\NP) requires two event
+        variables because S[to] cannot unify with S[dcl].
+
+        The templates in our dictionary assume no unification is possible. Now we must fix up if that assumption is
+        incorrect. I have done it this way for expedience, otherwise I need a dictionary entry for every category in the
+        LDC ccg-bank.
+
+        Args:
+            templ: The original template.
+
+        Returns:
+            The renamed template.
+        """
+        if templ is not None and templ[-1] is not None:
+
+            lambda_scope = map(lambda x: [x[1]] if isinstance(x[1], DRSRef) else list(x[-1]), templ[:-1])
+            if isinstance(templ[-1], tuple):
+                lambda_scope.append(list(templ[-1]))
+            else:
+                lambda_scope.append([templ[-1]])
+            atom_scope = self.category.extract_unify_atoms()   # ordering will be same as lambda_scope
+            if len(atom_scope) != len(lambda_scope):
+                pass
+            assert len(atom_scope) == len(lambda_scope)
+            scopes = zip(atom_scope, lambda_scope)
+            ev_scope = []
+            for atoms, lrefs in scopes:
+                if len(atoms) != len(lrefs):
+                    pass
+                assert len(atoms) == len(lrefs)
+                eva = filter(lambda x: x[0] == CAT_Sany, zip(atoms, lrefs))
+                if len(eva) != 0:
+                    ev_scope.append(eva)
+
+            rs = []
+            seen = set()
+            while len(ev_scope) != 0:
+                eva = ev_scope.pop()
+                for evb in ev_scope:
+                    for a, ra in eva:
+                        for b, rb in evb:
+                            if b.can_unify(a) and rb not in seen:
+                                rs.append((rb, ra))
+                                seen.add(rb)
+            if len(rs) == 0:
+                return templ
+            for r in rs:
+                for scope in lambda_scope:
+                    for i in range(len(scope)):
+                        scope[i] = rename_var(scope[i], rs)
+            ntempl = []
+            for s, t in zip(lambda_scope, templ[:-1]):
+                ntempl.append((t[0], tuple(s) if len(s) > 1 else s[0]))
+            if isinstance(templ[-1], tuple):
+                ntempl.append(tuple(lambda_scope[-1]))
+            else:
+                ntempl.append(lambda_scope[-1][0])
+            return tuple(ntempl)
+        return templ
+
     def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
         not use this for verbs or adverbs.
@@ -391,7 +448,10 @@ class CcgTypeMapper(object):
             conds: A list of existing DRS conditions.
 
         Returns:
-            A list if marbles.ie.drt.Rel instances.
+            A list if marbles.ie.drt.drs.Rel instances.
+
+        Remarks:
+            Also modifies refs to be lambda vars
         """
         assert p_vars is not None
         assert refs is not None
@@ -402,14 +462,17 @@ class CcgTypeMapper(object):
         elif isinstance(p_vars, tuple):
             # Production templates are stored as tuples to prevent modification
             p_vars = list(p_vars)
+
         if evt_vars is not None:
             if isinstance(evt_vars, DRSRef):
                 evt_vars = [evt_vars]
             else:
                 if isinstance(evt_vars, tuple):
                     evt_vars = list(evt_vars)
+                else:
+                    evt_vars = [x for x in evt_vars]    # shallow copy
                 evt_vars.reverse()
-            evt_vars = union_inplace(p_vars)
+            #evt_vars = union_inplace(p_vars, evt_vars)
             if len(evt_vars) == 1:
                 # p_vars = [e], evt_vars = [e]
                 evt_vars = None
@@ -421,21 +484,25 @@ class CcgTypeMapper(object):
                 evt_vars.reverse()
                 refs.reverse()
                 refs = union_inplace(evt_vars, refs)
+                # shallow copy refs
                 if len(refs) == 1:
-                    conds.append(Rel('event.modifier.' + self._word, refs))
+                    conds.append(Rel('event.modifier.' + self._word, [x for x in refs]))
                 elif len(refs) == 2:
-                    conds.append(Rel('event.attribute.' + self._word, refs))
+                    conds.append(Rel('event.attribute.' + self._word, [x for x in refs]))
                 elif len(refs) > 2:
-                    conds.append(Rel('event.related.' + self._word, refs))
+                    conds.append(Rel('event.related.' + self._word, [x for x in refs]))
+                refs.reverse() # for caller
             else:
-                conds.append(Rel(self._word, refs))
+                conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
         elif self.isadjective:
             if evt_vars is not None:
                 raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
                                       % (self._word, self.drs_signature))
-            conds.append(Rel(self._word, refs))
+            conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
         else:
             if self.isproper_noun:
+                if len(p_vars) != 1:
+                    pass
                 assert len(p_vars) == 1
                 if self._TypeMonth.match(self._word):
                     conds.append(Rel('is.date', p_vars))
@@ -467,7 +534,7 @@ class CcgTypeMapper(object):
                 conds.append(Rel('event.related', evt_vars))
                 conds.append(Rel(self._word, p_vars))
             elif len(refs) != 0:
-                conds.append(Rel(self._word, refs))
+                conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
         return conds
 
     @staticmethod
@@ -492,27 +559,6 @@ class CcgTypeMapper(object):
         result.append(None)
         return tuple(result)
 
-    @classmethod
-    def get_template_vars(cls, cat, vlist=None):
-        if vlist is None:
-            vlist = []
-
-        if cat.ismodifier:
-            # Only need one side
-            return cls.get_template_vars(cat.result_category, vlist)
-        elif cat.isfunctor:
-            if cat.isarg_left:
-                vtmp = cls.get_template_vars(cat.result_category, [])
-                vtmp.extend(vlist)
-                return cls.get_template_vars(cat.argument_category, vtmp)
-            else:
-                vlist = cls.get_template_vars(cat.argument_category, vlist)
-                vlist = cls.get_template_vars(cat.result_category, vlist)
-                return vlist
-        else:
-            vlist.append(cat)
-            return vlist
-
     @staticmethod
     def create_production_template(cat):
         """Create a production template from a category.
@@ -523,7 +569,7 @@ class CcgTypeMapper(object):
         if cat.isatom:
             return None # do it manually on get_composer()
 
-        vs = cat.extract_atoms()
+        vs = cat.extract_unify_atoms()
         rs = []
         ei = 0
         for v in vs:
@@ -555,17 +601,16 @@ class CcgTypeMapper(object):
         Returns:
             A Production instance.
         """
-        compose = self._AllTypes[self.drs_signature]
+        compose = self.rename_template_vars(self._AllTypes[self.drs_signature])
         if compose is None:
             # Simple type
             # Handle prepositions 'Z'
-            if self.category == CAT_CONJ:
+            if self.isconj:
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
-                return ProductionList()
+                return ProductionList(category=CAT_CONJ)
             elif self.ispronoun:
-                d = DrsProduction(_PRON[self._word])
-                d.set_category(self.category)
+                d = DrsProduction(_PRON[self._word], category=self.category)
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
                 assert len(d.lambda_refs) == 1
                 return d
@@ -614,15 +659,14 @@ class CcgTypeMapper(object):
                     fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel(self._word, [DRSRef('x1')])]))
                 if ev is not None:
                     fn.set_lambda_refs([ev])
+                else:
+                    fn.set_lambda_refs([DRSRef('x1')])
                 return fn
             if compose[0][0] == FunctorProduction:
                 refs = []
                 signatures = []
                 s = self.category
-                refs_without_combinator = None
                 for c in compose[:-1]:
-                    if refs_without_combinator is None and s.iscombinator:
-                        refs_without_combinator = refs
                     signatures.append(s)
                     if s.isarg_right:
                         if isinstance(c[1], tuple):
@@ -639,14 +683,17 @@ class CcgTypeMapper(object):
                         refs = r
                     s = s.result_category
 
-                refs = remove_dups(refs)
-                refs_without_combinator = remove_dups(refs_without_combinator) if refs_without_combinator is not None \
-                    else refs
                 if ev is not None:
                     ev = [ev] if isinstance(ev, DRSRef) else ev
-                    if len(intersect(ev, refs)) != 0:
-                        refs = filter(lambda a: a != ev, refs)
-
+                    refs.extend(ev)
+                    refs.reverse()
+                    refs = remove_dups(refs)
+                    refs.reverse()
+                    refs = complement(refs, ev)
+                else:
+                    refs.reverse()
+                    refs = remove_dups(refs)
+                    refs.reverse()
 
                 if self.isverb:
                     if ev is None:
@@ -666,23 +713,22 @@ class CcgTypeMapper(object):
                     else:
                         # TODO: use verbnet to get semantics
                         conds = [Rel('event', ev), Rel('event.verb.' + self._word, ev)]
-                        for v,e in zip(refs, self._EventPredicates):
+                        for v, e in zip(refs, self._EventPredicates):
                             conds.append(Rel('event.' + e, [ev[0], v]))
                         if len(refs) > len(self._EventPredicates):
                             for i in range(len(self._EventPredicates), len(refs)):
                                 conds.append(Rel('event.extra.%d' % i, [ev[0], refs[i]]))
                         fn = DrsProduction(DRS(ev, conds))
                     fn.set_lambda_refs(ev)
-                elif self.isadverb:
-                    if ev is not None:
-                        if _ADV.has_key(self._word):
-                            adv = _ADV[self._word]
-                            fn = DrsProduction(adv[0], [x for x in adv[1]])
-                        else:
-                            fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
-                        fn.set_lambda_refs(ev)
-                    else:
-                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs)))
+                elif self.isadverb and ev is not None and self._word in _ADV:
+                    adv = _ADV[self._word]
+                    fn = DrsProduction(adv[0], [x for x in adv[1]])
+                    fn.set_lambda_refs(ev)
+                    r = refs
+                    r.extend(ev)
+                    rs = zip(adv[1], r)
+                    fn.rename_vars(rs)
+
                 elif self.ispreposition:
                     # Don't attach to event's
                     c = self.remove_events_from_template(compose)
@@ -690,14 +736,72 @@ class CcgTypeMapper(object):
                     fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
                                        properNoun=self.isproper_noun)
                 else:
-                    fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
-                                       properNoun=self.isproper_noun)
+                    scat = self.category.simplify() # removes features [?]
+                    fn = None
+                    if scat.ismodifier:
+                        if self.partofspeech == 'TO' and self.category == CAT_INFINITIVE:
+                            assert self.category.argument_category.issentence
+                            assert self.category.result_category.issentence
+                            assert ev is not None
+                            assert len(ev) == 1
+                            fn = DrsProduction(DRS([], [Rel('event.is.infinitive', ev)]))
+                        elif self.isgerund and scat.result_category.issentence:
+                            fn = DrsProduction(DRS([], [Rel('event', ev), Rel('event.is.gerund', ev),
+                                                        Rel('event.verb.' + self._word, ev),
+                                                        Rel('event.attribute', [ev[0], refs[-1]])]))
+                        elif self.partofspeech == 'MD':
+                            assert len(refs) == 1
+                            fn = DrsProduction(DRS([], [Rel('event.is.modal', ev),
+                                                        Rel('event.modal.' + self._word, [ev[0], refs[0]])]))
+                    if not fn:
+                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
+                                            properNoun=self.isproper_noun)
                     if ev is not None:
                         fn.set_lambda_refs(ev)
 
                 fn.set_category(signatures[0].result_category)
                 for c, s in zip(compose[:-1], signatures):
                     fn = c[0](s, c[1], fn)
+
+                # For functions with no event, ensure after function production we have lambda refs.
+                comp = fn.inner_scope._comp
+                if ev is None and len(comp.lambda_refs) == 0:
+                    comp.set_lambda_refs(fn._lambda_refs.universe)
+                '''
+                if ev is not None and (fn.iscombinator or fn.ismodifier):
+                    # Event variables depend on whether S types can be unified.
+                    # For example: (S\NP)/(S[dcl]\NP) only requires single event variable because S can unify with
+                    # S[dcl]. However (S[to]\NP)/(S[dcl]\NP) requires two event variables because S[to] cannot unify
+                    # with S[dcl].
+                    #
+                    # The templates in our dictionary assume no unification is possible. Now we must fix up if that
+                    # assumption is incorrect. I have done it this way for expedience, otherwise I need a dictionary
+                    # entry for every category in the LDC ccg-bank.
+                    lambda_scope = fn.get_unify_scopes()
+                    atom_scope = self.category.extract_unify_atoms()   # ordering will be same as lambda_scope
+                    if len(atom_scope) != len(lambda_scope):
+                        pass
+                    assert len(atom_scope) == len(lambda_scope)
+                    scopes = zip(atom_scope, lambda_scope)
+                    ev_scope = []
+                    for atoms, lrefs in scopes:
+                        assert len(atoms) == len(lrefs)
+                        eva = filter(lambda x: x[0] == CAT_Sany, zip(atoms, lrefs))
+                        if len(eva) != 0:
+                            ev_scope.append(eva)
+
+                    rs = []
+                    seen = set()
+                    while len(ev_scope) != 0:
+                        eva = ev_scope.pop()
+                        for evb in ev_scope:
+                            for a, ra in eva:
+                                for b, rb in evb:
+                                    if b.can_unify(a) and rb not in seen:
+                                        rs.append((rb, ra))
+                                        seen.add(rb)
+                    fn.rename_vars(rs)
+                '''
                 return fn
             else:
                 assert compose[0][0] == PropProduction
@@ -718,7 +822,7 @@ def _process_ccg_node(pt, cl):
     if pt[-1] == 'T':
         head = int(pt[0][1])
         count = int(pt[0][2])
-        result = Category(pt[0][0]).simplify()
+        result = Category(pt[0][0])
         cl2 = ProductionList()
         cl2.set_options(cl.compose_options)
         cl2.set_category(result)
@@ -732,22 +836,28 @@ def _process_ccg_node(pt, cl):
         debugcount += 1
         if debugcount == 170:
             pass
-        cats = [x.category.simplify() for x in cl2.iterator()]
+        cats = [x.category for x in cl2.iterator()]
         if len(cats) == 1:
+            if cats[0] == Category('S[adj]\\NP') and result == Category('NP\\NP'):
+                pass
             rule = get_rule(cats[0], CAT_EMPTY, result)
             if rule is None:
                 raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
-            if rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP]:
+            if rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
-                cl2.push_left(ccgt.get_composer())
+                cl2.push_right(ccgt.get_composer())
             cl2 = cl2.apply(rule).unify()
         elif len(cats) == 2:
             # Get the production rule
+            if cats[0] == Category('conj') and cats[1] == Category('NP') and result == Category('S[adj]\\NP[conj]'):
+                pass
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
                 raise DrsComposeError('cannot discover production rule %s:=Rule?(%s,%s)' % (result, cats[0], cats[1]))
-            else:
-                cl2 = cl2.apply(rule)
+            elif rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP]:
+                ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
+                cl2.push_right(ccgt.get_composer())
+            cl2 = cl2.apply(rule)
         else:
             # Parse tree is a binary tree
             assert len(cats) == 0
@@ -759,7 +869,7 @@ def _process_ccg_node(pt, cl):
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
         return  # TODO: handle punctuation
-    if pt[1] in ['more', '30']:
+    if pt[1] in ['will', 'Nov.', 'up.']:
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     cl.push_right(ccgt.get_composer())
@@ -818,4 +928,44 @@ def sentence_from_pt(pt):
     _process_sentence_node(pt, s)
     return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
+
+_PredArgIdx = re.compile(r'_(?P<idx>[0-9])+')
+
+def _process_rules_node(pt, dict):
+    global _PredArgIdx
+    if pt[-1] == 'T':
+        for nd in pt[1:-1]:
+            _process_rules_node(nd, dict)
+    else:
+        # Leaf nodes contains six fields:
+        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
+        # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
+        cat = Category(pt[0])
+        key = cat.simplify().drs_signature
+        if key in dict:
+            s = dict[key][pt[0]]
+        else:
+            s = []
+            x = {}
+            x[pt[0]] = s
+            dict[key] = x
+
+        # Modify indexes so one based
+
+
+
+def rules_from_pt(pt, dict=None):
+    """Get the type rules from a CCG parse tree.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+        dict: A dictionary for the ruls. The keys are the category strings and the values are a list of
+            predicate-argument categories.
+    Returns:
+        A dictionary of the lexicon.
+    """
+    if dict is None:
+        dict = {}
+    _process_rules_node(pt, dict)
+    return dict
 

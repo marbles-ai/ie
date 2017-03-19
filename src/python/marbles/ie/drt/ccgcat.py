@@ -109,6 +109,9 @@ class RegexCategoryClass(AbstractCategoryClass):
         """
         self._srch = re.compile(regex)
 
+    def __eq__(self, other):
+        return isinstance(other, Category) and self.ismember(other)
+
     def ismember(self, category):
         """Test if a category is a member of this class.
 
@@ -143,12 +146,11 @@ class Category(object):
             self._splitsig = '', '', ''
             self._isconj = False
         else:
-            self._signature = signature
-            self._splitsig = split_signature(signature)
             self._isconj = 'conj' in signature or conj
+            self._signature = signature.replace('[conj]', '')
+            self._splitsig = split_signature(self._signature)
             # Don't need to handle | (= any) because parse tree has no ambiguity
             assert self._splitsig[1] in ['/', '\\', '']
-
 
             ## @cond
     def __str__(self):
@@ -257,6 +259,11 @@ class Category(object):
         return iscombinator_signature(self._signature) and not self.ismodifier
 
     @property
+    def issentence(self):
+        """True if the result of all applications is a sentence, i.e. an S[?] type."""
+        return not self.isempty and self.extract_unify_atoms()[-1][0] == CAT_Sany
+
+    @property
     def result_category(self):
         """Get the return category if a functor."""
         return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
@@ -289,49 +296,59 @@ class Category(object):
         """
         return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
 
-    def _extract_atoms_helper(self, atoms, isresult):
-        if self.ismodifier:
-            # Only need one side
-            return self.result_category._extract_atoms_helper(atoms, isresult)
-        elif self.isfunctor:
-            if self.isarg_right:
-                atoms = self.result_category._extract_atoms_helper(atoms, isresult)
-                return self.argument_category._extract_atoms_helper(atoms, False)
-            else:
-                atoms = self.argument_category._extract_atoms_helper(atoms, False)
-                return self.result_category._extract_atoms_helper(atoms, isresult)
-        elif isresult:
-            atoms[1].append(self)
-            return atoms
+    def _extract_atoms_helper(self, atoms):
+        if self.isfunctor:
+            atoms = self.argument_category._extract_atoms_helper(atoms)
+            return self.result_category._extract_atoms_helper(atoms)
         else:
-            atoms[0].append(self)
+            atoms.append(self)
             return atoms
 
-    def extract_atoms(self):
-        """Extract the atomic categories.
+    def extract_unify_atoms(self, follow=True):
+        """Extract the atomic categories for unification.
+
+        Args:
+            follow: If True, return atoms for argument and result functors recursively. If false return the atoms
+                for the category.
 
         Returns:
-            A list of atomic categories. The list is ordered for unification.
+            A list of sub-lists containing atomic categories. Each sub-list is ordered for unification at the functor
+            scope it is applied. The order matches the lambda variables at that scope. Functor scope is: argument,
+            result.argument, result.result.argument, ..., result.result...result.
 
         See Also:
             can_unify()
+
+        Remarks:
+            This method is used to create a marbles.ie.drt.compose.FunctorProduction from a category.
         """
         if self.isatom:
-            return [self]
+            return [[self]] if follow else [self]
         elif self.isfunctor:
-            atoms = self._extract_atoms_helper([[], []], True)
-            atoms[0].extend(atoms[1])
-            return atoms[0]
+            if follow:
+                cat = self
+                atoms = []
+                while cat.isfunctor:
+                    aa = cat.argument_category._extract_atoms_helper([])
+                    atoms.append(aa)
+                    cat = cat.result_category
+                atoms.append([cat])
+                return atoms
+            else:
+                return self._extract_atoms_helper([])
         return None
 
-    def can_unify(self, other):
-        """Test if other can unify with self. Both self and other must be atoms.
+    def can_unify_atom(self, other):
+        """Test if other can unify with self. Both self and other must be atomic types.
 
         Args:
-            other: An atomic category.
+            other: A atomic category.
 
         Returns:
             True if other and self can unify.
+
+        See Also:
+            can_unify()
         """
         if not self.isatom or not other.isatom:
             return False
@@ -342,9 +359,37 @@ class Category(object):
         if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
             return True
         if s1[0] == 'S' and s2[0] == 'S':
-            if len(s1) == 1 or len(s2) == 1:
-                return True
+            return (len(s1) == 1 or len(s2) == 1) or (self == CAT_Sto and other == CAT_Sb) or \
+                   (self == CAT_Sb and other == CAT_Sto)
         return False
+
+    def can_unify(self, other):
+        """Test if other can unify with self. Both self and other must be of the same class: atomic or functor.
+
+        Args:
+            other: A category.
+
+        Returns:
+            True if other and self can unify.
+
+        See Also:
+            can_unify_atom()
+        """
+        if self.isfunctor and other.isfunctor:
+            fa = self.extract_unify_atoms()
+            ga = other.extract_unify_atoms()
+            if len(fa) != len(ga):
+                return False
+            # fa and ga are lists of lists of atoms
+            for f, g in zip(fa, ga):
+                # f and g are lists of atoms, now zip atoms
+                if len(f) != len(g):
+                    return False
+                for a, b in zip(f, g):
+                    if not a.can_unify_atom(b):
+                        return False
+            return True
+        return self.can_unify_atom(other)
 
 
 ## @{
@@ -369,6 +414,8 @@ CAT_SEMICOLON = Category(';')
 CAT_Sadj = Category('S[adj]')
 CAT_Sdcl = Category('S[dcl]')
 CAT_Sq = Category('S[q]')
+CAT_Sb = Category('S[b]')
+CAT_Sto = Category('S[to]')
 CAT_Swq = Category('S[wq]')
 CAT_ADVERB = Category(r'(S\NP)\(S\NP)')
 CAT_POSSESSIVE_ARGUMENT = Category(r'(NP/(N/PP))\NP')
@@ -376,12 +423,13 @@ CAT_POSSESSIVE_PRONOUN = Category('NP/(N/PP)')
 CAT_S = Category('S')
 CAT_ADJECTIVE = Category('N/N')
 CAT_DETERMINER = Category('NP[nb]/N')
+CAT_INFINITIVE = Category(r'(S[to]\NP)/(S[b]\NP)')
 CAT_NOUN = RegexCategoryClass(r'^N(?:\[[a-z]+\])?$')
 CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
 CAT_NP_NP = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/NP$')
+CAT_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?$')
+CAT_PPNP = Category('PP/NP')
 ## @}
-
-
 
 
 class Rule(object):
@@ -552,17 +600,20 @@ RL_LNUM = Rule('LNUM')
 ## Special type changing rule. See LDC manual 2005T13.
 RL_TYPE_CHANGE_VPMOD = Rule('TYPE_CHANGE_VPMOD')
 RL_TYPE_CHANGE_NP_NP = Rule('TYPE_CHANGE_NP_NP')
+RL_TYPE_CHANGE_MOD = Rule('TYPE_CHANGE_MOD')
+RL_TYPE_CHANGE_SNP = Rule('TYPE_CHANGE_SNP')
 ## @}
 
 # Special type changing rules - see LDC2005T13 document
 
 ## @cond
-CAT_S_NP_TypeChange = RegexCategoryClass(r'^S\[(pss|adj|ng|dcl)\]\\NP$')
+CAT_S_NP_TypeChange = RegexCategoryClass(r'^S\[(pss|adj|ng|dcl)\]\\NP(?:\[conj\])?$')
 CAT_NP_NP = Category(r'NP\NP')
 CAT_SdclNP = Category(r'S[dcl]/NP')
-CAT_SngNP = Category(r'S[ng]\NP')
-CAT_SadgNP = Category(r'S[adj]\NP')
-CAT_S_NP_S_NP = Category(r'(S\NP)/(S\NP)')
+CAT_Sng_NP = Category(r'S[ng]\NP')
+CAT_S_NPS_NP = Category(r'(S\NP)/(S\NP)')
+CAT_Sadj_NP = Category(r'S[adj]\NP')
+CAT_S_NP = Category(r'S\NP')
 ## @endcond
 
 
@@ -585,45 +636,58 @@ def get_rule(left, right, result):
     assert isinstance(right, Category)
     assert isinstance(result, Category)
 
-    if left.isconj and left == right:
-        return RL_LCONJ
-    elif right.isconj and left == right:
-        return RL_RCONJ
+    if left.isconj:
+        if left.can_unify(right):
+            return RL_LCONJ
+        elif left == CAT_CONJ:
+            if result.ismodifier and result.iscombinator and result.argument_category == right:
+                return RL_TYPE_CHANGE_MOD
+            elif right.can_unify(result):
+                return RL_RPASS
+            elif right.isatom and result.isfunctor and result.argument_category.isatom and \
+                    result.result_category.isatom:
+                # NP => S[adj]\NP, S[dcl] => S[dcl]\S[dcl]
+                return RL_TYPE_CHANGE_SNP
+    elif right.isconj:
+        if left.can_unify(right):
+            return RL_RCONJ
+        elif right == CAT_CONJ and result.ismodifier and result.argument_category == left:
+            return RL_TYPE_CHANGE_MOD
     elif left == CAT_EMPTY:
         return RL_RPASS
     elif left == CAT_NP_NP and right == CAT_NUM:
         return RL_RNUM
     elif right == CAT_EMPTY:
         if result.result_category == result.argument_category.result_category and \
-                        left == result.argument_category.argument_category:
+                        left.can_unify(result.argument_category.argument_category):
             if result.isarg_right and result.argument_category.isarg_left:
                 # X:a => T/(T\X): λxf.f(a)
                 return RL_FORWARD_TYPE_RAISE
             elif result.isarg_left and result.argument_category.isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_BACKWARD_TYPE_RAISE
-        elif left == CAT_SadgNP and result == CAT_NP_NP:
+        elif left == CAT_Sadj_NP and result == CAT_NP_NP:
             return RL_TYPE_CHANGE_NP_NP
+        elif left == CAT_Sng_NP and result == CAT_S_NPS_NP:
+            # See LDC 2005T13 manual, section 3.8
+            return RL_TYPE_CHANGE_VPMOD
+        elif left == CAT_SdclNP and result == CAT_NP_NP:
+            # See LDC 2005T13 manual, section 3.8
+            # S[dcl]/NP => NP\NP
+            raise NotImplementedError
         elif left == CAT_S_NP_TypeChange and result == CAT_NP_NP:
             # See LDC 2005T13 manual, section 3.8
             # S[pss]\NP => NP\NP
             # S[adj]\NP => NP\NP
             # S[ng]\NP => NP\NP
             raise NotImplementedError
-        elif left == CAT_SdclNP and result == CAT_NP_NP:
-            # See LDC 2005T13 manual, section 3.8
-            # S[dcl]/NP => NP\NP
-            raise NotImplementedError
-        elif left == CAT_SngNP and result == CAT_S_NP_S_NP:
-            # See LDC 2005T13 manual, section 3.8
-            return RL_TYPE_CHANGE_VPMOD
         return RL_LPASS
 
-    elif left.isarg_right and left.argument_category == right and left.result_category == result:
+    elif left.isarg_right and left.argument_category.can_unify(right) and left.result_category.can_unify(result):
         # Forward Application  X/Y:f Y:a => X: f(a)
         return RL_FA
-    elif left.isarg_right and right.isfunctor and left.argument_category == right.result_category and \
-                Category.combine(left.result_category, right.slash, right.argument_category) == result:
+    elif left.isarg_right and right.isfunctor and left.argument_category.can_unify(right.result_category) and \
+                Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result):
         if right.isarg_right:
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FC
@@ -631,11 +695,11 @@ def get_rule(left, right, result):
             # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             return RL_FX
 
-    elif right.isarg_left and right.argument_category == left and right.result_category == result:
+    elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result):
         # Backward Application  Y:a X\Y:f => X: f(a)
         return RL_BA
-    elif right.isarg_left and left.isfunctor and right.argument_category == left.result_category and \
-                Category.combine(right.result_category, left.slash, left.argument_category) == result:
+    elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) and \
+                Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result):
         if left.isarg_left:
             # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
             return RL_BC
@@ -643,9 +707,9 @@ def get_rule(left, right, result):
             # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             return RL_BX
 
-    elif left.argument_category == right.argument_category and left.result_category.isarg_right and \
-                left.slash == right.slash and left.result_category.argument_category == right.result_category and \
-                Category.combine(left.result_category.result_category, left.slash, left.argument_category) == result:
+    elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
+            left.slash == right.slash and left.result_category.argument_category.can_unify(right.result_category) and \
+            Category.combine(left.result_category.result_category, left.slash, left.argument_category).can_unify(result):
         if right.isarg_right:
             # Forward Substitution  (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FS
@@ -653,9 +717,9 @@ def get_rule(left, right, result):
             # Forward Crossing Substitution  (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FXS
 
-    elif right.argument_category == left.argument_category and right.result_category.isarg_left and \
-                left.slash == right.slash and right.result_category.argument_category == left.result_category and \
-                Category.combine(right.result_category.result_category, left.slash, right.argument_category) == result:
+    elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
+            left.slash == right.slash and right.result_category.argument_category.can_unify(left.result_category) and \
+            Category.combine(right.result_category.result_category, left.slash, right.argument_category).can_unify(result):
         if right.isarg_left:
             # Backward Substitution  Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BS
@@ -663,10 +727,11 @@ def get_rule(left, right, result):
             # Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
 
-    elif left.isarg_right and right.isarg_right and left.argument_category == right.result_category.result_category and \
-                    Category.combine(Category.combine(left.result_category, right.result_category.slash, \
-                                                      right.result_category.argument_category), right.slash, \
-                                     right.argument_category) == result:
+    elif left.isarg_right and right.isarg_right and \
+            left.argument_category.can_unify(right.result_category.result_category) and \
+            Category.combine(Category.combine(left.result_category, right.result_category.slash,
+                                              right.result_category.argument_category), right.slash,
+                             right.argument_category).can_unify(result):
         if right.result_category.isarg_right:
             # Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
@@ -676,8 +741,9 @@ def get_rule(left, right, result):
             # Forward Crossing Composition  X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
             return RL_GFX
 
-    elif right.isarg_left and left.isarg_left and right.argument_category == left.result_category.result_category and \
-                    Category.combine(right.result_category, left.slash, left.argument_category) == result:
+    elif right.isarg_left and left.isarg_left and \
+            right.argument_category.can_unify(left.result_category.result_category) and \
+            Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result):
         if left.result_category.isarg_left:
             # Generalized Backward Composition  (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
             # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))

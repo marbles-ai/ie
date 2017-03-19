@@ -37,41 +37,48 @@ class CcgTest(unittest.TestCase):
         self.assertFalse(Category('S[em]').can_unify(Category('S[adj]')))
 
     def test3_CategoryToVars(self):
-        va = Category('N/N').extract_atoms()
-        vx = [Category('N')]
+        va = Category('S/NP').extract_unify_atoms()
+        vx = [[Category('NP')], [Category('S')]]
         self.assertListEqual(va, vx)
 
-        va = Category(r'N\N').extract_atoms()
-        vx = [Category('N')]
+        va = Category(r'S\NP').extract_unify_atoms()
+        vx = [[Category('NP')], [Category('S')]]
         self.assertListEqual(va, vx)
 
-        va = Category('NP/NP').extract_atoms()
-        vx = [Category('NP')]
+        va = Category(r'(S\A)/B').extract_unify_atoms()
+        vx = [[Category('B')], [Category('A')], [Category('S')]]
         self.assertListEqual(va, vx)
 
-        va = Category(r'NP\NP').extract_atoms()
-        vx = [Category('NP')]
+        va = Category(r'(A\B)\(C/D)').extract_unify_atoms()
+        vx = [[Category('D'), Category('C')], [Category('B')], [Category('A')]]
         self.assertListEqual(va, vx)
 
-        va = Category(r'S\A').extract_atoms()
-        vx = [Category('A'), Category('S')]
+        va = Category(r'(A/B)\(C/D)').extract_unify_atoms()
+        vx = [[Category('D'), Category('C')], [Category('B')], [Category('A')]]
         self.assertListEqual(va, vx)
 
-        va = Category(r'(S\A)/B').extract_atoms()
-        vx = [Category('A'), Category('B'), Category('S')]
+        va = Category('(S/A)/(S/A)').extract_unify_atoms()
+        vx = [[Category('A'), Category('S')], [Category('A')], [Category('S')]]
         self.assertListEqual(va, vx)
 
-        va = Category(r'(A\A)\(B/B)').extract_atoms()
-        vx = [Category('B'), Category('A')]
+        va = Category(r'S\NP').extract_unify_atoms(False)
+        vx = [Category('NP'), Category('S')]
         self.assertListEqual(va, vx)
 
-        va = Category(r'(A/A)\(B/B)').extract_atoms()
-        vx = [Category('B'), Category('A')]
+        va = Category(r'(S\A)/B').extract_unify_atoms(False)
+        vx = [Category('B'), Category('A'), Category('S')]
         self.assertListEqual(va, vx)
 
-        va = Category('(S/A)/(S/A)').extract_atoms()
-        vx = [Category('A'), Category('S')]
+        va = Category(r'(A\B)\(C/D)').extract_unify_atoms(False)
+        vx = [Category('D'), Category('C'), Category('B'), Category('A')]
         self.assertListEqual(va, vx)
 
+        va = Category(r'(A/B)\(C/D)').extract_unify_atoms(False)
+        vx = [Category('D'), Category('C'), Category('B'), Category('A')]
+        self.assertListEqual(va, vx)
+
+        va = Category('(S/A)/(S/A)').extract_unify_atoms()
+        vx = [Category('A'), Category('S'), Category('A'), Category('S')]
+        self.assertListEqual(va, vx)
 
 
