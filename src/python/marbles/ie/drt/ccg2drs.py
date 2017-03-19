@@ -767,41 +767,6 @@ class CcgTypeMapper(object):
                 comp = fn.inner_scope._comp
                 if ev is None and len(comp.lambda_refs) == 0:
                     comp.set_lambda_refs(fn._lambda_refs.universe)
-                '''
-                if ev is not None and (fn.iscombinator or fn.ismodifier):
-                    # Event variables depend on whether S types can be unified.
-                    # For example: (S\NP)/(S[dcl]\NP) only requires single event variable because S can unify with
-                    # S[dcl]. However (S[to]\NP)/(S[dcl]\NP) requires two event variables because S[to] cannot unify
-                    # with S[dcl].
-                    #
-                    # The templates in our dictionary assume no unification is possible. Now we must fix up if that
-                    # assumption is incorrect. I have done it this way for expedience, otherwise I need a dictionary
-                    # entry for every category in the LDC ccg-bank.
-                    lambda_scope = fn.get_unify_scopes()
-                    atom_scope = self.category.extract_unify_atoms()   # ordering will be same as lambda_scope
-                    if len(atom_scope) != len(lambda_scope):
-                        pass
-                    assert len(atom_scope) == len(lambda_scope)
-                    scopes = zip(atom_scope, lambda_scope)
-                    ev_scope = []
-                    for atoms, lrefs in scopes:
-                        assert len(atoms) == len(lrefs)
-                        eva = filter(lambda x: x[0] == CAT_Sany, zip(atoms, lrefs))
-                        if len(eva) != 0:
-                            ev_scope.append(eva)
-
-                    rs = []
-                    seen = set()
-                    while len(ev_scope) != 0:
-                        eva = ev_scope.pop()
-                        for evb in ev_scope:
-                            for a, ra in eva:
-                                for b, rb in evb:
-                                    if b.can_unify(a) and rb not in seen:
-                                        rs.append((rb, ra))
-                                        seen.add(rb)
-                    fn.rename_vars(rs)
-                '''
                 return fn
             else:
                 assert compose[0][0] == PropProduction
