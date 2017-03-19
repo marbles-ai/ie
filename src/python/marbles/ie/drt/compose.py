@@ -944,7 +944,7 @@ class FunctorProduction(Production):
 
     @property
     def signature(self):
-        """Get the functor signature. For functors the signature returned is the signature at the global scope.
+        """Get the functor signature. For functors the signature returned is the signature at the inner scope.
 
         Remarks:
             Properties outer_scope.signature, self.signature both map to inner_scope.signature. There is no public
@@ -1034,8 +1034,10 @@ class FunctorProduction(Production):
 
     @property
     def lambda_refs(self):
-        """Get the lambda functor referents ordered by functor scope. These are the referents that can be bound with
-        during unification.
+        """Get the lambda functor referents. These are the referents that can be bound with during unification.
+
+        See Also:
+            get_unify_scopes()
         """
         # Get unique referents, ordered by functor scope
         r = self._get_lambda_refs([])
@@ -1066,12 +1068,12 @@ class FunctorProduction(Production):
 
     @property
     def iscombinator(self):
-        """A combinator expects a functor as the argument and returns a functor."""
+        """A combinator expects a functor as the argument and returns a functor of a different category."""
         return self.category.iscombinator
 
     @property
     def ismodifier(self):
-        """A modifier expects a functor as the argument and returns a functor of the same type."""
+        """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
 
     def get_unify_scopes(self, follow=True):
@@ -1176,35 +1178,6 @@ class FunctorProduction(Production):
         if self._comp is not None:
             self._comp = self._comp.unify()
         return self
-
-        '''
-        if self._comp is not None:
-            if self._comp.isfunctor:
-                self._comp = self._comp.unify()
-            else:
-                lr = self._comp.lambda_refs
-                cat = self.category.result_category
-                d = self._comp.unify()
-                # Make sure we don't change scoping after unifying combinators.
-                if d.isfunctor:
-                    fr = d.freerefs
-                    fr = complement(fr, self.universe)
-                    if len(fr) == 0:
-                        # Remove functor since unification is complete
-                        self._comp = d.inner_scope._comp
-                        assert not self._comp.isfunctor
-                        if not compare_lists_eq(lr, self._comp.lambda_refs):
-                            pass
-                        if 0 != (self.compose_options & CO_VERIFY_SIGNATURES):
-                            assert compare_lists_eq(lr, self._comp.lambda_refs)
-                    else:
-                        self._comp = ProductionList(d)
-                else:
-                    self._comp = d
-                self._comp.set_lambda_refs(lr)
-                self._comp.set_category(cat)
-        return self
-        '''
 
     def apply_null_left(self):
         """Apply a null left argument `$` to the functor. This is necessary for processing
