@@ -1093,12 +1093,13 @@ class FunctorProduction(Production):
             atoms = []
             atoms.append(self._lambda_refs.referents)
             c = self._comp
-            while c.isfunctor:
+            while c is not None and c.isfunctor:
                 atoms.append(c._lambda_refs.referents)
                 c = c._comp
             atoms.reverse()
-            assert(len(c.lambda_refs) <= 1)     # final result must be a atom
-            atoms.append(c.lambda_refs)
+            if c is not None:
+                assert(len(c.lambda_refs) <= 1)     # final result must be a atom
+                atoms.append(c.lambda_refs)
             return atoms
         else:
             atoms = []
@@ -1106,14 +1107,15 @@ class FunctorProduction(Production):
             u.reverse()
             atoms.extend(u)
             c = self._comp
-            while c.isfunctor:
+            while c is not None and c.isfunctor:
                 u = c._lambda_refs.universe
                 u.reverse()
                 atoms.extend(u)
                 c = c._comp
             atoms.reverse()
-            assert(len(c.lambda_refs) <= 1)     # final result must be a atom
-            atoms.extend(c.lambda_refs)
+            if c is not None:
+                assert len(c.lambda_refs) <= 1  # final result must be a atom
+                atoms.extend(c.lambda_refs)
             return atoms
 
     def find_anaphora(self, r):
@@ -1142,6 +1144,8 @@ class FunctorProduction(Production):
         prev = self._category
         self._category = cat
         # sanity check
+
+        # FIXME: This check can fail for rules FX, FC, BX, BC. At the moment we dont use this method for those rules.
         if (cat.isarg_left and prev.isarg_right) or (cat.isarg_right and prev.isarg_left):
             raise DrsComposeError('Signature %s does not match %s argument position, prev was %s' %
                                  (cat, 'right' if prev.isarg_right else 'left', prev))
@@ -1330,36 +1334,47 @@ class FunctorProduction(Production):
         else:
             g.make_vars_disjoint(self.outer_scope)
 
+        # Get scopes before we modify f and g
+        fv = self.category.argument_category.extract_unify_atoms(False)
+        gv = g.category.result_category.extract_unify_atoms(False)
+
         # Get lambdas
+        gc = g.pop()
+        # FIXME: if Z is an atomic type push() fails because the functor scope is exhausted at the previous pop()
+        assert g.category.result_category.isfunctor
+        zg = g.pop()
+        zg._category = cat
+
+        # Get Y unification lambdas
+        g.push(gc)
         glr = g.get_unify_scopes(False)
-        yg = g.pop()
-        xf = self.pop()
-        assert yg is not None
-        assert xf is not None
-        yflr = self.get_unify_scopes(False)
+        g.pop()
+        fc = self.pop()
+        assert gc is not None
+        assert fc is not None
+        yflr = self.inner_scope.get_unify_scopes(False)
         assert(len(yflr) == len(glr))
 
-        # Get Y unification region
-        fv = self.category.argument_category.extract_unify_atoms(False)
-        gv = g.result_category.extract_unify_atoms(False)
+        # Set Y unification
         assert(len(fv) == len(gv))
         assert(len(fv) == len(yflr))
-        rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
+        uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
         # Unify
-        rs = self.nodups(zip(yflr, glr))
-        assert len(rs) != 0
-        xf.rename_vars(rs)
+        assert len(uy) != 0
+        fc.rename_vars(uy)
 
         # Build
         pl = ProductionList()
-        pl.push_right(xf)
-        pl.push_right(yg)
+        pl.push_right(fc)
+        pl.push_right(gc)
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
-        g.push(pl)
-        g.set_category(cat)
-        return g
+        zg.push(pl)
+        # FIXME: if X is an atomic type push() fails because the functor scope is exhausted after the pop()
+        fy = self.pop()
+        self.push(zg)
+        return self
 
     def conjoin(self, g, glambdas):
         """Conjoin Composition.
