@@ -304,6 +304,14 @@ class Category(object):
             atoms.append(self)
             return atoms
 
+    def _extract_slash_helper(self, slashes):
+        if self.isfunctor:
+            slashes.append(self.slash)
+            slashes = self.argument_category._extract_slash_helper(slashes)
+            return self.result_category._extract_slash_helper(slashes)
+        else:
+            return slashes
+
     def extract_unify_atoms(self, follow=True):
         """Extract the atomic categories for unification.
 
@@ -388,7 +396,7 @@ class Category(object):
                 for a, b in zip(f, g):
                     if not a.can_unify_atom(b):
                         return False
-            return True
+            return ''.join(self._extract_slash_helper([])) == ''.join(other._extract_slash_helper([]))
         return self.can_unify_atom(other)
 
 
@@ -637,7 +645,9 @@ def get_rule(left, right, result):
     assert isinstance(result, Category)
 
     if left.isconj:
-        if left.can_unify(right):
+        if right == CAT_EMPTY and left == result:
+            return RL_LPASS
+        elif left.can_unify(right):
             return RL_LCONJ
         elif left == CAT_CONJ:
             if result.ismodifier and result.iscombinator and result.argument_category == right:
