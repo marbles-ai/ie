@@ -411,12 +411,11 @@ def parse_drs(s, grammar=None):
 #   )
 # )
 
-CcgBasicType = re.compile(r'(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[,.:;]')
 CcgArgSep = re.compile(r'/|\\')
 
-TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+)*)')
+TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+\$?|-[A-Z]+-)*)')
 
-LPosType = re.compile(r'([A-Z\$]+|[.,:;])(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
+LPosType = re.compile(r'([A-Z$:-]+|[.,:;])(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
 LWord = re.compile(r'[^>\s]+(?=\s)')
 CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[.,:;])+(?=\s)')
 CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[a-z]+\])?)|conj|[A-Z]+|[.,:;]|_\d+)+(?=[>])')
@@ -434,7 +433,7 @@ class EsrlCcgTypeEnd(List):
     grammar = (CcgComplexTypeEnd)
 
     def to_list(self):
-        return self[0]
+        return [self[0]]
 
 
 class EsrlLTypeExpr(List):
@@ -451,7 +450,7 @@ class EsrlLTypeDecl(List):
 
     def to_list(self):
         r = [self[0].to_list()]
-        for x in self[1:-1]:
+        for x in self[1:]:
             r.extend(x.to_list())
         #r.extend([x.to_list() for x in self[1:-1]])
         return r

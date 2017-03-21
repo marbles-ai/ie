@@ -216,6 +216,10 @@ class CcgTypeMapper(object):
                                  (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
                                  (FunctorProduction, DRSRef('e1')),
                                  (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
+        # ((NP2\NP2)/S)\((NP1\NP1)/NP2)
+        r'((T\T)/S)\((T\T)/T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('x1'))),
+                                 (FunctorProduction, DRSRef('e1')),
+                                 (FunctorProduction, DRSRef('x1')), None),
         r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')),
                              (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
                              (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
@@ -253,8 +257,8 @@ class CcgTypeMapper(object):
         self._drsSignature = self._ccgcat.drs_signature
 
         if self.drs_signature not in self._AllTypes:
-            raise DrsComposeError('CCG type "%s" maps to unknown DRS production type "%s"' %
-                                  (ccgTypeName, self.drs_signature))
+            raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s",' %
+                                  (ccgTypeName, word, self.drs_signature))
 
     def __repr__(self):
         return '<' + self._word + ' ' + self.partofspeech + ' ' + self.ccg_signature + '->' + self.drs_signature + '>'
@@ -791,6 +795,8 @@ def _process_ccg_node(pt, cl):
         cl2 = ProductionList()
         cl2.set_options(cl.compose_options)
         cl2.set_category(result)
+        if result == Category(r'S[dcl]\NP'):
+            pass
         if count > 2:
             raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
 
@@ -803,7 +809,7 @@ def _process_ccg_node(pt, cl):
             pass
         cats = [x.category for x in cl2.iterator()]
         if len(cats) == 1:
-            if cats[0] == Category('S[adj]\\NP') and result == Category('NP\\NP'):
+            if cats[0] == Category('NP') and result == Category('NP'):
                 pass
             rule = get_rule(cats[0], CAT_EMPTY, result)
             if rule is None:
@@ -814,7 +820,7 @@ def _process_ccg_node(pt, cl):
             cl2 = cl2.apply(rule).unify()
         elif len(cats) == 2:
             # Get the production rule
-            if cats[0] == Category('conj') and cats[1] == Category('NP') and result == Category('S[adj]\\NP[conj]'):
+            if cats[0] == Category(r'(S[dcl]\NP)\(S\NP)') and cats[1] == Category('S[pt]\\NP') and result == Category('S[dcl]\\NP'):
                 pass
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
@@ -894,10 +900,13 @@ def sentence_from_pt(pt):
     return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 
-_PredArgIdx = re.compile(r'_(?P<idx>[0-9])+')
+_PredArgIdx = re.compile(r'^.*_(?P<idx>\d+)$')
+_CleanPredArg1 = re.compile(r':[A-Z]')
+_CleanPredArg2 = re.compile(r'\)_\d+')
+_CleanPredArg3 = re.compile(r'_\d+')
 
 def _process_rules_node(pt, dict):
-    global _PredArgIdx
+    global _PredArgIdx, _CleanPredArg1, _CleanPredArg2, _CleanPredArg3, _Replacer
     if pt[-1] == 'T':
         for nd in pt[1:-1]:
             _process_rules_node(nd, dict)
@@ -905,26 +914,70 @@ def _process_rules_node(pt, dict):
         # Leaf nodes contains six fields:
         # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
         # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
-        cat = Category(pt[0])
-        key = cat.simplify().drs_signature
-        if key in dict:
-            s = dict[key][pt[0]]
+        catkey = Category(pt[0])
+        if not catkey.isfunctor:
+            return
+
+        predarg = Category(_CleanPredArg1.sub('', _CleanPredArg2.sub(')', pt[4])))
+
+        pvars = {}
+        ei = 0
+        xi = 0
+        fn = []
+        while predarg.isfunctor:
+            atoms = predarg.argument_category.extract_unify_atoms(False)
+            predarg = predarg.result_category
+            refs = []
+            for a in atoms:
+                key = a.ccg_signature
+                m = _PredArgIdx.match(key)
+                if m is not None:
+                    key = m.group('idx')
+                if key not in pvars:
+                    if a.ccg_signature[0] == 'S':
+                        ei += 1
+                        r = DRSRef(DRSVar('e', ei))
+                    else:
+                        xi += 1
+                        r = DRSRef(DRSVar('x', xi))
+                    pvars[key] = r
+                else:
+                    # TODO: deep copy?
+                    r = pvars[key]
+                refs.append(r)
+
+            if len(refs) == 1:
+                fn.append((FunctorProduction, refs[0]))
+            else:
+                fn.append((FunctorProduction, tuple(refs)))
+
+        # Handle return atom
+        if predarg.ccg_signature[0] == 'S':
+            key = predarg.ccg_signature
+            m = _PredArgIdx.match(key)
+            if m is not None:
+                key = m.group('idx')
+
+            if key not in pvars:
+                ei += 1
+                r = DRSRef(DRSVar('e', ei))
+            else:
+                r = pvars[key]
+            fn.append(r)
         else:
-            s = []
-            x = {}
-            x[pt[0]] = s
-            dict[key] = x
+            fn.append(None)
 
-        # Modify indexes so one based
-
+        if catkey.ccg_signature not in dict:
+            fn1 = tuple(fn)
+            dict[catkey.ccg_signature] = fn1
 
 
-def rules_from_pt(pt, dict=None):
+def get_rules_from_pt(pt, dict=None):
     """Get the type rules from a CCG parse tree.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-        dict: A dictionary for the ruls. The keys are the category strings and the values are a list of
+        dict: A dictionary for the rules. The keys are the category strings and the values are a list of
             predicate-argument categories.
     Returns:
         A dictionary of the lexicon.

@@ -8,7 +8,7 @@ from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
-from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper
+from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper, get_rules_from_pt
 from ..ccgcat import Category
 
 
@@ -18,6 +18,98 @@ def dexpr(s):
 
 
 class ComposeTest(unittest.TestCase):
+    
+    def test0_Parser(self):
+        txt='''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2> (<T NP[nb]/N 1 2> (<T NP 0 1> (<T N 1 2> 
+(<L N/N NNP NNP Magna N_63/N_63>) (<T N 1 2> 
+(<L N/N NNP NNP International N_56/N_56>) 
+(<L N NNP NNP Inc. N>) ) ) ) 
+(<L (NP[nb]/N)\NP POS POS 's (NP[nb]_46/N_46)\NP_47>) ) (<T N 1 2> 
+(<L N/N JJ JJ chief N_39/N_39>) (<T N 1 2> 
+(<L N/N JJ JJ financial N_32/N_32>) 
+(<L N NN NN officer N>) ) ) ) (<T NP[conj] 1 2> 
+(<L , , , , ,>) (<T NP 0 1> (<T N 1 2> 
+(<L N/N NNP NNP James N_73/N_73>) 
+(<L N NNP NNP McAlpine N>) ) ) ) ) 
+(<L , , , , ,>) ) 
+(<L S[dcl]\NP VBD JJ resigned S[dcl]\NP_23>) ) (<T S[dcl][conj] 1 2> 
+(<L conj CC CC and conj>) (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2> 
+(<L NP[nb]/N PRP$ PRP$ its NP[nb]_172/N_172>) 
+(<L N NN NN chairman N>) ) (<T NP[conj] 1 2> 
+(<L , , , , ,>) (<T NP 0 1> (<T N 1 2> 
+(<L N/N NNP NNP Frank N_181/N_181>) 
+(<L N NNP NNP Stronach N>) ) ) ) ) 
+(<L , , , , ,>) ) (<T S[dcl]\NP 0 2> 
+(<L (S[dcl]\NP)/(S[ng]\NP) VBZ VBZ is (S[dcl]\NP_87)/(S[ng]_88\NP_87:B)_88>) (<T S[ng]\NP 0 2> (<T S[ng]\NP 0 2> 
+(<L (S[ng]\NP)/(S[adj]\NP) VBG VBG stepping (S[ng]\NP_97)/(S[adj]_98\NP_97:B)_98>) 
+(<L S[adj]\NP RB RB in S[adj]\NP_103>) ) (<T (S\NP)\(S\NP) 0 1> (<T S[to]\NP 0 2> 
+(<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP_112)/(S[b]_113\NP_112:B)_113>) (<T S[b]\NP 0 2> 
+(<L (S[b]\NP)/(S[b]\NP) VB VB help (S[b]\NP_122)/(S[b]_123\NP_122:B)_123>) (<T S[b]\NP 0 2> (<T (S[b]\NP)/(S[adj]\NP) 0 2> 
+(<L ((S[b]\NP)/(S[adj]\NP))/NP VB VB turn ((S[b]\NP_134)/(S[adj]_135\NP_136:B)_135)/NP_136>) (<T NP 1 2> 
+(<L NP[nb]/N DT DT the NP[nb]_150/N_150>) (<T N 1 2> 
+(<L N/N JJ JJ automotive-parts N_145/N_145>) 
+(<L N NN NN manufacturer N>) ) ) ) 
+(<L S[adj]\NP RB RB around S[adj]\NP_155>) ) ) ) ) ) ) ) ) ) (<T S[dcl]\S[dcl] 1 2> 
+(<L , , , , ,>) (<T S[dcl]\S[dcl] 1 2> (<T NP 1 2> 
+(<L NP[nb]/N DT DT the NP[nb]_16/N_16>) 
+(<L N NN NN company N>) ) 
+(<L (S[dcl]\S[dcl])\NP VBD VBD said (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) 
+(<L . . . . .>) ) 
+'''
+        pt = parse_ccg_derivation(txt)
+
+    def test0_Signatures(self):
+        allfiles = []
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO')
+        dirlist1 = os.listdir(ldcpath)
+        for dir1 in dirlist1:
+            ldcpath1 = os.path.join(ldcpath, dir1)
+            if os.path.isdir(ldcpath1):
+                dirlist2 = os.listdir(ldcpath1)
+                for dir2 in dirlist2:
+                    ldcpath2 = os.path.join(ldcpath1, dir2)
+                    if os.path.isfile(ldcpath2):
+                        allfiles.append(ldcpath2)
+
+        dict = {}
+        failed = []
+        for fn in allfiles:
+            with open(fn, 'r') as fd:
+                lines = fd.readlines()
+            for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
+                try:
+                    pt = parse_ccg_derivation(ccgbank)
+                    self.assertIsNotNone(pt)
+                    get_rules_from_pt(pt, dict)
+                except Exception as e:
+                    failed.append((ccgbank, str(e)))
+
+        if len(failed) != 0:
+            print('THERE ARE %d FAILURES' % len(failed))
+            for x, m in failed:
+                print(m)
+                print(x)
+
+
+        names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
+        for k, v in dict.iteritems():
+            line = k + ': '
+            for i in range(len(v)-1):
+                fn = v[i]
+                if isinstance(fn[1], tuple):
+                    line += names[i] + '('
+                    line += ','.join([x.var.to_string() for x in fn[1]])
+                    line += ').'
+                else:
+                    line += names[i] + '(' + fn[1].var.to_string() + ').'
+            if v[-1] is None:
+                line += 'none'
+            else:
+                line += v[-1].var.to_string()
+            print(line)
+        self.assertTrue(len(failed) == 0)
 
     def test1_Compose(self):
         cl1 = ProductionList()
@@ -360,109 +452,64 @@ class ComposeTest(unittest.TestCase):
         #                   )
         #               )
         #           )
-        # λx4λe1.P(x4);[| has(e1)];[e1| caused(e1), event.agent(x4), event.theme(p4)];[p4| p4:[p3,p2| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)], among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]]
         #           (<T S[dcl]\NP 0 2>
-        # λP'λxλe.[| has(e)];P'(x,e)
         #               (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP_23)/(S[pt]_24\NP_23:B)_24>)
-        # λPλx4λe1.P(x4);[e1| caused(e1), event.agent(x4), event.theme(p4)];[p4| p4:[p3,p2| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)], among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]]
         #               (<T S[pt]\NP 0 2>
-        # λQλPλxλyλe.P(x);[e| caused(e), event.agent(x), event.theme(y)];Q(y)
         #                   (<L (S[pt]\NP)/NP VBN VBN caused (S[pt]\NP_31)/NP_32>)
-        # [p3| p3:[x3,y1| a(x3), exists.maybe(x3), high(x3), percentage(x3), of(x3,y1) cancer(y1), deaths(y1)]];[p2| among(p3,p2), p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]
         #                       (<T NP 0 2>
-        # [x| a(x), exists.maybe(x), high(x), percentage(x)];[y| of(x,y) cancer(y), deaths(y)]
         #                           (<T NP 0 2>
-        # λx.[| a(x), exists.maybe(x)];[| high(x)];[x| percentage(x)]
         #                               (<T NP 1 2>
-        # λPλx.[| a(x), exists.maybe(x)];P(x)
         #                                   (<L NP[nb]/N DT DT a NP[nb]_46/N_46>)
-        # [| high(x)];[x| percentage(x)]
         #                                   (<T N 1 2>
-        # λPλx.[| high(x)];P(x)
         #                                       (<L N/N JJ JJ high N_41/N_41>)
-        # [x| percentage(x)]
         #                                       (<L N NN NN percentage N>)
         #                                   )
         #                               )
-        # λPλx.P(x);[| of(x,y)];[y| cancer(y), deaths(y)]
         #                               (<T NP\NP 0 2>
-        # λQλPλxλy.P(x);[| of(x,y)];Q(y)
         #                                   (<L (NP\NP)/NP IN IN of (NP_54\NP_54)/NP_55>)
-        # [x| cancer(x), deaths(x)]
         #                                   (<T NP 0 1>
-        # [| cancer(x)];[x| deaths(x)]
         #                                       (<T N 1 2>
-        # λPλx.[| cancer(x)];P(x)
         #                                           (<L N/N NN NN cancer N_64/N_64>)
-        # [x| deaths]
         #                                           (<L N NNS NNS deaths N>)
         #                                       )
         #                                   )
         #                               )
         #                           )
-        # λPλx.P(x);[| among(x,p2)];[p2| p2:[p2: [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]]
         #                           (<T NP\NP 0 2>
-        # λQλPλxλy.P(x);[| among(x,y)];Q(y)
         #                               (<L (NP\NP)/NP IN IN among (NP_73\NP_73)/NP_74>)
-        # [x1,p| a(x1), exists.maybe(x1), group(x1), of(x1,p) p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]
         #                               (<T NP 0 2>
-        # [x| a(x), exists.maybe(x)];[| group(x)]
         #                                   (<T NP 1 2>
-        # λPλx.[| a(x), exists.maybe(x)];P(x)
         #                                       (<L NP[nb]/N DT DT a NP[nb]_81/N_81>)
-        # [x| group(x)]
         #                                       (<L N NN NN group N>)
         #                                   )
-        # λPλx1.P(x1);[| of(x1,p)];[p| p:[e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]]
         #                                   (<T NP\NP 0 2>
-        # λQλPλxλy.P(x);[| of(x,y)];Q(y)
         #                                       (<L (NP\NP)/NP IN IN of (NP_89\NP_89)/NP_90>)
-        # [e,x,y,z| workers(x), event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
         #                                       (<T NP 0 2>
-        # [x| workers(x)];[e,y,z| event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
         #                                           (<T NP 0 1>
-        # [x| workers(x)]
         #                                               (<L N NNS NNS workers N>)
         #                                           )
-        # λPλx.P(x);[e,y,z| event(e), event.agent(x), event.theme(z), to(z), z:[x2| it(x2)], more(e), than(e,y), 30(y), years(y), ago(e)]
         #                                           (<T NP\NP 0 1>
-        # λP(λR)λxλe.P(x);R(e);[e| event(e), event.agent(x1), event.theme(z)];[z| to(z), z:[x2| it(x2)]];[y| more(e), than(e,y), 30(y), years(y), ago(e)]
         #                                               (<T S[pss]\NP 0 2>
-        # λPλxλe.P(x);[e| event(e), event.agent(x), event.theme(y)];[y| to(y), y:[x| it(x)]]
         #                                                   (<T S[pss]\NP 0 2>
-        # λQλPλxλyλe.P(x);[e| event(e), event.agent(x), event.theme(y)];Q(y)
         #                                                       (<L (S[pss]\NP)/PP VBN VBN exposed (S[pss]\NP_100)/PP_101>)
-        # λp.[p| to(p), p:[x| it(x)]]
         #                                                       (<T PP 0 2>
-        # λPλp.[p| to(p), p:P(*)]
         #                                                           (<L PP/NP TO TO to PP/NP_106>)
-        # [x| it(x)]
         #                                                           (<L NP PRP PRP it NP>)
         #                                                       )
         #                                                   )
-        # λP'λxλe.P'(x,e);[y| more(e), than(e,y), 30(y), years(y), ago(e)]
         #                                                   (<T (S\NP)\(S\NP) 1 2>
-        # λP'λxλe.P'(x,e);(λRλe.R(e);[| more(e)];[y| than(e,y), 30(y), years(y)];[| ago(e)])
         #                                                       (<T NP 0 1>
-        # λx.(λRλx.R(x);[| more(x)]);[| than(x,y)];[| 30(y), isnumber(y)];[y| years(y)])
         #                                                           (<T N 1 2>
-        # λPλyλx.(λRλx.R(x);[| more(x)];[| than(x,y)];[| 30(y), isnumber(y)]);P(y)
         #                                                               (<T N/N 1 2>
-        # λP'λyλx.(λRλx.R(x);[| more(x)]);[| than(x,y)]);P'(y)
         #                                                                   (<T (N/N)/(N/N) 1 2>
-        # λRλx.R(x);[| more(x)]
         #                                                                       (<L S[adj]\NP RBR RBR more S[adj]\NP_153>)
-        # λQ'λP'λxλy.Q'(x);[| than(x,y)];P'(y)
         #                                                                       (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N_147/N_139)_147/(N_147/N_139)_147)\(S[adj]_148\NP_142)_148>)
         #                                                                   )
-        # λPλx.[| 30(x), isnumber(x)];P(x)
         #                                                                   (<L N/N CD CD 30 N_131/N_131>)
         #                                                               )
-        # [x| years(x)]
         #                                                               (<L N NNS NNS years N>)
         #                                                           )
         #                                                       )
-        # λQλP'λxλe.P'(x,e);Q(e);[| ago(e)]
         #                                                       (<L ((S\NP)\(S\NP))\NP IN IN ago ((S_121\NP_116)_121\(S_121\NP_116)_121)\NP_122>)
         #                                                   )
         #                                               )
@@ -481,7 +528,6 @@ class ComposeTest(unittest.TestCase):
         #                   (<T NP 0 1>
         #                       (<L N NNS NNS researchers N>)
         #                   )
-        # λQ'λPλxλe.Q'(e);P(x)
         #                   (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>)
         #               )
         #           )
@@ -759,7 +805,7 @@ class ComposeTest(unittest.TestCase):
         missing = CcgTypeMapper.add_model_categories(modelpath)
         self.assertIsNone(missing)
 
-    def __test5_ParseLdc2005T13(self):
+    def test5_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
