@@ -132,6 +132,9 @@ class Category(object):
     _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
     _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+)\]')
     _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
+    _CleanPredArg1 = re.compile(r':[A-Z]')
+    _CleanPredArg2 = re.compile(r'\)_\d+')
+    _CleanPredArg3 = re.compile(r'_\d+')
     ## @endcond
 
     def __init__(self, signature=None, conj=False):
@@ -295,6 +298,19 @@ class Category(object):
             A Category instance.
         """
         return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
+
+    def clean(self, deep=False):
+        """Clean predicate-argument tags from a category.
+
+        Args:
+            deep: If True clean atoms and functor tags, else only clean functor tags.
+
+        Returns:
+            A Category instance.
+        """
+        if deep:
+            return Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.ccg_signature)))
+        return Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.ccg_signature)))
 
     def _extract_atoms_helper(self, atoms):
         if self.isfunctor:
