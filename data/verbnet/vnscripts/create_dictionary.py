@@ -1,8 +1,25 @@
+'''
+    The purpose of this code is to suck in the verbnet xml files
+    and order them in a way for fast verb lookups
+
+    What we wanna know is:
+    1. What's the wordnet id?
+    2. What's the class?
+    3. What Frames are associated with this verb?
+
+    Current Bugs:
+    1. Frame object cannot be serialized; still figuring out why
+
+    Features to Add:
+
+
+'''
 
 # Utility Imports
 from optparse import OptionParser
 import logging
 import os
+import json
 
 # lxml Imports
 from lxml import etree
@@ -11,10 +28,24 @@ from lxml import objectify
 # Turn on logging
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
+# Pretty prints for lxml elements
 def pprint(tree):
-
     print etree.tostring(tree, pretty_print=True)
+    return 0
 
+# Dump verbnet dictionary to json for rapid loading
+def dump_json(dictionary, filename):
+    with open(filename, 'w') as f:
+        json.dump(dictionary, f)
+    return 0
+
+# Load verbnet dictionary from json file
+def load_json(filename):
+    with open(filename, 'r') as f:
+        MEMBER_LOOKUP = json.load(f)
+    return MEMBER_LOOKUP
+
+# JSON Frame is not serializable... hm why?
 class Frame(object):
 
     def __init__(self):
@@ -49,6 +80,8 @@ if __name__ == '__main__':
     parser.add_option('-x', '--xml', type='string', dest='xml', help='Directory containing verbnet xml files')
     parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
     options, args = parser.parse_args()
+
+    MEMBER_LOOKUP = {}
 
     VNCLASSES = {}
 
@@ -90,6 +123,15 @@ if __name__ == '__main__':
                         assert _name not in MEMBERS.keys()
 
                         MEMBERS[_name] = {'wn':_wn, 'grouping':_grouping}
+
+                        # If we haven't seen this verb, initialize a list
+                        if _name not in MEMBER_LOOKUP.keys():
+                            MEMBER_LOOKUP[_name] = []
+
+                        member_attributes = {'wn':_wn, 'grouping':_grouping, 'class': _id}
+
+                        # In either case, add it on
+                        MEMBER_LOOKUP[_name].append(member_attributes)
 
                 elif _i.tag == "THEMROLES":
                     for _r in _i:
@@ -173,12 +215,16 @@ if __name__ == '__main__':
 
                     FRAMES.append(frame)
 
+
             VNCLASSES[_id] = {'members': MEMBERS, 'themroles': THEMROLES, 'frames': FRAMES}
 
-    for _vnclass, _values in VNCLASSES.iteritems():
-        print "Class: ", _vnclass
-        for _frame in _values['frames']:
-            print str(_frame)
+    print "-----------------"
+    for _member, _attributes in MEMBER_LOOKUP.iteritems():
+        print "Member: ", _member, ", Attributes: ", _attributes
+
+    dump_json(MEMBER_LOOKUP, "verbnet.json")
+
+    MEMBER_LOOKUP_LOADED = load_json("verbnet.json")
 
 
 
