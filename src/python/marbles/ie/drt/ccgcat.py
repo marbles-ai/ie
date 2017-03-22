@@ -641,13 +641,14 @@ CAT_S_NP = Category(r'S\NP')
 ## @endcond
 
 
-def get_rule(left, right, result):
+def get_rule(left, right, result, exclude=None):
     """Check if left can be combined with right to produce result.
 
     Args:
         left: The left category.
         right: The right category.
         result: The result category.
+        exclude: A set of rules to exclude. This is only used during testing.
 
     Returns:
         A production rule instance or None if the rule could not be found.
@@ -660,7 +661,9 @@ def get_rule(left, right, result):
     assert isinstance(right, Category)
     assert isinstance(result, Category)
 
-    if left.isconj:
+    if left.isconj and (exclude is None or 0 not in exclude):
+        if exclude is not None:
+            exclude.append(0)
         if right == CAT_EMPTY and left == result:
             return RL_LPASS
         elif left.can_unify(right):
@@ -674,16 +677,26 @@ def get_rule(left, right, result):
                     result.result_category.isatom:
                 # NP => S[adj]\NP, S[dcl] => S[dcl]\S[dcl]
                 return RL_TYPE_CHANGE_SNP
-    elif right.isconj:
+    elif right.isconj and (exclude is None or 1 not in exclude):
+        if exclude is not None:
+            if left == CAT_CONJ:
+                return None # don't count as ambiguous rule
+            exclude.append(1)
         if left.can_unify(right):
             return RL_RCONJ
         elif right == CAT_CONJ and result.ismodifier and result.argument_category == left:
             return RL_TYPE_CHANGE_MOD
-    elif left == CAT_EMPTY:
+    elif left == CAT_EMPTY and (exclude is None or 2 not in exclude):
+        if exclude is not None:
+            exclude.append(2)
         return RL_RPASS
-    elif left == CAT_NP_NP and right == CAT_NUM:
+    elif left == CAT_NP_NP and right == CAT_NUM and (exclude is None or 3 not in exclude):
+        if exclude is not None:
+            exclude.append(3)
         return RL_RNUM
-    elif right == CAT_EMPTY:
+    elif right == CAT_EMPTY and (exclude is None or 4 not in exclude):
+        if exclude is not None:
+            exclude.append(4)
         if result.result_category == result.argument_category.result_category and \
                         left.can_unify(result.argument_category.argument_category):
             if result.isarg_right and result.argument_category.isarg_left:
@@ -709,11 +722,20 @@ def get_rule(left, right, result):
             raise NotImplementedError
         return RL_LPASS
 
-    elif left.isarg_right and left.argument_category.can_unify(right) and left.result_category.can_unify(result):
+    elif left.isarg_right and left.argument_category.can_unify(right) and \
+            left.result_category.can_unify(result) and (exclude is None or 5 not in exclude):
+        if exclude is not None:
+            exclude.append(5)
         # Forward Application  X/Y:f Y:a => X: f(a)
         return RL_FA
     elif left.isarg_right and right.isfunctor and left.argument_category.can_unify(right.result_category) and \
-                Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result):
+            Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result) \
+            and (exclude is None or 6 not in exclude):
+        if exclude is not None:
+            if left == right and left.argument_category == right.argument_category \
+                    and (left.isconj or right.isconj):
+                return None # don't count as ambiguous rule N/N[conj] N/N => N/N
+            exclude.append(6)
         if right.isarg_right:
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FC
@@ -721,11 +743,20 @@ def get_rule(left, right, result):
             # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             return RL_FX
 
-    elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result):
+    elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result) \
+            and (exclude is None or 7 not in exclude):
+        if exclude is not None:
+            exclude.append(7)
         # Backward Application  Y:a X\Y:f => X: f(a)
         return RL_BA
-    elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) and \
-                Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result):
+    elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) \
+            and Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
+            and (exclude is None or 8 not in exclude):
+        if exclude is not None:
+            if left == right and left.argument_category == right.argument_category \
+                    and (left.isconj or right.isconj):
+                return None
+            exclude.append(8)
         if left.isarg_left:
             # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
             return RL_BC
@@ -735,7 +766,10 @@ def get_rule(left, right, result):
 
     elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
             left.slash == right.slash and left.result_category.argument_category.can_unify(right.result_category) and \
-            Category.combine(left.result_category.result_category, left.slash, left.argument_category).can_unify(result):
+            Category.combine(left.result_category.result_category, left.slash, left.argument_category).can_unify(result) \
+            and (exclude is None or 9 not in exclude):
+        if exclude is not None:
+            exclude.append(9)
         if right.isarg_right:
             # Forward Substitution  (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FS
@@ -745,7 +779,10 @@ def get_rule(left, right, result):
 
     elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
             left.slash == right.slash and right.result_category.argument_category.can_unify(left.result_category) and \
-            Category.combine(right.result_category.result_category, left.slash, right.argument_category).can_unify(result):
+            Category.combine(right.result_category.result_category, left.slash, right.argument_category).can_unify(result) \
+            and (exclude is None or 10 not in exclude):
+        if exclude is not None:
+            exclude.append(10)
         if right.isarg_left:
             # Backward Substitution  Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BS
@@ -757,7 +794,10 @@ def get_rule(left, right, result):
             left.argument_category.can_unify(right.result_category.result_category) and \
             Category.combine(Category.combine(left.result_category, right.result_category.slash,
                                               right.result_category.argument_category), right.slash,
-                             right.argument_category).can_unify(result):
+                             right.argument_category).can_unify(result) \
+            and (exclude is None or 11 not in exclude):
+        if exclude is not None:
+            exclude.append(11)
         if right.result_category.isarg_right:
             # Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
@@ -769,7 +809,10 @@ def get_rule(left, right, result):
 
     elif right.isarg_left and left.isarg_left and \
             right.argument_category.can_unify(left.result_category.result_category) and \
-            Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result):
+            Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
+            and (exclude is None or 12 not in exclude):
+        if exclude is not None:
+            exclude.append(12)
         if left.result_category.isarg_left:
             # Generalized Backward Composition  (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
             # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
