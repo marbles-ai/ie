@@ -575,6 +575,8 @@ class ProductionList(Production):
         fn = self._compList[-1]
         arg = self._compList[-2]
         c = self._compList[0:-1]
+        if not fn.isfunctor:
+            pass
         d = fn.apply(arg)
         c[-1] = d
         self._compList = c

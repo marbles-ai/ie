@@ -5,12 +5,13 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
-    CAT_Sany,\
+    CAT_Sany, CAT_PP, CAT_PPNP, \
     get_rule, RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
-import re
 from parse import parse_drs
-import copy
+import re
+import pickle
+import os
 
 
 ## @cond
@@ -102,6 +103,126 @@ _WEEKDAYS = {
     'Sat':  'Saturday',
     'Sun':  'Sunday'
 }
+
+
+class FunctorTemplate(object):
+    """Template for functor generation."""
+    _names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
+    _PredArgIdx = re.compile(r'^.*_(?P<idx>\d+)$')
+
+    def __init__(self, rule, category):
+        """Constructor.
+
+        Args:
+            rule: The production constructor rule.
+            category: A predarg category.
+        """
+        self.constructor_rule = rule
+        self.category = category
+
+    def __repr__(self):
+        """Return the model as a string."""
+        return self.category.clean(True).ccg_signature + ':' + self.__str__()
+
+    def __str__(self):
+        """Return the model as a string."""
+        line = []
+        for i in range(len(self.constructor_rule)-1):
+            fn = self.constructor_rule[i]
+            if isinstance(fn[1], tuple):
+                if fn[0] == PropProduction:
+                    line.append(self._names[i].upper() + '(')
+                else:
+                    line.append(self._names[i] + '(')
+                line.append(','.join([x.var.to_string() for x in fn[1]]))
+                line.append(').')
+            else:
+                if fn[0] == PropProduction:
+                    line.append(self._names[i].upper() + '(' + fn[1].var.to_string() + ').')
+                else:
+                    line.append(self._names[i] + '(' + fn[1].var.to_string() + ').')
+        if self.constructor_rule[-1] is None:
+            line.append('none')
+        else:
+            line.append(self.constructor_rule[-1].var.to_string())
+        return ''.join(line)
+
+    @classmethod
+    def create_from_category(cls, predarg):
+        """Create a functor template from a predicate-argument category.
+
+        Args:
+            predarg: The predicate-argument category.
+
+        Returns:
+            A FunctorTemplate instance or None if predarg is an atomic category.
+        """
+        # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
+        catclean = predarg.clean(True)  # strip all tags
+        if not predarg.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
+            return None
+
+        # Handle special cases
+        if catclean == CAT_PPNP:
+            return FunctorTemplate(((PropProduction, DRSRef('x1')), None), predarg)
+
+        predargOrig = predarg
+        predarg = predargOrig.clean()   # strip functor tags
+
+        pvars = {}
+        ei = 0
+        xi = 0
+        fn = []
+        while predarg.isfunctor:
+            atoms = predarg.argument_category.extract_unify_atoms(False)
+            predarg = predarg.result_category
+            refs = []
+            for a in atoms:
+                key = a.ccg_signature
+                m = cls._PredArgIdx.match(key)
+                if m is not None:
+                    key = m.group('idx')
+                if key not in pvars:
+                    acln = a.clean(True)
+                    if acln == CAT_Sany and acln != CAT_Sadj:
+                        ei += 1
+                        r = DRSRef(DRSVar('e', ei))
+                    else:
+                        xi += 1
+                        r = DRSRef(DRSVar('x', xi))
+                    pvars[key] = r
+                else:
+                    # TODO: deep copy?
+                    r = pvars[key]
+                refs.append(r)
+
+            if len(refs) == 1:
+                fn.append((FunctorProduction, refs[0]))
+            else:
+                fn.append((FunctorProduction, tuple(refs)))
+
+        # Handle return atom
+        if predarg.ccg_signature[0] == 'S' and predarg.clean(True) != CAT_Sadj:
+            key = predarg.ccg_signature
+            m = cls._PredArgIdx.match(key)
+            if m is not None:
+                key = m.group('idx')
+
+            if key not in pvars:
+                ei += 1
+                r = DRSRef(DRSVar('e', ei))
+            else:
+                r = pvars[key]
+            fn.append(r)
+        else:
+            fn.append(None)
+
+        return FunctorTemplate(tuple(fn), predargOrig)
+
+
+def _add_missing_template(signature, dict):
+    if signature not in dict:
+        dict[signature] = FunctorTemplate.create_from_category(Category(signature))
 
 
 class CcgTypeMapper(object):
@@ -238,6 +359,19 @@ class CcgTypeMapper(object):
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 
+    # Run scripts/make_functor_templates.py to create templates file
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'functor_templates.dat'), 'rb') as fd:
+            _TEMPLATES = pickle.load(fd)
+        # For some reason, some rules generated by EasySRL are missing from LDC CCGBANK
+        _add_missing_template('NP/N', _TEMPLATES)
+        _add_missing_template('S[dcl]/S[dcl]', _TEMPLATES)
+        _add_missing_template('S[dcl]\S[dcl]', _TEMPLATES)
+    except Exception as e:
+        print(e)
+        # Allow module to load else we cannot create the dat file.
+        _TEMPLATES = {}
+
     def __init__(self, ccgTypeName, word, posTags=None):
         if isinstance(ccgTypeName, Category):
             self._ccgcat = ccgTypeName
@@ -256,58 +390,13 @@ class CcgTypeMapper(object):
             self._word = word.lower().rstrip('?.,:;')
         self._drsSignature = self._ccgcat.drs_signature
 
-        if self.drs_signature not in self._AllTypes:
+        # Atomic types don't need a template
+        if self.category.isfunctor and self.category.ccg_signature not in self._TEMPLATES:
             raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s",' %
-                                  (ccgTypeName, word, self.drs_signature))
+                                  (ccgTypeName, word, self.ccg_signature))
 
     def __repr__(self):
         return '<' + self._word + ' ' + self.partofspeech + ' ' + self.ccg_signature + '->' + self.drs_signature + '>'
-
-    @classmethod
-    def convert_model_categories(cls, ccg_categories):
-        """Convert the list of CCG categories to DRS categories.
-
-        Args:
-            ccg_categories: The list of CCG categories. This can be obtained by reading the model
-                categories at ext/easysrl/model/text/categories.
-
-        Returns:
-            A list of CCG categories that could not be converted or None.
-
-        Remarks:
-            Categories starting with # and empty categories are silently ignored.
-        """
-        results = []
-        for ln in ccg_categories:
-            c = ln.strip()
-            if len(c) == 0 or c[0] == '#':
-                continue
-            # TODO: handle punctuation
-            if c in ['.', '.', ':', ';']:
-                continue
-            category = Category(c)
-            if category.drs_signature in cls._AllTypes:
-                continue
-        return None
-
-    @classmethod
-    def add_model_categories(cls, filename):
-        """Add the CCG categories file and update the DRS types.
-
-        Args:
-            filename: The categories file from the model folder.
-
-        Returns:
-            A list of CCG categories that could not be added to the types dictionary or None.
-        """
-        with open(filename, 'r') as fd:
-            lns = fd.readlines()
-
-        lns_prev = []
-        while lns is not None and len(lns_prev) != len(lns):
-            lns_prev = lns
-            lns = cls.convert_model_categories(lns)
-        return lns
 
     @property
     def ispunct(self):
@@ -563,52 +652,23 @@ class CcgTypeMapper(object):
         result.append(None)
         return tuple(result)
 
-    @staticmethod
-    def create_production_template(cat):
-        """Create a production template from a category.
-
-        Args:
-            cat: The category.
-        """
-        if cat.isatom:
-            return None # do it manually on get_composer()
-
-        vs = cat.extract_unify_atoms()
-        rs = []
-        ei = 0
-        for v in vs:
-            if v == CAT_NOUN or v == CAT_Sadj:
-                rs.append(DRSRef(DRSVar('x',len(rs)-ei)))
-            else:
-                assert v.ccg_signature[0] == 'S'
-                ei += 1
-                rs.append(DRSRef(DRSVar('e', ei)))
-
-        stk = [cat]
-        while len(stk) != 0:
-            cat = stk.pop()
-            if cat.ismodifier:
-                stk.append(cat.result_category)
-            elif cat.iscombinator:
-                stk.append(cat.argument_category)
-                stk.append(cat.result_category)
-            elif cat.isfunctor:
-                stk.append(cat.argument_category)
-                stk.append(cat.result_category)
-            else:
-                # atom
-                pass
-
     def get_composer(self):
         """Get the production model for this category.
 
         Returns:
             A Production instance.
         """
-        compose = self.rename_template_vars(self._AllTypes[self.drs_signature])
+        try:
+            template = self._TEMPLATES[self.ccg_signature]
+            compose = template.constructor_rule
+        except:
+            template = None
+            compose = None
+            #compose = self.rename_template_vars(self._AllTypes[self.drs_signature])
+
         if compose is None:
             # Simple type
-            # Handle prepositions 'Z'
+            # Handle prepositions
             if self.isconj:
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
@@ -779,6 +839,7 @@ class CcgTypeMapper(object):
                     fn.set_lambda_refs(ev)
                 return fn
 
+
 debugcount = 0
 def _process_ccg_node(pt, cl):
     """Internal helper for recursively processing the CCG parse tree.
@@ -818,9 +879,13 @@ def _process_ccg_node(pt, cl):
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
             cl2 = cl2.apply(rule).unify()
+            if result.isfunctor and not cl2.isfunctor:
+                pass
         elif len(cats) == 2:
             # Get the production rule
-            if cats[0] == Category(r'(S[dcl]\NP)\(S\NP)') and cats[1] == Category('S[pt]\\NP') and result == Category('S[dcl]\\NP'):
+            if cats[0] == Category(r'S[dcl]\NP') and \
+                            cats[1] == Category('(S\\NP)\\(S\\NP)') and \
+                            result == Category('S[dcl]\\NP'):
                 pass
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
@@ -829,6 +894,8 @@ def _process_ccg_node(pt, cl):
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
             cl2 = cl2.apply(rule)
+            if result.isfunctor and not cl2.isfunctor:
+                pass
         else:
             # Parse tree is a binary tree
             assert len(cats) == 0
@@ -900,90 +967,37 @@ def sentence_from_pt(pt):
     return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 
-_PredArgIdx = re.compile(r'^.*_(?P<idx>\d+)$')
-_CleanPredArg1 = re.compile(r':[A-Z]')
-_CleanPredArg2 = re.compile(r'\)_\d+')
-_CleanPredArg3 = re.compile(r'_\d+')
-
-def _process_rules_node(pt, dict):
-    global _PredArgIdx, _CleanPredArg1, _CleanPredArg2, _CleanPredArg3, _Replacer
+def _extract_predarg_categories_node(pt, lst):
+    global _PredArgIdx
     if pt[-1] == 'T':
         for nd in pt[1:-1]:
-            _process_rules_node(nd, dict)
+            _extract_predarg_categories_node(nd, lst)
     else:
         # Leaf nodes contains six fields:
         # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
         # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
         catkey = Category(pt[0])
-        if not catkey.isfunctor:
+
+        # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
+        if not catkey.isfunctor or catkey.result_category == CAT_CONJ or catkey.argument_category == CAT_CONJ:
             return
 
-        predarg = Category(_CleanPredArg1.sub('', _CleanPredArg2.sub(')', pt[4])))
-
-        pvars = {}
-        ei = 0
-        xi = 0
-        fn = []
-        while predarg.isfunctor:
-            atoms = predarg.argument_category.extract_unify_atoms(False)
-            predarg = predarg.result_category
-            refs = []
-            for a in atoms:
-                key = a.ccg_signature
-                m = _PredArgIdx.match(key)
-                if m is not None:
-                    key = m.group('idx')
-                if key not in pvars:
-                    if a.ccg_signature[0] == 'S':
-                        ei += 1
-                        r = DRSRef(DRSVar('e', ei))
-                    else:
-                        xi += 1
-                        r = DRSRef(DRSVar('x', xi))
-                    pvars[key] = r
-                else:
-                    # TODO: deep copy?
-                    r = pvars[key]
-                refs.append(r)
-
-            if len(refs) == 1:
-                fn.append((FunctorProduction, refs[0]))
-            else:
-                fn.append((FunctorProduction, tuple(refs)))
-
-        # Handle return atom
-        if predarg.ccg_signature[0] == 'S':
-            key = predarg.ccg_signature
-            m = _PredArgIdx.match(key)
-            if m is not None:
-                key = m.group('idx')
-
-            if key not in pvars:
-                ei += 1
-                r = DRSRef(DRSVar('e', ei))
-            else:
-                r = pvars[key]
-            fn.append(r)
-        else:
-            fn.append(None)
-
-        if catkey.ccg_signature not in dict:
-            fn1 = tuple(fn)
-            dict[catkey.ccg_signature] = fn1
+        predarg = Category(pt[4])
+        assert catkey == predarg.clean(True)
+        lst.append(predarg)
 
 
-def get_rules_from_pt(pt, dict=None):
-    """Get the type rules from a CCG parse tree.
+def extract_predarg_categories_from_pt(pt, lst=None):
+    """Extract the predicate-argument categories from a CCG parse tree.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-        dict: A dictionary for the rules. The keys are the category strings and the values are a list of
-            predicate-argument categories.
+        lst: An optional list of existing predicate categories.
     Returns:
-        A dictionary of the lexicon.
+        A list of Category instances.
     """
-    if dict is None:
-        dict = {}
-    _process_rules_node(pt, dict)
-    return dict
+    if lst is None:
+        lst = []
+    _extract_predarg_categories_node(pt, lst)
+    return lst
 

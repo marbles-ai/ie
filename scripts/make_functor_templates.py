@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     if len(failed_rules) != 0:
         print('THERE ARE %d RULE FAILURES' % len(failed_rules))
-        with open(os.path.join(datapath, 'functor_templates_failed.dat'), 'w') as fd:
+        with open(os.path.join(datapath, 'test', 'functor_templates_failed.dat'), 'w') as fd:
             pickle.dump(failed_rules, fd)
         if False:
             for x, m in failed_rules:

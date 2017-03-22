@@ -8,9 +8,9 @@ from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
 from ..compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
-from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper, get_rules_from_pt
+from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper
 from ..ccgcat import Category
-
+import pickle
 
 # Like NLTK's dexpr()
 def dexpr(s):
@@ -20,96 +20,18 @@ def dexpr(s):
 class ComposeTest(unittest.TestCase):
     
     def test0_Parser(self):
-        txt='''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2> (<T NP[nb]/N 1 2> (<T NP 0 1> (<T N 1 2> 
-(<L N/N NNP NNP Magna N_63/N_63>) (<T N 1 2> 
-(<L N/N NNP NNP International N_56/N_56>) 
-(<L N NNP NNP Inc. N>) ) ) ) 
-(<L (NP[nb]/N)\NP POS POS 's (NP[nb]_46/N_46)\NP_47>) ) (<T N 1 2> 
-(<L N/N JJ JJ chief N_39/N_39>) (<T N 1 2> 
-(<L N/N JJ JJ financial N_32/N_32>) 
-(<L N NN NN officer N>) ) ) ) (<T NP[conj] 1 2> 
-(<L , , , , ,>) (<T NP 0 1> (<T N 1 2> 
-(<L N/N NNP NNP James N_73/N_73>) 
-(<L N NNP NNP McAlpine N>) ) ) ) ) 
-(<L , , , , ,>) ) 
-(<L S[dcl]\NP VBD JJ resigned S[dcl]\NP_23>) ) (<T S[dcl][conj] 1 2> 
-(<L conj CC CC and conj>) (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 2> (<T NP 1 2> 
-(<L NP[nb]/N PRP$ PRP$ its NP[nb]_172/N_172>) 
-(<L N NN NN chairman N>) ) (<T NP[conj] 1 2> 
-(<L , , , , ,>) (<T NP 0 1> (<T N 1 2> 
-(<L N/N NNP NNP Frank N_181/N_181>) 
-(<L N NNP NNP Stronach N>) ) ) ) ) 
-(<L , , , , ,>) ) (<T S[dcl]\NP 0 2> 
-(<L (S[dcl]\NP)/(S[ng]\NP) VBZ VBZ is (S[dcl]\NP_87)/(S[ng]_88\NP_87:B)_88>) (<T S[ng]\NP 0 2> (<T S[ng]\NP 0 2> 
-(<L (S[ng]\NP)/(S[adj]\NP) VBG VBG stepping (S[ng]\NP_97)/(S[adj]_98\NP_97:B)_98>) 
-(<L S[adj]\NP RB RB in S[adj]\NP_103>) ) (<T (S\NP)\(S\NP) 0 1> (<T S[to]\NP 0 2> 
-(<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP_112)/(S[b]_113\NP_112:B)_113>) (<T S[b]\NP 0 2> 
-(<L (S[b]\NP)/(S[b]\NP) VB VB help (S[b]\NP_122)/(S[b]_123\NP_122:B)_123>) (<T S[b]\NP 0 2> (<T (S[b]\NP)/(S[adj]\NP) 0 2> 
-(<L ((S[b]\NP)/(S[adj]\NP))/NP VB VB turn ((S[b]\NP_134)/(S[adj]_135\NP_136:B)_135)/NP_136>) (<T NP 1 2> 
-(<L NP[nb]/N DT DT the NP[nb]_150/N_150>) (<T N 1 2> 
-(<L N/N JJ JJ automotive-parts N_145/N_145>) 
-(<L N NN NN manufacturer N>) ) ) ) 
-(<L S[adj]\NP RB RB around S[adj]\NP_155>) ) ) ) ) ) ) ) ) ) (<T S[dcl]\S[dcl] 1 2> 
-(<L , , , , ,>) (<T S[dcl]\S[dcl] 1 2> (<T NP 1 2> 
-(<L NP[nb]/N DT DT the NP[nb]_16/N_16>) 
-(<L N NN NN company N>) ) 
-(<L (S[dcl]\S[dcl])\NP VBD VBD said (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) 
-(<L . . . . .>) ) 
-'''
-        pt = parse_ccg_derivation(txt)
-
-    def test0_Signatures(self):
-        allfiles = []
-        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
-        ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO')
-        dirlist1 = os.listdir(ldcpath)
-        for dir1 in dirlist1:
-            ldcpath1 = os.path.join(ldcpath, dir1)
-            if os.path.isdir(ldcpath1):
-                dirlist2 = os.listdir(ldcpath1)
-                for dir2 in dirlist2:
-                    ldcpath2 = os.path.join(ldcpath1, dir2)
-                    if os.path.isfile(ldcpath2):
-                        allfiles.append(ldcpath2)
-
-        dict = {}
-        failed = []
-        for fn in allfiles:
-            with open(fn, 'r') as fd:
-                lines = fd.readlines()
-            for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
+        filename = os.path.join(os.path.dirname(__file__), 'parse_ccg_derivation_failed.dat')
+        if os.path.exists(filename):
+            success = 0
+            with open(filename, 'r') as fd:
+                failed = pickle.load(fd)
+            for ln, msg in failed:
                 try:
-                    pt = parse_ccg_derivation(ccgbank)
-                    self.assertIsNotNone(pt)
-                    get_rules_from_pt(pt, dict)
-                except Exception as e:
-                    failed.append((ccgbank, str(e)))
-
-        if len(failed) != 0:
-            print('THERE ARE %d FAILURES' % len(failed))
-            for x, m in failed:
-                print(m)
-                print(x)
-
-
-        names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
-        for k, v in dict.iteritems():
-            line = k + ': '
-            for i in range(len(v)-1):
-                fn = v[i]
-                if isinstance(fn[1], tuple):
-                    line += names[i] + '('
-                    line += ','.join([x.var.to_string() for x in fn[1]])
-                    line += ').'
-                else:
-                    line += names[i] + '(' + fn[1].var.to_string() + ').'
-            if v[-1] is None:
-                line += 'none'
-            else:
-                line += v[-1].var.to_string()
-            print(line)
-        self.assertTrue(len(failed) == 0)
+                    pt = parse_ccg_derivation(ln)
+                    success += 1
+                except Exception:
+                    pass
+            self.assertEqual(len(failed), success)
 
     def test1_Compose(self):
         cl1 = ProductionList()
@@ -820,12 +742,17 @@ class ComposeTest(unittest.TestCase):
                     if os.path.isfile(ldcpath2):
                         allfiles.append(ldcpath2)
 
-        for fn in allfiles:
+        failed_parse = 0
+        for fn in allfiles[10:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
                 print(hdr.strip())
-                pt = parse_ccg_derivation(ccgbank)
+                try:
+                    pt = parse_ccg_derivation(ccgbank)
+                except Exception:
+                    failed_parse += 1
+                    continue
                 self.assertIsNotNone(pt)
                 print(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
@@ -836,5 +763,6 @@ class ComposeTest(unittest.TestCase):
                 self.assertIsInstance(d, DrsProduction)
                 s = d.drs.show(SHOW_LINEAR)
                 print(s)
+        self.assertEqual(failed_parse, 0)
 
 
