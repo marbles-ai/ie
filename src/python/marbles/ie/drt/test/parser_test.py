@@ -65,9 +65,4 @@ class ParserTest(unittest.TestCase):
                 self.assertIsNotNone(pt)
                 self.assertLessEqual(len(pt), 3)
 
-    def test3_CCGCategories(self):
-        categories = os.path.join(dirname(__file__, 7), 'ext', 'easysrl', 'model', 'text', 'categories')
-        rem = CcgTypeMapper.add_model_categories(categories)
-        self.assertIsNone(rem)
-
 
