@@ -5,8 +5,9 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
-    CAT_Sany, CAT_PP, CAT_PPNP, \
-    get_rule, RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP
+    CAT_Sany, CAT_PP, CAT_PPNP, CAT_NP, CAT_LRB, CAT_RRB, \
+    get_rule, RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ, \
+    RL_TYPE_RAISE
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
 from parse import parse_drs
 import re
@@ -110,24 +111,28 @@ class FunctorTemplate(object):
     _names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
     _PredArgIdx = re.compile(r'^.*_(?P<idx>\d+)$')
 
-    def __init__(self, rule, category):
+    def __init__(self, rule, category, finalRef, finalAtom):
         """Constructor.
 
         Args:
             rule: The production constructor rule.
             category: A predarg category.
+            finalRef: The final referent result.
+            finalAtom: The final atomic category result.
         """
         self.constructor_rule = rule
         self.category = category
+        self.final_ref = finalRef
+        self.final_atom = finalAtom
 
     def __repr__(self):
         """Return the model as a string."""
-        return self.category.clean(True).ccg_signature + ':' + self.__str__()
+        return self.category.clean(True).signature + ':' + self.__str__()
 
     def __str__(self):
         """Return the model as a string."""
         line = []
-        for i in range(len(self.constructor_rule)-1):
+        for i in range(len(self.constructor_rule)):
             fn = self.constructor_rule[i]
             if isinstance(fn[1], tuple):
                 if fn[0] == PropProduction:
@@ -141,11 +146,16 @@ class FunctorTemplate(object):
                     line.append(self._names[i].upper() + '(' + fn[1].var.to_string() + ').')
                 else:
                     line.append(self._names[i] + '(' + fn[1].var.to_string() + ').')
-        if self.constructor_rule[-1] is None:
+        if self.final_ref is None:
             line.append('none')
         else:
-            line.append(self.constructor_rule[-1].var.to_string())
+            line.append(self.final_ref.var.to_string())
         return ''.join(line)
+
+    @property
+    def isfinalevent(self):
+        """Test if the final return referent is an event."""
+        return self.final_atom != CAT_Sadj and self.final_atom == CAT_Sany
 
     @classmethod
     def create_from_category(cls, predarg):
@@ -158,14 +168,16 @@ class FunctorTemplate(object):
             A FunctorTemplate instance or None if predarg is an atomic category.
         """
         # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
-        catclean = predarg.clean(True)  # strip all tags
-        if not predarg.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
+        catclean = predarg.clean(True)  # strip all pred-arg tags
+        if not catclean.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
             return None
 
         # Handle special cases
+        '''
         if catclean == CAT_PPNP:
-            return FunctorTemplate(((PropProduction, DRSRef('x1')), None), predarg)
-
+            return FunctorTemplate(tuple([(PropProduction, (DRSRef('x1'), DRSRef('x2')))]), predarg,
+                                   DRSRef('x1'), CAT_PP)
+        '''
         predargOrig = predarg
         predarg = predargOrig.clean()   # strip functor tags
 
@@ -178,7 +190,7 @@ class FunctorTemplate(object):
             predarg = predarg.result_category
             refs = []
             for a in atoms:
-                key = a.ccg_signature
+                key = a.signature
                 m = cls._PredArgIdx.match(key)
                 if m is not None:
                     key = m.group('idx')
@@ -192,7 +204,6 @@ class FunctorTemplate(object):
                         r = DRSRef(DRSVar('x', xi))
                     pvars[key] = r
                 else:
-                    # TODO: deep copy?
                     r = pvars[key]
                 refs.append(r)
 
@@ -202,27 +213,28 @@ class FunctorTemplate(object):
                 fn.append((FunctorProduction, tuple(refs)))
 
         # Handle return atom
-        if predarg.ccg_signature[0] == 'S' and predarg.clean(True) != CAT_Sadj:
-            key = predarg.ccg_signature
-            m = cls._PredArgIdx.match(key)
-            if m is not None:
-                key = m.group('idx')
+        acln = predarg.clean(True)
+        key = predarg.signature
+        m = cls._PredArgIdx.match(key)
+        if m is not None:
+            key = m.group('idx')
 
-            if key not in pvars:
-                ei += 1
-                r = DRSRef(DRSVar('e', ei))
+        if key not in pvars:
+            if acln == CAT_Sany and acln != CAT_Sadj:
+                r = DRSRef(DRSVar('e', ei+1))
             else:
-                r = pvars[key]
-            fn.append(r)
+                r = DRSRef(DRSVar('x', xi+1))
         else:
-            fn.append(None)
+            r = pvars[key]
 
-        return FunctorTemplate(tuple(fn), predargOrig)
+        return FunctorTemplate(tuple(fn), predargOrig, r, acln)
 
 
 def _add_missing_template(signature, dict):
-    if signature not in dict:
-        dict[signature] = FunctorTemplate.create_from_category(Category(signature))
+    cat = Category(signature)
+    key = cat.clean(True).signature
+    if key not in dict:
+        dict[key] = FunctorTemplate.create_from_category(cat)
 
 
 class CcgTypeMapper(object):
@@ -272,89 +284,6 @@ class CcgTypeMapper(object):
     -# Proposition simplification.<br>
        [p|p:Q[x|...]] can be simplified to Q(x=p) if p is the only bound referent.
     """
-    _AllTypes = {
-        # DRS base types
-        # ==============
-        'Z':            None,
-        'T':            None,
-        'conj':         None,
-
-        # NP,PP
-        r'Z/T': ((PropProduction, DRSRef('x1')), None),
-        r'T/Z': ((FunctorProduction, DRSRef('x1')), None),
-        r'(T\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
-        r'(T/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
-        r'(T/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
-        r'(T\T)\T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
-        r'(T\T)/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), None),
-        r'(T/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), None),
-
-        # DRS Verb functions
-        r'S/T': ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'S\T': ((FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S/T)/T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
-        r'(S/T)\T': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
-        r'(S\T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S\T)\T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S\T)/Z': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S/T)/Z': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x2')), DRSRef('e1')),
-        r'T/S':     ((FunctorProduction, DRSRef('e1')), DRSRef('x1')),
-        r'(((S\T)/Z)/T)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
-                             (FunctorProduction, DRSRef('x4')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((S\T)/Z)/T': ((FunctorProduction, DRSRef('x2')), (FunctorProduction, DRSRef('x3')),
-                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S\T)/S': ((FunctorProduction, DRSRef('e2')), (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-
-        # Modifiers
-        r'T/T': ((FunctorProduction, DRSRef('x1')), None),
-        r'T\T': ((FunctorProduction, DRSRef('x1')), None),
-        r'S\S': ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
-        r'S/S': ((FunctorProduction, DRSRef('e2')), DRSRef('e1')),
-        r'(S\T)\(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(T/T)/(T/T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
-        r'(T\T)/(T\T)': ((FunctorProduction, DRSRef('x1')), (FunctorProduction, DRSRef('x1')), None),
-
-        # Mixtures: functions + modifiers
-        r'(S\S)\T': ((FunctorProduction, DRSRef('x1')),
-                     (FunctorProduction, DRSRef('e2')), DRSRef('e1')),
-        r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((S\T)\(S\T))\T': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(((S\T)/(S\T))/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e3'))),
-                                     (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                                     (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(((S\T)/(S\T))/Z)/T': ((FunctorProduction, DRSRef('x3')), (FunctorProduction, DRSRef('x2')),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(((S\T)/S)/(S\T))/T': ((FunctorProduction, DRSRef('x2')),
-                                 (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                                 (FunctorProduction, DRSRef('e1')),
-                                 (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        # ((NP2\NP2)/S)\((NP1\NP1)/NP2)
-        r'((T\T)/S)\((T\T)/T)': ((FunctorProduction, (DRSRef('x2'), DRSRef('x1'))),
-                                 (FunctorProduction, DRSRef('e1')),
-                                 (FunctorProduction, DRSRef('x1')), None),
-        r'((S\T)\(S\T))/Z': ((FunctorProduction, DRSRef('x2')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(T\T)/(S\T)': ((FunctorProduction, (DRSRef('x1'), DRSRef('e1'))),
-                         (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'((T/T)/(T/T))\(T\T)': ((FunctorProduction, DRSRef('x1')),
-                                 (FunctorProduction, DRSRef('x2')),
-                                 (FunctorProduction, DRSRef('x2')), None),
-        r'((S\T)\(S\T))/S': ((FunctorProduction, DRSRef('e3')),
-                             (FunctorProduction, (DRSRef('x1'), DRSRef('e2'))),
-                             (FunctorProduction, DRSRef('x1')), DRSRef('e1')),
-        r'(S/S)/S': ((FunctorProduction, DRSRef('e3')), (FunctorProduction, DRSRef('e2')), DRSRef('e1')),
-        #r'(((S\T)/Z)/Z)/(S\T)':
-    }
     _EventPredicates = ('agent', 'theme', 'extra')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
@@ -364,9 +293,13 @@ class CcgTypeMapper(object):
         with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'functor_templates.dat'), 'rb') as fd:
             _TEMPLATES = pickle.load(fd)
         # For some reason, some rules generated by EasySRL are missing from LDC CCGBANK
-        _add_missing_template('NP/N', _TEMPLATES)
-        _add_missing_template('S[dcl]/S[dcl]', _TEMPLATES)
-        _add_missing_template('S[dcl]\S[dcl]', _TEMPLATES)
+        _add_missing_template(r'NP/N', _TEMPLATES)
+        _add_missing_template(r'S[dcl]/S[dcl]', _TEMPLATES)
+        _add_missing_template(r'S[dcl]\S[dcl]', _TEMPLATES)
+        _add_missing_template(r'S_1/(S_1\NP)', _TEMPLATES)
+        _add_missing_template(r'S_1\(S_1/NP)', _TEMPLATES)
+        _add_missing_template(r'(S_1\NP_2)/((S_1\NP_2)\PP)', _TEMPLATES)
+        _add_missing_template(r'(S_1\NP_2)\((S_1\NP_2)/PP)', _TEMPLATES)
     except Exception as e:
         print(e)
         # Allow module to load else we cannot create the dat file.
@@ -388,15 +321,36 @@ class CcgTypeMapper(object):
             self._word = word.title().rstrip('?.,:;')
         else:
             self._word = word.lower().rstrip('?.,:;')
-        self._drsSignature = self._ccgcat.drs_signature
 
         # Atomic types don't need a template
-        if self.category.isfunctor and self.category.ccg_signature not in self._TEMPLATES:
-            raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s",' %
-                                  (ccgTypeName, word, self.ccg_signature))
+        if self.category.isfunctor and self.category.signature not in self._TEMPLATES:
+            catArgArg = self.category.argument_category.argument_category
+            catResult = self.category.result_category
+            if self.category.istype_raised and (catResult in self._TEMPLATES or catResult.isatom) \
+                    and (catArgArg in self._TEMPLATES or catArgArg.isatom):
+                # If the catgeory is type raised then check if result type exists and build now.
+                # TODO: This should be sent to a log
+                print('Adding type-raised category %s to TEMPLATES' % self.category.signature)
+                # Template categories contain predarg info so build new from these
+                if catResult.isfunctor:
+                    catResult = self._TEMPLATES[catResult.signature].category
+                else:
+                    catResult = Category(catResult.signature + '_999')  # synthesize pred-arg info
+                if catArgArg.isfunctor:
+                    # FIXME: Should really check predarg info does not overlap with catResult. Chances are low.
+                    catArgArg = self._TEMPLATES[catArgArg.signature].category
+                else:
+                    catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
+                newcat = Category.combine(catResult, self.category.slash,
+                                          Category.combine(catResult, self.category.argument_category.slash, catArgArg))
+                # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
+                self._add_missing_template(newcat, self._TEMPLATES)
+            else:
+                raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s"' %
+                                      (ccgTypeName, word, self.signature))
 
     def __repr__(self):
-        return '<' + self._word + ' ' + self.partofspeech + ' ' + self.ccg_signature + '->' + self.drs_signature + '>'
+        return '<' + self._word + ' ' + self.partofspeech + ' ' + self.signature + '>'
 
     @property
     def ispunct(self):
@@ -426,7 +380,7 @@ class CcgTypeMapper(object):
     @property
     def isconj(self):
         """Test if the word attached to this category is a conjoin."""
-        return self.ccg_signature == 'conj'
+        return self.signature == 'conj'
 
     @property
     def isgerund(self):
@@ -454,81 +408,14 @@ class CcgTypeMapper(object):
         return self._pos[0] if self._pos is not None else 'UNKNOWN'
 
     @property
-    def ccg_signature(self):
+    def signature(self):
         """Get the CCG category signature."""
-        return self._ccgcat.ccg_signature
+        return self._ccgcat.signature
 
     @property
     def category(self):
         """Get the CCG category."""
         return self._ccgcat
-
-    @property
-    def drs_signature(self):
-        """Get the DRS category signature."""
-        return self._drsSignature
-
-    def rename_template_vars(self, templ):
-        """Event variables depend on whether S types can be unified. For example: (S\NP)/(S[dcl]\NP) only requires
-        single event variable because S can unify with S[dcl]. However (S[to]\NP)/(S[dcl]\NP) requires two event
-        variables because S[to] cannot unify with S[dcl].
-
-        The templates in our dictionary assume no unification is possible. Now we must fix up if that assumption is
-        incorrect. I have done it this way for expedience, otherwise I need a dictionary entry for every category in the
-        LDC ccg-bank.
-
-        Args:
-            templ: The original template.
-
-        Returns:
-            The renamed template.
-        """
-        if templ is not None and templ[-1] is not None:
-
-            lambda_scope = map(lambda x: [x[1]] if isinstance(x[1], DRSRef) else list(x[-1]), templ[:-1])
-            if isinstance(templ[-1], tuple):
-                lambda_scope.append(list(templ[-1]))
-            else:
-                lambda_scope.append([templ[-1]])
-            atom_scope = self.category.extract_unify_atoms()   # ordering will be same as lambda_scope
-            if len(atom_scope) != len(lambda_scope):
-                pass
-            assert len(atom_scope) == len(lambda_scope)
-            scopes = zip(atom_scope, lambda_scope)
-            ev_scope = []
-            for atoms, lrefs in scopes:
-                if len(atoms) != len(lrefs):
-                    pass
-                assert len(atoms) == len(lrefs)
-                eva = filter(lambda x: x[0] == CAT_Sany, zip(atoms, lrefs))
-                if len(eva) != 0:
-                    ev_scope.append(eva)
-
-            rs = []
-            seen = set()
-            while len(ev_scope) != 0:
-                eva = ev_scope.pop()
-                for evb in ev_scope:
-                    for a, ra in eva:
-                        for b, rb in evb:
-                            if b.can_unify(a) and rb not in seen:
-                                rs.append((rb, ra))
-                                seen.add(rb)
-            if len(rs) == 0:
-                return templ
-            for r in rs:
-                for scope in lambda_scope:
-                    for i in range(len(scope)):
-                        scope[i] = rename_var(scope[i], rs)
-            ntempl = []
-            for s, t in zip(lambda_scope, templ[:-1]):
-                ntempl.append((t[0], tuple(s) if len(s) > 1 else s[0]))
-            if isinstance(templ[-1], tuple):
-                ntempl.append(tuple(lambda_scope[-1]))
-            else:
-                ntempl.append(lambda_scope[-1][0])
-            return tuple(ntempl)
-        return templ
 
     def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
@@ -590,7 +477,7 @@ class CcgTypeMapper(object):
         elif self.isadjective:
             if evt_vars is not None:
                 raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
-                                      % (self._word, self.drs_signature))
+                                      % (self._word, self.signature))
             conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
         else:
             if self.isproper_noun:
@@ -659,12 +546,11 @@ class CcgTypeMapper(object):
             A Production instance.
         """
         try:
-            template = self._TEMPLATES[self.ccg_signature]
+            template = self._TEMPLATES[self.signature]
             compose = template.constructor_rule
         except:
             template = None
             compose = None
-            #compose = self.rename_template_vars(self._AllTypes[self.drs_signature])
 
         if compose is None:
             # Simple type
@@ -676,7 +562,6 @@ class CcgTypeMapper(object):
             elif self.ispronoun:
                 d = DrsProduction(_PRON[self._word], category=self.category)
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
-                assert len(d.lambda_refs) == 1
                 return d
             elif self.category == CAT_N:
                 d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=self.isproper_noun)
@@ -702,142 +587,126 @@ class CcgTypeMapper(object):
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x')])
                 return d
+
+        # else is functor
+
+        # Production templates use tuples so we don't accidentally modify.
+        # Shallow copy of event vars from template
+        ev = template.final_ref if template.isfinalevent else None
+        if self.category == CAT_NP_N:    # NP*/N class
+            # Ignore template in these cases
+            # FIXME: these relations should be added as part of build_predicates()
+            if self.category == CAT_DETERMINER:
+                if self._word in ['a', 'an']:
+                    fn = DrsProduction(DRS([], [Rel('exists.maybe', [DRSRef('x1')])]), category=CAT_NP)
+                elif self._word in ['the', 'thy']:
+                    fn = DrsProduction(DRS([], [Rel('exists', [DRSRef('x1')])]), category=CAT_NP)
+                else:
+                    fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
+            elif self.partofspeech == 'DT' and self._word in ['the', 'thy']:
+                fn = DrsProduction(DRS([], [Rel('exists', [DRSRef('x1')])]), category=CAT_NP)
+            else:
+                fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
+            fn.set_lambda_refs([DRSRef('x1')])
+            return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
         else:
-            # Functor
-
-            # Production templates use tuples so we don't accidentally modify.
-            # Shallow copy of event vars from template
-            ev = compose[-1] if compose[-1] is None or isinstance(compose[-1], DRSRef) else [x for x in compose[-1]]
-            if self.category == CAT_NP_N:    # NP*/N class
-                # FIXME: these relations should be added as part of build_predicates()
-                if self.category == CAT_DETERMINER:
-                    if self._word in ['a', 'an']:
-                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists.maybe', [DRSRef('x1')])]))
-                    elif self._word in ['the', 'thy']:
-                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists', [DRSRef('x1')])]))
+            refs = []
+            signatures = []
+            s = self.category
+            for c in compose:
+                signatures.append(s)
+                if s.isarg_right:
+                    if isinstance(c[1], tuple):
+                        refs.extend(list(c[1]))
                     else:
-                        fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel(self._word, [DRSRef('x1')])]))
-                elif self.partofspeech == 'DT' and self._word in ['the', 'thy']:
-                    fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel('exists', [DRSRef('x1')])]))
+                        refs.append(c[1])
                 else:
-                    fn = FunctorProduction(self.category, DRSRef('x1'), DRS([], [Rel(self._word, [DRSRef('x1')])]))
+                    assert s.isarg_left
+                    if isinstance(c[1], tuple):
+                        r = list(c[1])
+                    else:
+                        r = [c[1]]
+                    r.extend(refs)
+                    refs = r
+                s = s.result_category
+
+            if ev is not None:
+                ev = [ev] if isinstance(ev, DRSRef) else ev
+                refs.extend(ev)
+                refs.reverse()
+                refs = remove_dups(refs)
+                refs.reverse()
+                refs = complement(refs, ev)
+            else:
+                refs.reverse()
+                refs = remove_dups(refs)
+                refs.reverse()
+
+            if self.isverb:
+                if ev is None:
+                    raise DrsComposeError('Verb signature "%s" does not include event variable' % self.signature)
+                elif self.category.iscombinator or self.category.ismodifier:
+                    # passive case
+                    fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
+                elif len(ev) != 1:
+                    # TODO: use verbnet to get semantics
+                    conds = [Rel('event', ev[-1]), Rel('event.verb.' + self._word, ev[-1])]
+                    for v,e in zip(ev[0:-1], self._EventPredicates):
+                        conds.append(Rel('event.' + e, [ev[-1], v]))
+                    if len(refs) > len(self._EventPredicates):
+                        for i in range(len(self._EventPredicates), len(refs)):
+                            conds.append(Rel('event.extra.%d' % i, [ev[-1], refs[i]]))
+                    fn = DrsProduction(DRS(ev, conds))
+                else:
+                    # TODO: use verbnet to get semantics
+                    conds = [Rel('event', ev), Rel('event.verb.' + self._word, ev)]
+                    for v, e in zip(refs, self._EventPredicates):
+                        conds.append(Rel('event.' + e, [ev[0], v]))
+                    if len(refs) > len(self._EventPredicates):
+                        for i in range(len(self._EventPredicates), len(refs)):
+                            conds.append(Rel('event.extra.%d' % i, [ev[0], refs[i]]))
+                    fn = DrsProduction(DRS(ev, conds))
+            elif self.isadverb and ev is not None and self._word in _ADV:
+                adv = _ADV[self._word]
+                fn = DrsProduction(adv[0], [x for x in adv[1]])
+                r = refs
+                r.extend(ev)
+                rs = zip(adv[1], r)
+                fn.rename_vars(rs)
+
+            elif self.ispreposition:
+                # Don't attach to event's
                 if ev is not None:
-                    fn.set_lambda_refs([ev])
-                else:
-                    fn.set_lambda_refs([DRSRef('x1')])
-                return fn
-            if compose[0][0] == FunctorProduction:
-                refs = []
-                signatures = []
-                s = self.category
-                for c in compose[:-1]:
-                    signatures.append(s)
-                    if s.isarg_right:
-                        if isinstance(c[1], tuple):
-                            refs.extend(list(c[1]))
-                        else:
-                            refs.append(c[1])
-                    else:
-                        assert s.isarg_left
-                        if isinstance(c[1], tuple):
-                            r = list(c[1])
-                        else:
-                            r = [c[1]]
-                        r.extend(refs)
-                        refs = r
-                    s = s.result_category
-
-                if ev is not None:
-                    ev = [ev] if isinstance(ev, DRSRef) else ev
-                    refs.extend(ev)
-                    refs.reverse()
-                    refs = remove_dups(refs)
-                    refs.reverse()
-                    refs = complement(refs, ev)
-                else:
-                    refs.reverse()
-                    refs = remove_dups(refs)
-                    refs.reverse()
-
-                if self.isverb:
-                    if ev is None:
-                        raise DrsComposeError('Verb signature "%s" does not include event variable' % self.drs_signature)
-                    elif self.category.iscombinator or self.category.ismodifier:
-                        # passive case
-                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
-                    elif len(ev) != 1:
-                        # TODO: use verbnet to get semantics
-                        conds = [Rel('event', ev[-1]), Rel('event.verb.' + self._word, ev[-1])]
-                        for v,e in zip(ev[0:-1], self._EventPredicates):
-                            conds.append(Rel('event.' + e, [ev[-1], v]))
-                        if len(refs) > len(self._EventPredicates):
-                            for i in range(len(self._EventPredicates), len(refs)):
-                                conds.append(Rel('event.extra.%d' % i, [ev[-1], refs[i]]))
-                        fn = DrsProduction(DRS(ev, conds))
-                    else:
-                        # TODO: use verbnet to get semantics
-                        conds = [Rel('event', ev), Rel('event.verb.' + self._word, ev)]
-                        for v, e in zip(refs, self._EventPredicates):
-                            conds.append(Rel('event.' + e, [ev[0], v]))
-                        if len(refs) > len(self._EventPredicates):
-                            for i in range(len(self._EventPredicates), len(refs)):
-                                conds.append(Rel('event.extra.%d' % i, [ev[0], refs[i]]))
-                        fn = DrsProduction(DRS(ev, conds))
-                    fn.set_lambda_refs(ev)
-                elif self.isadverb and ev is not None and self._word in _ADV:
-                    adv = _ADV[self._word]
-                    fn = DrsProduction(adv[0], [x for x in adv[1]])
-                    fn.set_lambda_refs(ev)
-                    r = refs
-                    r.extend(ev)
-                    rs = zip(adv[1], r)
-                    fn.rename_vars(rs)
-
-                elif self.ispreposition:
-                    # Don't attach to event's
-                    c = self.remove_events_from_template(compose)
-                    compose = c
+                    pass
+                fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
+                                   properNoun=self.isproper_noun)
+            else:
+                scat = self.category.simplify() # removes features [?]
+                fn = None
+                if scat.ismodifier:
+                    if self.partofspeech == 'TO' and self.category == CAT_INFINITIVE:
+                        assert self.category.argument_category.issentence
+                        assert self.category.result_category.issentence
+                        assert ev is not None
+                        assert len(ev) == 1
+                        fn = DrsProduction(DRS([], [Rel('event.is.infinitive', ev)]))
+                    elif self.isgerund and scat.result_category.issentence:
+                        fn = DrsProduction(DRS([], [Rel('event', ev), Rel('event.is.gerund', ev),
+                                                    Rel('event.verb.' + self._word, ev),
+                                                    Rel('event.attribute', [ev[0], refs[-1]])]))
+                    elif self.partofspeech == 'MD':
+                        assert len(refs) == 1
+                        fn = DrsProduction(DRS([], [Rel('event.is.modal', ev),
+                                                    Rel('event.modal.' + self._word, [ev[0], refs[0]])]))
+                if not fn:
                     fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
                                        properNoun=self.isproper_noun)
-                else:
-                    scat = self.category.simplify() # removes features [?]
-                    fn = None
-                    if scat.ismodifier:
-                        if self.partofspeech == 'TO' and self.category == CAT_INFINITIVE:
-                            assert self.category.argument_category.issentence
-                            assert self.category.result_category.issentence
-                            assert ev is not None
-                            assert len(ev) == 1
-                            fn = DrsProduction(DRS([], [Rel('event.is.infinitive', ev)]))
-                        elif self.isgerund and scat.result_category.issentence:
-                            fn = DrsProduction(DRS([], [Rel('event', ev), Rel('event.is.gerund', ev),
-                                                        Rel('event.verb.' + self._word, ev),
-                                                        Rel('event.attribute', [ev[0], refs[-1]])]))
-                        elif self.partofspeech == 'MD':
-                            assert len(refs) == 1
-                            fn = DrsProduction(DRS([], [Rel('event.is.modal', ev),
-                                                        Rel('event.modal.' + self._word, [ev[0], refs[0]])]))
-                    if not fn:
-                        fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)),
-                                            properNoun=self.isproper_noun)
-                    if ev is not None:
-                        fn.set_lambda_refs(ev)
 
-                fn.set_category(signatures[0].result_category)
-                for c, s in zip(compose[:-1], signatures):
-                    fn = c[0](s, c[1], fn)
-
-                # For functions with no event, ensure after function production we have lambda refs.
-                comp = fn.inner_scope._comp
-                if ev is None and len(comp.lambda_refs) == 0:
-                    comp.set_lambda_refs(fn._lambda_refs.universe)
-                return fn
-            else:
-                assert compose[0][0] == PropProduction
-                fn = compose[0][0](self.category, compose[0][1])
-                if ev is not None:
-                    fn.set_lambda_refs(ev)
-                return fn
+            fn.set_lambda_refs([template.final_ref])
+            fn.set_category(template.final_atom)
+            for c, s in zip(compose, signatures):
+                fn = c[0](s, c[1], fn)
+            return fn
 
 
 debugcount = 0
@@ -870,31 +739,45 @@ def _process_ccg_node(pt, cl):
             pass
         cats = [x.category for x in cl2.iterator()]
         if len(cats) == 1:
-            if cats[0] == Category('NP') and result == Category('NP'):
+            if cats[0] == Category('S[ng]\\NP') and result == Category('(S\\NP)\\(S\\NP)'):
                 pass
             rule = get_rule(cats[0], CAT_EMPTY, result)
             if rule is None:
-                raise DrsComposeError('cannot discover production rule %s:=Rule?(%s)' % (result, cats[0]))
-            if rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP]:
+                rule = get_rule(cats[0], CAT_EMPTY, result)
+                raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
+            if rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_RAISE]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
             cl2 = cl2.apply(rule).unify()
-            if result.isfunctor and not cl2.isfunctor:
+            if not cl2.verify():
+                pass
+            if result.get_scope_count() != cl2.get_scope_count():
                 pass
         elif len(cats) == 2:
             # Get the production rule
-            if cats[0] == Category(r'S[dcl]\NP') and \
-                            cats[1] == Category('(S\\NP)\\(S\\NP)') and \
-                            result == Category('S[dcl]\\NP'):
+            if cats[0] == Category(r'S/(S\NP)') and \
+                            cats[1] == Category(r'(S[dcl]\NP)/NP') and \
+                            result == Category(r'S[dcl]/NP'):
                 pass
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
-                raise DrsComposeError('cannot discover production rule %s:=Rule?(%s,%s)' % (result, cats[0], cats[1]))
-            elif rule in [RL_TYPE_CHANGE_VPMOD, RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP]:
+                rule = get_rule(cats[0], cats[1], result)
+                raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
+            elif rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_CONJ]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
+            elif rule == RL_TYPE_CHANGE_NP_VPMOD:
+                # Need special handling of these
+                ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
+                fn = ccgt.get_composer()
+                d = fn.pop()
+                d.drs.remove_condition(d.drs.find_condition(Rel('event.modifier.$$$$', [DRSRef('e1'), DRSRef('x1')])))
+                fn.push(d)
+                cl2.push_right(fn)
             cl2 = cl2.apply(rule)
-            if result.isfunctor and not cl2.isfunctor:
+            if not cl2.verify():
+                pass
+            if result.get_scope_count() != cl2.get_scope_count():
                 pass
         else:
             # Parse tree is a binary tree
@@ -906,11 +789,21 @@ def _process_ccg_node(pt, cl):
     # L Node in parse tree
     assert pt[-1] == 'L'
     if pt[0] in [',', '.', ':', ';']:
-        return  # TODO: handle punctuation
-    if pt[1] in ['will', 'Nov.', 'up.']:
+        cl.push_right(DrsProduction(DRS([], []), category=Category(pt[0])))
+        return
+
+    if pt[1] == '-LRB-':
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
-    cl.push_right(ccgt.get_composer())
+    if ccgt.category == CAT_LRB:
+        # FIXME: start new parse tree
+        return
+    elif ccgt.category == CAT_RRB:
+        return
+    fn = ccgt.get_composer()
+    if not fn.verify():
+        pass
+    cl.push_right(fn)
 
 
 def process_ccg_pt(pt, options=None):
