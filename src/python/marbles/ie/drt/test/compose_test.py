@@ -10,7 +10,6 @@ from ..compose import DrsProduction, PropProduction, FunctorProduction, Producti
 from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
 from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper
 from ..ccgcat import Category
-import pickle
 
 # Like NLTK's dexpr()
 def dexpr(s):
@@ -19,20 +18,6 @@ def dexpr(s):
 
 class ComposeTest(unittest.TestCase):
     
-    def test0_Parser(self):
-        filename = os.path.join(os.path.dirname(__file__), 'parse_ccg_derivation_failed.dat')
-        if os.path.exists(filename):
-            success = 0
-            with open(filename, 'r') as fd:
-                failed = pickle.load(fd)
-            for ln, msg in failed:
-                try:
-                    pt = parse_ccg_derivation(ln)
-                    success += 1
-                except Exception:
-                    pass
-            self.assertEqual(len(failed), success)
-
     def test1_Compose(self):
         cl1 = ProductionList()
         # [|exist(x)];[x|school(x)],bus(x)]
@@ -671,7 +656,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x5,e1,x4| event(e1),event.verb.welcome(e1),event.agent(e1,x5),event.theme(e1,x4),x4: [x2| Merryweather-High(x2)]]'
+        x = u'[x4,e1,x3| event(e1),event.verb.welcome(e1),event.agent(e1,x4),event.theme(e1,x3),to(x3),Merryweather-High(x3)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -717,7 +702,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x4| exists(x3),school(x3),bus(x3),event(e1),event.verb.wheezes(e1),event.agent(e1,x3),event.theme(e1,x4),x4: [x2| my(x2),corner(x2)]]'
+        x = u'[x2,e1,x3| exists(x2),school(x2),bus(x2),event(e1),event.verb.wheezes(e1),event.agent(e1,x2),event.theme(e1,x3),to(x3),my(x3),corner(x3)]'
         self.assertEquals(x, s)
 
     def test5_ParseLdc2005T13(self):
@@ -736,6 +721,7 @@ class ComposeTest(unittest.TestCase):
                         allfiles.append(ldcpath2)
 
         failed_parse = 0
+        failed_ccg2drs = 0
         for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
@@ -749,13 +735,18 @@ class ComposeTest(unittest.TestCase):
                 self.assertIsNotNone(pt)
                 print(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
-                self.assertIsNotNone(d)
-                d = d.unify()
-                self.assertIsNotNone(d)
-                self.assertIsInstance(d, DrsProduction)
-                s = d.drs.show(SHOW_LINEAR)
-                print(s)
+                try:
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+                    assert d is not None
+                    d = d.unify()
+                    assert d is not None
+                    assert isinstance(d, DrsProduction)
+                    s = d.drs.show(SHOW_LINEAR)
+                    print(s)
+                except Exception:
+                    failed_ccg2drs += 1
+                    continue
         self.assertEqual(failed_parse, 0)
+        self.assertEqual(failed_ccg2drs, 0)
 
 

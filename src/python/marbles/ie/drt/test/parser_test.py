@@ -1,9 +1,9 @@
 import unittest
 import os
-from ..parse import parse_pdrs, parse_drs, parse_ccgtype
+from ..parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
 from ..pdrs import *
 from ..drs import *
-from ..ccg2drs import CcgTypeMapper
+import pickle
 
 
 def dirname(filepath, up):
@@ -64,5 +64,20 @@ class ParserTest(unittest.TestCase):
                 pt = parse_ccgtype(ln)
                 self.assertIsNotNone(pt)
                 self.assertLessEqual(len(pt), 3)
+
+    def test4_Parser(self):
+        filename = os.path.join(os.path.dirname(__file__), 'parse_ccg_derivation_failed.dat')
+        if os.path.exists(filename):
+            success = 0
+            with open(filename, 'r') as fd:
+                failed = pickle.load(fd)
+            for ln, msg in failed:
+                try:
+                    pt = parse_ccg_derivation(ln)
+                    if pt is not None:
+                        success += 1
+                except Exception:
+                    pass
+            self.assertEqual(len(failed), success)
 
 
