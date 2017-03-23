@@ -47,11 +47,11 @@ if __name__ == "__main__":
             template = FunctorTemplate.create_from_category(predarg)
             if template is None:
                 continue
-            if catkey.ccg_signature not in dict:
-                dict[catkey.ccg_signature] = template
+            if catkey.signature not in dict:
+                dict[catkey.signature] = template
             else:
                 # verify
-                t1 = str(dict[catkey.ccg_signature])
+                t1 = str(dict[catkey.signature])
                 t2 = str(template)
                 assert t1 == t2
         except Exception as e:
