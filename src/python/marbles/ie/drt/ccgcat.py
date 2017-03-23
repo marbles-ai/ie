@@ -121,7 +121,7 @@ class RegexCategoryClass(AbstractCategoryClass):
         Returns:
             True if in the class.
         """
-        return self._srch.match(category.ccg_signature)
+        return self._srch.match(category.signature)
 
 
 class Category(object):
@@ -203,9 +203,13 @@ class Category(object):
         if right.isempty:
             return left
         c = Category()
-        c._splitsig = left.ccg_signature, slash, right.ccg_signature
+        c._splitsig = left.signature, slash, right.signature
         c._signature = join_signature(c._splitsig)
         return c
+
+    @property
+    def ispunct(self):
+        return self._signature in [',', '.', ':', ';']
 
     @property
     def isarg_right(self):
@@ -282,15 +286,10 @@ class Category(object):
         return self._splitsig[1]
 
     @property
-    def ccg_signature(self):
+    def signature(self):
         """Get the CCG type as a string."""
         return self._signature
 
-    @property
-    def drs_signature(self):
-        """Get the DRS type as a string."""
-        return self._TypeChangerAll.sub('Z', self._TypeChangerNoPP.sub('T',
-                                                                       self._TypeChangerS.sub('S', self._signature)))
     def simplify(self):
         """Simplify the CCG category. Required to determine production rules.
 
@@ -309,8 +308,8 @@ class Category(object):
             A Category instance.
         """
         if deep:
-            return Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.ccg_signature)))
-        return Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.ccg_signature)))
+            return Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.signature)))
+        return Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
 
     def _extract_atoms_helper(self, atoms):
         if self.isfunctor:
@@ -378,8 +377,8 @@ class Category(object):
             return False
         if self in [CAT_PP, CAT_NP, CAT_Sadj] and other in [CAT_PP, CAT_NP, CAT_Sadj]:
             return True
-        s1 = self.ccg_signature
-        s2 = other.ccg_signature
+        s1 = self.signature
+        s2 = other.signature
         if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
             return True
         if s1[0] == 'S' and s2[0] == 'S':
@@ -415,6 +414,15 @@ class Category(object):
             return ''.join(self._extract_slash_helper([])) == ''.join(other._extract_slash_helper([]))
         return self.can_unify_atom(other)
 
+    def get_scope_count(self):
+        """Get the number of scopes in a functor."""
+        n = 0
+        cat = self
+        while cat.isfunctor:
+            cat = cat.result_category
+            n += 1
+        return n
+
 
 ## @{
 ## @ingroup gconst
@@ -427,6 +435,7 @@ CAT_CONJ = Category('conj')
 CAT_LQU = Category('LQU')
 CAT_RQU = Category('RQU')
 CAT_LRB = Category('LRB')
+CAT_RRB = Category('RRB')
 CAT_N = Category('N')
 CAT_NP = Category('NP')
 CAT_NPthr = Category('NP[thr]')
@@ -545,17 +554,12 @@ RL_BC = Rule('BC', 'C')
 ## @endverbatim
 RL_BX = Rule('BX', 'C')
 
-## Forward Type-raising
+## Forward and backward type-raising
 ## @verbatim
-## X:a => T/(T\X): λxf.f(a)
+## Forward   X:a => T/(T\X): λxf.f(a)
+## Backward  X:a => T\(T/X): λxf.f(a)
 ## @endverbatim
-RL_FORWARD_TYPE_RAISE = Rule('FORWARD_TYPERAISE')
-
-## Backward Type-raising
-## @verbatim
-## X:a => T\(T/X): λxf.f(a)
-## @endverbatim
-RL_BACKWARD_TYPE_RAISE = Rule('BACKWARD_TYPE_RAISE')
+RL_TYPE_RAISE = Rule('TYPE_RAISE')
 
 ## Generalized Forward Composition
 ## @verbatim
@@ -622,19 +626,24 @@ RL_RNUM = Rule('RNUM')
 RL_LNUM = Rule('LNUM')
 
 ## Special type changing rule. See LDC manual 2005T13.
-RL_TYPE_CHANGE_VPMOD = Rule('TYPE_CHANGE_VPMOD')
-RL_TYPE_CHANGE_NP_NP = Rule('TYPE_CHANGE_NP_NP')
-RL_TYPE_CHANGE_MOD = Rule('TYPE_CHANGE_MOD')
-RL_TYPE_CHANGE_SNP = Rule('TYPE_CHANGE_SNP')
+RL_TYPE_CHANGE_VP_VPMOD = Rule('TYPE_CHANGE_VP_VPMOD')
+RL_TYPE_CHANGE_VP_NPMOD = Rule('TYPE_CHANGE_VP_NPMOD')
+RL_TYPE_CHANGE_NP_VPMOD = Rule('TYPE_CHANGE_NP_VPMOD')
+RL_TYPE_CHANGE_CONJ = Rule('TYPE_CHANGE_CONJ')
+#RL_TYPE_CHANGE_MOD = Rule('TYPE_CHANGE_MOD')
 ## @}
 
 # Special type changing rules - see LDC2005T13 document
 
 ## @cond
-CAT_S_NP_TypeChange = RegexCategoryClass(r'^S\[(pss|adj|ng|dcl)\]\\NP(?:\[conj\])?$')
+CAT_Sany__NP = RegexCategoryClass(r'^S(\[[a-z]+\])?[\\/]NP(\[conj\])?$')
 CAT_NP_NP = Category(r'NP\NP')
-CAT_SdclNP = Category(r'S[dcl]/NP')
+CAT_NP__NP = RegexCategoryClass(r'^NP[\\/]NP(?:\[conj\])?$')
 CAT_Sng_NP = Category(r'S[ng]\NP')
+CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
+CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
+CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
+CAT_S_NP_S_NP = Category(r'(S\NP)\(S\NP)')
 CAT_S_NPS_NP = Category(r'(S\NP)/(S\NP)')
 CAT_Sadj_NP = Category(r'S[adj]\NP')
 CAT_S_NP = Category(r'S\NP')
@@ -648,7 +657,7 @@ def get_rule(left, right, result, exclude=None):
         left: The left category.
         right: The right category.
         result: The result category.
-        exclude: A set of rules to exclude. This is only used during testing.
+        exclude: A list of exclusion id's. This is only used during testing.
 
     Returns:
         A production rule instance or None if the rule could not be found.
@@ -661,14 +670,48 @@ def get_rule(left, right, result, exclude=None):
     assert isinstance(right, Category)
     assert isinstance(result, Category)
 
-    if left.isconj and (exclude is None or 0 not in exclude):
-        if exclude is not None:
-            exclude.append(0)
-        if right == CAT_EMPTY and left == result:
+    # Exclusion id's allow us to call this function multiple times on the same input.
+    # This allows us to test whether the if-else logic has ambiguity. A test in compose_test.py 
+    # parses the entire ccgbank and checks whether only one rule interpretation is possible. A 
+    # repeated call should return None of we have no ambiguity in our logic, because the if-else
+    # path is exclude after the first call.
+    def notexcluded(x, num):
+        return x is None or num not in x
+    def xupdate(x, num):
+        if x is not None:
+            x.append(num)
+
+    # Handle punctuation
+    if left.ispunct and notexcluded(exclude, 13):
+        if left.signature == ',' and right == CAT_NP:
+            if result == CAT_Sany_Sany:
+                xupdate(exclude, 13)
+                return RL_TYPE_CHANGE_NP_VPMOD
+            elif result == CAT_S_NP_S_NP:
+                xupdate(exclude, 13)
+                return RL_TYPE_CHANGE_NP_VPMOD
+        elif right.ispunct:
+            xupdate(exclude, 13)
             return RL_LPASS
-        elif left.can_unify(right):
+        left = right
+        right = CAT_EMPTY
+    elif right.ispunct and notexcluded(exclude, 14):
+        if left == CAT_NP and result == CAT_SanySany:
+            xupdate(exclude, 14)
+            return RL_TYPE_CHANGE_NP_VPMOD
+        right = CAT_EMPTY
+
+    if left.isconj and right != CAT_EMPTY and notexcluded(exclude, 0):
+        xupdate(exclude, 0)
+        if left.can_unify(right):
             return RL_LCONJ
         elif left == CAT_CONJ:
+            if right.can_unify(result):
+                return RL_RPASS
+            elif result.isconj or result.ismodifier:
+                # Section 3.7.2 LDC2005T13 manual
+                return RL_TYPE_CHANGE_CONJ
+            '''
             if result.ismodifier and result.iscombinator and result.argument_category == right:
                 return RL_TYPE_CHANGE_MOD
             elif right.can_unify(result):
@@ -677,60 +720,52 @@ def get_rule(left, right, result, exclude=None):
                     result.result_category.isatom:
                 # NP => S[adj]\NP, S[dcl] => S[dcl]\S[dcl]
                 return RL_TYPE_CHANGE_SNP
-    elif right.isconj and (exclude is None or 1 not in exclude):
+            '''
+    elif right.isconj and notexcluded(exclude, 1):
         if exclude is not None:
             if left == CAT_CONJ:
                 return None # don't count as ambiguous rule
             exclude.append(1)
         if left.can_unify(right):
             return RL_RCONJ
-        elif right == CAT_CONJ and result.ismodifier and result.argument_category == left:
-            return RL_TYPE_CHANGE_MOD
-    elif left == CAT_EMPTY and (exclude is None or 2 not in exclude):
-        if exclude is not None:
-            exclude.append(2)
+        #elif right == CAT_CONJ and result.ismodifier and result.argument_category == left:
+        #    return RL_TYPE_CHANGE_MOD
+    elif left == CAT_EMPTY and notexcluded(exclude, 2):
+        xupdate(exclude, 2)
         return RL_RPASS
-    elif left == CAT_NP_NP and right == CAT_NUM and (exclude is None or 3 not in exclude):
-        if exclude is not None:
-            exclude.append(3)
+    elif left == CAT_NP_NP and right == CAT_NUM and notexcluded(exclude, 3):
+        xupdate(exclude, 3)
         return RL_RNUM
-    elif right == CAT_EMPTY and (exclude is None or 4 not in exclude):
-        if exclude is not None:
-            exclude.append(4)
+    elif right == CAT_EMPTY and notexcluded(exclude, 4):
+        xupdate(exclude, 4)
         if result.result_category == result.argument_category.result_category and \
                         left.can_unify(result.argument_category.argument_category):
             if result.isarg_right and result.argument_category.isarg_left:
                 # X:a => T/(T\X): λxf.f(a)
-                return RL_FORWARD_TYPE_RAISE
+                return RL_TYPE_RAISE
             elif result.isarg_left and result.argument_category.isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
-                return RL_BACKWARD_TYPE_RAISE
-        elif left == CAT_Sadj_NP and result == CAT_NP_NP:
-            return RL_TYPE_CHANGE_NP_NP
-        elif left == CAT_Sng_NP and result == CAT_S_NPS_NP:
+                return RL_TYPE_RAISE
+        elif left == CAT_Sany__NP and result == CAT_NP__NP:
+            # S[adj]|NP => NP|NP
+            # S[pss]|NP => NP|NP
+            # S[ng]|NP => NP|NP
+            # S[dcl]|NP => NP|NP
+            return RL_TYPE_CHANGE_VP_NPMOD
+        elif left == CAT_Sany_NP and (result == CAT_S_NP_S_NP or result == CAT_S_NPS_NP):
             # See LDC 2005T13 manual, section 3.8
-            return RL_TYPE_CHANGE_VPMOD
-        elif left == CAT_SdclNP and result == CAT_NP_NP:
-            # See LDC 2005T13 manual, section 3.8
-            # S[dcl]/NP => NP\NP
-            raise NotImplementedError
-        elif left == CAT_S_NP_TypeChange and result == CAT_NP_NP:
-            # See LDC 2005T13 manual, section 3.8
-            # S[pss]\NP => NP\NP
-            # S[adj]\NP => NP\NP
-            # S[ng]\NP => NP\NP
-            raise NotImplementedError
-        return RL_LPASS
+            return RL_TYPE_CHANGE_VP_VPMOD
+        elif left.can_unify(result):
+            return RL_LPASS
 
     elif left.isarg_right and left.argument_category.can_unify(right) and \
-            left.result_category.can_unify(result) and (exclude is None or 5 not in exclude):
-        if exclude is not None:
-            exclude.append(5)
+            left.result_category.can_unify(result) and notexcluded(exclude, 5):
+        xupdate(exclude, 5)
         # Forward Application  X/Y:f Y:a => X: f(a)
         return RL_FA
     elif left.isarg_right and right.isfunctor and left.argument_category.can_unify(right.result_category) and \
             Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result) \
-            and (exclude is None or 6 not in exclude):
+            and notexcluded(exclude, 6):
         if exclude is not None:
             if left == right and left.argument_category == right.argument_category \
                     and (left.isconj or right.isconj):
@@ -744,14 +779,13 @@ def get_rule(left, right, result, exclude=None):
             return RL_FX
 
     elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result) \
-            and (exclude is None or 7 not in exclude):
-        if exclude is not None:
-            exclude.append(7)
+            and notexcluded(exclude, 7):
+        xupdate(exclude, 7)
         # Backward Application  Y:a X\Y:f => X: f(a)
         return RL_BA
     elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) \
             and Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
-            and (exclude is None or 8 not in exclude):
+            and notexcluded(exclude, 8):
         if exclude is not None:
             if left == right and left.argument_category == right.argument_category \
                     and (left.isconj or right.isconj):
@@ -767,9 +801,8 @@ def get_rule(left, right, result, exclude=None):
     elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
             left.slash == right.slash and left.result_category.argument_category.can_unify(right.result_category) and \
             Category.combine(left.result_category.result_category, left.slash, left.argument_category).can_unify(result) \
-            and (exclude is None or 9 not in exclude):
-        if exclude is not None:
-            exclude.append(9)
+            and notexcluded(exclude, 9):
+        xupdate(exclude, 9)
         if right.isarg_right:
             # Forward Substitution  (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FS
@@ -780,9 +813,8 @@ def get_rule(left, right, result, exclude=None):
     elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
             left.slash == right.slash and right.result_category.argument_category.can_unify(left.result_category) and \
             Category.combine(right.result_category.result_category, left.slash, right.argument_category).can_unify(result) \
-            and (exclude is None or 10 not in exclude):
-        if exclude is not None:
-            exclude.append(10)
+            and notexcluded(exclude, 10):
+        xupdate(exclude, 10)
         if right.isarg_left:
             # Backward Substitution  Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BS
@@ -795,9 +827,8 @@ def get_rule(left, right, result, exclude=None):
             Category.combine(Category.combine(left.result_category, right.result_category.slash,
                                               right.result_category.argument_category), right.slash,
                              right.argument_category).can_unify(result) \
-            and (exclude is None or 11 not in exclude):
-        if exclude is not None:
-            exclude.append(11)
+            and notexcluded(exclude, 11):
+        xupdate(exclude, 11)
         if right.result_category.isarg_right:
             # Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
             # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
@@ -810,9 +841,8 @@ def get_rule(left, right, result, exclude=None):
     elif right.isarg_left and left.isarg_left and \
             right.argument_category.can_unify(left.result_category.result_category) and \
             Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
-            and (exclude is None or 12 not in exclude):
-        if exclude is not None:
-            exclude.append(12)
+            and notexcluded(exclude, 12):
+        xupdate(exclude, 12)
         if left.result_category.isarg_left:
             # Generalized Backward Composition  (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
             # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
