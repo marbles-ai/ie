@@ -720,13 +720,6 @@ class ComposeTest(unittest.TestCase):
         x = u'[x3,e1,x4| exists(x3),school(x3),bus(x3),event(e1),event.verb.wheezes(e1),event.agent(e1,x3),event.theme(e1,x4),x4: [x2| my(x2),corner(x2)]]'
         self.assertEquals(x, s)
 
-    def __test4_ModelCategories(self):
-        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
-        modelpath = os.path.join(projdir, 'ext', 'easysrl', 'model', 'text', 'categories')
-        missing = CcgTypeMapper.add_model_categories(modelpath)
-        self.assertIsNone(missing)
-
     def test5_ParseLdc2005T13(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -743,7 +736,7 @@ class ComposeTest(unittest.TestCase):
                         allfiles.append(ldcpath2)
 
         failed_parse = 0
-        for fn in allfiles[10:]:
+        for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
