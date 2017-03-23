@@ -8,8 +8,8 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
-    RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE, RL_RNUM, RL_TYPE_CHANGE_VPMOD, RL_RCONJ, RL_LCONJ, \
-    RL_TYPE_CHANGE_NP_NP, RL_TYPE_CHANGE_MOD, RL_TYPE_CHANGE_SNP
+    RL_TYPE_RAISE, RL_RNUM, RL_TYPE_CHANGE_VP_VPMOD, RL_RCONJ, RL_LCONJ, \
+    RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ
 import weakref
 import collections
 
@@ -35,7 +35,7 @@ class DrsComposeError(Exception):
 class Production(object):
     """An abstract production."""
     def __init__(self, category=None):
-        self._lambda_refs = DRS([], [])
+        self._lambda_refs = None
         self._options = 0
         if category is None:
             self._category = CAT_EMPTY
@@ -97,6 +97,11 @@ class Production(object):
         raise NotImplementedError
 
     @property
+    def islambda_inferred(self):
+        """Test if the lambda referents are inferred from the production data."""
+        return self.isfunctor or self._lambda_refs is None
+
+    @property
     def lambda_refs(self):
         """Get the lambda function referents"""
         return self._lambda_refs.universe if self._lambda_refs is not None else []
@@ -140,6 +145,10 @@ class Production(object):
         """
         return False
 
+    def get_scope_count(self):
+        """Get the number of scopes in a functor. Zero for non functor types"""
+        return 0
+
     def remove_proper_noun(self):
         pass
 
@@ -176,7 +185,7 @@ class Production(object):
         if refs is None:
             self._lambda_refs = None
         else:
-            self._lambda_refs = DRS(refs,[])
+            self._lambda_refs = DRS(refs, [])
 
     def rename_lambda_refs(self, rs):
         """Perform alpha conversion on the lambda referents.
@@ -212,6 +221,10 @@ class Production(object):
         """
         return self
 
+    def verify(self):
+        """Test helper."""
+        return True
+
 
 class DrsProduction(Production):
     """A DRS production."""
@@ -242,18 +255,7 @@ class DrsProduction(Production):
                     isinstance(self._drs.conditions[0], Prop):
                 return 'Z'
             return 'T'
-        return self._category.drs_signature
-
-    @property
-    def lambda_refs(self):
-        """Get the lambda function referents"""
-        # For DRS we treat None as a special case meaning infer from DRS. This may not be always the best
-        # policy so in the code we prefer to explicitly set which refs can be resolved during a unify
-        if self._lambda_refs is None:
-            r = self._drs.freerefs
-            r.extend(self._drs.universe)
-            return r
-        return self._lambda_refs.universe
+        return self._category.signature
 
     @property
     def isproper_noun(self):
@@ -298,6 +300,10 @@ class DrsProduction(Production):
             True if a pure DRS.
         """
         return self._drs.ispure
+
+    def verify(self):
+        """Test helper."""
+        return len(self.lambda_refs) == 1
 
     def remove_proper_noun(self):
         self._nnp = False
@@ -375,6 +381,7 @@ class DrsProduction(Production):
 
 class ProductionList(Production):
     """A list of productions."""
+
     def __init__(self, compList=None, category=None):
         super(ProductionList, self).__init__(category)
         if compList is None:
@@ -479,7 +486,7 @@ class ProductionList(Production):
         compList = []
         for d in self._compList:
             if d.isempty:
-                continue
+                continue    # removes punctuation
             if isinstance(d, ProductionList):
                 d = d.unify()
                 if isinstance(d, ProductionList):
@@ -593,7 +600,7 @@ class ProductionList(Production):
         ml = [x.unify() for x in self._compList]
         self._compList = []
         if len(ml) == 1:
-            if not ml[0].isfunctor:
+            if not self.islambda_inferred:
                 ml[0].set_lambda_refs(self.lambda_refs)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
@@ -660,7 +667,10 @@ class ProductionList(Production):
 
         drs = DRS(refs, conds).purify()
         d = DrsProduction(drs, proper == 1)
-        d.set_lambda_refs(self.lambda_refs)
+        if not self.islambda_inferred:
+            d.set_lambda_refs(self.lambda_refs)
+        elif not ml[0].islambda_inferred:
+            d.set_lambda_refs(ml[0].lambda_refs)
         d.set_category(self.category)
         return d
     
@@ -755,23 +765,50 @@ class ProductionList(Production):
             self.set_category(f.category)
         return self
 
-    def type_change_backward(self, isvp, isadj=False):
-        """Special type change rules. See section 3.8 of LDC 2005T13 manual.
+    def special_type_change(self, rule):
+        """Special type change rules. See section 3.7-3.8 of LDC 2005T13 manual. These rules are required
+        to process the CCG conversion of the Penn Treebank. They are not required for EasySRL or EasyCCG.
 
         Args:
-            isvp: True if a verb phrase.
+            rule: A Rule instance.
 
         Remarks:
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
         template = self._compList.pop()
-        vp = self._compList[-1]
+        vp_or_np = self._compList[-1]
         c = self._compList
-        if isadj:
-            d = template.type_change_np_snp(vp)
+        if rule == RL_TYPE_CHANGE_VP_VPMOD:
+            # Section 3.8
+            d = vp_or_np.type_change_vp_vpmod(template)
+        elif rule == RL_TYPE_CHANGE_VP_NPMOD:
+            # Section 3.8
+            d = vp_or_np.type_change_vp_npmod(template)
+        elif rule == RL_TYPE_CHANGE_CONJ:
+            # Section 3.7.2
+            d = template.type_change_np_snp(vp_or_np)
         else:
-            d = template.type_change_snp_npnp(vp, isvp)
+            # Section 3.8
+            assert rule == RL_TYPE_CHANGE_NP_VPMOD
+            d = template.type_change_vpmod_from_np(vp_or_np)
+        c[-1] = d
+        self._compList = c
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def type_raise(self):
+        """Type raising.
+
+        Remarks:
+            Executes a single production rule.
+        """
+        assert len(self._compList) >= 2
+        template = self._compList.pop()
+        np = self._compList[-1]
+        c = self._compList
+        d = template.type_raise(np)
         c[-1] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
@@ -808,17 +845,10 @@ class ProductionList(Production):
             self.conjoin_backward()
         elif rule == RL_RCONJ:
             self.conjoin_forward()
-        elif rule == RL_TYPE_CHANGE_VPMOD:
-            self.type_change_backward(True)
-        elif rule == RL_TYPE_CHANGE_NP_NP:
-            self.type_change_backward(False)
-        elif rule == RL_TYPE_CHANGE_MOD:
-            self.type_change_backward(False)
-        elif rule == RL_TYPE_CHANGE_SNP:
-            self.type_change_backward(False, True)
-        elif rule in [RL_FORWARD_TYPE_RAISE, RL_BACKWARD_TYPE_RAISE]:
-            # TODO: handle type raising
-            raise NotImplementedError
+        elif rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ]:
+            self.special_type_change(rule)
+        elif rule == RL_TYPE_RAISE:
+            self.type_raise()
         else:
             # TODO: handle all rules
             raise NotImplementedError
@@ -830,8 +860,14 @@ class ProductionList(Production):
             d = self._compList[0]
             self._compList = []
             if d.isfunctor:
+                if d.get_scope_count() != d.category.get_scope_count():
+                    pass
+                if d.get_scope_count() != self.category.get_scope_count():
+                    pass
                 d.inner_scope.set_category(self.category)
             else:
+                if d.get_scope_count() != self.category.get_scope_count():
+                    pass
                 d.set_category(self.category)
             return d
         return self
@@ -952,7 +988,7 @@ class FunctorProduction(Production):
             Properties outer_scope.signature, self.signature both map to inner_scope.signature. There is no public
             method to access the signature of outer curried functors.
         """
-        return self.inner_scope._category.drs_signature
+        return self.inner_scope._category.signature
 
     @property
     def outer_scope(self):
@@ -1078,6 +1114,10 @@ class FunctorProduction(Production):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
 
+    def get_scope_count(self):
+        """Get the number of scopes in a functor. Zero for non functor types"""
+        return self.inner_scope._get_position() + 1
+
     def get_unify_scopes(self, follow=True):
         """Get lambda vars ordered by functor scope.
 
@@ -1100,6 +1140,8 @@ class FunctorProduction(Production):
                 c = c._comp
             atoms.reverse()
             if c is not None:
+                if len(c.lambda_refs) > 1:
+                    pass
                 assert(len(c.lambda_refs) <= 1)     # final result must be a atom
                 atoms.append(c.lambda_refs)
             return atoms
@@ -1119,6 +1161,22 @@ class FunctorProduction(Production):
                 assert len(c.lambda_refs) <= 1  # final result must be a atom
                 atoms.extend(c.lambda_refs)
             return atoms
+
+    def verify(self):
+        """Test helper."""
+        # functor application
+        inscope = self.inner_scope
+        if inscope._comp is not None and inscope._comp.contains_functor:
+            return False
+
+        atoms = inscope.category.extract_unify_atoms()
+        lrefs = self.get_unify_scopes()
+        if len(lrefs) != len(atoms):
+            return False
+        for la, lr in zip(atoms, lrefs):
+            if len(la) != len(lr):
+                return False
+        return True
 
     def find_anaphora(self, r):
         """Find anaphora for referent r.
@@ -1245,40 +1303,81 @@ class FunctorProduction(Production):
             xrs = self.nodups(zip(ors, nrs))
             self.rename_vars(xrs)
 
-    def type_change_snp_npnp(self, vp, hasevent):
+    def type_change_vp_npmod(self, npnp):
         """Special type change. See LDC manual section 3.8.
 
         Args:
-            vp: The verb phrase. Must be a S\NP category.
-            hasevent: Should be True for verb phrases, false for adjectival phrases.
+            npnp: The noun phrase template. Must be a NP\NP category. The inner DrsProduction will be discarded.
 
         Remarks:
-            self is a template. The inner DrsProduction will be discarded.
+            self is a S\NP category.
         """
-        slr = self.lambda_refs
-        lr = vp.lambda_refs
+        lr = npnp.lambda_refs
+        slr = self.inner_scope._lambda_refs.universe
         if len(lr) != len(slr):
             raise DrsComposeError('mismatch of lambda vars when doing special type change')
-        if not hasevent:
-            rs = zip(slr, lr)
-        else:
-            rs = zip(slr[0:-1], lr[0:-1])
-            # event is always lr[-1] for verb phrases - don't merge these
-            if slr[-1] == lr[-1]:
-                ors = [slr[-1]]
-                nrs = get_new_drsrefs(ors, union(slr, lr))
-                xrs = self.nodups(zip(ors, nrs))
-                self.rename_vars(xrs)
+        rs = zip(lr, slr)
+        npnp.rename_vars(rs)
+        npnp.pop()  # discard inner DrsProduction
+        d = self.pop()
+        d.set_lambda_refs([slr[0]])
+        npnp.push(d)
+        self.clear()
+        return npnp
+
+    def type_change_vp_vpmod(self, mod):
+        """Special type change. See LDC manual section 3.8.
+
+        Args:
+            mod: The modifier template. The inner DrsProduction will be discarded.
+
+        Remarks:
+            self is a S\NP category.
+        """
+        assert mod.category.ismodifier
+        lr = mod.lambda_refs
+        slr = self.lambda_refs
+        if len(lr) != len(slr):
+            raise DrsComposeError('mismatch of lambda vars when doing special type change')
+        rs = zip(lr, slr)
+        mod.rename_vars(rs)
+        mod.pop()  # discard inner DrsProduction
+        d = self.pop()
+        mod.push(d)
+        self.clear()
+        return mod
+
+    def type_change_vpmod_from_np(self, np):
+        """Special type change. See LDC manual section 3.8.
+
+        Args:
+            np: The noun phrase
+
+        Remarks:
+            self is a VP modifier.
+        """
+        assert self.category.ismodifier
+        assert not np.isfunctor
+        lr = np.lambda_refs
+        if len(lr) == 0:
+            lr = np.universe
+            np.set_lambda_refs(lr)
+        if len(lr) > 1:
+            p = PropProduction(np.category, DRSRef('x1'))
+            np = p.apply(np)
+            lr = np.lambda_refs
+        self.make_vars_disjoint(np)
+        slr = self.lambda_refs
+        rs = zip(slr, lr)
         self.rename_vars(rs)
-        self.pop() # discard inner DrsProduction
-        if not vp.isfunctor:
-            pass
-        g = vp.pop()
-        self.push(g)
+        d = self.pop()
+        p = ProductionList(d)   # d first so lambda refs from it
+        p.push_right(np)
+        self.push(p.unify())
         return self
 
     def type_change_np_snp(self, np):
-        """Special type change. See LDC manual section 3.8.
+        """Special type change. See LDC manual section 3.7.2.
 
         Args:
             np: The noun phrase. Must be a NP category.
@@ -1286,6 +1385,7 @@ class FunctorProduction(Production):
         Remarks:
             self is a template. The inner DrsProduction will be discarded.
         """
+        self.make_vars_disjoint(np)
         slr = self.inner_scope._comp.lambda_refs
         assert isinstance(np, DrsProduction)
         lr = np.lambda_refs
@@ -1303,6 +1403,37 @@ class FunctorProduction(Production):
             self.rename_vars(rs)
 
         self.pop() # discard inner DrsProduction
+        self.push(np)
+        return self
+
+    def type_raise(self, np):
+        """Special type change. See LDC manual section 3.7.2.
+
+        Args:
+            np: The noun phrase. Must be a NP category.
+
+        Remarks:
+            self is a template. The inner DrsProduction will be discarded.
+        """
+        ## Forward   X:np => T/(T\X): λxf.f(np)
+        ## Backward  X:np => T\(T/X): λxf.f(np)
+        self.make_vars_disjoint(np)
+        slr = self.inner_scope._comp.lambda_refs
+        assert isinstance(np, DrsProduction)
+        lr = np.lambda_refs
+        if len(lr) == 0:
+            lr = np.universe
+            np.set_lambda_refs(lr)
+        if len(lr) != 1:
+            # Add proposition
+            p = PropProduction(category=np.category, referent=slr[0])
+            np = p.apply(np)
+        else:
+            rs = zip(slr, lr)
+            self.rename_vars(rs)
+
+        fc = self.pop()
+        np.set_lambda_refs(fc.lambda_refs)
         self.push(np)
         return self
 
@@ -1342,9 +1473,11 @@ class FunctorProduction(Production):
 
         # Get lambdas
         gc = g.pop()
-        # FIXME: if Z is an atomic type push() fails because the functor scope is exhausted at the previous pop()
-        assert g.category.result_category.isfunctor
         zg = g.pop()
+        if zg is None:
+            # Y is an atom (i.e. Y=gc) and functor scope is exhausted
+            assert g.category.result_category.isatom
+            zg = g
         zg._category = cat
 
         # Get Y unification lambdas
@@ -1355,11 +1488,13 @@ class FunctorProduction(Production):
         assert gc is not None
         assert fc is not None
         yflr = self.inner_scope.get_unify_scopes(False)
-        assert(len(yflr) == len(glr))
+        if len(yflr) != len(glr):
+            pass
+        assert len(yflr) == len(glr)
 
         # Set Y unification
-        assert(len(fv) == len(gv))
-        assert(len(fv) == len(yflr))
+        assert len(fv) == len(gv)
+        assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
         # Unify
@@ -1372,9 +1507,15 @@ class FunctorProduction(Production):
         pl.push_right(gc)
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
+        pl.set_category(fc.category)
         zg.push(pl)
-        # FIXME: if X is an atomic type push() fails because the functor scope is exhausted after the pop()
+        # Handle atomic X. If X is an atomic type next push() fails because the functor scope
+        # is exhausted after this pop()
         fy = self.pop()
+        if fy is None:
+            # X is atomic
+            assert self.category.result_category.isatom
+            return zg
         self.push(zg)
         return self
 
@@ -1524,10 +1665,6 @@ class FunctorProduction(Production):
             self.clear()
             return cl.unify()
 
-        # functor application
-        if self._comp is not None and g.contains_functor:
-            raise DrsComposeError('Invalid functor placement during functor application')
-
         # Remove resolved referents from lambda refs list
         assert len(self._lambda_refs.referents) != 0
         if isinstance(self._comp, ProductionList):
@@ -1556,7 +1693,7 @@ class FunctorProduction(Production):
 class PropProduction(FunctorProduction):
     """A proposition functor."""
     def __init__(self, category, referent, production=None):
-        super(PropProduction, self).__init__(category, referent)
+        super(PropProduction, self).__init__(category, referent, production)
 
     def _repr_helper2(self, i):
         v = chr(i)
