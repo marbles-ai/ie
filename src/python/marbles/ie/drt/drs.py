@@ -742,6 +742,8 @@ class DRS(AbstractDRS):
         Args:
             rc: A ConditionRef returned from find_condition().
         """
+        if rc is None:
+            return
         if not isinstance(rc, ConditionRef):
             raise TypeError()
         if id(rc.ld) == id(self):
