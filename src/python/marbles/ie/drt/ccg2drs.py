@@ -6,7 +6,7 @@ from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
     CAT_Sany, CAT_PP, CAT_PPNP, CAT_NP, CAT_LRB, CAT_RRB, \
-    get_rule, RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ, \
+    get_rule, RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, \
     RL_TYPE_RAISE
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
 from parse import parse_drs
@@ -767,7 +767,7 @@ def _process_ccg_node(pt, cl):
             if rule is None:
                 rule = get_rule(cats[0], CAT_EMPTY, result)
                 raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
-            if rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_RAISE]:
+            if rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TYPE_RAISE]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
             cl2 = cl2.apply(rule).unify()
@@ -785,10 +785,10 @@ def _process_ccg_node(pt, cl):
             if rule is None:
                 rule = get_rule(cats[0], cats[1], result)
                 raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
-            elif rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_CONJ]:
+            elif rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_CONJ]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
-            elif rule == RL_TYPE_CHANGE_NP_VPMOD:
+            elif rule == RL_TC_NP_VPMOD:
                 # Need special handling of these
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 fn = ccgt.get_composer()
