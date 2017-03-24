@@ -1547,6 +1547,10 @@ class FunctorProduction(Production):
         fv = self.category.argument_category.extract_unify_atoms(False)
         gv = g.category.result_category.extract_unify_atoms(False)
 
+        fc = self.pop()
+        assert fc is not None
+        yflr = self.inner_scope.get_unify_scopes(False)
+
         # Get lambdas
         gc = g.pop()
         zg = g.pop()
@@ -1554,16 +1558,15 @@ class FunctorProduction(Production):
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
             assert g.category.result_category.isatom
             zg = g
+            glr = gc.lambda_refs
+        else:
+            # Get Y unification lambdas
+            g.push(gc)
+            glr = g.get_unify_scopes(False)
+            g.pop()
+            assert gc is not None
         zg._category = cat
 
-        # Get Y unification lambdas
-        g.push(gc)
-        glr = g.get_unify_scopes(False)
-        g.pop()
-        fc = self.pop()
-        assert gc is not None
-        assert fc is not None
-        yflr = self.inner_scope.get_unify_scopes(False)
         if len(yflr) != len(glr):
             pass
         assert len(yflr) == len(glr)
@@ -1901,7 +1904,6 @@ class FunctorProduction(Production):
             # Apply the combinator
             gcomp = g.pop()
             fcomp = self.pop()
-            # FIXME: is there a case where we should take acomp's lambda_refs?
             cl.set_lambda_refs(fcomp.lambda_refs)
             if self.isarg_left:
                 cl.push_right(gcomp)
