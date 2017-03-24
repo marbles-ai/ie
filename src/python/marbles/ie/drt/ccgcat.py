@@ -638,7 +638,7 @@ RL_TC_CONJ = Rule('TYPE_CHANGE_CONJ')
 ## @cond
 CAT_Sany__NP = RegexCategoryClass(r'^S(\[[a-z]+\])?[\\/]NP(\[conj\])?$')
 CAT_NP_NP = Category(r'NP\NP')
-CAT_NP__NP = RegexCategoryClass(r'^NP[\\/]NP(?:\[conj\])?$')
+CAT_NP__NP = RegexCategoryClass(r'^(NP[\\/]NP(?:\[conj\])?|N[\\/]N)$')
 CAT_Sng_NP = Category(r'S[ng]\NP')
 CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
 CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
