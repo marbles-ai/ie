@@ -5,7 +5,8 @@ from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
-    CAT_Sany, CAT_PP, CAT_PPNP, CAT_NP, CAT_LRB, CAT_RRB, \
+    CAT_Sany, CAT_PP, CAT_NP, CAT_LRB, CAT_RRB, CAT_ADJECTIVE, CAT_POSSESSIVE_ARGUMENT, \
+    CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION, CAT_ADVERB, \
     get_rule, RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, \
     RL_TYPE_RAISE
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
@@ -387,17 +388,20 @@ class CcgTypeMapper(object):
     @property
     def ispreposition(self):
         """Test if the word attached to this category is a preposition."""
-        return self.partofspeech == 'IN'
+        #return self.partofspeech == 'IN'
+        return self.category == CAT_PREPOSITION
 
     @property
     def isadverb(self):
         """Test if the word attached to this category is an adverb."""
-        return self.partofspeech in ['RB', 'RBR', 'RBS']
+        #return self.partofspeech in ['RB', 'RBR', 'RBS']
+        return self.category == CAT_ADVERB
 
     @property
     def isverb(self):
         """Test if the word attached to this category is a verb."""
-        return self.partofspeech in ['VB', 'VBD', 'VBN', 'VBP', 'VBZ']
+        # Verbs can behave as adjectives
+        return self.partofspeech in ['VB', 'VBD', 'VBN', 'VBP', 'VBZ'] and self.category != CAT_ADJECTIVE
 
     @property
     def isconj(self):
@@ -422,7 +426,8 @@ class CcgTypeMapper(object):
     @property
     def isadjective(self):
         """Test if the word attached to this category is an adjective."""
-        return self.partofspeech == 'JJ'
+        #return self.partofspeech == 'JJ' or
+        self.category == CAT_ADJECTIVE
 
     @property
     def partofspeech(self):
@@ -664,6 +669,7 @@ class CcgTypeMapper(object):
                 refs = remove_dups(refs)
                 refs.reverse()
 
+            # Verbs can also be adjectives so check event
             if self.isverb:
                 if ev is None:
                     raise DrsComposeError('Verb signature "%s" does not include event variable' % self.signature)
@@ -706,18 +712,14 @@ class CcgTypeMapper(object):
                 scat = self.category.simplify() # removes features [?]
                 fn = None
                 if scat.ismodifier:
-                    if self.partofspeech == 'TO' and self.category == CAT_INFINITIVE:
-                        assert self.category.argument_category.issentence
-                        assert self.category.result_category.issentence
-                        assert ev is not None
-                        assert len(ev) == 1
+                    if self.category == CAT_INFINITIVE:
                         fn = DrsProduction(DRS([], [Rel('event.is.infinitive', ev)]))
                     elif self.isgerund and scat.result_category.issentence:
                         fn = DrsProduction(DRS([], [Rel('event', ev), Rel('event.is.gerund', ev),
                                                     Rel('event.verb.' + self._word, ev),
                                                     Rel('event.attribute', [ev[0], refs[-1]])]))
                     elif self.partofspeech == 'MD':
-                        assert len(refs) == 1
+                        assert len(refs) == 1, 'modal verb should have single referent'
                         fn = DrsProduction(DRS([], [Rel('event.is.modal', ev),
                                                     Rel('event.modal.' + self._word, [ev[0], refs[0]])]))
                 if not fn:
