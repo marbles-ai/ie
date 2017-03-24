@@ -626,11 +626,11 @@ RL_RNUM = Rule('RNUM')
 RL_LNUM = Rule('LNUM')
 
 ## Special type changing rule. See LDC manual 2005T13.
-RL_TYPE_CHANGE_VP_VPMOD = Rule('TYPE_CHANGE_VP_VPMOD')
-RL_TYPE_CHANGE_VP_NPMOD = Rule('TYPE_CHANGE_VP_NPMOD')
-RL_TYPE_CHANGE_NP_VPMOD = Rule('TYPE_CHANGE_NP_VPMOD')
-RL_TYPE_CHANGE_CONJ = Rule('TYPE_CHANGE_CONJ')
-#RL_TYPE_CHANGE_MOD = Rule('TYPE_CHANGE_MOD')
+RL_TC_VP_VPMOD = Rule('TYPE_CHANGE_VP_VPMOD')
+RL_TC_VP_NPMOD = Rule('TYPE_CHANGE_VP_NPMOD')
+RL_TC_NP_VPMOD = Rule('TYPE_CHANGE_NP_VPMOD')
+RL_TC_CONJ = Rule('TYPE_CHANGE_CONJ')
+#RL_TC_MOD = Rule('TYPE_CHANGE_MOD')
 ## @}
 
 # Special type changing rules - see LDC2005T13 document
@@ -686,10 +686,10 @@ def get_rule(left, right, result, exclude=None):
         if left.signature == ',' and right == CAT_NP:
             if result == CAT_Sany_Sany:
                 xupdate(exclude, 13)
-                return RL_TYPE_CHANGE_NP_VPMOD
+                return RL_TC_NP_VPMOD
             elif result == CAT_S_NP_S_NP:
                 xupdate(exclude, 13)
-                return RL_TYPE_CHANGE_NP_VPMOD
+                return RL_TC_NP_VPMOD
         elif right.ispunct:
             xupdate(exclude, 13)
             return RL_LPASS
@@ -698,7 +698,7 @@ def get_rule(left, right, result, exclude=None):
     elif right.ispunct and notexcluded(exclude, 14):
         if left == CAT_NP and result == CAT_SanySany:
             xupdate(exclude, 14)
-            return RL_TYPE_CHANGE_NP_VPMOD
+            return RL_TC_NP_VPMOD
         right = CAT_EMPTY
 
     if left.isconj and right != CAT_EMPTY and notexcluded(exclude, 0):
@@ -710,16 +710,16 @@ def get_rule(left, right, result, exclude=None):
                 return RL_RPASS
             elif result.isconj or result.ismodifier:
                 # Section 3.7.2 LDC2005T13 manual
-                return RL_TYPE_CHANGE_CONJ
+                return RL_TC_CONJ
             '''
             if result.ismodifier and result.iscombinator and result.argument_category == right:
-                return RL_TYPE_CHANGE_MOD
+                return RL_TC_MOD
             elif right.can_unify(result):
                 return RL_RPASS
             elif right.isatom and result.isfunctor and result.argument_category.isatom and \
                     result.result_category.isatom:
                 # NP => S[adj]\NP, S[dcl] => S[dcl]\S[dcl]
-                return RL_TYPE_CHANGE_SNP
+                return RL_TC_SNP
             '''
     elif right.isconj and notexcluded(exclude, 1):
         if exclude is not None:
@@ -729,7 +729,7 @@ def get_rule(left, right, result, exclude=None):
         if left.can_unify(right):
             return RL_RCONJ
         #elif right == CAT_CONJ and result.ismodifier and result.argument_category == left:
-        #    return RL_TYPE_CHANGE_MOD
+        #    return RL_TC_MOD
     elif left == CAT_EMPTY and notexcluded(exclude, 2):
         xupdate(exclude, 2)
         return RL_RPASS
@@ -751,17 +751,18 @@ def get_rule(left, right, result, exclude=None):
             # S[pss]|NP => NP|NP
             # S[ng]|NP => NP|NP
             # S[dcl]|NP => NP|NP
-            return RL_TYPE_CHANGE_VP_NPMOD
+            return RL_TC_VP_NPMOD
         elif left == CAT_Sany_NP and (result == CAT_S_NP_S_NP or result == CAT_S_NPS_NP):
             # See LDC 2005T13 manual, section 3.8
-            return RL_TYPE_CHANGE_VP_VPMOD
+            return RL_TC_VP_VPMOD
         elif left.can_unify(result):
             return RL_LPASS
 
     elif left.isarg_right and left.argument_category.can_unify(right) and \
             left.result_category.can_unify(result) and notexcluded(exclude, 5):
         xupdate(exclude, 5)
-        # Forward Application  X/Y:f Y:a => X: f(a)
+        # Forward Application
+        # X/Y:f Y:a => X: f(a)
         return RL_FA
     elif left.isarg_right and right.isfunctor and left.argument_category.can_unify(right.result_category) and \
             Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result) \
@@ -772,16 +773,19 @@ def get_rule(left, right, result, exclude=None):
                 return None # don't count as ambiguous rule N/N[conj] N/N => N/N
             exclude.append(6)
         if right.isarg_right:
-            # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+            # Forward Composition
+            # X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             return RL_FC
         else:
-            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            # Forward Crossing Composition
+            # X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             return RL_FX
 
     elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result) \
             and notexcluded(exclude, 7):
         xupdate(exclude, 7)
-        # Backward Application  Y:a X\Y:f => X: f(a)
+        # Backward Application
+        # Y:a X\Y:f => X: f(a)
         return RL_BA
     elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) \
             and Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
@@ -792,10 +796,12 @@ def get_rule(left, right, result, exclude=None):
                 return None
             exclude.append(8)
         if left.isarg_left:
-            # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+            # Backward Composition
+            # Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
             return RL_BC
         else:
-            # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+            # Backward Crossing Composition
+            # Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             return RL_BX
 
     elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
@@ -804,10 +810,12 @@ def get_rule(left, right, result, exclude=None):
             and notexcluded(exclude, 9):
         xupdate(exclude, 9)
         if right.isarg_right:
-            # Forward Substitution  (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            # Forward Substitution
+            # (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FS
         else:
-            # Forward Crossing Substitution  (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            # Forward Crossing Substitution
+            # (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FXS
 
     elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
@@ -816,10 +824,12 @@ def get_rule(left, right, result, exclude=None):
             and notexcluded(exclude, 10):
         xupdate(exclude, 10)
         if right.isarg_left:
-            # Backward Substitution  Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            # Backward Substitution
+            # Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BS
         else:
-            # Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            # Backward Crossing Substitution
+            # Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
 
     elif left.isarg_right and right.isarg_right and \
@@ -830,27 +840,30 @@ def get_rule(left, right, result, exclude=None):
             and notexcluded(exclude, 11):
         xupdate(exclude, 11)
         if right.result_category.isarg_right:
-            # Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
-            # Forward Composition  X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+            # Generalized Forward Composition
+            # X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
             return RL_GFC
         else:
-            # Generalized Forward Crossing Composition  X/Y:f (Y\Z)|$:...λz.gz... => (X/Z)|$: ...λz.f(g(z...))
-            # Forward Crossing Composition  X/Y:f Y\Z:g => X/Z: λx􏰓.f(g(x))
+            # Generalized Forward Crossing Composition
+            # X/Y:f (Y\Z)$:...λz.gz... => (X\Z)$: ...λz.f(g(z...))
             return RL_GFX
 
     elif right.isarg_left and left.isarg_left and \
             right.argument_category.can_unify(left.result_category.result_category) and \
-            Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
+            Category.combine(Category.combine(right.result_category, left.result_category.slash,
+                                              left.result_category.argument_category), left.slash,
+                             left.argument_category).can_unify(result) \
             and notexcluded(exclude, 12):
         xupdate(exclude, 12)
         if left.result_category.isarg_left:
-            # Generalized Backward Composition  (Y\Z)/$:...λz.gz... X\Y:f => (X\Z)/$: ...λz.f(g(z...))
-            # Backward Composition  Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+            # Generalized Backward Composition
+            # (Y\Z)$:...λz.gz... X\Y:f => (X\Z)$: ...λz.f(g(z...))
             return RL_GBC
         else:
-            # Generalized Backrward Crossing Composition  (Y\Z)\$:...λz.gz... X\Y:f => (X\Z)\$: ...λz.f(g(z...))
-            # Backward Crossing Composition  Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+            # Generalized Backward Crossing Composition
+            # (Y/Z)/$:...λz.gz... X\Y:f => (X/Z)/$: ...λz.f(g(z...))
             return RL_GBX
+    # TODO: generalized substitution
 
     return None
 

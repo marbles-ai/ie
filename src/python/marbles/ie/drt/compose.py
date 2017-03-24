@@ -7,9 +7,9 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
     remove_dups
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
-    RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, \
-    RL_TYPE_RAISE, RL_RNUM, RL_TYPE_CHANGE_VP_VPMOD, RL_RCONJ, RL_LCONJ, \
-    RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ
+    RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
+    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_TC_VP_VPMOD, RL_RCONJ, RL_LCONJ, \
+    RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ
 import weakref
 import collections
 
@@ -674,8 +674,11 @@ class ProductionList(Production):
         d.set_category(self.category)
         return d
     
-    def compose_forward(self):
+    def compose_forward(self, generalized=False):
         """Forward composition and forward crossing composition.
+
+        Args:
+            generalized: If True use generalized versions.
 
         Remarks:
             Executes a single production rule.
@@ -684,18 +687,27 @@ class ProductionList(Production):
         fn = self._compList[0]
         arg = self._compList[1]
         c = self._compList[1:]
-        # CALL[X/Y](Y|Z)
-        # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
-        # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
-        d = fn.compose(arg)
+        if generalized:
+            # CALL[X/Y](Y|Z)$
+            # Generalized Forward Composition           X/Y:f (Y/Z)/$ => (X/Z)/$
+            # Generalized Forward Crossing Composition  X/Y:f (Y\Z)$: => (X\Z)$
+            d = fn.generalized_compose(arg)
+        else:
+            # CALL[X/Y](Y|Z)
+            # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
+            # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+            d = fn.compose(arg)
         c[0] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
 
-    def compose_backward(self):
+    def compose_backward(self, generalized=False):
         """Backward composition and forward crossing composition.
+
+        Args:
+            generalized: If True use generalized versions.
 
         Remarks:
             Executes a single production rule.
@@ -704,10 +716,56 @@ class ProductionList(Production):
         fn = self._compList[-1]
         arg = self._compList[-2]
         c = self._compList[0:-1]
-        # CALL[X\Y](Y|Z)
-        # Backward Composition          Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
-        # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
-        d = fn.compose(arg)
+        if generalized:
+            # CALL[X\Y](Y|Z)$
+            # Generalized Backward Composition          (Y\Z)$  X\Y:f => (X\Z)$
+            # Generalized Backward Crossing Composition (Y/Z)/$ X\Y:f => (X/Z)/$
+            d = fn.generalized_compose(arg)
+        else:
+            # CALL[X\Y](Y|Z)
+            # Backward Composition          Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
+            # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
+            d = fn.compose(arg)
+        c[-1] = d
+        self._compList = c
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def substitute_forward(self):
+        """Forward substitution and forward crossing substitution.
+
+        Remarks:
+            Executes a single production rule.
+        """
+        assert len(self._compList) >= 2
+        fn = self._compList[0]
+        arg = self._compList[1]
+        c = self._compList[1:]
+        # CALL[(X/Y)|Z](Y|Z)
+        # Forward Substitution          (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        # Forward Crossing Substitution (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        d = fn.substitute(arg)
+        c[0] = d
+        self._compList = c
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def substitute_backward(self):
+        """Backward substitution and backward crossing substitution.
+
+        Remarks:
+            Executes a single production rule.
+        """
+        assert len(self._compList) >= 2
+        fn = self._compList[-1]
+        arg = self._compList[-2]
+        c = self._compList[0:-1]
+        # CALL[(X\Y)|Z](Y|Z)
+        # Backward Substitution             Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        # Backward Crossing Substitution    Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        d = fn.substitute(arg)
         c[-1] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
@@ -779,18 +837,18 @@ class ProductionList(Production):
         template = self._compList.pop()
         vp_or_np = self._compList[-1]
         c = self._compList
-        if rule == RL_TYPE_CHANGE_VP_VPMOD:
+        if rule == RL_TC_VP_VPMOD:
             # Section 3.8
             d = vp_or_np.type_change_vp_vpmod(template)
-        elif rule == RL_TYPE_CHANGE_VP_NPMOD:
+        elif rule == RL_TC_VP_NPMOD:
             # Section 3.8
             d = vp_or_np.type_change_vp_npmod(template)
-        elif rule == RL_TYPE_CHANGE_CONJ:
+        elif rule == RL_TC_CONJ:
             # Section 3.7.2
             d = template.type_change_np_snp(vp_or_np)
         else:
             # Section 3.8
-            assert rule == RL_TYPE_CHANGE_NP_VPMOD
+            assert rule == RL_TC_NP_VPMOD
             d = template.type_change_vpmod_from_np(vp_or_np)
         c[-1] = d
         self._compList = c
@@ -838,17 +896,25 @@ class ProductionList(Production):
         elif rule == RL_FA:
             self.apply_forward()
         elif rule in [RL_FC, RL_FX]:
-            self.compose_forward()
+            self.compose_forward(False)
         elif rule in [RL_BC, RL_BX]:
-            self.compose_backward()
+            self.compose_backward(False)
         elif rule == RL_LCONJ:
             self.conjoin_backward()
         elif rule == RL_RCONJ:
             self.conjoin_forward()
-        elif rule in [RL_TYPE_CHANGE_VP_VPMOD, RL_TYPE_CHANGE_VP_NPMOD, RL_TYPE_CHANGE_NP_VPMOD, RL_TYPE_CHANGE_CONJ]:
+        elif rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ]:
             self.special_type_change(rule)
         elif rule == RL_TYPE_RAISE:
             self.type_raise()
+        elif rule in [RL_FS, RL_FXS]:
+            self.substitute_forward()
+        elif rule in [RL_BS, RL_BXS]:
+            self.substitute_backward()
+        elif rule in [RL_GFC, RL_GFX]:
+            self.compose_forward(True)
+        elif rule in [RL_GBC, RL_GBX]:
+            self.compose_backward(True)
         else:
             # TODO: handle all rules
             raise NotImplementedError
@@ -1259,8 +1325,18 @@ class FunctorProduction(Production):
         d = self.apply(d)
         return d
 
-    def pop(self):
-        """Remove inner scope and return the production."""
+    def pop(self, level=-1):
+        """Remove an inner functor and return the production.
+
+        Args:
+            level: Level relative to outer less 1. If -1 then pop the inner scope.
+
+        Returns:
+            A Production instance.
+
+        Remarks:
+            An instance of self is never returned since the true level is always +1.
+        """
         if self._comp is None:
             # pop functor
             if self.outer is None:
@@ -1268,13 +1344,13 @@ class FunctorProduction(Production):
             self.outer._comp = None
             self._set_outer(None)
             return self
-        elif not self._comp.isfunctor:
+        elif not self._comp.isfunctor or level == 0:
             c = self._comp
             self._comp = None
             return c
 
         # tail recursion
-        return self._comp.pop()
+        return self._comp.pop(level - 1)
 
     def push(self, fn):
         """Push a production to the inner scope."""
@@ -1454,7 +1530,7 @@ class FunctorProduction(Production):
             - Forward Crossing Composition = `X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))`
         """
         if not g.isfunctor:
-            raise DrsComposeError('compose argument must be a functor')
+            raise DrsComposeError('composition argument must be a functor')
         assert g.outer is None  # must be outer scope
 
         # Create a new category
@@ -1515,6 +1591,178 @@ class FunctorProduction(Production):
         if fy is None:
             # X is atomic
             assert self.category.result_category.isatom
+            return zg
+        self.push(zg)
+        return self
+
+    def generalized_compose(self, g):
+        """Generalized function Composition.
+
+        Arg:
+            g: The (Y|Z)$ functor where self (f) is the X|Y functor.
+
+        Returns:
+            A Production instance.
+
+        Remarks:
+            CALL[X|Y](Y|Z)$
+            - Generalized Forward Composition  X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
+            - Generalized Forward Crossing Composition  X/Y:f (Y\Z)$:...λz.gz... => (X\Z)$: ...λz.f(g(z...))
+            - Generalized Backward Composition  (Y\Z)$:...λz.gz... X\Y:f => (X\Z)$: ...λz.f(g(z...))
+            - Generalized Backward Crossing Composition  (Y/Z)/$:...λz.gz... X\Y:f => (X/Z)/$: ...λz.f(g(z...))
+        """
+        if not g.isfunctor:
+            raise DrsComposeError('generalized composition argument must be a functor')
+        assert g.outer is None  # must be outer scope
+
+        # Create a new category
+        resultcat = Category.combine(self.category.result_category, g.category.result_category.slash,
+                                     g.category.result_category.argument_category)
+        cat = Category.combine(resultcat, g.slash, g.category.argument_category)
+
+        # Rename so f names are disjoint with g names.
+        # Try to keep var subscripts increasing left to right.
+        if self.isarg_left:
+            self.outer_scope.make_vars_disjoint(g)
+        else:
+            g.make_vars_disjoint(self.outer_scope)
+
+        # Get scopes before we modify f and g
+        fv = self.category.argument_category.extract_unify_atoms(False)
+        gv = g.category.result_category.result_category.extract_unify_atoms(False)
+
+        # Get lambdas
+        gc = g.pop()
+        dollar = g.pop(0)
+        dollar._category = cat
+        zg = g
+        zg._category = resultcat
+
+        # Get Y unification lambdas
+        g.push(gc)
+        glr = g.get_unify_scopes(False)
+        g.pop()
+        fc = self.pop()
+        assert gc is not None
+        assert fc is not None
+        yflr = self.inner_scope.get_unify_scopes(False)
+        if len(yflr) != len(glr):
+            pass
+        assert len(yflr) == len(glr)
+
+        # Set Y unification
+        assert len(fv) == len(gv)
+        assert len(fv) == len(yflr)
+        uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
+                                                zip(gv, fv, yflr, glr)))
+        # Unify
+        assert len(uy) != 0
+        fc.rename_vars(uy)
+
+        # Build
+        pl = ProductionList()
+        pl.push_right(fc)   # first entry sets lambdas
+        pl.push_right(gc)
+        pl = pl.unify()
+        assert isinstance(pl, DrsProduction)
+        pl.set_category(fc.category)
+        dollar.push(pl)
+        zg.push(dollar)
+
+        # Handle atomic X. If X is an atomic type next push() fails because the functor scope
+        # is exhausted after this pop()
+        fy = self.pop()
+        if fy is None:
+            # X is atomic
+            assert self.category.result_category.isatom
+            return zg
+        self.push(zg)
+        return self
+
+    def substitute(self, g):
+        """Functional Substitution.
+
+        Arg:
+            g: The Y|Z functor where self (f) is the (X|Y)|Z functor.
+
+        Returns:
+            A Production instance.
+
+        Remarks:
+            CALL[(X|Y)|Z](Y|Z)
+            - Forward Substitution (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            - Forward Crossing Substitution  (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            - Backward Substitution  Y\Z:g (X\Y)\Z:f => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+            - Backward Crossing Substitution  Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        """
+        if not g.isfunctor:
+            raise DrsComposeError('substitution argument must be a functor')
+        assert g.outer is None  # must be outer scope
+
+        # Create a new category
+        cat = Category.combine(self.category.result_category.result_category, self.category.slash,
+                               g.category.argument_category)
+
+        # Rename so f names are disjoint with g names.
+        # Try to keep var subscripts increasing left to right.
+        if self.category.result_category.isarg_right:
+            self.outer_scope.make_vars_disjoint(g)
+        else:
+            g.make_vars_disjoint(self.outer_scope)
+
+        # Get scopes before we modify f and g
+        fv = self.category.argument_category.extract_unify_atoms(False)
+        gv = g.category.result_category.extract_unify_atoms(False)
+
+        # Get lambdas
+        gc = g.pop()
+        zg = g.pop()
+        if zg is None:
+            # Y is an atom (i.e. Y=gc) and functor scope is exhausted
+            assert g.category.result_category.isatom
+            zg = g
+        zg._category = cat
+
+        # Get Y unification lambdas
+        g.push(gc)
+        glr = g.get_unify_scopes(False)
+        g.pop()
+        assert gc is not None
+
+        fc = self.pop()
+        assert fc is not None
+        zf = self.pop()
+        assert zf is not None
+        self.push(fc)
+        yflr = self.inner_scope.get_unify_scopes(False)
+        if len(yflr) != len(glr):
+            pass
+        assert len(yflr) == len(glr)
+
+        # Set Y unification
+        assert len(fv) == len(gv)
+        assert len(fv) == len(yflr)
+        uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
+                                                zip(gv, fv, yflr, glr)))
+        # Unify
+        assert len(uy) != 0
+        self.rename_vars(uy)
+        self.pop()
+
+        # Build
+        pl = ProductionList()
+        pl.push_right(fc)   # first in list sets lambdas
+        pl.push_right(gc)
+        pl = pl.unify()
+        assert isinstance(pl, DrsProduction)
+        pl.set_category(fc.category)
+        zg.push(pl)
+        # Handle atomic X. If X is an atomic type next push() fails because the functor scope
+        # is exhausted after this pop()
+        yf = self.pop()
+        if yf is None:
+            # X is atomic
+            assert self.category.result_category.result_category.isatom
             return zg
         self.push(zg)
         return self

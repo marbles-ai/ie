@@ -746,6 +746,10 @@ class ComposeTest(unittest.TestCase):
                 except Exception:
                     failed_ccg2drs += 1
                     continue
+
+        print('%d derivations failed to parse' % failed_parse)
+        print('%d derivations failed to convert to DRS' % failed_ccg2drs)
+
         self.assertEqual(failed_parse, 0)
         self.assertEqual(failed_ccg2drs, 0)
 
