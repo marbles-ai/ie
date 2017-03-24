@@ -705,7 +705,79 @@ class ComposeTest(unittest.TestCase):
         x = u'[x2,e1,x3| exists(x2),school(x2),bus(x2),event(e1),event.verb.wheezes(e1),event.agent(e1,x2),event.theme(e1,x3),to(x3),my(x3),corner(x3)]'
         self.assertEquals(x, s)
 
-    def test5_ParseLdc2005T13(self):
+    def test6_ParseEasySRL2005T13(self):
+        # This test requires you run the following scripts:
+        # - ./scripts/extract_lfs.sh
+        #   Extracts LDC2005T13 dataset
+        # - ./scripts/start_server.sh easysrl
+        #   Starts the easysrl server. You can also run in a shell if you wish by
+        #   opening a new shell and running ./daemons/easysrl
+        # - ./scripts/make_easysrl_ldc_derivations.py
+        #
+        # Once that is done you can stop the server with:
+        #    ./scripts/stop_server.sh easysrl
+        #    or Ctrl-C if you ran the daemon in a shell.
+        #
+        # This only needs to be done once to build the EasySRL CCG derivations for
+        # the LDC2005T13 dataset.
+        allfiles = []
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl')
+        dirlist1 = os.listdir(ldcpath)
+        for fname in dirlist1:
+            if 'ccg_derivation' not in fname:
+                continue
+            ldcpath1 = os.path.join(ldcpath, fname)
+            if os.path.isfile(ldcpath1):
+                allfiles.append(ldcpath1)
+
+        failed_parse = 0
+        failed_ccg2drs = 0
+        for fn in allfiles:
+            with open(fn, 'r') as fd:
+                lines = fd.readlines()
+
+            name, _ = os.path.splitext(os.path.basename(fn))
+            for i in range(len(lines)):
+                ccgbank = lines[i]
+                print('%s-%04d' % (name, i))
+                try:
+                    pt = parse_ccg_derivation(ccgbank)
+                except Exception:
+                    failed_parse += 1
+                    continue
+                self.assertIsNotNone(pt)
+                print(sentence_from_pt(pt))
+                #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
+                try:
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+                    assert d is not None
+                    d = d.unify()
+                    assert d is not None
+                    assert isinstance(d, DrsProduction)
+                    s = d.drs.show(SHOW_LINEAR)
+                    print(s)
+                except Exception as e:
+                    raise
+                    print(e)
+                    failed_ccg2drs += 1
+                    continue
+
+        print('%d derivations failed to parse' % failed_parse)
+        print('%d derivations failed to convert to DRS' % failed_ccg2drs)
+
+        self.assertEqual(failed_parse, 0)
+        self.assertEqual(failed_ccg2drs, 0)
+
+    def test6_ParseLdc2005T13(self):
+        # Mar-2017 PWG
+        #
+        # LDC2005T13 is a conversion of the Penn Treebank into CCG derivations.
+        # This was done with a algorithm that required support for special CCG
+        # type changing rules. It is my understanding that these rules are never
+        # required in derivations from a CCG parser, so while I implemented
+        # some, I did not implement them all, hence some tests are expected to fail.
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -715,14 +787,16 @@ class ComposeTest(unittest.TestCase):
             ldcpath1 = os.path.join(ldcpath, dir1)
             if os.path.isdir(ldcpath1):
                 dirlist2 = os.listdir(ldcpath1)
-                for dir2 in dirlist2:
-                    ldcpath2 = os.path.join(ldcpath1, dir2)
+                for fname in dirlist2:
+                    if '.auto' not in fname:
+                        continue
+                    ldcpath2 = os.path.join(ldcpath1, fname)
                     if os.path.isfile(ldcpath2):
                         allfiles.append(ldcpath2)
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles:
+        for fn in allfiles[35:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
@@ -743,7 +817,9 @@ class ComposeTest(unittest.TestCase):
                     assert isinstance(d, DrsProduction)
                     s = d.drs.show(SHOW_LINEAR)
                     print(s)
-                except Exception:
+                except Exception as e:
+                    raise
+                    print(e)
                     failed_ccg2drs += 1
                     continue
 
