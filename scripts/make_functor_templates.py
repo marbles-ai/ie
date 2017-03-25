@@ -3,6 +3,7 @@
 import os
 import pickle
 import sys
+from optparse import OptionParser
 
 # Modify python path
 projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
@@ -12,8 +13,24 @@ sys.path.insert(0, pypath)
 
 from marbles.ie.drt.ccg2drs import extract_predarg_categories_from_pt, FunctorTemplate
 from marbles.ie.drt.parse import parse_ccg_derivation
+from marbles.ie.drt.ccgcat import Category
 
-if __name__ == "__main__":
+
+def print_progress(progress, tick=1, done=False):
+    progress += 1
+    if (progress / tick) >= 79 or done:
+        sys.stdout.write('.\n')
+        sys.stdout.flush()
+        return 0
+    elif (progress % tick) == 0:
+        sys.stdout.write('.')
+        sys.stdout.flush()
+    return progress
+
+
+def build_from_ldc_ccgbank(dict, verbose=False, verify=True):
+    print('Building function templates from LDC ccgbank...')
+
     allfiles = []
     ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO')
     dirlist1 = os.listdir(ldcpath)
@@ -26,11 +43,12 @@ if __name__ == "__main__":
                 if os.path.isfile(ldcpath2):
                     allfiles.append(ldcpath2)
 
-    dict = {}
     failed_parse = []
     failed_rules = []
     rules = []
+    progress = 0
     for fn in allfiles:
+        progress = print_progress(progress, 10)
         with open(fn, 'r') as fd:
             lines = fd.readlines()
         for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
@@ -40,8 +58,9 @@ if __name__ == "__main__":
             except Exception as e:
                 failed_parse.append((ccgbank, str(e)))
 
-    dict = {}
+    progress = (progress / 10) * 1000
     for predarg in rules:
+        progress = print_progress(progress, 1000)
         try:
             catkey = predarg.clean(True)
             template = FunctorTemplate.create_from_category(predarg)
@@ -49,42 +68,124 @@ if __name__ == "__main__":
                 continue
             if catkey.signature not in dict:
                 dict[catkey.signature] = template
-            else:
-                # verify
-                t1 = str(dict[catkey.signature])
+            elif verify:
+                f1 = dict[catkey.signature]
+                t1 = str(f1)
                 t2 = str(template)
-                assert t1 == t2
+                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.category, predarg)
         except Exception as e:
-            failed_rules.append((predarg, str(e)))
+            failed_rules.append(str(e))
             # DEBUG ?
-            if True:
+            if False:
                 try:
                     FunctorTemplate.create_from_category(predarg)
                 except Exception:
                     pass
 
+    print_progress(progress, done=True)
+
     if len(failed_parse) != 0:
-        print('THERE ARE %d PARSE FAILURES' % len(failed_parse))
+        print('Warning: ldc - %d parses failed' % len(failed_parse))
         with open(os.path.join(datapath, 'test', 'parse_ccg_derivation_failed.dat'), 'w') as fd:
             pickle.dump(failed_parse, fd)
-        if False:
+        if verbose:
             for x, m in failed_parse:
                 print(m)
-                print(x.strip())
 
     if len(failed_rules) != 0:
-        print('THERE ARE %d RULE FAILURES' % len(failed_rules))
-        with open(os.path.join(datapath, 'test', 'functor_templates_failed.dat'), 'w') as fd:
+        print('Warning: ldc - %d rules failed' % len(failed_rules))
+        with open(os.path.join(datapath, 'test', 'functor_ldc_templates_failed.dat'), 'w') as fd:
             pickle.dump(failed_rules, fd)
-        if False:
-            for x, m in failed_rules:
+        if verbose:
+            for m in failed_rules:
                 print(m)
-                print(x.ccg_category)
 
-    print('THE FOLLOWING WERE PROCESSED WITHOUT ERROR')
-    for k, v in dict.iteritems():
-        print('%s: %s' % (k, str(v)))
+    return dict
 
-    with open(os.path.join(datapath, 'functor_templates.dat'), 'wb') as fd:
-        pickle.dump(dict, fd)
 
+def build_from_easysrl(dict, modelPath, verbose=False, verify=True):
+    print('Building function templates from EasySRL model folder...')
+    fname = os.path.join(modelPath, 'markedup')
+    if not os.path.exists(fname) or not os.path.isfile(fname):
+        print('Error: easysrl - %s does not exist or is not a file' % fname)
+
+    with open(fname, 'r') as fd:
+        signatures = fd.readlines()
+
+    failed_rules = []
+    progress = 0
+    for sig in signatures:
+        predarg = Category(sig.strip())
+        progress = print_progress(progress, 1000)
+        try:
+            catkey = predarg.clean(True)
+            template = FunctorTemplate.create_from_category(predarg)
+            if template is None:
+                continue
+            if catkey.signature not in dict:
+                dict[catkey.signature] = template
+            elif verify:
+                f1 = dict[catkey.signature]
+                t1 = str(f1)
+                t2 = str(template)
+                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.category, predarg)
+        except Exception as e:
+            failed_rules.append(str(e))
+            # DEBUG ?
+            if False:
+                try:
+                    FunctorTemplate.create_from_category(predarg)
+                except Exception:
+                    pass
+
+    print_progress(progress, done=True)
+
+    if len(failed_rules) != 0:
+        print('Warning: easysrl - %d rules failed' % len(failed_rules))
+        with open(os.path.join(datapath, 'test', 'functor_easysrl_templates_failed.dat'), 'w') as fd:
+            pickle.dump(failed_rules, fd)
+        if verbose:
+            for m in failed_rules:
+                print(m)
+
+    return dict
+
+
+if __name__ == "__main__":
+    usage = 'Usage: %prog [options] templates-to-merge'
+    parser = OptionParser(usage)
+    parser.add_option('-o', '--output', type='string', action='store', dest='outfile', help='output file')
+    parser.add_option('-m', '--easysrl-model', type='string', action='store', dest='esrl', help='output format')
+    parser.add_option('-L', '--ldc', action='store_true', dest='ldc', default=False, help='Use LDC to generate template.')
+    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Use LDC to generate template.')
+
+    (options, args) = parser.parse_args()
+    dict = {}
+
+    # Merge dictionaries
+    for fname in args:
+        with open(fname, 'rb') as fd:
+            d = pickle.load(fd)
+        dict.update(d)
+        d = None
+
+    if options.esrl is not None:
+        build_from_easysrl(dict, options.esrl, options.verbose)
+
+    if options.ldc:
+        build_from_ldc_ccgbank(dict, options.verbose)
+
+    if options.verbose:
+        print('The following %d categories were processed correctly...' % len(dict))
+        for k, v in dict.iteritems():
+            print('%s: %s' % (k, str(v)))
+
+    if len(dict) != 0:
+        if options.outfile is None:
+            with open(os.path.join(datapath, 'functor_templates.dat'), 'wb') as fd:
+                pickle.dump(dict, fd)
+        else:
+            with open(options.outfile, 'wb') as fd:
+                pickle.dump(dict, fd)
+    else:
+        print('no templates generated')
