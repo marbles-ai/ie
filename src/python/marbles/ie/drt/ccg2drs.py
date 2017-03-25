@@ -6,9 +6,9 @@ from common import DRSConst, DRSVar
 from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
     CAT_Sany, CAT_PP, CAT_NP, CAT_LRB, CAT_RRB, CAT_ADJECTIVE, CAT_POSSESSIVE_ARGUMENT, \
-    CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION, CAT_ADVERB, \
-    get_rule, RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, \
-    RL_TYPE_RAISE
+    CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION, CAT_ADVERB, CAT_S, \
+    get_rule, RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, RL_TC_ATOM, \
+    RL_TYPE_RAISE, RL_TC_ZZ, RL_TC_Z_Z, RL_TC_TT, RL_TC_T_T, RL_BA
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
 from parse import parse_drs
 import re
@@ -179,11 +179,12 @@ class FunctorTemplate(object):
         return self._final_atom != CAT_Sadj and self._final_atom == CAT_Sany
 
     @classmethod
-    def create_from_category(cls, predarg):
+    def create_from_category(cls, predarg, final_atom=None):
         """Create a functor template from a predicate-argument category.
 
         Args:
             predarg: The predicate-argument category.
+            final_atom: for special Z|Z and T|T rules where we override the unify scope.
 
         Returns:
             A FunctorTemplate instance or None if predarg is an atomic category.
@@ -206,6 +207,7 @@ class FunctorTemplate(object):
         ei = 0
         xi = 0
         fn = []
+
         while predarg.isfunctor:
             atoms = predarg.argument_category.extract_unify_atoms(False)
             predarg = predarg.result_category
@@ -217,7 +219,7 @@ class FunctorTemplate(object):
                     key = m.group('idx')
                 if key is None or key not in pvars:
                     acln = a.clean(True)
-                    if acln == CAT_Sany and acln != CAT_Sadj:
+                    if (acln == CAT_Sany and acln != CAT_Sadj) or acln.signature[0] == 'Z':
                         ei += 1
                         r = DRSRef(DRSVar('e', ei))
                     else:
@@ -249,14 +251,79 @@ class FunctorTemplate(object):
         else:
             r = pvars[key]
 
-        return FunctorTemplate(tuple(fn), predargOrig, r, acln)
+        return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom)
 
 
-def _add_missing_template(signature, dict, replace=False):
-    cat = Category(signature)
-    key = cat.clean(True).signature
-    if key not in dict or replace:
-        dict[key] = FunctorTemplate.create_from_category(cat)
+class Model(object):
+    """CCG Model"""
+    _Feature = re.compile(r'\[[a-z]+\]')
+
+    def __init__(self, templates=None, unary_rules=None):
+        """Constructor.
+
+        Args:
+            templates: A dictionary of FunctorTemplates keyed by category signature
+        """
+        self._TEMPLATES = templates
+        self._UNARY = unary_rules
+
+    @classmethod
+    def load(cls, filepath):
+        with open(filepath, 'rb') as fd:
+            dict = pickle.load(fd)
+        return Model(dict)
+
+    def save(self, filepath):
+        with open(filepath, 'wb') as fd:
+            pickle.dump(self, fd)
+
+    def add_template(self, cat, replace=False, final_atom=None):
+        """Add a template to the model.
+
+        Args:
+            cat: A Category instance or a category signature string.
+            replace: Optional flag to overwrite existing entry. Existing entry is preserved by default.
+            final_atom: Optional final atom category for functor template.
+        """
+        if isinstance(cat, str):
+            cat = Category(cat)
+        elif not isinstance(cat, Category):
+            raise TypeError('Model.add_template() expects signature or Category')
+        key = cat.clean(True).signature
+        if key not in self._TEMPLATES or replace:
+            self._TEMPLATES[key] = FunctorTemplate.create_from_category(cat, final_atom)
+
+    def lookup(self, category):
+        """Lookup a FunctorTemplate with key=category."""
+        # TODO: use two dictionaries, readonly and thread-safe.
+        if category.signature in self._TEMPLATES:
+            return self._TEMPLATES[category.signature]
+        # Perform wildcard replacements
+        if category.isfunctor:
+            wc = self._Feature.sub('[X]', category.signature)
+            if wc in self._TEMPLATES:
+                return self._TEMPLATES[wc]
+        return None
+
+    def issupported(self, category):
+        """Test a FunctorTemplate is in TEMPLATES with key=category."""
+        if category.signature in self._TEMPLATES:
+            return True
+        # Perform wildcard replacements
+        if category.isfunctor:
+            wc = self._Feature.sub('[X]', category.signature)
+            return wc in self._TEMPLATES
+        return False
+
+
+
+
+
+# Special categories for punctuation
+CAT_T_T = Category(r'T\T')
+CAT_TT = Category(r'T/T')
+CAT_Z_Z = Category(r'Z\Z')
+CAT_ZZ = Category(r'Z/Z')
 
 
 class CcgTypeMapper(object):
@@ -312,21 +379,38 @@ class CcgTypeMapper(object):
 
     # Run scripts/make_functor_templates.py to create templates file
     try:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'functor_templates.dat'), 'rb') as fd:
-            _TEMPLATES = pickle.load(fd)
+        _MODEL = Model.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'functor_templates.dat'))
         # For some reason, some rules generated by EasySRL are missing from LDC CCGBANK
-        _add_missing_template(r'PP_1/NP_1', _TEMPLATES, replace=True)
-        _add_missing_template(r'NP/N', _TEMPLATES)
-        _add_missing_template(r'S[dcl]_2/S[dcl]_1', _TEMPLATES)
-        _add_missing_template(r'S[dcl]_2\S[dcl]_1', _TEMPLATES)
-        _add_missing_template(r'S_1/(S_1\NP)', _TEMPLATES)
-        _add_missing_template(r'S_1\(S_1/NP)', _TEMPLATES)
-        _add_missing_template(r'(S_1\NP_2)/((S_1\NP_2)\PP)', _TEMPLATES)
-        _add_missing_template(r'(S_1\NP_2)\((S_1\NP_2)/PP)', _TEMPLATES)
+        _MODEL.add_template(r'PP_1/NP_1', replace=True)
+        _MODEL.add_template(r'NP/N')
+        _MODEL.add_template(r'NP_1/(N/PP_2)')
+
+        _MODEL.add_template(r'S[dcl]_1/S[dcl]_2')
+        _MODEL.add_template(r'S[dcl]_1\S[dcl]_2')
+        _MODEL.add_template(r'S_1/(S_1\NP)')
+        _MODEL.add_template(r'S_1\(S_1/NP)')
+        _MODEL.add_template(r'(S_2\NP_1)/((S_2\NP_1)\PP)')
+        _MODEL.add_template(r'(S_1\NP_2)\((S_1\NP_2)/PP)')
+        _MODEL.add_template(r'(N_1\N_1)/(S[dcl]\NP_1)')
+        _MODEL.add_template(r'(S[dcl]_1\NP_2)/((S[dcl]_1\NP_2)\PP)')
+
+        _MODEL.add_template(r'S[X]_1/S[X]_2')
+        _MODEL.add_template(r'S[X]_1\S[X]_2')
+        _MODEL.add_template(r'((S[dcl]\NP_2)/NP_1)/PR')
+        _MODEL.add_template(r'(NP_1\NP_1)\(S[dcl]\NP_1)')
+        _MODEL.add_template(r'(NP_1/NP_1)\(S[adj]\NP_1)')
+        _MODEL.add_template(r'(NP/N)\NP)')
+
+
+        # Special rules for punctuation.
+        _MODEL.add_template(r'Z_1/Z_2', final_atom=CAT_S)
+        _MODEL.add_template(r'Z_1\Z_2', final_atom=CAT_S)
+        _MODEL.add_template(r'T_1/T_2', final_atom=CAT_NP)
+        _MODEL.add_template(r'T_1\T_2', final_atom=CAT_NP)
     except Exception as e:
         print(e)
         # Allow module to load else we cannot create the dat file.
-        _TEMPLATES = {}
+        _MODEL = Model()
 
     def __init__(self, ccgTypeName, word, posTags=None):
         if isinstance(ccgTypeName, Category):
@@ -346,29 +430,36 @@ class CcgTypeMapper(object):
             self._word = word.lower().rstrip('?.,:;')
 
         # Atomic types don't need a template
-        if self.category.isfunctor and self.category.signature not in self._TEMPLATES:
+        if self.category.isfunctor and not self._MODEL.issupported(self.category):
             catArgArg = self.category.argument_category.argument_category
             catResult = self.category.result_category
-            if self.category.istype_raised and (catResult in self._TEMPLATES or catResult.isatom) \
-                    and (catArgArg in self._TEMPLATES or catArgArg.isatom):
+            if self.category.istype_raised and (self._MODEL.issupported(catResult) or catResult.isatom) \
+                    and (self._MODEL.issupported(catArgArg) or catArgArg.isatom):
                 # If the catgeory is type raised then check if result type exists and build now.
                 # TODO: This should be sent to a log
                 print('Adding type-raised category %s to TEMPLATES' % self.category.signature)
                 # Template categories contain predarg info so build new from these
                 if catResult.isfunctor:
-                    catResult = self._TEMPLATES[catResult.signature].category
+                    catResult = self._MODEL.lookup(catResult).category
                 else:
                     catResult = Category(catResult.signature + '_999')  # synthesize pred-arg info
                 if catArgArg.isfunctor:
                     # FIXME: Should really check predarg info does not overlap with catResult. Chances are low.
-                    catArgArg = self._TEMPLATES[catArgArg.signature].category
+                    catArgArg = self._MODEL.lookup(catArgArg).category
                 else:
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, self.category.slash,
                                           Category.combine(catResult, self.category.argument_category.slash, catArgArg))
                 # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
-                self._add_missing_template(newcat, self._TEMPLATES)
+                self._MODEL.add_template(newcat.signature)
+            elif self.category.ismodifier and self._MODEL.issupported(self.category.result_category):
+                # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
+                predarg = self._MODEL.lookup(self.category.result_category).category
+                newcat = Category.combine(predarg, self.category.slash, predarg)
+                self._MODEL.add_template(newcat.signature)
             else:
+                if self._MODEL.issupported(self.category):
+                    pass
                 raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s"' %
                                       (ccgTypeName, word, self.signature))
 
@@ -443,6 +534,42 @@ class CcgTypeMapper(object):
     def category(self):
         """Get the CCG category."""
         return self._ccgcat
+
+    @classmethod
+    def get_empty_functor(cls, category, key=None):
+        """Get a functor with an empty DRS. The functor must exist in the class templates
+        else an exception will be raised.
+
+        Args:
+            category: A category.
+            key: A signature string. If none then defaults to category.signature.
+
+        Returns:
+            A FunctionProduction instance.
+
+        Raises:
+            KeyError
+
+        Remarks:
+            Used for special type shift rules.
+        """
+        template = cls._MODEL.lookup(category if key is None else key)
+        compose = template.constructor_rule
+        fn = DrsProduction(DRS([], []))
+        fn.set_lambda_refs([template.final_ref])
+        fn.set_category(template.final_atom)
+        for c in compose:
+            fn = c[0](category, c[1], fn)
+            category = category.result_category
+        return fn
+
+    @classmethod
+    def identity_functor(cls, category):
+        assert category.result_category.isatom
+        assert category.argument_category.isatom
+        d = DrsProduction(DRS([], []), category=category.result_category)
+        d.set_lambda_refs([DRSRef('x1')])
+        return FunctorProduction(category, DRSRef('x1'), d)
 
     def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
@@ -573,7 +700,7 @@ class CcgTypeMapper(object):
             A Production instance.
         """
         try:
-            template = self._TEMPLATES[self.signature]
+            template = self._MODEL.lookup(self.category)
             compose = template.constructor_rule
         except:
             template = None
@@ -767,13 +894,21 @@ def _process_ccg_node(pt, cl):
                 pass
             rule = get_rule(cats[0], CAT_EMPTY, result)
             if rule is None:
-                rule = get_rule(cats[0], CAT_EMPTY, result)
-                raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
-            if rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TYPE_RAISE]:
+                # TODO: log a warning if we succeed on take 2
+                rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
+                if rule is None:
+                    raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
+
+            if rule in [RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TYPE_RAISE]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
+            elif rule == RL_TC_ATOM:
+                # Special rule to change atomic type
+                rule = RL_BA
+                cl2.push_right(CcgTypeMapper.identity_functor(Category.combine(result, '\\', cats[0])))
+
             cl2 = cl2.apply(rule).unify()
-            if not cl2.verify():
+            if not cl2.verify() or not cl2.category.can_unify(result):
                 pass
             if result.get_scope_count() != cl2.get_scope_count():
                 pass
@@ -785,9 +920,12 @@ def _process_ccg_node(pt, cl):
                 pass
             rule = get_rule(cats[0], cats[1], result)
             if rule is None:
-                rule = get_rule(cats[0], cats[1], result)
-                raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
-            elif rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_CONJ]:
+                # TODO: log a warning if we succeed on take 2
+                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
+                if rule is None:
+                    raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
+
+            if rule in [RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_CONJ]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
             elif rule == RL_TC_NP_VPMOD:
@@ -798,8 +936,23 @@ def _process_ccg_node(pt, cl):
                 d.drs.remove_condition(d.drs.find_condition(Rel('event.modifier.$$$$', [DRSRef('e1'), DRSRef('x1')])))
                 fn.push(d)
                 cl2.push_right(fn)
+            elif rule in [RL_TC_ZZ, RL_TC_Z_Z, RL_TC_TT, RL_TC_T_T]:
+                # Hack - ruleclass contains signature key
+                # Don't fully understand why we get these rules. When I print the HTML for the same sentence they don't
+                # exist. For example "Mr. Vinken is chairman of Elsevier N.V., the Dutch publishing group.".  The
+                # parse tree returns a type N/N[nb] for "the" but the html output gets (N\N)/N. The html version avoids
+                # the need for these unary type raising rules.
+                # FIXME: Avoid these special type change rules by modifying the output of EasySRL.
+                cl2.push_right(CcgTypeMapper.get_empty_functor(result, Category(rule.ruleclass)))
+                cl2.flatten()
+                rule = RL_TYPE_RAISE
+            elif rule == RL_TC_ATOM:
+                # Special rule to change atomic type
+                rule = RL_BA
+                cl2.push_right(CcgTypeMapper.identity_functor(Category.combine(result, '\\', cats[0])))
+
             cl2 = cl2.apply(rule)
-            if not cl2.verify():
+            if not cl2.verify() or not cl2.category.can_unify(result):
                 pass
             if result.get_scope_count() != cl2.get_scope_count():
                 pass

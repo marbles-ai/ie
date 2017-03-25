@@ -135,6 +135,7 @@ class Category(object):
     _CleanPredArg1 = re.compile(r':[A-Z]')
     _CleanPredArg2 = re.compile(r'\)_\d+')
     _CleanPredArg3 = re.compile(r'_\d+')
+    _Wildcard = re.compile(r'[X]')
     ## @endcond
 
     def __init__(self, signature=None, conj=False):
@@ -155,7 +156,7 @@ class Category(object):
             # Don't need to handle | (= any) because parse tree has no ambiguity
             assert self._splitsig[1] in ['/', '\\', '']
 
-            ## @cond
+    ## @cond
     def __str__(self):
         return self._signature
 
@@ -375,7 +376,7 @@ class Category(object):
         """
         if not self.isatom or not other.isatom:
             return False
-        if self in [CAT_PP, CAT_NP, CAT_Sadj] and other in [CAT_PP, CAT_NP, CAT_Sadj]:
+        if self in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N] and other in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N]:
             return True
         s1 = self.signature
         s2 = other.signature
@@ -514,6 +515,15 @@ class Rule(object):
         return hash(str(self))
     ## @endcond
 
+    @property
+    def ruleclass(self):
+        return self._ruleClass
+
+    @property
+    def rulename(self):
+        return self._ruleName
+
+
 ## @{
 ## @ingroup gconst
 ## @defgroup ccgrule CCG Composition Rules
@@ -559,7 +569,7 @@ RL_BX = Rule('BX', 'C')
 ## Forward   X:a => T/(T\X): λxf.f(a)
 ## Backward  X:a => T\(T/X): λxf.f(a)
 ## @endverbatim
-RL_TYPE_RAISE = Rule('TYPE_RAISE')
+RL_TYPE_RAISE = Rule('TR')
 
 ## Generalized Forward Composition
 ## @verbatim
@@ -595,7 +605,7 @@ RL_FS = Rule('FS', 'S')
 ## @verbatim
 ## Y\Z:g (X\Y)\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
 ## @endverbatim
-RL_BS = Rule('FS', 'S')
+RL_BS = Rule('BS', 'S')
 
 ## Forward Crossing Substitution
 ## @verbatim
@@ -626,10 +636,18 @@ RL_RNUM = Rule('RNUM')
 RL_LNUM = Rule('LNUM')
 
 ## Special type changing rule. See LDC manual 2005T13.
-RL_TC_VP_VPMOD = Rule('TYPE_CHANGE_VP_VPMOD')
-RL_TC_VP_NPMOD = Rule('TYPE_CHANGE_VP_NPMOD')
-RL_TC_NP_VPMOD = Rule('TYPE_CHANGE_NP_VPMOD')
-RL_TC_CONJ = Rule('TYPE_CHANGE_CONJ')
+RL_TC_XP_MOD = Rule('VP_VPMOD')
+RL_TC_VP_NPMOD = Rule('VP_NPMOD')
+RL_TC_NP_VPMOD = Rule('NP_VPMOD')
+RL_TC_CONJ = Rule('CONJ_TC')
+# Hack - rule class contains signature key
+RL_TC_ZZ = Rule('ZZ', r'Z/Z')
+RL_TC_Z_Z = Rule('Z_Z', r'Z\Z')
+RL_TC_TT = Rule('TT', r'T/T')
+RL_TC_T_T = Rule('T_T', r'T\T')
+RL_TC_ATOM = Rule('ATOM_TC')
+# See unaryRules in EasySRL model folder
+RL_TC_UNARY = Rule('UNARY_TC')
 #RL_TC_MOD = Rule('TYPE_CHANGE_MOD')
 ## @}
 
@@ -638,15 +656,19 @@ RL_TC_CONJ = Rule('TYPE_CHANGE_CONJ')
 ## @cond
 CAT_Sany__NP = RegexCategoryClass(r'^S(\[[a-z]+\])?[\\/]NP(\[conj\])?$')
 CAT_NP_NP = Category(r'NP\NP')
+CAT_NPNP = Category(r'NP/NP')
 CAT_NP__NP = RegexCategoryClass(r'^(NP[\\/]NP(?:\[conj\])?|N[\\/]N)$')
 CAT_Sng_NP = Category(r'S[ng]\NP')
 CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
 CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
+CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
+CAT_Sany_NP__Sany_NP = RegexCategoryClass(r'^\(S(\[[a-z]+\])?\\NP\)[\\/]\(S(\[[a-z]+\])?\\NP\)$')
 CAT_S_NP_S_NP = Category(r'(S\NP)\(S\NP)')
 CAT_S_NPS_NP = Category(r'(S\NP)/(S\NP)')
 CAT_Sadj_NP = Category(r'S[adj]\NP')
 CAT_S_NP = Category(r'S\NP')
+CAT_S_S = Category(r'S\S')
 ## @endcond
 
 
@@ -690,6 +712,12 @@ def get_rule(left, right, result, exclude=None):
             elif result == CAT_S_NP_S_NP:
                 xupdate(exclude, 13)
                 return RL_TC_NP_VPMOD
+            elif result == CAT_NP_NP:
+                xupdate(exclude, 13)
+                return RL_TC_T_T
+            elif result == CAT_NPNP:
+                xupdate(exclude, 13)
+                return RL_TC_TT
         elif right.ispunct:
             xupdate(exclude, 13)
             return RL_LPASS
@@ -699,6 +727,8 @@ def get_rule(left, right, result, exclude=None):
         if left == CAT_NP and result == CAT_SanySany:
             xupdate(exclude, 14)
             return RL_TC_NP_VPMOD
+        elif left.isatom and result.isatom:
+            return RL_TC_ATOM
         right = CAT_EMPTY
 
     if left.isconj and right != CAT_EMPTY and notexcluded(exclude, 0):
@@ -708,9 +738,12 @@ def get_rule(left, right, result, exclude=None):
         elif left == CAT_CONJ:
             if right.can_unify(result):
                 return RL_RPASS
-            elif result.isconj or result.ismodifier:
+            elif result.ismodifier and result.argument_category.can_unify(right):
+                return RL_TC_XP_MOD
+            elif result.isconj: # or result.ismodifier
                 # Section 3.7.2 LDC2005T13 manual
                 return RL_TC_CONJ
+
             '''
             if result.ismodifier and result.iscombinator and result.argument_category == right:
                 return RL_TC_MOD
@@ -752,11 +785,17 @@ def get_rule(left, right, result, exclude=None):
             # S[ng]|NP => NP|NP
             # S[dcl]|NP => NP|NP
             return RL_TC_VP_NPMOD
-        elif left == CAT_Sany_NP and (result == CAT_S_NP_S_NP or result == CAT_S_NPS_NP):
+        elif left == CAT_Sany_NP and result == CAT_Sany_NP__Sany_NP:
             # See LDC 2005T13 manual, section 3.8
-            return RL_TC_VP_VPMOD
+            return RL_TC_XP_MOD
         elif left.can_unify(result):
             return RL_LPASS
+        elif result.ismodifier and result.argument_category.can_unify(left):
+            return RL_TC_XP_MOD
+        elif result == CAT_S_S and left == CAT_Sany_NP:
+            return RL_TC_Z_Z
+        elif left.isatom and result.isatom:
+            return RL_TC_ATOM
 
     elif left.isarg_right and left.argument_category.can_unify(right) and \
             left.result_category.can_unify(result) and notexcluded(exclude, 5):
@@ -832,7 +871,7 @@ def get_rule(left, right, result, exclude=None):
             # Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
 
-    elif left.isarg_right and right.isarg_right and \
+    elif left.isarg_right and right.result_category.slash == result.result_category.slash and \
             left.argument_category.can_unify(right.result_category.result_category) and \
             Category.combine(Category.combine(left.result_category, right.result_category.slash,
                                               right.result_category.argument_category), right.slash,
@@ -848,7 +887,7 @@ def get_rule(left, right, result, exclude=None):
             # X/Y:f (Y\Z)$:...λz.gz... => (X\Z)$: ...λz.f(g(z...))
             return RL_GFX
 
-    elif right.isarg_left and left.isarg_left and \
+    elif right.isarg_left and left.result_category.slash == result.result_category.slash and \
             right.argument_category.can_unify(left.result_category.result_category) and \
             Category.combine(Category.combine(right.result_category, left.result_category.slash,
                                               left.result_category.argument_category), left.slash,

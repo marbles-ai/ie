@@ -8,7 +8,7 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
-    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_TC_VP_VPMOD, RL_RCONJ, RL_LCONJ, \
+    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_TC_XP_MOD, RL_RCONJ, RL_LCONJ, \
     RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ
 import weakref
 import collections
@@ -303,7 +303,9 @@ class DrsProduction(Production):
 
     def verify(self):
         """Test helper."""
-        return len(self.lambda_refs) == 1
+        if len(self.lambda_refs) != 1 or not self.category.isatom:
+            pass
+        return len(self.lambda_refs) == 1 and self.category.isatom
 
     def remove_proper_noun(self):
         self._nnp = False
@@ -837,9 +839,9 @@ class ProductionList(Production):
         template = self._compList.pop()
         vp_or_np = self._compList[-1]
         c = self._compList
-        if rule == RL_TC_VP_VPMOD:
+        if rule == RL_TC_XP_MOD:
             # Section 3.8
-            d = vp_or_np.type_change_vp_vpmod(template)
+            d = template.type_change_mod_from_xp(vp_or_np)
         elif rule == RL_TC_VP_NPMOD:
             # Section 3.8
             d = vp_or_np.type_change_vp_npmod(template)
@@ -903,7 +905,7 @@ class ProductionList(Production):
             self.conjoin_backward()
         elif rule == RL_RCONJ:
             self.conjoin_forward()
-        elif rule in [RL_TC_VP_VPMOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ]:
+        elif rule in [RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ]:
             self.special_type_change(rule)
         elif rule == RL_TYPE_RAISE:
             self.type_raise()
@@ -1242,7 +1244,7 @@ class FunctorProduction(Production):
         for la, lr in zip(atoms, lrefs):
             if len(la) != len(lr):
                 return False
-        return True
+        return inscope._comp.verify()
 
     def find_anaphora(self, r):
         """Find anaphora for referent r.
@@ -1394,34 +1396,43 @@ class FunctorProduction(Production):
             raise DrsComposeError('mismatch of lambda vars when doing special type change')
         rs = zip(lr, slr)
         npnp.rename_vars(rs)
-        npnp.pop()  # discard inner DrsProduction
+        np = npnp.pop()  # discard inner DrsProduction
         d = self.pop()
         d.set_lambda_refs([slr[0]])
+        d.set_category(np.category)
         npnp.push(d)
         self.clear()
         return npnp
 
-    def type_change_vp_vpmod(self, mod):
+    def type_change_mod_from_xp(self, vp):
         """Special type change. See LDC manual section 3.8.
 
         Args:
-            mod: The modifier template. The inner DrsProduction will be discarded.
+            vp: The verb phrase (a S\NP category). 
 
         Remarks:
-            self is a S\NP category.
+            self is template. The inner DrsProduction will be discarded.
         """
-        assert mod.category.ismodifier
-        lr = mod.lambda_refs
-        slr = self.lambda_refs
+        assert self.category.ismodifier
+        self.make_vars_disjoint(vp)
+        lr = self.get_unify_scopes(True)[0]  # argument scope
+        if vp.isfunctor:
+            slr = vp.get_unify_scopes(False)  # all scope
+        else:
+            slr = vp.lambda_refs
         if len(lr) != len(slr):
             raise DrsComposeError('mismatch of lambda vars when doing special type change')
-        rs = zip(lr, slr)
-        mod.rename_vars(rs)
-        mod.pop()  # discard inner DrsProduction
-        d = self.pop()
-        mod.push(d)
-        self.clear()
-        return mod
+        rs = zip(slr, lr)
+        self.rename_vars(rs)
+        x = self.pop()  # discard inner DrsProduction
+        if vp.isfunctor:
+            d = vp.pop()
+            d.set_category(x.category)
+            self.push(d)
+        else:
+            vp.set_category(x.category)
+            self.push(vp)
+        return self
 
     def type_change_vpmod_from_np(self, np):
         """Special type change. See LDC manual section 3.8.
@@ -1447,7 +1458,10 @@ class FunctorProduction(Production):
         rs = zip(slr, lr)
         self.rename_vars(rs)
         d = self.pop()
-        p = ProductionList(d)   # d first so lambda refs from it
+        p = ProductionList()
+        p.set_category(d.category)
+        p.set_lambda_refs(d.lambda_refs)
+        p.push_right(d)
         p.push_right(np)
         self.push(p.unify())
         return self
@@ -1463,6 +1477,8 @@ class FunctorProduction(Production):
         """
         self.make_vars_disjoint(np)
         slr = self.inner_scope._comp.lambda_refs
+        if not isinstance(np, DrsProduction):
+            pass
         assert isinstance(np, DrsProduction)
         lr = np.lambda_refs
         if len(lr) == 0:
@@ -1478,7 +1494,8 @@ class FunctorProduction(Production):
             rs = zip(slr, lr)
             self.rename_vars(rs)
 
-        self.pop() # discard inner DrsProduction
+        x = self.pop() # discard inner DrsProduction
+        np.set_category(x.category)
         self.push(np)
         return self
 
@@ -1496,6 +1513,7 @@ class FunctorProduction(Production):
         self.make_vars_disjoint(np)
         slr = self.inner_scope._comp.lambda_refs
         assert isinstance(np, DrsProduction)
+        assert not np.isfunctor
         lr = np.lambda_refs
         if len(lr) == 0:
             lr = np.universe
@@ -1510,6 +1528,7 @@ class FunctorProduction(Production):
 
         fc = self.pop()
         np.set_lambda_refs(fc.lambda_refs)
+        np.set_category(self.category.extract_unify_atoms(False)[-1])
         self.push(np)
         return self
 
@@ -1582,11 +1601,12 @@ class FunctorProduction(Production):
 
         # Build
         pl = ProductionList()
+        pl.set_category(fc.category)
+        pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)
         pl.push_right(gc)
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
-        pl.set_category(fc.category)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
         # is exhausted after this pop()
@@ -1621,7 +1641,7 @@ class FunctorProduction(Production):
         # Create a new category
         resultcat = Category.combine(self.category.result_category, g.category.result_category.slash,
                                      g.category.result_category.argument_category)
-        cat = Category.combine(resultcat, g.slash, g.category.argument_category)
+        cat = Category.combine(resultcat, g.category.slash, g.category.argument_category)
 
         # Rename so f names are disjoint with g names.
         # Try to keep var subscripts increasing left to right.
@@ -1636,19 +1656,27 @@ class FunctorProduction(Production):
 
         # Get lambdas
         gc = g.pop()
-        dollar = g.pop(0)
+        assert gc is not None
+        dollar = g.pop()
         dollar._category = cat
-        zg = g
+        zg = g.pop()
+        if zg is None:
+            # Y is an atom (i.e. Y=gc) and functor scope is exhausted
+            assert g.category.result_category.result_category.isatom
+            zg = g
+            glr = gc.lambda_refs
+        else:
+            # Get Y unification lambdas
+            g.push(gc)
+            glr = g.get_unify_scopes(False)
+            g.pop()
+            assert gc is not None
         zg._category = resultcat
 
-        # Get Y unification lambdas
-        g.push(gc)
-        glr = g.get_unify_scopes(False)
-        g.pop()
         fc = self.pop()
-        assert gc is not None
         assert fc is not None
         yflr = self.inner_scope.get_unify_scopes(False)
+
         if len(yflr) != len(glr):
             pass
         assert len(yflr) == len(glr)
@@ -1664,11 +1692,12 @@ class FunctorProduction(Production):
 
         # Build
         pl = ProductionList()
+        pl.set_category(fc.category)
+        pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first entry sets lambdas
         pl.push_right(gc)
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
-        pl.set_category(fc.category)
         dollar.push(pl)
         zg.push(dollar)
 
@@ -1754,11 +1783,12 @@ class FunctorProduction(Production):
 
         # Build
         pl = ProductionList()
+        pl.set_category(fc.category)
+        pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first in list sets lambdas
         pl.push_right(gc)
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
-        pl.set_category(fc.category)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
         # is exhausted after this pop()
@@ -1899,11 +1929,11 @@ class FunctorProduction(Production):
             # functor production
             cl = ProductionList()
             cl.set_options(self.compose_options)
-            cl.set_category(self.category.result_category)
 
             # Apply the combinator
             gcomp = g.pop()
             fcomp = self.pop()
+            cl.set_category(fcomp.category)
             cl.set_lambda_refs(fcomp.lambda_refs)
             if self.isarg_left:
                 cl.push_right(gcomp)
@@ -1931,7 +1961,7 @@ class FunctorProduction(Production):
         c.set_options(self.compose_options)
         c = c.unify()
         c.set_lambda_refs(lr)
-        c.set_category(self.category.result_category)
+        c.set_category(self._comp.category)
         self.clear()
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
