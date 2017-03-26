@@ -3,11 +3,12 @@
 
 from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
 from common import DRSConst, DRSVar
-from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
+from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError, \
+    Production
 from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
     CAT_Sany, CAT_PP, CAT_NP, CAT_LRB, CAT_RRB, CAT_ADJECTIVE, CAT_POSSESSIVE_ARGUMENT, \
     CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION, CAT_ADVERB, CAT_S, \
-    get_rule, RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, RL_TC_ATOM, \
+    get_rule, RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
     RL_TYPE_RAISE, RL_TC_ZZ, RL_TC_Z_Z, RL_TC_TT, RL_TC_T_T, RL_BA
 from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
 from parse import parse_drs
@@ -107,6 +108,54 @@ _WEEKDAYS = {
 }
 
 
+def identity_functor(category, ref=None):
+    """Return the identity functor `λx.P(x)`.
+
+    Args:
+        category: A functor category where the result and argument are atoms.
+        ref: optional DRSRef to use as identity referent.
+
+    Returns:
+        A FunctorProduction instance.
+
+    Remarks:
+        This can be used for atomic unary rules.
+    """
+    assert category.result_category.isatom
+    assert category.argument_category.isatom
+    d = DrsProduction(DRS([], []), category=category.result_category)
+    if ref is None:
+        ref = DRSRef('x1')
+    d.set_lambda_refs([ref])
+    return FunctorProduction(category, ref, d)
+
+
+class FunctorTemplateGeneration(object):
+    """Template Generation Variables"""
+
+    def __init__(self):
+        self.ei = 0
+        self.xi = 0
+        self.tags = {}
+
+    def next_ei(self):
+        self.ei += 1
+        return self.ei
+
+    def next_xi(self):
+        self.xi += 1
+        return self.xi
+
+    def istagged(self, key):
+        return key in self.tags
+
+    def get_tag(self, key):
+        return self.tags[key]
+
+    def tag(self, key, v):
+        self.tags[key] = v
+
+
 class FunctorTemplate(object):
     """Template for functor generation."""
     _names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
@@ -179,12 +228,13 @@ class FunctorTemplate(object):
         return self._final_atom != CAT_Sadj and self._final_atom == CAT_Sany
 
     @classmethod
-    def create_from_category(cls, predarg, final_atom=None):
+    def create_from_category(cls, predarg, final_atom=None, gen=None):
         """Create a functor template from a predicate-argument category.
 
         Args:
             predarg: The predicate-argument category.
             final_atom: for special Z|Z and T|T rules where we override the unify scope.
+            gen: Optional FunctorTemplateGeneration instance. Required for unary rule generation.
 
         Returns:
             A FunctorTemplate instance or None if predarg is an atomic category.
@@ -194,20 +244,12 @@ class FunctorTemplate(object):
         if not catclean.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
             return None
 
-        # Handle special cases
-        '''
-        if catclean == CAT_PPNP:
-            return FunctorTemplate(tuple([(PropProduction, (DRSRef('x1'), DRSRef('x2')))]), predarg,
-                                   DRSRef('x1'), CAT_PP)
-        '''
+        predarg = predarg.clean()       # strip functor tags
         predargOrig = predarg
-        predarg = predargOrig.clean()   # strip functor tags
+        if gen is None:
+            gen = FunctorTemplateGeneration()
 
-        pvars = {}
-        ei = 0
-        xi = 0
         fn = []
-
         while predarg.isfunctor:
             atoms = predarg.argument_category.extract_unify_atoms(False)
             predarg = predarg.result_category
@@ -217,18 +259,16 @@ class FunctorTemplate(object):
                 m = cls._PredArgIdx.match(a.signature)
                 if m is not None:
                     key = m.group('idx')
-                if key is None or key not in pvars:
+                if key is None or not gen.istagged(key):
                     acln = a.clean(True)
                     if (acln == CAT_Sany and acln != CAT_Sadj) or acln.signature[0] == 'Z':
-                        ei += 1
-                        r = DRSRef(DRSVar('e', ei))
+                        r = DRSRef(DRSVar('e', gen.next_ei()))
                     else:
-                        xi += 1
-                        r = DRSRef(DRSVar('x', xi))
+                        r = DRSRef(DRSVar('x', gen.next_xi()))
                     if key is not None:
-                        pvars[key] = r
+                        gen.tag(key, r)
                 else:
-                    r = pvars[key]
+                    r = gen.get_tag(key)
                 refs.append(r)
 
             if len(refs) == 1:
@@ -243,15 +283,90 @@ class FunctorTemplate(object):
         if m is not None:
             key = m.group('idx')
 
-        if key is None or key not in pvars:
+        if key is None or not gen.istagged(key):
             if acln == CAT_Sany and acln != CAT_Sadj:
-                r = DRSRef(DRSVar('e', ei+1))
+                r = DRSRef(DRSVar('e', gen.next_ei()))
             else:
-                r = DRSRef(DRSVar('x', xi+1))
+                r = DRSRef(DRSVar('x', gen.next_xi()))
+            if key is not None:
+                gen.tag(key, r)
         else:
-            r = pvars[key]
+            r = gen.get_tag(key)
 
         return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom)
+
+    def create_empty_functor(self):
+        """Create a FunctorProduction with an empty inner DrsProduction
+
+        Returns:
+            A FunctorProduction.
+        """
+        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards())
+        fn.set_lambda_refs([self.final_ref])
+        category = self.category.clean(True).remove_wildcards()
+        for c in self._constructor_rule:
+            assert not category.isempty
+            assert category.isfunctor
+            fn = c[0](category, c[1], fn)
+            category = category.result_category
+        assert category.isatom
+        return fn
+
+
+class UnaryRule(object):
+    """A unary rule."""
+
+    def __init__(self, result, argument):
+        """Constructor for unary rule `result <- argument`.
+
+        Args:
+            result: The result category.
+            argument: The argument category.
+
+        Remarks:
+            Both categories must include predarg tags.
+        """
+        if not isinstance(result, Category):
+            raise TypeError('UnaryRule expects a result Category')
+        if not isinstance(argument, Category):
+            raise TypeError('UnaryRule expects a argument Category')
+        self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean()))
+
+    @staticmethod
+    def create_key(result, argument):
+        """Create a rule key from result and argument categories.
+
+        Args:
+            result: The result category.
+            argument: The argument category.
+
+        Returns:
+            A string.
+
+        Remarks:
+            Both categories must NOT include predarg tags. To remove tags do Category.clean(True).
+        """
+        if not isinstance(result, Category):
+            raise TypeError('UnaryRule.create_key() expects a Category instance ')
+        if not isinstance(argument, Category):
+            raise TypeError('UnaryRule.create_key() expects a Category instance')
+        return Category.combine(result, '\\', argument).signature
+
+    def getkey(self):
+        """Get the dictionary key for this rule.
+
+        Returns:
+            A string.
+        """
+        return self._template.category.clean(True).signature
+
+    def get(self):
+        """Get a unary functor that can be applied using function application.
+
+        Returns:
+            A FunctorProduction instance.
+        """
+        return self._template.create_empty_functor()
 
 
 class Model(object):
@@ -262,8 +377,13 @@ class Model(object):
         """Constructor.
 
         Args:
-            templates: A dictionary of FunctorTemplates keyed by category signature
+            templates: A dictionary of FunctorTemplates keyed by category signature.
+            unary_rules: A dictionary of UnaryRules keyed by category signature
         """
+        if templates is None:
+            templates = {}
+        if unary_rules is None:
+            unary_rules = {}
         self._TEMPLATES = templates
         self._UNARY = unary_rules
 
@@ -293,6 +413,40 @@ class Model(object):
         if key not in self._TEMPLATES or replace:
             self._TEMPLATES[key] = FunctorTemplate.create_from_category(cat, final_atom)
 
+    def add_unary_rule(self, result, argument, replace=False):
+        """Add a unary rule."""
+        if isinstance(result, str):
+            result = Category(result)
+        elif not isinstance(result, Category):
+            raise TypeError('Model.add_unary_rule() expects signature or Category result')
+        if isinstance(argument, str):
+            argument = Category(argument)
+        elif not isinstance(argument, Category):
+            raise TypeError('Model.add_unary_rule() expects signature or Category argument')
+
+        rule = UnaryRule(result, argument)
+        key = rule.getkey()
+        if key not in self._UNARY or replace:
+            self._UNARY[key] = rule
+
+    def lookup_unary(self, result, argument):
+        if isinstance(result, str):
+            result = Category(result)
+        elif not isinstance(result, Category):
+            raise TypeError('Model.lookup_unary() expects signature or Category result')
+        if isinstance(argument, str):
+            argument = Category(argument)
+        elif not isinstance(argument, Category):
+            raise TypeError('Model.lookup_unary() expects signature or Category argument')
+        key = UnaryRule.create_key(result, argument)
+        if key in self._UNARY:
+            return self._UNARY[key]
+        # Perform wildcard replacements
+        wc = self._Feature.sub('[X]', key)
+        if wc in self._UNARY:
+            return self._UNARY[wc]
+        return None
+
     def lookup(self, category):
         """Lookup a FunctorTemplate with key=category."""
         # TODO: use two dictionaries, readonly and thread-safe.
@@ -314,9 +468,6 @@ class Model(object):
             wc = self._Feature.sub('[X]', category.signature)
             return wc in self._TEMPLATES
         return False
-
-
-
 
 
 # Special categories for punctuation
@@ -399,14 +550,51 @@ class CcgTypeMapper(object):
         _MODEL.add_template(r'((S[dcl]\NP_2)/NP_1)/PR')
         _MODEL.add_template(r'(NP_1\NP_1)\(S[dcl]\NP_1)')
         _MODEL.add_template(r'(NP_1/NP_1)\(S[adj]\NP_1)')
-        _MODEL.add_template(r'(NP/N)\NP)')
-
+        _MODEL.add_template(r'(NP/N)\NP')
 
         # Special rules for punctuation.
         _MODEL.add_template(r'Z_1/Z_2', final_atom=CAT_S)
         _MODEL.add_template(r'Z_1\Z_2', final_atom=CAT_S)
         _MODEL.add_template(r'T_1/T_2', final_atom=CAT_NP)
         _MODEL.add_template(r'T_1\T_2', final_atom=CAT_NP)
+
+        _MODEL.add_unary_rule(r'NP_1', r'N_1')
+        _MODEL.add_unary_rule(r'NP_1\NP_2', r'NP_1')
+        # Wildcards incur more string processing so cover main rules
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S[pss]_2\NP_1')
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S[adj]_2\NP_1')
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S[dcl]_2\NP_1')
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S[ng]_2\NP_1')
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S_2\NP_1')
+        _MODEL.add_unary_rule(r'N_1\N_1', r'S[X]_2\NP_1')
+
+        _MODEL.add_unary_rule(r'S_1/S_1', r'S[pss]_2\NP')
+        _MODEL.add_unary_rule(r'S_1/S_1', r'S[to]_2\NP')
+        _MODEL.add_unary_rule(r'S_1/S_1', r'S[ng]_2\NP')
+
+        _MODEL.add_unary_rule(r'S_1\S_1', r'S[X]_2\NP')
+
+        _MODEL.add_unary_rule(r'(S[X]_1\NP_2)\(S[X]_1\NP_2)', 'S[X]_1\NP_2')
+        _MODEL.add_unary_rule(r'((S[dcl]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[dcl]_3\NP_2)_3')
+        _MODEL.add_unary_rule(r'((S[pss]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[pss]_3\NP_2)_3')
+        _MODEL.add_unary_rule(r'((S[b]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[b]_3\NP_2)_3')
+        _MODEL.add_unary_rule(r'((S[ng]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[ng]_3\NP_2)_3')
+        _MODEL.add_unary_rule(r'((S_1\NP_1)\(S_1\NP_1))\((S_1\NP_1)\(S_1\NP_1))', '(S_1\NP_1)\(S_1\NP_1)')
+
+        _MODEL.add_unary_rule(r'(S[pss]\NP)\(S[pss]\NP)', 'S\NP')
+        _MODEL.add_unary_rule(r'(S[dcl]\NP)\(S[dcl]\NP)', 'S\NP')
+        _MODEL.add_unary_rule(r'(S[em]\NP)\(S[em]\NP)', 'S\NP')
+        _MODEL.add_unary_rule(r'(S[X]\NP)\(S[X]\NP)', 'S\NP')
+        _MODEL.add_unary_rule(r'(S_1\NP_1)\(S_1\NP_1)', 'S_1\NP_1')
+        _MODEL.add_unary_rule(r'(N_1/N_1)\(N_1/N_1)', 'N_1/N_1')
+        _MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S[X]_1')
+        _MODEL.add_unary_rule(r'S[dcl]_1\S[dcl]_1', r'S_1')
+        _MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S_1')
+
+        _MODEL.add_unary_rule(r'(N_2/PP_1)\(N_2/PP_1)', r'N_2/PP_1')
+        _MODEL.add_unary_rule(r'(S_2/S_1)\(S_2/S_1)', r'S_2/S_1')
+        _MODEL.add_unary_rule(r'S_1/S_1', r'S[ng]_1\NP_2')
+
     except Exception as e:
         print(e)
         # Allow module to load else we cannot create the dat file.
@@ -536,6 +724,14 @@ class CcgTypeMapper(object):
         return self._ccgcat
 
     @classmethod
+    def lookup_unary(cls, result, argument):
+        return cls._MODEL.lookup_unary(result, argument)
+
+    @classmethod
+    def lookup(cls, category):
+        return cls._MODEL.lookup(category)
+
+    @classmethod
     def get_empty_functor(cls, category, key=None):
         """Get a functor with an empty DRS. The functor must exist in the class templates
         else an exception will be raised.
@@ -562,14 +758,6 @@ class CcgTypeMapper(object):
             fn = c[0](category, c[1], fn)
             category = category.result_category
         return fn
-
-    @classmethod
-    def identity_functor(cls, category):
-        assert category.result_category.isatom
-        assert category.argument_category.isatom
-        d = DrsProduction(DRS([], []), category=category.result_category)
-        d.set_lambda_refs([DRSRef('x1')])
-        return FunctorProduction(category, DRSRef('x1'), d)
 
     def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
@@ -766,7 +954,7 @@ class CcgTypeMapper(object):
         else:
             refs = []
             signatures = []
-            s = self.category
+            s = self.category.remove_wildcards()
             for c in compose:
                 signatures.append(s)
                 if s.isarg_right:
@@ -854,7 +1042,7 @@ class CcgTypeMapper(object):
                                        properNoun=self.isproper_noun)
 
             fn.set_lambda_refs([template.final_ref])
-            fn.set_category(template.final_atom)
+            fn.set_category(template.final_atom.remove_wildcards())
             for c, s in zip(compose, signatures):
                 fn = c[0](s, c[1], fn)
             return fn
@@ -902,10 +1090,15 @@ def _process_ccg_node(pt, cl):
             if rule in [RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TYPE_RAISE]:
                 ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
                 cl2.push_right(ccgt.get_composer())
-            elif rule == RL_TC_ATOM:
-                # Special rule to change atomic type
+            elif rule == RL_TCL_UNARY:
                 rule = RL_BA
-                cl2.push_right(CcgTypeMapper.identity_functor(Category.combine(result, '\\', cats[0])))
+                unary = CcgTypeMapper.lookup_unary(result, cats[0])
+                if unary is None:
+                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
+                cl2.push_right(unary.get())
+            elif rule == RL_TC_ATOM:
+                rule = RL_BA
+                cl2.push_right(identity_functor(Category.combine(result, '\\', cats[0])))
 
             cl2 = cl2.apply(rule).unify()
             if not cl2.verify() or not cl2.category.can_unify(result):
@@ -946,10 +1139,22 @@ def _process_ccg_node(pt, cl):
                 cl2.push_right(CcgTypeMapper.get_empty_functor(result, Category(rule.ruleclass)))
                 cl2.flatten()
                 rule = RL_TYPE_RAISE
+            elif rule == RL_TCL_UNARY:
+                rule = RL_BA
+                unary = CcgTypeMapper.lookup_unary(result, cats[0])
+                if unary is None:
+                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
+                cl2.push_right(unary.get())
+            elif rule == RL_TCR_UNARY:
+                rule = RL_BA
+                unary = CcgTypeMapper.lookup_unary(result, cats[1])
+                if unary is None:
+                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
+                cl2.push_right(unary.get())
             elif rule == RL_TC_ATOM:
                 # Special rule to change atomic type
                 rule = RL_BA
-                cl2.push_right(CcgTypeMapper.identity_functor(Category.combine(result, '\\', cats[0])))
+                cl2.push_right(identity_functor(Category.combine(result, '\\', cats[0])))
 
             cl2 = cl2.apply(rule)
             if not cl2.verify() or not cl2.category.can_unify(result):

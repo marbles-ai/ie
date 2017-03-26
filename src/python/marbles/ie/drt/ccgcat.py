@@ -130,7 +130,7 @@ class Category(object):
     _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
     _TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
     _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
-    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+)\]')
+    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+|X)\]')
     _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
     _CleanPredArg1 = re.compile(r':[A-Z]')
     _CleanPredArg2 = re.compile(r'\)_\d+')
@@ -309,8 +309,22 @@ class Category(object):
             A Category instance.
         """
         if deep:
-            return Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.signature)))
-        return Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
+            newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.signature)))
+        else:
+            newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
+        while not newcat.isfunctor and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
+            newcat = Category(newcat.signature[1:-1])
+        return newcat
+
+    def remove_wildcards(self):
+        """Remove wildcards from the category.
+
+        Returns:
+            A Category instance.
+        """
+        if '[X]' in self._signature:
+            return Category(self._signature.replace('[X]', ''), self.isconj)
+        return self
 
     def _extract_atoms_helper(self, atoms):
         if self.isfunctor:
@@ -647,7 +661,8 @@ RL_TC_TT = Rule('TT', r'T/T')
 RL_TC_T_T = Rule('T_T', r'T\T')
 RL_TC_ATOM = Rule('ATOM_TC')
 # See unaryRules in EasySRL model folder
-RL_TC_UNARY = Rule('UNARY_TC')
+RL_TCL_UNARY = Rule('L_UNARY_TC')
+RL_TCR_UNARY = Rule('R_UNARY_TC')
 #RL_TC_MOD = Rule('TYPE_CHANGE_MOD')
 ## @}
 
@@ -705,19 +720,30 @@ def get_rule(left, right, result, exclude=None):
 
     # Handle punctuation
     if left.ispunct and notexcluded(exclude, 13):
+        if right.ispunct:
+            return RL_LPASS
+        elif right.can_unify(result):
+            return RL_RPASS
+        else:
+            xupdate(exclude, 13)
+            return RL_TCR_UNARY
         if left.signature == ',' and right == CAT_NP:
             if result == CAT_Sany_Sany:
                 xupdate(exclude, 13)
-                return RL_TC_NP_VPMOD
+                return RL_TCR_UNARY
+                #return RL_TC_NP_VPMOD
             elif result == CAT_S_NP_S_NP:
                 xupdate(exclude, 13)
-                return RL_TC_NP_VPMOD
+                return RL_TCR_UNARY
+                #return RL_TC_NP_VPMOD
             elif result == CAT_NP_NP:
                 xupdate(exclude, 13)
-                return RL_TC_T_T
+                return RL_TCR_UNARY
+                #return RL_TC_T_T
             elif result == CAT_NPNP:
                 xupdate(exclude, 13)
-                return RL_TC_TT
+                return RL_TCR_UNARY
+                #return RL_TC_TT
         elif right.ispunct:
             xupdate(exclude, 13)
             return RL_LPASS
@@ -726,7 +752,8 @@ def get_rule(left, right, result, exclude=None):
     elif right.ispunct and notexcluded(exclude, 14):
         if left == CAT_NP and result == CAT_SanySany:
             xupdate(exclude, 14)
-            return RL_TC_NP_VPMOD
+            return RL_TCL_UNARY
+            #return RL_TC_NP_VPMOD
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
         right = CAT_EMPTY
@@ -739,7 +766,8 @@ def get_rule(left, right, result, exclude=None):
             if right.can_unify(result):
                 return RL_RPASS
             elif result.ismodifier and result.argument_category.can_unify(right):
-                return RL_TC_XP_MOD
+                return RL_TCR_UNARY
+                #return RL_TC_XP_MOD
             elif result.isconj: # or result.ismodifier
                 # Section 3.7.2 LDC2005T13 manual
                 return RL_TC_CONJ
@@ -784,16 +812,20 @@ def get_rule(left, right, result, exclude=None):
             # S[pss]|NP => NP|NP
             # S[ng]|NP => NP|NP
             # S[dcl]|NP => NP|NP
-            return RL_TC_VP_NPMOD
+            #return RL_TC_VP_NPMOD
+            return RL_TCL_UNARY
         elif left == CAT_Sany_NP and result == CAT_Sany_NP__Sany_NP:
             # See LDC 2005T13 manual, section 3.8
-            return RL_TC_XP_MOD
+            return RL_TCL_UNARY
+            #return RL_TC_XP_MOD
         elif left.can_unify(result):
             return RL_LPASS
         elif result.ismodifier and result.argument_category.can_unify(left):
-            return RL_TC_XP_MOD
+            return RL_TCL_UNARY
+            #return RL_TC_XP_MOD
         elif result == CAT_S_S and left == CAT_Sany_NP:
-            return RL_TC_Z_Z
+            return RL_TCL_UNARY
+            #return RL_TC_Z_Z
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
 

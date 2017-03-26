@@ -225,6 +225,20 @@ class Production(object):
         """Test helper."""
         return True
 
+    def make_vars_disjoint(self, arg):
+        """Make variable names disjoint. This is always done before unification.
+
+        Remarks:
+            For functors should only call from outer scope.
+        """
+        ers = union(arg.lambda_refs, arg.variables)
+        ers2 = union(self.lambda_refs, self.variables)
+        ors = intersect(ers, ers2)
+        if len(ors) != 0:
+            nrs = get_new_drsrefs(ors, union(ers, ers2))
+            xrs = self.nodups(zip(ors, nrs))
+            self.rename_vars(xrs)
+
 
 class DrsProduction(Production):
     """A DRS production."""

@@ -739,7 +739,7 @@ class ComposeTest(unittest.TestCase):
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(len(lines)):
+            for i in range(0, len(lines)):
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
                 try:
@@ -796,7 +796,7 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles[35:]:
+        for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
