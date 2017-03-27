@@ -33,7 +33,8 @@ from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 ## @cond
 NegateOp = re.compile(r'not|neg|!')
 BinaryOp = re.compile(r'box|b|necessary|diamond|d|maybe|imp|=>|->|then|or|v')
-Predicate = re.compile(r'[a-zA-Z][_\w.$-]*')
+Predicate = re.compile(r'[.a-zA-Z][_\w.$-]*')
+Variable = re.compile(r'[a-zA-Z][_\w.$-]*')
 Number = re.compile(r'-?\d+')
 PosInt = re.compile(r'\d+')
 ## @endcond
@@ -51,14 +52,14 @@ class Map(List):
 
 
 class ProjRef(List):
-    grammar = '(', PosInt, ',', Predicate, ')'
+    grammar = '(', PosInt, ',', Variable, ')'
 
     def to_drs(self):
         return PRef(int(self[0]), PDRSRef(self[1].encode('utf-8')))
 
 
 class PRelExpr(List):
-    grammar = Predicate, '(', csl(Predicate), ')'
+    grammar = Predicate, '(', csl(Variable), ')'
 
     def to_drs(self):
         refs = [PDRSRef(r.encode('utf-8')) for r in self[1:]]
@@ -74,7 +75,7 @@ class PdrsDecl(List):
 
 
 class PPropExpr(List):
-    grammar = Predicate, ':', PdrsDecl
+    grammar = Variable, ':', PdrsDecl
 
     def to_drs(self):
         return PProp(PDRSRef(self[0].encode('utf-8')), self[1].to_drs())
@@ -183,7 +184,7 @@ def parse_pdrs(s):
 
 
 class RelExpr(List):
-    grammar = Predicate, '(', csl(Predicate), ')'
+    grammar = Predicate, '(', csl(Variable), ')'
 
     def to_drs(self):
         refs = [DRSRef(r.encode('utf-8')) for r in self[1:]]
@@ -199,7 +200,7 @@ class DrsDecl(List):
 
 
 class PropExpr(List):
-    grammar = Predicate, ':', DrsDecl
+    grammar = Variable, ':', DrsDecl
 
     def to_drs(self):
         return Prop(DRSRef(self[0].encode('utf-8')), self[1].to_drs())
@@ -241,7 +242,7 @@ class CondDecl(List):
 
 
 class RefDecl(List):
-    grammar = optional(csl(Predicate))
+    grammar = optional(csl(Variable))
 
     def to_drs(self):
         return [DRSRef(x.encode('utf-8')) for x in self]
@@ -264,7 +265,7 @@ class NltkDecl(List):
 
 
 class NltkPropExpr(List):
-    grammar = Predicate, ':', NltkDecl
+    grammar = Variable, ':', NltkDecl
 
     def to_drs(self):
         return Prop(DRSRef(self[0].encode('utf-8')), self[1].to_drs())
@@ -324,7 +325,7 @@ class NltkCondDecl(List):
 
 
 class NltkRefDecl(List):
-    grammar = optional(csl(Predicate))
+    grammar = optional(csl(Variable))
 
     def to_drs(self):
         return [DRSRef(x.encode('utf-8')) for x in self]
