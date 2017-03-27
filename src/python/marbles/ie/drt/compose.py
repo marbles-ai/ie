@@ -8,8 +8,8 @@ from utils import iterable_type_check, intersect, union, union_inplace, compleme
 from common import SHOW_LINEAR
 from ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
-    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_TC_XP_MOD, RL_RCONJ, RL_LCONJ, \
-    RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ
+    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
+    RL_TC_CONJ
 import weakref
 import collections
 
@@ -251,7 +251,7 @@ class DrsProduction(Production):
         """
         super(DrsProduction, self).__init__(category)
         if not isinstance(drs, DRS):
-            raise TypeError
+            raise TypeError('DrsProduction expects DRS')
         self._drs = drs
         self._nnp = properNoun
 
@@ -853,19 +853,11 @@ class ProductionList(Production):
         template = self._compList.pop()
         vp_or_np = self._compList[-1]
         c = self._compList
-        if rule == RL_TC_XP_MOD:
-            # Section 3.8
-            d = template.type_change_mod_from_xp(vp_or_np)
-        elif rule == RL_TC_VP_NPMOD:
-            # Section 3.8
-            d = vp_or_np.type_change_vp_npmod(template)
-        elif rule == RL_TC_CONJ:
+        if rule == RL_TC_CONJ:
             # Section 3.7.2
             d = template.type_change_np_snp(vp_or_np)
         else:
-            # Section 3.8
-            assert rule == RL_TC_NP_VPMOD
-            d = template.type_change_vpmod_from_np(vp_or_np)
+            assert False
         c[-1] = d
         self._compList = c
         self.set_lambda_refs(d.lambda_refs)
@@ -919,7 +911,7 @@ class ProductionList(Production):
             self.conjoin_backward()
         elif rule == RL_RCONJ:
             self.conjoin_forward()
-        elif rule in [RL_TC_XP_MOD, RL_TC_VP_NPMOD, RL_TC_NP_VPMOD, RL_TC_CONJ]:
+        elif rule == RL_TC_CONJ:
             self.special_type_change(rule)
         elif rule == RL_TYPE_RAISE:
             self.type_raise()
@@ -1394,91 +1386,6 @@ class FunctorProduction(Production):
             nrs = get_new_drsrefs(ors, union(ers, ers2))
             xrs = self.nodups(zip(ors, nrs))
             self.rename_vars(xrs)
-
-    def type_change_vp_npmod(self, npnp):
-        """Special type change. See LDC manual section 3.8.
-
-        Args:
-            npnp: The noun phrase template. Must be a NP\NP category. The inner DrsProduction will be discarded.
-
-        Remarks:
-            self is a S\NP category.
-        """
-        lr = npnp.lambda_refs
-        slr = self.inner_scope._lambda_refs.universe
-        if len(lr) != len(slr):
-            raise DrsComposeError('mismatch of lambda vars when doing special type change')
-        rs = zip(lr, slr)
-        npnp.rename_vars(rs)
-        np = npnp.pop()  # discard inner DrsProduction
-        d = self.pop()
-        d.set_lambda_refs([slr[0]])
-        d.set_category(np.category)
-        npnp.push(d)
-        self.clear()
-        return npnp
-
-    def type_change_mod_from_xp(self, vp):
-        """Special type change. See LDC manual section 3.8.
-
-        Args:
-            vp: The verb phrase (a S\NP category). 
-
-        Remarks:
-            self is template. The inner DrsProduction will be discarded.
-        """
-        assert self.category.ismodifier
-        self.make_vars_disjoint(vp)
-        lr = self.get_unify_scopes(True)[0]  # argument scope
-        if vp.isfunctor:
-            slr = vp.get_unify_scopes(False)  # all scope
-        else:
-            slr = vp.lambda_refs
-        if len(lr) != len(slr):
-            raise DrsComposeError('mismatch of lambda vars when doing special type change')
-        rs = zip(slr, lr)
-        self.rename_vars(rs)
-        x = self.pop()  # discard inner DrsProduction
-        if vp.isfunctor:
-            d = vp.pop()
-            d.set_category(x.category)
-            self.push(d)
-        else:
-            vp.set_category(x.category)
-            self.push(vp)
-        return self
-
-    def type_change_vpmod_from_np(self, np):
-        """Special type change. See LDC manual section 3.8.
-
-        Args:
-            np: The noun phrase
-
-        Remarks:
-            self is a VP modifier.
-        """
-        assert self.category.ismodifier
-        assert not np.isfunctor
-        lr = np.lambda_refs
-        if len(lr) == 0:
-            lr = np.universe
-            np.set_lambda_refs(lr)
-        if len(lr) > 1:
-            p = PropProduction(np.category, DRSRef('x1'))
-            np = p.apply(np)
-            lr = np.lambda_refs
-        self.make_vars_disjoint(np)
-        slr = self.lambda_refs
-        rs = zip(slr, lr)
-        self.rename_vars(rs)
-        d = self.pop()
-        p = ProductionList()
-        p.set_category(d.category)
-        p.set_lambda_refs(d.lambda_refs)
-        p.push_right(d)
-        p.push_right(np)
-        self.push(p.unify())
-        return self
 
     def type_change_np_snp(self, np):
         """Special type change. See LDC manual section 3.7.2.
