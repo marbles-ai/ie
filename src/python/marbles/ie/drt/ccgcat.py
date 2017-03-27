@@ -135,6 +135,7 @@ class Category(object):
     _CleanPredArg1 = re.compile(r':[A-Z]')
     _CleanPredArg2 = re.compile(r'\)_\d+')
     _CleanPredArg3 = re.compile(r'_\d+')
+    _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
     _Wildcard = re.compile(r'[X]')
     ## @endcond
 
@@ -315,6 +316,20 @@ class Category(object):
         while not newcat.isfunctor and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
             newcat = Category(newcat.signature[1:-1])
         return newcat
+
+    def trim_functor_tag(self):
+        """Trim functor predarg tags.
+
+        Returns:
+            A tuple of the trimmed category and the tag. If no tag was found None is returned as the tag.
+        """
+        if not self.isfunctor:
+            if self._signature[0] == '(':
+                m = self._TrailingFunctorPredArgTag.match(self._signature)
+                if m is not None:
+                    tag = m.group('idx')
+                    return Category(self._signature[1:-len(tag)-2]), tag
+        return self, None
 
     def remove_wildcards(self):
         """Remove wildcards from the category.

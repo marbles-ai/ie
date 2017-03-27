@@ -645,7 +645,12 @@ class ProductionList(Production):
         proper = 0
         for d in ml:
             if d.isproper_noun:
-                nextr = d.drs.referents[0] if len(d.drs.referents) != 0 else d.drs.freerefs[0]
+                # FIXME: may not be true if we promote to a proposition
+                ctmp = d.drs.conditions
+                if isinstance(d.drs.conditions[0], Rel):
+                    nextr = ctmp[0].referents[0]
+                else:
+                    nextr = DRSRef('$$$$')
                 if nextr != lastr:
                     # Hyphenate name
                     lastr = nextr
@@ -653,13 +658,11 @@ class ProductionList(Production):
                     if len(pconds) != 0:
                         conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
                         conds.extend(oconds)
-                    ctmp = d.drs.conditions
                     if isinstance(ctmp[0], Prop):
                         pass
                     pconds = [ ctmp[0] ]
                     oconds = ctmp[1:]
                 else:
-                    ctmp = d.drs.conditions
                     if isinstance(ctmp[0], Prop):
                         pass
                     pconds.append(ctmp[0])
@@ -817,8 +820,8 @@ class ProductionList(Production):
     def conjoin_backward(self):
         """Backward conjoin of like types."""
         assert len(self._compList) >= 2
-        f = self._compList.pop()
         g = self._compList.pop()
+        f = self._compList.pop()
         c = self._compList
         if f.isfunctor:
             d = f.conjoin(g, False)

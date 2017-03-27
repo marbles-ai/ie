@@ -20,46 +20,46 @@ import os
 ## @cond
 __pron = [
     # 1st person singular
-    ('i',       '([],[([],[i(x1)])->([],[me(x1),is.anaphora(x1)])])'),
-    ('me',      '([],[me(x1),is.anaphora(x1)])'),
-    ('myself',  '([],[([],[myself(x1)])->([],[me(x1),is.anaphora(x1)])])'),
-    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),is.anaphora(x2),owns(x2,x1)])])'),
-    ('my',      '([],[([],[my(x1)])->([],[me(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('i',       '([],[([],[i(x1)])->([],[me(x1),.PRON(x1)])])'),
+    ('me',      '([],[me(x1),.PRON(x1)])'),
+    ('myself',  '([],[([],[myself(x1)])->([],[me(x1),.PRON(x1)])])'),
+    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('my',      '([],[([],[my(x1)])->([],[me(x2),.PRON(x2),owns(x2,x1)])])'),
     # 2nd person singular
-    ('you',     '([],[you(x1),is.anaphora(x1)])'),
-    ('yourself','([],[([],[yourself(x1)])->([],[you(x1),is.anaphora(x1)])])'),
-    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),is.anaphora(x2),owns(x2,x1)])])'),
-    ('your',    '([],[([],[your(x1)])->([],[you(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('you',     '([],[you(x1),.PRON(x1)])'),
+    ('yourself','([],[([],[yourself(x1)])->([],[you(x1),.PRON(x1)])])'),
+    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('your',    '([],[([],[your(x1)])->([],[you(x2),.PRON(x2),owns(x2,x1)])])'),
     # 3rd person singular
-    ('he',      '([],[([],[he(x1)])->([],[him(x1),is.anaphora(x1)])])'),
-    ('she',     '([],[([],[she(x1),is.anaphora(x1)])->([],[her(x1)])])'),
-    ('him',     '([],[([],[him(x1),is.anaphora(x1)])->([],[male(x1)])])'),
-    ('her',     '([],[([],[her(x1),is.anaphora(x1)])->([],[female(x1)])])'),
-    ('himself', '([],[([],[himself(x1)])->([],[him(x1),is.anaphora(x1)])])'),
-    ('herself', '([],[([],[herself(x1)])->([],[her(x1),is.anaphora(x1)])])'),
-    ('hisself', '([],[([],[hisself(x1)])->([],[himself(x1),is.anaphora(x1)])])'),
+    ('he',      '([],[([],[he(x1)])->([],[him(x1),.PRON(x1)])])'),
+    ('she',     '([],[([],[she(x1),.PRON(x1)])->([],[her(x1)])])'),
+    ('him',     '([],[([],[him(x1),.PRON(x1)])->([],[male(x1)])])'),
+    ('her',     '([],[([],[her(x1),.PRON(x1)])->([],[female(x1)])])'),
+    ('himself', '([],[([],[himself(x1)])->([],[him(x1),.PRON(x1)])])'),
+    ('herself', '([],[([],[herself(x1)])->([],[her(x1),.PRON(x1)])])'),
+    ('hisself', '([],[([],[hisself(x1)])->([],[himself(x1),.PRON(x1)])])'),
     ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])'),
-    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),.PRON(x2),owns(x2,x1)])])'),
     # 1st person plural
-    ('we',      '([],[([],[we(x1)])->([],[us(x1),is.anaphora(x1)])])'),
+    ('we',      '([],[([],[we(x1)])->([],[us(x1),.PRON(x1)])])'),
     ('us',      '([],[us(x1)])'),
-    ('ourself', '([],[([],[ourself(x1)])->([],[our(x1),is.anaphora(x1)])])'),
-    ('ourselves','([],[([],[ourselves(x1)])->([],[our(x1),is.anaphora(x1)])])'),
-    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),is.anaphora(x2),owns(x2,x1)])])'),
-    ('our',     '([],[([],[our(x1)])->([],[us(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('ourself', '([],[([],[ourself(x1)])->([],[our(x1),.PRON(x1)])])'),
+    ('ourselves','([],[([],[ourselves(x1)])->([],[our(x1),.PRON(x1)])])'),
+    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('our',     '([],[([],[our(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
     # 2nd person plural
-    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),is.anaphora(x1),is.plural(x1)])])'),
+    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),.PRON(x1),is.plural(x1)])])'),
     # 3rd person plural
-    ('they',    '([],[([],[they(x1)])->([],[them(x1),is.anaphora(x1)])])'),
-    ('them',    '([],[them(x1),is.anaphora(x1)])'),
-    ('themself','([],[([],[themself(x1)])->([],[them(x1),is.anaphora(x1)])])'),
-    ('themselves','([],[([],[themselves(x1)])->([],[them(x1),is.anaphora(x1)])])'),
-    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),is.anaphora(x2),owns(x2,x1)])])'),
-    ('their',   '([],[([],[their(x1)])->([],[them(x2),is.anaphora(x2),owns(x2,x1)])])'),
+    ('they',    '([],[([],[they(x1)])->([],[them(x1),.PRON(x1)])])'),
+    ('them',    '([],[them(x1),.PRON(x1)])'),
+    ('themself','([],[([],[themself(x1)])->([],[them(x1),.PRON(x1)])])'),
+    ('themselves','([],[([],[themselves(x1)])->([],[them(x1),.PRON(x1)])])'),
+    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('their',   '([],[([],[their(x1)])->([],[them(x2),.PRON(x2),owns(x2,x1)])])'),
     # it
-    ('it',      '([],[it(x1),is.anaphora(x1)])'),
-    ('its',     '([],[([],[its(x1)])->([],[it(x2),is.anaphora(x2),owns(x2,x1)])])'),
-    ('itself',  '([],[([],[itself(x1)])->([],[it(x1),is.anaphora(x1)])])'),
+    ('it',      '([],[it(x1),.PRON(x1)])'),
+    ('its',     '([],[([],[its(x1)])->([],[it(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('itself',  '([],[([],[itself(x1)])->([],[it(x1),.PRON(x1)])])'),
 ]
 _PRON = {}
 for k,v in __pron:
@@ -68,10 +68,10 @@ for k,v in __pron:
 
 # Order of referents is lambda_ref binding order
 __adv = [
-    ('up',      '([x,e],[])', '([],[up(e),direction(e)])'),
-    ('down',    '([x,e],[])', '([],[down(e),direction(e)])'),
-    ('left',    '([x,e],[])', '([],[left(e),direction(e)])'),
-    ('right',   '([x,e],[])', '([],[right(e),direction(e)])'),
+    ('up',      '([e],[])', '([],[up(e),direction(e)])'),
+    ('down',    '([e],[])', '([],[down(e),direction(e)])'),
+    ('left',    '([e],[])', '([],[left(e),direction(e)])'),
+    ('right',   '([e],[])', '([],[right(e),direction(e)])'),
 ]
 _ADV = {}
 for k,u,v in __adv:
@@ -244,10 +244,12 @@ class FunctorTemplate(object):
         if not catclean.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
             return None
 
-        predarg = predarg.clean()       # strip functor tags
-        predargOrig = predarg
         if gen is None:
             gen = FunctorTemplateGeneration()
+
+        predarg, final_tag = predarg.trim_functor_tag()
+        predarg = predarg.clean()       # strip functor tags
+        predargOrig = predarg
 
         fn = []
         while predarg.isfunctor:
@@ -292,6 +294,10 @@ class FunctorTemplate(object):
                 gen.tag(key, r)
         else:
             r = gen.get_tag(key)
+
+        # If the functor is tagged then modify the final_ref
+        if final_tag is not None and gen.istagged(final_tag):
+            r = gen.get_tag(final_tag)
 
         return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom)
 
@@ -532,10 +538,12 @@ class CcgTypeMapper(object):
     try:
         _MODEL = Model.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'functor_templates.dat'))
         # For some reason, some rules generated by EasySRL are missing from LDC CCGBANK
-        _MODEL.add_template(r'(S[adj]_2\NP_1)\NP_2', replace=True)
+        _MODEL.add_template(r'((S[adj]_2\NP_1)\NP_2)_1', replace=True)
         _MODEL.add_template(r'PP_1/NP_2', replace=True)
+        _MODEL.add_template(r'N_1/PP_1', replace=True)
+        _MODEL.add_template(r'NP_1/PP_1', replace=True)
         _MODEL.add_template(r'NP/N')
-        _MODEL.add_template(r'NP_1/(N/PP_2)')
+        _MODEL.add_template(r'NP_1/(N_2/PP_2)')
 
         _MODEL.add_template(r'S[dcl]_1/S[dcl]_2')
         _MODEL.add_template(r'S[dcl]_1\S[dcl]_2')
@@ -562,7 +570,7 @@ class CcgTypeMapper(object):
         _MODEL.add_template(r'T_1\T_2', final_atom=CAT_NP)
 
         _MODEL.add_unary_rule(r'NP_1', r'N_1')
-        _MODEL.add_unary_rule(r'NP_1\NP_2', r'NP_1')
+        _MODEL.add_unary_rule(r'NP_1\NP_1', r'NP_1')
         # Wildcards incur more string processing so cover main rules
         _MODEL.add_unary_rule(r'N_1\N_1', r'S[pss]_2\NP_1')
         _MODEL.add_unary_rule(r'N_1\N_1', r'S[adj]_2\NP_1')
@@ -766,6 +774,55 @@ class CcgTypeMapper(object):
             category = category.result_category
         return fn
 
+    def build_conditions(self, conds, refs, template):
+        """Refs are reversed, refs[0] is the functor return value.
+
+        Args:
+            conds: The existing DRS conditions.
+            refs: The referents, where refs[0] is the functor return value.
+            template: A FunctorTemplate instance.
+
+        Returns:
+            The modified conditions.
+        """
+
+        # Note. Proper noun handling requires any extra predicates appear after the noun.
+        if self.isproper_noun:
+            # If we are a functor and a proper noun then argument type if the
+            # correct referent for the noun
+            if isinstance(template.constructor_rule[0][1], DRSRef):
+                x = [template.constructor_rule[0][1]]
+            else:
+                x = [template.constructor_rule[0][1][0]]
+            x.extend(complement(refs, x))
+            refs = x
+            if self._TypeMonth.match(self._word):
+                if self._word in _MONTHS:
+                    conds.append(Rel(_MONTHS[self._word], [refs[0]]))
+                else:
+                    conds.append(Rel(self._word, [refs[0]]))
+                if template.isfinalevent:
+                    conds.append(Rel('.DATE', refs[0:2]))
+                else:
+                    conds.append(Rel('.DATE', refs))
+            elif self._TypeWeekday.match(self._word):
+                if self._word in _WEEKDAYS:
+                    conds.append(Rel(_WEEKDAYS[self._word], [refs[0]]))
+                else:
+                    conds.append(Rel(self._word, [refs[0]]))
+                if template.isfinalevent:
+                    conds.append(Rel('.DATE', refs[0:2]))
+                else:
+                    conds.append(Rel('.DATE', refs))
+            else:
+                conds.append(Rel(self._word, [refs[0]]))
+        elif self.isnumber:
+            conds.append(Rel(self._word, [refs[0]]))
+            conds.append(Rel('.NUM', refs))
+        else:
+            conds.append(Rel(self._word, [refs[0]]))
+        return conds
+
     def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
         """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
         not use this for verbs or adverbs.
@@ -919,7 +976,7 @@ class CcgTypeMapper(object):
                 return d
             elif self.category == CAT_NOUN:
                 if self.isnumber:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel('.NUM', [DRSRef('x1')]), Rel(self._word, [DRSRef('x1')])]))
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]))
                 else:
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]))
                 d.set_category(self.category)
@@ -940,8 +997,6 @@ class CcgTypeMapper(object):
         # else is functor
 
         # Production templates use tuples so we don't accidentally modify.
-        # Shallow copy of event vars from template
-        ev = template.final_ref if template.isfinalevent else None
         if self.category == CAT_NP_N:    # NP*/N class
             # Ignore template in these cases
             # FIXME: these relations should be added as part of build_predicates()
@@ -979,73 +1034,59 @@ class CcgTypeMapper(object):
                     refs = r
                 s = s.result_category
 
-            if ev is not None:
-                ev = [ev] if isinstance(ev, DRSRef) else ev
-                refs.reverse()
-                refs = remove_dups(refs)
-                refs = complement(refs, ev)
-            else:
-                refs.append(template.final_ref)
-                refs.reverse()
-                refs = remove_dups(refs)
+            refs.append(template.final_ref)
+            refs.reverse()
+            refs = remove_dups(refs)
+            final_atom = template.final_atom.remove_wildcards()
 
             # Verbs can also be adjectives so check event
-            if self.isverb and ev is not None:
+            if self.isverb and template.isfinalevent:
                 if self.category.iscombinator or self.category.ismodifier:
                     # passive case
-                    fn = DrsProduction(DRS([], self.build_predicates(compose[0][1], refs, ev)))
-                elif len(ev) != 1:
-                    # TODO: use verbnet to get semantics
-                    conds = [Rel('event', ev[-1]), Rel(self._word, ev[-1])]
-                    for v,e in zip(ev[0:-1], self._EventPredicates):
-                        conds.append(Rel('.' + e, [ev[-1], v]))
-                    if len(refs) > len(self._EventPredicates):
-                        for i in range(len(self._EventPredicates), len(refs)):
-                            conds.append(Rel('.EXTRA-%d' % i, [ev[-1], refs[i]]))
-                    fn = DrsProduction(DRS(ev, conds))
+                    if len(refs) > 1:
+                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]), Rel('.MOD', refs)]))
+                    else:
+                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]])]))
                 else:
                     # TODO: use verbnet to get semantics
-                    conds = [Rel('.EVENT', ev), Rel(self._word, ev)]
-                    for v, e in zip(refs, self._EventPredicates):
-                        conds.append(Rel(e, [ev[0], v]))
-                    if len(refs) > len(self._EventPredicates):
-                        for i in range(len(self._EventPredicates), len(refs)):
-                            conds.append(Rel('.EXTRA-%d' % i, [ev[0], refs[i]]))
-                    fn = DrsProduction(DRS(ev, conds))
-            elif self.isadverb and ev is not None:
+                    rrf = [x for x in reversed(refs[1:])]
+                    conds = [Rel('.EVENT', [refs[0]]), Rel(self._word, [refs[0]])]
+                    pred = zip(rrf, self._EventPredicates)
+                    for v, e in pred:
+                        conds.append(Rel(e, [refs[0], v]))
+                    if len(rrf) > len(pred):
+                        rx = [refs[0]]
+                        rx.extend(rrf[len(pred):])
+                        conds.append(Rel('.EXTRA', rx))
+                    fn = DrsProduction(DRS([refs[0]], conds))
+            elif self.isadverb and template.isfinalevent:
                 if self._word in _ADV:
                     adv = _ADV[self._word]
                     fn = DrsProduction(adv[0], [x for x in adv[1]])
-                    r = refs
-                    r.extend(ev)
-                    rs = zip(adv[1], r)
+                    rs = zip(adv[1], refs)
                     fn.rename_vars(rs)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._word, ev)]))
+                    fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
 
-            elif self.ispreposition:
-                # Don't attach to event's
-                if ev is not None:
-                    pass
+            elif self.ispreposition or (final_atom == CAT_Sadj and len(refs) > 1):
                 fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
 
             else:
-                if ev is not None:
-                    refs.insert(0, ev[0])
+                if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
                         fn = DrsProduction(DRS([], []))
                     elif self.partofspeech == 'MD':
-                        fn = DrsProduction(DRS([], [Rel(self._word, ev),
-                                                    Rel('.MODAL', refs)]))
+                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]),
+                                                    Rel('.MODAL', [refs[0]])]))
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self._word, ev),
-                                                    Rel('.PROP', refs)]))
+                        fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
+                                           properNoun=self.isproper_noun)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._word, refs)]),
+                    fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
                                        properNoun=self.isproper_noun)
 
             fn.set_lambda_refs([template.final_ref])
-            fn.set_category(template.final_atom.remove_wildcards())
+            fn.set_category(final_atom)
             for c, s in zip(compose, signatures):
                 fn = c[0](s, c[1], fn)
             return fn
@@ -1159,7 +1200,7 @@ def _process_ccg_node(pt, cl):
         cl.push_right(DrsProduction(DRS([], []), category=Category(pt[0])))
         return
 
-    if pt[1] in ['old']:
+    if pt[1] in ['and']:
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     if ccgt.category == CAT_LRB:
