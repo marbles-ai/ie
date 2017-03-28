@@ -1,1 +1,8 @@
+MACOSVERSION="16.4.0"
+VERSION=$(uname -r)
+
+if [ $VERSION == $MACOSVERSION ]; then
+RELEASE="1.2.0"
+else
 RELEASE="1.1.2"
+fi
