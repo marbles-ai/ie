@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import os
-from ..ccgcat import Category, get_rule
+import unittest
+
+from marbles.ie.ccg.ccgcat import Category, get_rule
 from ..parse import parse_ccg_derivation
 
 
