@@ -793,7 +793,8 @@ class ProductionList(Production):
 
     def conjoin_forward(self):
         """Forward conjoin of like types."""
-        assert len(self._compList) >= 2
+        if len(self._compList) <= 1:
+            return
         f = self._compList[0]
         g = self._compList[1]
         c = self._compList[1:]
@@ -819,7 +820,8 @@ class ProductionList(Production):
 
     def conjoin_backward(self):
         """Backward conjoin of like types."""
-        assert len(self._compList) >= 2
+        if len(self._compList) <= 1:
+            return
         g = self._compList.pop()
         f = self._compList.pop()
         c = self._compList

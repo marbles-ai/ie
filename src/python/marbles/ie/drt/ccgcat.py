@@ -137,6 +137,7 @@ class Category(object):
     _CleanPredArg3 = re.compile(r'_\d+')
     _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
     _Wildcard = re.compile(r'[X]')
+    _Feature = re.compile(r'\[([a-z]+|X)\]')
     ## @endcond
 
     def __init__(self, signature=None, conj=False):
@@ -317,6 +318,36 @@ class Category(object):
             newcat = Category(newcat.signature[1:-1])
         return newcat
 
+    def complete_tags(self, tag=900):
+        """Add predicate argument tags to atoms that don't have a tag.
+
+        Args:
+            tag: Optional starting integer tag.
+
+        Returns:
+            A Category instance.
+        """
+        atoms = self.extract_unify_atoms(False)
+        chg = []
+        orig = tag
+        for a in atoms:
+            ca = a.clean(True)
+            if ca == a:
+                chg.append('%s_%d' % (a.signature, tag))
+                tag += 1
+            else:
+                chg.append(a.signature)
+        if tag == orig:
+            return self
+        sig = self._signature
+        for a in atoms:
+            sig = sig.replace(a.signature, '%s')
+        chg.reverse()
+        sig %= tuple(chg)
+        cat = Category(sig)
+        assert cat.clean(True) == self.clean(True)
+        return cat
+
     def trim_functor_tag(self):
         """Trim functor predarg tags.
 
@@ -341,6 +372,14 @@ class Category(object):
             return Category(self._signature.replace('[X]', ''), self.isconj)
         return self
 
+    def remove_features(self):
+        """Remove features and wildcards from the category.
+
+        Returns:
+            A Category instance.
+        """
+        return Category(self._Feature.sub('', self._signature))
+
     def _extract_atoms_helper(self, atoms):
         if self.isfunctor:
             atoms = self.argument_category._extract_atoms_helper(atoms)
@@ -351,11 +390,10 @@ class Category(object):
 
     def _extract_slash_helper(self, slashes):
         if self.isfunctor:
-            slashes.append(self.slash)
             slashes = self.argument_category._extract_slash_helper(slashes)
-            return self.result_category._extract_slash_helper(slashes)
-        else:
-            return slashes
+            slashes.append(self.slash)
+            slashes = self.result_category._extract_slash_helper(slashes)
+        return slashes
 
     def extract_unify_atoms(self, follow=True):
         """Extract the atomic categories for unification.
@@ -405,6 +443,8 @@ class Category(object):
         """
         if not self.isatom or not other.isatom:
             return False
+        if self == other:
+            return True
         if self in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N] and other in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N]:
             return True
         s1 = self.signature
@@ -462,6 +502,8 @@ CAT_NUM = Category('N[num]')
 CAT_EMPTY = Category()
 CAT_COMMA = Category(',')
 CAT_CONJ = Category('conj')
+CAT_CONJ_CONJ = Category(r'conj\conj')
+CAT_CONJCONJ = Category(r'conj/conj')
 CAT_LQU = Category('LQU')
 CAT_RQU = Category('RQU')
 CAT_LRB = Category('LRB')
@@ -755,6 +797,8 @@ def get_rule(left, right, result, exclude=None):
             elif result.isconj: # or result.ismodifier
                 # Section 3.7.2 LDC2005T13 manual
                 return RL_TC_CONJ
+        elif left == CAT_CONJCONJ and right == CAT_CONJ:
+            return RL_LPASS
     elif right.isconj and notexcluded(exclude, 1):
         if exclude is not None:
             if left == CAT_CONJ:
