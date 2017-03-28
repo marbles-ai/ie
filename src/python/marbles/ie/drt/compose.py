@@ -577,6 +577,8 @@ class ProductionList(Production):
         if len(self._compList) == 0:
             return self
         fn = self._compList[0]
+        if not fn.isfunctor:
+            pass
         if len(self._compList) == 1:
             # This can happen with punctuation etc. Empty productions are removed
             # after a unify so we must simulate application with empty.
