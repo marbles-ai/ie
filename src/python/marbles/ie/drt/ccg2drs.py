@@ -648,6 +648,9 @@ class CcgTypeMapper(object):
         MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S[X]_1')
         MODEL.add_unary_rule(r'S[dcl]_1\S[dcl]_1', r'S_1')
         MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S_1')
+        MODEL.add_unary_rule(r'(S_1\NP_2)/(S_1\NP_2)', r'S[dcl]_1/S[dcl]_1')
+        MODEL.add_unary_rule(r'S_1\S_1', 'S_1')
+        MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/NP_3)\((S[dcl]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3')
 
         MODEL.add_unary_rule(r'(N_2/PP_1)\(N_2/PP_1)', r'N_2/PP_1')
         MODEL.add_unary_rule(r'(S_2/S_1)\(S_2/S_1)', r'S_2/S_1')
@@ -686,10 +689,9 @@ class CcgTypeMapper(object):
 
         # We treat modal as verb modifiers - i.e. they don't get their own event
         if self._pos[0] == 'MD':
-            self._ccgcat = self._ccgcat.remove_features().simplify()
-            if not self._ccgcat.ismodifier:
-                pass
-            assert self._ccgcat.ismodifier
+            tmpcat = self._ccgcat.remove_features().simplify()
+            if tmpcat.ismodifier:
+                self._ccgcat = tmpcat
 
         if self.isproper_noun:
             self._word = word.title().rstrip('?.,:;')
@@ -791,7 +793,7 @@ class CcgTypeMapper(object):
 
         Args:
             category: A category.
-            key: A signature string. If none then defaults to category.signature.
+            key: A signature string. If none then defaults to category signature.
 
         Returns:
             A FunctionProduction instance.
@@ -1003,7 +1005,7 @@ class CcgTypeMapper(object):
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
                 return ProductionList(category=CAT_CONJ)
-            elif self.ispronoun:
+            elif self.ispronoun and self._word in _PRON:
                 d = DrsProduction(_PRON[self._word], category=self.category)
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
                 return d

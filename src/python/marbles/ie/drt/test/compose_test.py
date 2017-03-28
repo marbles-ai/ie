@@ -796,7 +796,7 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles:
+        for fn in allfiles[396:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):

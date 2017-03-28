@@ -575,14 +575,22 @@ class ProductionList(Production):
         Remarks:
             Executes a single production rule.
         """
-        if len(self._compList) < 2:
+        if len(self._compList) == 0:
             return self
         fn = self._compList[0]
-        arg = self._compList[1]
-        c = self._compList[1:]
-        d = fn.apply(arg)
-        c[0] = d
-        self._compList = c
+        if len(self._compList) == 1:
+            # This can happen with punctuation etc. Empty productions are removed
+            # after a unify so we must simulate application with empty.
+            d = fn.pop()
+            g = fn.pop()
+            if g is not None:
+                g.push(d)
+                d = g
+        else:
+            arg = self._compList[1]
+            self._compList = self._compList[1:]
+            d = fn.apply(arg)
+        self._compList[0] = d
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -593,16 +601,24 @@ class ProductionList(Production):
         Remarks:
             Executes a single production rule.
         """
-        if len(self._compList) < 2:
+        if len(self._compList) == 0:
             return self
-        fn = self._compList[-1]
-        arg = self._compList[-2]
-        c = self._compList[0:-1]
+        fn = self._compList.pop()
         if not fn.isfunctor:
             pass
-        d = fn.apply(arg)
-        c[-1] = d
-        self._compList = c
+        if len(self._compList) == 0:
+            # This can happen with punctuation etc. Empty productions are removed
+            # after a unify so we must simulate application with empty.
+            d = fn.pop()
+            g = fn.pop()
+            if g is not None:
+                g.push(d)
+                d = g
+        else:
+            arg = self._compList.pop()
+            d = fn.apply(arg)
+
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -1588,7 +1604,7 @@ class FunctorProduction(Production):
         zg = g.pop()
         if zg is None:
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
-            assert g.category.result_category.result_category.isatom
+            assert g.category.result_category.isatom
             zg = g
             glr = gc.lambda_refs
         else:
@@ -1721,7 +1737,7 @@ class FunctorProduction(Production):
         yf = self.pop()
         if yf is None:
             # X is atomic
-            assert self.category.result_category.result_category.isatom
+            assert self.category.result_category.isatom
             return zg
         self.push(zg)
         return self
