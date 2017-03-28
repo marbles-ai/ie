@@ -1,15 +1,14 @@
 #! /usr/bin/env python
 
-import sys
 import os
+import sys
 from optparse import OptionParser
 
 projectPath = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 pysrcPath = os.path.join(projectPath, 'src', 'python')
 sys.path.append(pysrcPath)
 
-
-from marbles.ie.drt import ccg2drs
+from marbles.ie.ccg import ccg2drs
 
 
 def die(s):

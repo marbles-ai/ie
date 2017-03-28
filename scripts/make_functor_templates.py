@@ -11,9 +11,9 @@ pypath = os.path.join(projdir, 'src', 'python')
 datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 
-from marbles.ie.drt.ccg2drs import extract_predarg_categories_from_pt, FunctorTemplate
+from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt, FunctorTemplate
 from marbles.ie.drt.parse import parse_ccg_derivation
-from marbles.ie.drt.ccgcat import Category
+from marbles.ie.ccg.ccgcat import Category
 
 
 def print_progress(progress, tick=1, done=False):

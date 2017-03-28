@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 """CCG to DRS Production Generator"""
 
-from drs import DRS, DRSRef, Prop, Imp, Rel, Neg, Box, Diamond, Or
-from common import DRSConst, DRSVar
-from compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError, \
-    Production
-from ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
-    CAT_Sany, CAT_PP, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_POSSESSIVE_ARGUMENT, \
-    CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION, CAT_ADVERB, CAT_S, \
-    get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
-    RL_TYPE_RAISE, RL_BA
-from utils import remove_dups, union, union_inplace, complement, intersect, rename_var
-from parse import parse_drs
-import re
-import pickle
 import os
+import pickle
+import re
 
+from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, CAT_INFINITIVE, \
+    CAT_Sany, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
+    RL_TYPE_RAISE, RL_BA
+from marbles.ie.drt.common import DRSVar
+from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, DrsComposeError
+from marbles.ie.drt.drs import DRS, DRSRef, Rel
+from marbles.ie.drt.parse import parse_drs
+from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement
 
 ## @cond
 __pron = [

@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import os
+import unittest
+
+from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
+from marbles.ie.ccg.ccgcat import Category
+from ..compose import CO_VERIFY_SIGNATURES
+from ..compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from ..drs import *
-from ..common import *
 from ..parse import parse_drs, parse_ccg_derivation
 from ..utils import compare_lists_eq
-from ..compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
-from ..compose import CO_REMOVE_UNARY_PROPS, CO_VERIFY_SIGNATURES, CO_PRINT_DERIVATION
-from ..ccg2drs import process_ccg_pt, sentence_from_pt, CcgTypeMapper
-from ..ccgcat import Category
+
 
 # Like NLTK's dexpr()
 def dexpr(s):
