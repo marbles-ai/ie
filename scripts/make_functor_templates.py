@@ -8,7 +8,7 @@ from optparse import OptionParser
 # Modify python path
 projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 pypath = os.path.join(projdir, 'src', 'python')
-datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
+datapath = os.path.join(pypath, 'marbles', 'ie', 'ccg', 'data')
 sys.path.insert(0, pypath)
 
 from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt, FunctorTemplate
@@ -28,7 +28,7 @@ def print_progress(progress, tick=1, done=False):
     return progress
 
 
-def build_from_ldc_ccgbank(dict, verbose=False, verify=True):
+def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
     print('Building function templates from LDC ccgbank...')
 
     allfiles = []
@@ -86,7 +86,7 @@ def build_from_ldc_ccgbank(dict, verbose=False, verify=True):
 
     if len(failed_parse) != 0:
         print('Warning: ldc - %d parses failed' % len(failed_parse))
-        with open(os.path.join(datapath, 'test', 'parse_ccg_derivation_failed.dat'), 'w') as fd:
+        with open(os.path.join(outdir, 'parse_ccg_derivation_failed.dat'), 'w') as fd:
             pickle.dump(failed_parse, fd)
         if verbose:
             for x, m in failed_parse:
@@ -94,7 +94,7 @@ def build_from_ldc_ccgbank(dict, verbose=False, verify=True):
 
     if len(failed_rules) != 0:
         print('Warning: ldc - %d rules failed' % len(failed_rules))
-        with open(os.path.join(datapath, 'test', 'functor_ldc_templates_failed.dat'), 'w') as fd:
+        with open(os.path.join(outdir, 'functor_ldc_templates_failed.dat'), 'w') as fd:
             pickle.dump(failed_rules, fd)
         if verbose:
             for m in failed_rules:
@@ -103,7 +103,7 @@ def build_from_ldc_ccgbank(dict, verbose=False, verify=True):
     return dict
 
 
-def build_from_easysrl(dict, modelPath, verbose=False, verify=True):
+def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
     print('Building function templates from EasySRL model folder...')
     fname = os.path.join(modelPath, 'markedup')
     if not os.path.exists(fname) or not os.path.isfile(fname):
@@ -142,7 +142,7 @@ def build_from_easysrl(dict, modelPath, verbose=False, verify=True):
 
     if len(failed_rules) != 0:
         print('Warning: easysrl - %d rules failed' % len(failed_rules))
-        with open(os.path.join(datapath, 'test', 'functor_easysrl_templates_failed.dat'), 'w') as fd:
+        with open(os.path.join(outdir, 'functor_easysrl_templates_failed.dat'), 'w') as fd:
             pickle.dump(failed_rules, fd)
         if verbose:
             for m in failed_rules:
@@ -154,13 +154,22 @@ def build_from_easysrl(dict, modelPath, verbose=False, verify=True):
 if __name__ == "__main__":
     usage = 'Usage: %prog [options] templates-to-merge'
     parser = OptionParser(usage)
-    parser.add_option('-o', '--output', type='string', action='store', dest='outfile', help='output file')
+    parser.add_option('-o', '--outdir', type='string', action='store', dest='outdir', help='output directory')
     parser.add_option('-m', '--easysrl-model', type='string', action='store', dest='esrl', help='output format')
     parser.add_option('-L', '--ldc', action='store_true', dest='ldc', default=False, help='Use LDC to generate template.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Use LDC to generate template.')
 
     (options, args) = parser.parse_args()
     dict = {}
+    outdir = options.outdir or datapath
+
+    if not os.path.exists(outdir):
+        print('path does not exist - %s' % outdir)
+        sys.exit(1)
+
+    if not os.path.isdir(outdir):
+        print('path is not a directory - %s' % outdir)
+        sys.exit(1)
 
     # Merge dictionaries
     for fname in args:
@@ -170,10 +179,10 @@ if __name__ == "__main__":
         d = None
 
     if options.esrl is not None:
-        build_from_easysrl(dict, options.esrl, options.verbose)
+        build_from_easysrl(dict, outdir, options.esrl, options.verbose)
 
     if options.ldc:
-        build_from_ldc_ccgbank(dict, options.verbose)
+        build_from_ldc_ccgbank(dict, outdir, options.verbose)
 
     if options.verbose:
         print('The following %d categories were processed correctly...' % len(dict))
@@ -181,11 +190,7 @@ if __name__ == "__main__":
             print('%s: %s' % (k, str(v)))
 
     if len(dict) != 0:
-        if options.outfile is None:
-            with open(os.path.join(datapath, 'functor_templates.dat'), 'wb') as fd:
-                pickle.dump(dict, fd)
-        else:
-            with open(options.outfile, 'wb') as fd:
-                pickle.dump(dict, fd)
+        with open(os.path.join(outdir, 'functor_templates.dat'), 'wb') as fd:
+            pickle.dump(dict, fd)
     else:
         print('no templates generated')
