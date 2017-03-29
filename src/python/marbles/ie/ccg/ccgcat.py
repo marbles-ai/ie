@@ -772,11 +772,11 @@ def get_rule(left, right, result, exclude=None):
             return RL_LPASS
         elif right.can_unify(result):
             return RL_RPASS
+        elif right == CAT_EMPTY and result in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+            return RL_LPASS
         else:
             xupdate(exclude, 13)
             return RL_TCR_UNARY
-        left = right
-        right = CAT_EMPTY
     elif right.ispunct and notexcluded(exclude, 14):
         if left == CAT_NP and result == CAT_SanySany:
             xupdate(exclude, 14)
@@ -828,6 +828,11 @@ def get_rule(left, right, result, exclude=None):
             return RL_TC_ATOM
         else:
             return RL_TCL_UNARY
+
+    elif right in [CAT_RRB, CAT_RQU, CAT_LRB, CAT_LQU]:
+        if notexcluded(exclude, 15):
+            xupdate(exclude, 15)
+            return RL_LPASS
 
     elif left.isarg_right and left.argument_category.can_unify(right) and \
             left.result_category.can_unify(result) and notexcluded(exclude, 5):

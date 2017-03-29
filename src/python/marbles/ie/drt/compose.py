@@ -701,6 +701,9 @@ class ProductionList(Production):
             conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
             conds.extend(oconds)
 
+        if len(refs) == 0 and len(conds) == 0:
+            return self
+
         drs = DRS(refs, conds).purify()
         d = DrsProduction(drs, proper == 1)
         if not self.islambda_inferred:

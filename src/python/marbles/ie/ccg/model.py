@@ -501,6 +501,12 @@ try:
     MODEL.add_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'NP_2')
     MODEL.add_unary_rule(r'NP_1\NP_1', 'S[dcl]_1')
 
+    MODEL.add_unary_rule(r'((S[dcl]_1\NP_3)/S[em]_2)\((S[dcl]_1\NP_3)/S[em]_2)', r'(S_1\NP_3)/S_2[em]')
+    MODEL.add_unary_rule(r'((S[X]_1\NP_3)/S[X]_2)\((S[X]_1\NP_3)/S[X]_2)', r'(S_1\NP_3)/S_2[X]')
+    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', r'(S_1\NP_2)/(S[b]_1\NP_2)')
+    MODEL.add_unary_rule(r'N_2\N_2', r'S[dcl]_1/NP_2')
+    MODEL.add_unary_rule(r'N_2\N_2', r'S[X]_1/NP_2')
+
 except Exception as e:
     print(e)
     # Allow module to load else we cannot create the dat file.

@@ -735,12 +735,14 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles:
+        start = 1057
+        for fn in allfiles[5:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(0, len(lines)):
+            for i in range(start, len(lines)):
+                start = 0
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
                 try:
