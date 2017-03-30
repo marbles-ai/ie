@@ -3,7 +3,7 @@
 import os
 import unittest
 
-from marbles.ie.ccg.ccgcat import Category, get_rule
+from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS
 from marbles.ie.drt.parse import parse_ccg_derivation
 
 
@@ -16,6 +16,30 @@ def rule_unique_helper(pt, lst):
             cats.append(c)
         lst.append(cats)
         return result
+    else:
+        # Leaf nodes contains six fields:
+        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
+        return Category(pt[0])
+
+
+def rule_exec_helper(pt, lst):
+    if pt[-1] == 'T':
+        result = Category(pt[0][0])
+        cats = []
+        for nd in pt[1:-1]:
+            c = rule_unique_helper(nd, lst)
+            cats.append(c)
+
+        if len(cats) == 1:
+            cats.append(CAT_EMPTY)
+
+        rule = get_rule(cats[0], cats[1], result)
+        if rule in [RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS]:
+            return result
+        else:
+            actual = rule.apply_rule_to_category(cats[0], cats[1])
+            assert actual.can_unify(result)
+            return actual
     else:
         # Leaf nodes contains six fields:
         # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
@@ -97,7 +121,7 @@ class CcgTest(unittest.TestCase):
         vx = [Category('A'), Category('S'), Category('A'), Category('S')]
         self.assertListEqual(va, vx)
 
-    def test4_RuleUniqueness(self):
+    def test4_RuleUniquenessLDC(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -129,11 +153,16 @@ class CcgTest(unittest.TestCase):
                 nodes = []
                 rule_unique_helper(pt, nodes)
                 for cats in nodes:
-                    if len(cats) != 3:
+                    if len(cats) == 3:
+                        result = cats[0]
+                        left = cats[1]
+                        right = cats[2]
+                    elif len(cats) == 2:
+                        result = cats[0]
+                        left = cats[1]
+                        right = CAT_EMPTY
+                    else:
                         continue
-                    result = cats[0]
-                    left = cats[1]
-                    right = cats[2]
                     exclude = []
                     # Should not have ambiguity
                     rule = get_rule(left, right, result, exclude)
@@ -141,9 +170,113 @@ class CcgTest(unittest.TestCase):
                         rule = get_rule(left, right, result, exclude)
                     if len(exclude) > 1:
                         ambiguous.append((cats, exclude))
+
         for x in ambiguous:
             print('ambiguous rule: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
+
+    def test5_RuleUniquenessEasySRL(self):
+        allfiles = []
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl')
+        dirlist1 = os.listdir(ldcpath)
+        for fname in dirlist1:
+            if 'ccg_derivation' not in fname:
+                continue
+            ldcpath1 = os.path.join(ldcpath, fname)
+            if os.path.isfile(ldcpath1):
+                allfiles.append(ldcpath1)
+
+        failed_parse = 0
+        ambiguous = []
+        start = 0
+        for fn in allfiles[0:]:
+            with open(fn, 'r') as fd:
+                lines = fd.readlines()
+
+            name, _ = os.path.splitext(os.path.basename(fn))
+            for i in range(start, len(lines)):
+                start = 0
+                ccgbank = lines[i]
+                print('%s-%04d' % (name, i))
+                try:
+                    pt = parse_ccg_derivation(ccgbank)
+                except Exception:
+                    failed_parse += 1
+                    continue
+
+                self.assertIsNotNone(pt)
+                nodes = []
+                rule_unique_helper(pt, nodes)
+                for cats in nodes:
+                    if len(cats) == 3:
+                        result = cats[0]
+                        left = cats[1]
+                        right = cats[2]
+                    elif len(cats) == 2:
+                        result = cats[0]
+                        left = cats[1]
+                        right = CAT_EMPTY
+                    else:
+                        continue
+                    exclude = []
+                    # Should not have ambiguity
+                    rule = get_rule(left, right, result, exclude)
+                    if rule is None and right != CAT_EMPTY:
+                        rule = get_rule(left.remove_features(), right.remove_features(), result.remove_features(), exclude)
+                    self.assertIsNotNone(rule)
+                    while rule is not None:
+                        rule = get_rule(left, right, result, exclude)
+                    if len(exclude) > 1:
+                        ambiguous.append((name, i, cats, exclude))
+        for x in ambiguous:
+            print('ambiguous rule in %s-%04d: %s {%s}' % x)
+        self.assertTrue(len(ambiguous) == 0)
+
+    def test5_RuleExecutionEasySRL(self):
+        allfiles = []
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl')
+        dirlist1 = os.listdir(ldcpath)
+        for fname in dirlist1:
+            if 'ccg_derivation' not in fname:
+                continue
+            ldcpath1 = os.path.join(ldcpath, fname)
+            if os.path.isfile(ldcpath1):
+                allfiles.append(ldcpath1)
+
+        failed_parse = 0
+        failed_exec = []
+        start = 0
+        for fn in allfiles[0:]:
+            with open(fn, 'r') as fd:
+                lines = fd.readlines()
+
+            name, _ = os.path.splitext(os.path.basename(fn))
+            for i in range(start, len(lines)):
+                start = 0
+                ccgbank = lines[i]
+                print('%s-%04d' % (name, i))
+                try:
+                    pt = parse_ccg_derivation(ccgbank)
+                except Exception:
+                    failed_parse += 1
+                    continue
+
+                self.assertIsNotNone(pt)
+                nodes = []
+                try:
+                    rule_exec_helper(pt, [])
+                except Exception:
+                    failed_exec.append((name, i, pt))
+        if len(failed_exec) != 0:
+            print('%d rules failed exec' % len(failed_exec))
+            for x in failed_exec:
+                print('%s-%04d: failed exec - {%s}' % x)
+
+        self.assertTrue(len(failed_exec) == 0)
 
 
 

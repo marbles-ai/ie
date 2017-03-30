@@ -506,6 +506,8 @@ try:
     MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', r'(S_1\NP_2)/(S[b]_1\NP_2)')
     MODEL.add_unary_rule(r'N_2\N_2', r'S[dcl]_1/NP_2')
     MODEL.add_unary_rule(r'N_2\N_2', r'S[X]_1/NP_2')
+    MODEL.add_unary_rule(r'N_2\N_2', r'S_1/NP_2')
+    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))\((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))', r'(S_1\NP_2)/(S[adj]_3\NP_2)')
 
 except Exception as e:
     print(e)

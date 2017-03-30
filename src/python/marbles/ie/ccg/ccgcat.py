@@ -212,7 +212,7 @@ class Category(object):
 
     @property
     def ispunct(self):
-        return self._signature in [',', '.', ':', ';']
+        return self._signature in [',', '.', ':', ';'] or self in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]
 
     @property
     def isarg_right(self):
@@ -294,7 +294,7 @@ class Category(object):
         return self._signature
 
     def simplify(self):
-        """Simplify the CCG category. Required to determine production rules.
+        """Simplify the CCG category. Removes features and converts non-sentence atoms to NP.
 
         Returns:
             A Category instance.
@@ -452,8 +452,11 @@ class Category(object):
         if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
             return True
         if s1[0] == 'S' and s2[0] == 'S':
-            return (len(s1) == 1 or len(s2) == 1) or (self == CAT_Sto and other == CAT_Sb) or \
-                   (self == CAT_Sb and other == CAT_Sto)
+            return (len(s1) == 1 or len(s2) == 1) \
+                   or (self == CAT_Sto and other == CAT_Sb) \
+                   or (self == CAT_Sb and other == CAT_Sto) \
+                   or (self == CAT_Sdcl and other == CAT_Sem) \
+                   or (self == CAT_Sem and other == CAT_Sdcl)
         return False
 
     def can_unify(self, other):
@@ -518,6 +521,7 @@ CAT_PREPOSITION = Category('PP/NP')
 CAT_SEMICOLON = Category(';')
 CAT_Sadj = Category('S[adj]')
 CAT_Sdcl = Category('S[dcl]')
+CAT_Sem = Category('S[em]')
 CAT_Sq = Category('S[q]')
 CAT_Sb = Category('S[b]')
 CAT_Sto = Category('S[to]')
@@ -593,6 +597,46 @@ class Rule(object):
     @property
     def rulename(self):
         return self._ruleName
+
+    def apply_rule_to_category(self, left, right):
+        """Apply the rule to left and right categories and return a new result category
+
+        Args:
+            left: A Category instance.
+            right: A Category instance.
+
+        Returns:
+            A Category instance.
+        """
+        if self == RL_LPASS:
+            return left
+        elif self == RL_RPASS:
+            return right
+        elif self in [RL_FX, RL_FC]:
+            return Category.combine(left.result_category, right.slash, right.argument_category)
+        elif self == RL_BA:
+            return right.result_category
+        elif self == RL_FA:
+            return left.result_category
+        elif self in [RL_BX, RL_BC]:
+            return Category.combine(right.result_category, left.slash, left.argument_category)
+        elif self in [RL_FS, RL_FXS]:
+            return Category.combine(left.result_category.result_category, left.slash, right.argument_category)
+        elif self in [RL_BS, RL_BXS]:
+            return Category.combine(right.result_category.result_category, left.slash, left.argument_category)
+        elif self in [RL_GFC, RL_GFX]:
+            return Category.combine(Category.combine(left.result_category, right.result_category.slash,
+                                                     right.result_category.argument_category),
+                                    right.slash, right.argument_category)
+        elif self in [RL_GBC, RL_GBX]:
+            return Category.combine(Category.combine(right.result_category, left.result_category.slash,
+                                                     left.result_category.argument_category),
+                                    left.slash, left.argument_category)
+        elif self == RL_LCONJ:
+            return left
+        elif self == RL_RCONJ:
+            return right
+        return None
 
 
 ## @{
@@ -766,45 +810,79 @@ def get_rule(left, right, result, exclude=None):
         if x is not None:
             x.append(num)
 
+
     # Handle punctuation
     if left.ispunct and notexcluded(exclude, 13):
+        xupdate(exclude, 13)
         if right.ispunct:
             return RL_LPASS
+        elif right == CAT_EMPTY:
+            return RL_LPASS
+        elif right in [CAT_CONJ, CAT_CONJCONJ, CAT_CONJ_CONJ]:
+            assert result == right
+            return RL_RPASS
         elif right.can_unify(result):
             return RL_RPASS
-        elif right == CAT_EMPTY and result in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-            return RL_LPASS
         else:
-            xupdate(exclude, 13)
             return RL_TCR_UNARY
     elif right.ispunct and notexcluded(exclude, 14):
-        if left == CAT_NP and result == CAT_SanySany:
-            xupdate(exclude, 14)
-            return RL_TCL_UNARY
+        if exclude is not None:
+            if left.ispunct:
+                return None     # don't count as duplicate
+        xupdate(exclude, 14)
+        if left in [CAT_CONJ, CAT_CONJCONJ, CAT_CONJ_CONJ]:
+            assert result == left
+            return RL_LPASS
+        elif left.can_unify(result) or left.ispunct:
+            return RL_LPASS
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
-        right = CAT_EMPTY
+        elif result.result_category == result.argument_category.result_category and \
+                left.can_unify(result.argument_category.argument_category):
+            if result.isarg_right and result.argument_category.isarg_left:
+                # X:a => T/(T\X): λxf.f(a)
+                return RL_TYPE_RAISE
+            elif result.isarg_left and result.argument_category.isarg_right:
+                # X:a => T\(T/X): λxf.f(a)
+                return RL_TYPE_RAISE
+        else:
+            return RL_TCL_UNARY
 
-    if left.isconj and right != CAT_EMPTY and notexcluded(exclude, 0):
-        xupdate(exclude, 0)
-        if left.can_unify(right):
-            return RL_LCONJ
-        elif left == CAT_CONJ:
-            if right.can_unify(result):
+    if left.isconj and right != CAT_EMPTY and not right.ispunct and notexcluded(exclude, 0):
+        if left == CAT_CONJ:
+            if right == CAT_CONJ_CONJ:
+                xupdate(exclude, 0)
+                return RL_BA
+            elif right.can_unify(result):
+                #return RL_RCONJ
+                xupdate(exclude, 0)
+                assert right != CAT_CONJ
                 return RL_RPASS
             elif result.ismodifier and result.argument_category.can_unify(right):
+                xupdate(exclude, 0)
                 return RL_TCR_UNARY
-            elif result.isconj: # or result.ismodifier
-                # Section 3.7.2 LDC2005T13 manual
-                return RL_TC_CONJ
+            #elif result.isconj: # or result.ismodifier
+            #    # Section 3.7.2 LDC2005T13 manual
+            #    assert False
+            #    return RL_TC_CONJ
         elif left == CAT_CONJCONJ and right == CAT_CONJ:
-            return RL_LPASS
-    elif right.isconj and notexcluded(exclude, 1):
+            xupdate(exclude, 0)
+            return RL_FA
+        elif left.can_unify(right):
+            xupdate(exclude, 0)
+            return RL_LCONJ
+    elif right.isconj and not left.ispunct and notexcluded(exclude, 1):
         if exclude is not None:
-            if left == CAT_CONJ:
-                return None # don't count as ambiguous rule
+            if left in [CAT_CONJ, CAT_CONJCONJ]:
+                return None     # don't count as ambiguous rule
             exclude.append(1)
-        if left.can_unify(right):
+        if right == CAT_CONJ:
+            if not left.can_unify(result):
+                pass
+            assert left.can_unify(result)
+            return RL_LCONJ
+            #return RL_TCL_UNARY
+        elif left.can_unify(right):
             return RL_RCONJ
     elif left == CAT_EMPTY and notexcluded(exclude, 2):
         xupdate(exclude, 2)
@@ -828,11 +906,6 @@ def get_rule(left, right, result, exclude=None):
             return RL_TC_ATOM
         else:
             return RL_TCL_UNARY
-
-    elif right in [CAT_RRB, CAT_RQU, CAT_LRB, CAT_LQU]:
-        if notexcluded(exclude, 15):
-            xupdate(exclude, 15)
-            return RL_LPASS
 
     elif left.isarg_right and left.argument_category.can_unify(right) and \
             left.result_category.can_unify(result) and notexcluded(exclude, 5):
@@ -882,7 +955,7 @@ def get_rule(left, right, result, exclude=None):
 
     elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
             left.slash == right.slash and left.result_category.argument_category.can_unify(right.result_category) and \
-            Category.combine(left.result_category.result_category, left.slash, left.argument_category).can_unify(result) \
+            Category.combine(left.result_category.result_category, left.slash, right.argument_category).can_unify(result) \
             and notexcluded(exclude, 9):
         xupdate(exclude, 9)
         if right.isarg_right:
@@ -896,7 +969,7 @@ def get_rule(left, right, result, exclude=None):
 
     elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
             left.slash == right.slash and right.result_category.argument_category.can_unify(left.result_category) and \
-            Category.combine(right.result_category.result_category, left.slash, right.argument_category).can_unify(result) \
+            Category.combine(right.result_category.result_category, left.slash, left.argument_category).can_unify(result) \
             and notexcluded(exclude, 10):
         xupdate(exclude, 10)
         if right.isarg_left:
