@@ -127,6 +127,23 @@ def identity_functor(category, ref=None):
     return FunctorProduction(category, ref, d)
 
 
+def empty_production(category, ref=None):
+    """Return the empty production `λx.[|]`.
+
+    Args:
+        category: An atomic categorys.
+        ref: optional DRSRef to use as the referent.
+
+    Returns:
+        A DrsProduction instance.
+    """
+    d = DrsProduction(DRS([], []), category=category)
+    if ref is None:
+        ref = DRSRef('x1')
+    d.set_lambda_refs([ref])
+    return d
+
+
 class FunctorTemplateGeneration(object):
     """Template Generation Variables"""
 
@@ -265,11 +282,6 @@ class CcgTypeMapper(object):
         """Test if the word attached to this category is a verb."""
         # Verbs can behave as adjectives
         return self.partofspeech in ['VB', 'VBD', 'VBN', 'VBP', 'VBZ'] and self.category != CAT_ADJECTIVE
-
-    @property
-    def isconj(self):
-        """Test if the word attached to this category is a conjoin."""
-        return self.signature == 'conj'
 
     @property
     def isgerund(self):
@@ -522,10 +534,12 @@ class CcgTypeMapper(object):
         if compose is None:
             # Simple type
             # Handle prepositions
-            if self.isconj:
+            if self.category == CAT_CONJ:
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
-                return ProductionList(category=CAT_CONJ)
+                return empty_production(self.category)
+            elif self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
+                return identity_functor(self.category)
             elif self.ispronoun and self._word in _PRON:
                 d = DrsProduction(_PRON[self._word], category=self.category)
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
@@ -771,7 +785,7 @@ def _process_ccg_node(pt, cl):
         cl.push_right(DrsProduction(DRS([], []), category=Category(pt[0])))
         return
 
-    if pt[1] in ['Pierre']:
+    if pt[1] in ['and', 'eventually']:
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:

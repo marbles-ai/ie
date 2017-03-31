@@ -800,7 +800,7 @@ def get_rule(left, right, result, exclude=None):
     assert isinstance(result, Category)
 
     # Exclusion id's allow us to call this function multiple times on the same input.
-    # This allows us to test whether the if-else logic has ambiguity. A test in compose_test.py 
+    # This allows us to test whether the if-else logic has ambiguity. A test in ccg_test.py
     # parses the entire ccgbank and checks whether only one rule interpretation is possible. A 
     # repeated call should return None of we have no ambiguity in our logic, because the if-else
     # path is exclude after the first call.

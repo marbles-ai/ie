@@ -114,7 +114,7 @@ class FunctorTemplate(object):
 
         Args:
             predarg: The predicate-argument category.
-            final_atom: for special Z|Z and T|T rules where we override the unify scope.
+            final_atom: for special rules where we override the unify scope.
             gen: Optional FunctorTemplateGeneration instance. Required for unary rule generation.
 
         Returns:
@@ -217,6 +217,7 @@ class UnaryRule(object):
             raise TypeError('UnaryRule expects a result Category')
         if not isinstance(argument, Category):
             raise TypeError('UnaryRule expects a argument Category')
+        # We implement unary rules using backward application of the functor below
         self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean()))
 
     @staticmethod

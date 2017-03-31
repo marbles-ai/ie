@@ -734,9 +734,9 @@ class ComposeTest(unittest.TestCase):
                 allfiles.append(ldcpath1)
 
         failed_parse = 0
-        failed_ccg2drs = 0
-        start = 1057
-        for fn in allfiles[5:]:
+        failed_ccg2drs = []
+        start = 0
+        for fn in allfiles[0:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
@@ -762,13 +762,16 @@ class ComposeTest(unittest.TestCase):
                     s = d.drs.show(SHOW_LINEAR)
                     print(s)
                 except Exception as e:
-                    raise
                     print(e)
-                    failed_ccg2drs += 1
+                    failed_ccg2drs.append((name, i, ccgbank))
                     continue
 
-        print('%d derivations failed to parse' % failed_parse)
-        print('%d derivations failed to convert to DRS' % failed_ccg2drs)
+        if failed_parse != 0:
+            print('%d derivations failed to parse' % failed_parse)
+        if len(failed_ccg2drs) != 0:
+            print('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
+            for x in failed_ccg2drs:
+                print('%s-%04d failed: {%s}' % x)
 
         self.assertEqual(failed_parse, 0)
         self.assertEqual(failed_ccg2drs, 0)
@@ -799,7 +802,7 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles[396:]:
+        for fn in allfiles[0:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
