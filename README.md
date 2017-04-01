@@ -52,7 +52,7 @@ we use to indicate large files. To see the list run:
 git lfs track
 ```
 
-## Building
+## Building and Testing
 
 - Before building ensure the grammar models are untar'ed. This only needs to be 
 done after a fresh checkout. Run `./scripts/extract_lfs.sh` from the main project
@@ -69,13 +69,28 @@ section.
     - `gradle test [--info]`: just run tests.
     
 The EasySRLDaemonTest can take over 30 seconds if an error occurs so use
-the `--info`option to see what is happening. 
+the `--info` option to see what is happening. 
 
-#### Build Javadocs
+### Building CCG Derivations
 
-Run `gradle alljavadoc`. The docs will be located at build/docs/. 
+This section assumes you have run `extract_lfs.sh` and `gradle build -x test`.
 
-#### IntelliJ IDEA Integration for Java Code
+To run python tests you will need EasySRL derivations of the LDC ccgbank. From the project directory run:
+```
+./scripts/make_easysrl_ldc_derivations.py
+```
+
+### Building Documentation
+
+#### Javadocs
+
+Run `gradle alljavadoc`. The docs will be located at `./build/docs/`. 
+
+#### Python
+
+Run `./scripts/build_doc.sh`. The docs will be located at `./build/doxygen/`.
+
+### IntelliJ IDEA Integration for Java Code
 
 The root project file [build.gradle](build.gradle) uses the idea plugin.
 To create your IDEA project run `gradle idea`. To rebuild the project run
@@ -87,8 +102,9 @@ Click on that message and import the gradle project.
  
 ### Testing
 
-To execute all tests run `gradle build`.  The python tests are also run
-as part of the gradle test suite.
+To execute all java tests run `gradle build`.
+
+To execute all python tests run `./scripts/run_python_tests.py`.
 
 ## Adding Backend Services
 
