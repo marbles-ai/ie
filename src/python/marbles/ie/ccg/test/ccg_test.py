@@ -117,8 +117,8 @@ class CcgTest(unittest.TestCase):
         vx = [Category('D'), Category('C'), Category('B'), Category('A')]
         self.assertListEqual(va, vx)
 
-        va = Category('(S/A)/(S/A)').extract_unify_atoms()
-        vx = [Category('A'), Category('S'), Category('A'), Category('S')]
+        va = Category('(S/A)/(S/A)').extract_unify_atoms(True)
+        vx = [[Category('A'), Category('S')], [Category('A')], [Category('S')]]
         self.assertListEqual(va, vx)
 
     def test4_RuleUniquenessLDC(self):
