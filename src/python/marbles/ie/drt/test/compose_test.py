@@ -5,11 +5,11 @@ import unittest
 
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
 from marbles.ie.ccg.ccgcat import Category
-from ..compose import CO_VERIFY_SIGNATURES
-from ..compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
-from ..drs import *
-from ..parse import parse_drs, parse_ccg_derivation
-from ..utils import compare_lists_eq
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES
+from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
+from marbles.ie.drt.drs import *
+from marbles.ie.drt.parse import parse_drs, parse_ccg_derivation
+from marbles.ie.drt.utils import compare_lists_eq
 
 
 # Like NLTK's dexpr()

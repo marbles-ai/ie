@@ -1,8 +1,8 @@
 import unittest
 import os
-from ..parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
-from ..pdrs import *
-from ..drs import *
+from marbles.ie.drt.parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
+from marbles.ie.drt.pdrs import *
+from marbles.ie.drt.drs import *
 import pickle
 
 

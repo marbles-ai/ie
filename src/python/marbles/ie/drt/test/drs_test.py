@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from ..drs import *
-from ..common import *
-from ..parse import parse_drs
-from ..utils import compare_lists_eq
+from marbles.ie.drt.drs import *
+from marbles.ie.drt.common import *
+from marbles.ie.drt.parse import parse_drs
+from marbles.ie.drt.utils import compare_lists_eq
 #from pysmt.shortcuts import Solver
 
 

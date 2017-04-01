@@ -1,8 +1,8 @@
 import unittest
-from ..pdrs import *
-from ..common import *
-from ..drs import DRSRelation
-from ..parse import parse_pdrs
+from marbles.ie.drt.pdrs import *
+from marbles.ie.drt.common import *
+from marbles.ie.drt.drs import DRSRelation
+from marbles.ie.drt.parse import parse_pdrs
 
 
 class PDrsTest(unittest.TestCase):
