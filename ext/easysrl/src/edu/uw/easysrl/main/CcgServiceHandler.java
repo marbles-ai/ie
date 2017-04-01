@@ -3,6 +3,8 @@ package edu.uw.easysrl.main;
 // Java packages
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -132,8 +134,8 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	}
 
 	public void init() throws IOException, InterruptedException {
-		// No need to lock because this is called before gRPC service creation.
-		defaultSession_ = createSession("CCGBANK");
+		// Lock in thread so calls to gRPC service are blocked until the default session is created.
+		defaultSession_ = getSessionFromId("default", "CCGBANK");
 	}
 
 	private Session createSession(String oformat) throws IOException, InterruptedException {

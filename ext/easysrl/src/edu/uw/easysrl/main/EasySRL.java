@@ -134,7 +134,19 @@ public class EasySRL {
 			// PWG: run as a gRPC service
 			if (commandLineOptions.getDaemonize()) {
 				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
-				svc.init();
+				// Want start routine to exit quickly else connections to gRPC service fail.
+				ExecutorService executorService = Executors.newFixedThreadPool(1);
+				executorService.execute(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							svc.init();
+						} catch (Exception e) {
+							throw new RuntimeException(e);
+						}
+					}
+				});
+
 				ServiceAcceptor server = new ServiceAcceptor(commandLineOptions.getPort(), svc);
 				server.start();
 				System.out.println("EasySRL at port " + commandLineOptions.getPort());
