@@ -192,7 +192,8 @@ task grpcOther() {
 
     // Add some extension properties
     ext.cppout = new File("${buildDir}/grpc/cpp")
-    ext.pyout  = new File("${buildDir}/grpc/python")
+    //ext.pyout  = new File("${buildDir}/grpc/python")
+    ext.pyout  = new File("${rootDir}/src/python/marbles/ie/grpc")
     ext.proto_filename = "marbles_service.proto"
     ext.proto_dirname = "${rootDir}/src/main/proto"
 
