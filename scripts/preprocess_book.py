@@ -2,14 +2,16 @@
 import re
 import sys
 import os
-import imp
-import grpc
+import time
+from subprocess import call
 from optparse import OptionParser
 
-
-projectPath = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-grpcSrvc = os.path.join(projectPath, 'build', 'grpc', 'python', 'marbles_service_pb2.py')
-sessionPrefix, _ = os.path.splitext(os.path.basename(__file__))
+# Modify python path
+projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+pypath = os.path.join(projdir, 'src', 'python')
+datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
+sys.path.insert(0, pypath)
+from marbles.ie import grpc
 
 
 def die(s):
@@ -17,52 +19,7 @@ def die(s):
     sys.exit(1)
 
 
-if not os.path.exists(grpcSrvc):
-    die('gRPC service "%s" does not exist, run gradle build' % grpcSrvc)
-marbles_svc = imp.load_source("lucida_service", grpcSrvc)
-
-
-def create_query_input(typename, data):
-    query_input = marbles_svc.QueryInput()
-    query_input.type = typename
-    query_input.data.append(str(data))
-    return query_input
-
-
-def create_query_spec(name, query_input_list):
-    query_spec = marbles_svc.QuerySpec()
-    query_spec.name = name
-    query_spec.content.extend(query_input_list)
-    return query_spec
-
-
-def get_client_transport(host, port):
-    channel = grpc.insecure_channel('%s:%u' % (host, port))
-    stub = marbles_svc.LucidaServiceStub(channel)
-    return stub, channel
-
-
-def create_session(client, outputFormat):
-    query_input = create_query_input('text', outputFormat.upper())
-    request = marbles_svc.Request()
-    request.LUCID = sessionPrefix.upper() + '-' + outputFormat
-    request.spec.name = 'create'
-    request.spec.content.extend([query_input])
-    # Call create asynchronously
-    create_future = client.create.future(request, 60)
-    notused = create_future.result()
-    #client.create(request)
-    return sessionPrefix.upper() + '-' + outputFormat
-
-
-def ccg_parse(client, sentence, sessionId):
-    query_input = create_query_input('text', sentence)
-    request = marbles_svc.Request()
-    request.LUCID = sessionId
-    request.spec.name = 'infer'
-    request.spec.content.extend([query_input])
-    response = client.infer(request)
-    return response.msg
+sessionPrefix, _ = os.path.splitext(os.path.basename(__file__))
 
 
 def write_title(fd, id, title, ccg):
@@ -106,7 +63,7 @@ def process_file(stub, out, args, titleSrch, wordsep, sessionId):
                     m = titleSrch.match(ln)
                     if m is not None:
                         line = ''
-                        ccg = ccg_parse(stub, ln, sessionId)
+                        ccg = grpc.ccg_parse(stub, ln, sessionId)
                         write_title(out, id, ln, ccg)
                         continue
                     else:
@@ -116,7 +73,7 @@ def process_file(stub, out, args, titleSrch, wordsep, sessionId):
                             x = s.strip()
                             if len(x) == 0: continue
                             id += 1
-                            ccg = ccg_parse(stub, x, sessionId)
+                            ccg = grpc.ccg_parse(stub, x, sessionId)
                             write_line(out, id, x, ccg)
 
                         if len(sentences) != 0:
@@ -146,29 +103,49 @@ if __name__ == '__main__':
     outfile = options.outfile or None
     direct = options.direct or False
 
-    sessionId = 'default'
-    stub, _ = get_client_transport('localhost', 8084)
-    if options.ofmt is not None:
-        if options.ofmt.lower() not in ['ccgbank', 'html', 'logic', 'extended']:
-            die('bad output format %s, must be ccgbank|html|logic|extended' % options.ofmt)
-        # Create a session to match output format
-        sessionId = create_session(stub, options.ofmt.upper())
-
     if len(args) == 0:
         die('missing filename')
 
-    titleSrch = re.compile(titleRe)
-    if direct:
-        line = ' '.join(args)
-        ccg = ccg_parse(stub, line, sessionId)
-        if outfile is None:
-            sys.stdout.write(ccg)
+    svc_cmd = None
+    progress = 0
+    try:
+        # Check if service has started. If not start it.
+        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
+        ccg = grpc.ccg_parse(stub, '')
+    except Exception:
+        # Not started
+        call([os.path.join(projdir, 'scripts', 'start_server.sh'), 'easysrl'])
+        time.sleep(4)   # Give it some time to lock session access
+        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
+        # Call asynchronously - will wait until default session is created
+        ccg = grpc.ccg_parse(stub, '', timeout=120)
+        svc_cmd = os.path.join(projdir, 'scripts', 'stop_server.sh')
+
+    try:
+        sessionId = grpc.DEFAULT_SESSION
+        if options.ofmt is not None:
+            if options.ofmt.lower() not in ['ccgbank', 'html', 'logic', 'extended']:
+                die('bad output format %s, must be ccgbank|html|logic|extended' % options.ofmt)
+            # Create a session to match output format, default is CCGBANK
+            if options.ofmt.lower() != 'ccgbank':
+                sessionId = grpc.create_session(stub, options.ofmt.upper())
+
+        titleSrch = re.compile(titleRe)
+        if direct:
+            line = ' '.join(args)
+            ccg = grpc.ccg_parse(stub, line, sessionId)
+            if outfile is None:
+                sys.stdout.write(ccg)
+            else:
+                with open(outfile, 'w') as fd:
+                    fd.write(ccg)
+        elif outfile is None:
+            process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
         else:
             with open(outfile, 'w') as fd:
-                fd.write(ccg)
-    elif outfile is None:
-        process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
-    else:
-        with open(outfile, 'w') as fd:
-            process_file(stub, fd, args, titleSrch, wordsep, sessionId)
-
+                process_file(stub, fd, args, titleSrch, wordsep, sessionId)
+    finally:
+        if svc_cmd is not None:
+            # Stop service
+            stub = None
+            call([svc_cmd, 'easysrl'])
