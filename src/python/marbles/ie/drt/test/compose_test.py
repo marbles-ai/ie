@@ -724,7 +724,7 @@ class ComposeTest(unittest.TestCase):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
-        ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl')
+        ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
         dirlist1 = os.listdir(ldcpath)
         for fname in dirlist1:
             if 'ccg_derivation' not in fname:
