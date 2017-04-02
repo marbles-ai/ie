@@ -1,9 +1,10 @@
-import unittest
 import os
-from marbles.ie.drt.parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
-from marbles.ie.drt.pdrs import *
-from marbles.ie.drt.drs import *
 import pickle
+import unittest
+
+from marbles.ie.drt.drs import *
+from marbles.ie.drt.pdrs import *
+from marbles.ie.parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
 
 
 def dirname(filepath, up):
@@ -13,6 +14,9 @@ def dirname(filepath, up):
 
 
 class ParserTest(unittest.TestCase):
+
+    iepath = dirname(os.path.abspath(__file__), 2)
+    projpath = dirname(iepath, 4)
 
     def test0_PDRSHaskellFormat(self):
         s = u"<1,{},{ (1,not <5,{(2,x)},{(2,man(x)),(5,happy(x))}, {(5,2)}>) }, {}>"
@@ -54,7 +58,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(3, len(pt))
 
     def test3_CCGCategories(self):
-        categories = os.path.join(dirname(__file__, 7), 'ext', 'easysrl', 'model', 'text', 'categories')
+        categories = os.path.join(self.projpath, 'ext', 'easysrl', 'model', 'text', 'categories')
         with open(categories, 'r') as fd:
             lines = fd.readlines()
             for ln in lines:
@@ -66,7 +70,7 @@ class ParserTest(unittest.TestCase):
                 self.assertLessEqual(len(pt), 3)
 
     def test4_Parser(self):
-        filename = os.path.join(os.path.dirname(__file__), 'parse_ccg_derivation_failed.dat')
+        filename = os.path.join(self.iepath, 'ccg', 'data', 'parse_ccg_derivation_failed.dat')
         if os.path.exists(filename):
             success = 0
             with open(filename, 'r') as fd:

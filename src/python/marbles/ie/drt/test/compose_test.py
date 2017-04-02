@@ -8,8 +8,8 @@ from marbles.ie.ccg.ccgcat import Category
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES
 from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
-from marbles.ie.drt.parse import parse_drs, parse_ccg_derivation
 from marbles.ie.drt.utils import compare_lists_eq
+from marbles.ie.parse import parse_drs, parse_ccg_derivation
 
 
 # Like NLTK's dexpr()

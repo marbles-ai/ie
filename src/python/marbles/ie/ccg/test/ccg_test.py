@@ -4,7 +4,7 @@ import os
 import unittest
 
 from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS
-from marbles.ie.drt.parse import parse_ccg_derivation
+from marbles.ie.parse import parse_ccg_derivation
 
 
 def rule_unique_helper(pt, lst):

@@ -3,11 +3,11 @@
 from __future__ import unicode_literals, print_function
 from pypeg2 import *
 import re
-from .drs import DRSRelation
-from .pdrs import MAP, PDRS, PDRSRef, PRef
-from .pdrs import PCond, PNeg, PRel, PProp, PImp, POr, PDiamond, PBox
-from .drs import DRS, DRSRef
-from .drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
+from marbles.ie.drt.drs import DRSRelation
+from marbles.ie.drt.pdrs import MAP, PDRS, PDRSRef, PRef
+from marbles.ie.drt.pdrs import PCond, PNeg, PRel, PProp, PImp, POr, PDiamond, PBox
+from marbles.ie.drt.drs import DRS, DRSRef
+from marbles.ie.drt.drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 
 
 ###########################################################################

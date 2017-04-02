@@ -13,7 +13,7 @@ sys.path.insert(0, pypath)
 
 from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt
 from marbles.ie.ccg.model import FunctorTemplate
-from marbles.ie.drt.parse import parse_ccg_derivation
+from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccgcat import Category
 
 

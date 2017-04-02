@@ -4,15 +4,15 @@
 import re
 
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
-    CAT_INFINITIVE, CAT_Sany, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, \
+    CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
     RL_TYPE_RAISE, RL_BA
-from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, PropProduction, OrProduction, \
+from marbles.ie.ccg.model import MODEL
+from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
     DrsComposeError
 from marbles.ie.drt.drs import DRS, DRSRef, Rel
-from marbles.ie.drt.parse import parse_drs
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement
-from marbles.ie.ccg.model import FunctorTemplate, UnaryRule, MODEL
+from marbles.ie.parse import parse_drs
 
 ## @cond
 __pron = [
