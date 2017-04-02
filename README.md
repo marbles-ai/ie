@@ -79,6 +79,16 @@ To run python tests you will need EasySRL derivations of the LDC ccgbank. From t
 ```
 ./scripts/make_easysrl_ldc_derivations.py
 ```
+The script stores the results at `./data/ldc/easysrl/ccg`. There are 24 groups in the LDC and each group contains 
+about 2000 sentences.
+
+### Build the DRS Compositions
+
+Once you have build the CCG derivations described above you can build the DRS compositions by running:
+```
+./scripts/make_easysrl_drs.py
+```
+The script stores the results at `./data/ldc/easysrl/drs`.
 
 ### Building Documentation
 
