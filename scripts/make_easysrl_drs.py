@@ -58,7 +58,7 @@ if __name__ == '__main__':
     failed_parse = 0
     failed_ccg2drs = []
     start = 0
-    progress = 0
+    progress = -1
     for fn in allfiles:
         idx = idsrch.match(fn)
         if idx is None:
@@ -74,10 +74,15 @@ if __name__ == '__main__':
         name, _ = os.path.splitext(os.path.basename(fn))
         for i in range(start, len(lines)):
             start = 0
-            ccgbank = lines[i]
-            print_progress(progress, 10)
+            ccgbank = lines[i].strip()
+            if len(ccgbank) == 0 or ccgbank[0] == '#':
+                continue
 
-            print('%s-%04d' % (name, i))
+            if progress < 0:
+                print('%s-%04d' % (name, i))
+            else:
+                progress = print_progress(progress, 10)
+
             try:
                 pt = parse_ccg_derivation(ccgbank)
                 s = sentence_from_pt(pt).strip()
