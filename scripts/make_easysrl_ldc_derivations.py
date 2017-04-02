@@ -37,7 +37,7 @@ if __name__ == '__main__':
     allfiles = []
     esrlpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
     if not os.path.exists(esrlpath):
-        os.mkdirs(esrlpath)
+        os.makedirs(esrlpath)
 
     svc_cmd = None
     progress = 0
