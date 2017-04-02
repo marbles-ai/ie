@@ -77,6 +77,8 @@ if __name__ == '__main__':
                     derivations.append(ccg.replace('\n', ''))
                 except Exception as e:
                     failed_parse.append(ln.strip())
+                    # Add comment so line numbers match id's
+                    derivations.append('# FAILED: ' + ln.strip())
                 progress = print_progress(progress, 10)
             id = m.group('id')
             if len(derivations) != 0:
