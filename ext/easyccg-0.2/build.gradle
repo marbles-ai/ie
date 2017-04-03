@@ -1,0 +1,35 @@
+//plugins {
+//    id "com.github.johnrengelman.shadow" version "1.2.4"
+//}
+
+apply plugin: 'gradle-one-jar'
+
+task standaloneJar(type: OneJar) {
+    mainClass = 'uk.ac.ed.easyccg.main.EasyCCG'
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'EasyCCG',
+                   'Implementation-Version': version
+    }
+}
+
+dependencies {
+    compile 'com.google.guava:guava:19.0'
+    compile fileTree(dir: 'lib/', include: ['*.jar'])
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+    }
+}
+
+// Ensure our task is called after build
+build.finalizedBy(standaloneJar)
+
+
+
