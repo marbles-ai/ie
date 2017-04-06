@@ -4,7 +4,7 @@
 import weakref
 
 from common import SHOW_LINEAR
-from drs import DRS, DRSRef, Merge, Prop, Rel
+from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
 from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
@@ -249,7 +249,7 @@ class DrsProduction(Production):
             properNoun: True is a proper noun.
         """
         super(DrsProduction, self).__init__(category)
-        if not isinstance(drs, DRS):
+        if not isinstance(drs, AbstractDRS):
             raise TypeError('DrsProduction expects DRS')
         self._drs = drs
         self._nnp = properNoun
@@ -329,7 +329,7 @@ class DrsProduction(Production):
         Args:
             r: A marbles.ie.drt.drs.DRSRef instance.
         """
-        return self._drs.find_condition(Rel('is.anaphora',[r]))
+        return self._drs.find_condition(Rel('.PRON', [r]))
 
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
@@ -344,7 +344,7 @@ class DrsProduction(Production):
         self.rename_lambda_refs(rs)
 
     def resolve_anaphora(self):
-        """Purify the underlying DRS instance.
+        """Resolve anaphora and purify the underlying DRS instance.
 
         Returns:
             A Production instance representing purified result.
@@ -353,7 +353,7 @@ class DrsProduction(Production):
         pn = []
         u = self._drs.universes
         for r in u:
-            rc = self._drs.find_condition(Rel('is.propernoun', [r]))
+            rc = self._drs.find_condition(Rel('.NNP', [r]))
             if rc is not None:
                 pn.append(rc)
 
@@ -361,7 +361,7 @@ class DrsProduction(Production):
         fr = self._drs.freerefs
         anaphora = []
         for r in fr:
-            rc = self._drs.find_condition(Rel('is.anaphora', [r]))
+            rc = self._drs.find_condition(Rel('.PRON', [r]))
             if rc is not None:
                 anaphora.append(rc)
         # If we have more freerefs than those marked as anphora we need to add markers
@@ -401,11 +401,11 @@ class ProductionList(Production):
         super(ProductionList, self).__init__(category)
         if compList is None:
             compList = []
-        if isinstance(compList, (DRS, Merge)):
+        if isinstance(compList, AbstractDRS):
             compList = [DrsProduction(compList)]
         elif isinstance(compList, Production):
             compList = [compList]
-        elif iterable_type_check(compList, (DRS, Merge)):
+        elif iterable_type_check(compList, AbstractDRS):
             compList = [DrsProduction(x) for x in compList]
         elif not iterable_type_check(compList, Production):
             raise TypeError('DrsProduction construction')
@@ -535,7 +535,7 @@ class ProductionList(Production):
         Returns:
             The self instance.
         """
-        if isinstance(other, DRS):
+        if isinstance(other, AbstractDRS):
             other = DrsProduction(other)
         if merge and isinstance(other, ProductionList):
             self._compList.extend(other._compList)
@@ -555,7 +555,7 @@ class ProductionList(Production):
         Returns:
             The self instance.
         """
-        if isinstance(other, DRS):
+        if isinstance(other, AbstractDRS):
             other = DrsProduction(other)
         if merge and isinstance(other, ProductionList):
             compList = [x for x in other._compList]
@@ -985,7 +985,7 @@ class FunctorProduction(Production):
         """
         super(FunctorProduction, self).__init__(category)
         if production is not None:
-            if isinstance(production, (DRS, Merge)):
+            if isinstance(production, AbstractDRS):
                 production = DrsProduction(production)
             elif not isinstance(production, Production):
                 raise TypeError('production argument must be a Production type')
