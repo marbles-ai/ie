@@ -30,22 +30,22 @@ __pron = [
     # 3rd person singular
     ('he',      '([],[([],[he(x1)])->([],[him(x1),.PRON(x1)])])'),
     ('she',     '([],[([],[she(x1),.PRON(x1)])->([],[her(x1)])])'),
-    ('him',     '([],[([],[him(x1),.PRON(x1)])->([],[male(x1)])])'),
-    ('her',     '([],[([],[her(x1),.PRON(x1)])->([],[female(x1)])])'),
+    ('him',     '([],[him(x1),.PRON(x1)])'),
+    ('her',     '([],[her(x1),.PRON(x1)])'),
     ('himself', '([],[([],[himself(x1)])->([],[him(x1),.PRON(x1)])])'),
     ('herself', '([],[([],[herself(x1)])->([],[her(x1),.PRON(x1)])])'),
-    ('hisself', '([],[([],[hisself(x1)])->([],[himself(x1),.PRON(x1)])])'),
+    ('hisself', '([],[([],[hisself(x1)])->([],[him(x1),.PRON(x1)])])'),
     ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])'),
     ('hers',    '([],[([],[hers(x1)])->([],[her(x2),.PRON(x2),owns(x2,x1)])])'),
     # 1st person plural
     ('we',      '([],[([],[we(x1)])->([],[us(x1),.PRON(x1)])])'),
-    ('us',      '([],[us(x1)])'),
-    ('ourself', '([],[([],[ourself(x1)])->([],[our(x1),.PRON(x1)])])'),
-    ('ourselves','([],[([],[ourselves(x1)])->([],[our(x1),.PRON(x1)])])'),
+    ('us',      '([],[us(x1),.PRON(x1)])'),
+    ('ourself', '([],[([],[ourself(x1)])->([],[us(x1),.PRON(x1)])])'),
+    ('ourselves','([],[([],[ourselves(x1)])->([],[us(x1),.PRON(x1)])])'),
     ('ours',    '([],[([],[ours(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
     ('our',     '([],[([],[our(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
     # 2nd person plural
-    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),.PRON(x1),is.plural(x1)])])'),
+    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),.PRON(x1),.PLURAL(x1)])])'),
     # 3rd person plural
     ('they',    '([],[([],[they(x1)])->([],[them(x1),.PRON(x1)])])'),
     ('them',    '([],[them(x1),.PRON(x1)])'),
@@ -142,32 +142,6 @@ def empty_production(category, ref=None):
         ref = DRSRef('x1')
     d.set_lambda_refs([ref])
     return d
-
-
-class FunctorTemplateGeneration(object):
-    """Template Generation Variables"""
-
-    def __init__(self):
-        self.ei = 0
-        self.xi = 0
-        self.tags = {}
-
-    def next_ei(self):
-        self.ei += 1
-        return self.ei
-
-    def next_xi(self):
-        self.xi += 1
-        return self.xi
-
-    def istagged(self, key):
-        return key in self.tags
-
-    def get_tag(self, key):
-        return self.tags[key]
-
-    def tag(self, key, v):
-        self.tags[key] = v
 
 
 # Special categories
@@ -392,116 +366,15 @@ class CcgTypeMapper(object):
         elif self.isnumber:
             conds.append(Rel(self._word, [refs[0]]))
             conds.append(Rel('.NUM', refs))
+        elif self.partofspeech == 'IN' and not self.ispreposition:
+            conds.append(Rel(self._word, refs))
         else:
             conds.append(Rel(self._word, [refs[0]]))
-        return conds
-
-    def build_predicates(self, p_vars, refs, evt_vars=None, conds=None):
-        """Build the DRS conditions for a noun, noun phrase, or adjectival phrase. Do
-        not use this for verbs or adverbs.
-
-        Args:
-            p_vars: DRSRef's used in the predicates.
-            refs: lambda refs for curried function, excluding evt.
-            evt: An optional event DRSRef.
-            conds: A list of existing DRS conditions.
-
-        Returns:
-            A list if marbles.ie.drt.drs.Rel instances.
-
-        Remarks:
-            Also modifies refs to be lambda vars
-        """
-        assert p_vars is not None
-        assert refs is not None
-        if conds is None:
-            conds = []
-        if isinstance(p_vars, DRSRef):
-            p_vars = [p_vars]
-        elif isinstance(p_vars, tuple):
-            # Production templates are stored as tuples to prevent modification
-            p_vars = list(p_vars)
-
-        if evt_vars is not None:
-            if isinstance(evt_vars, DRSRef):
-                evt_vars = [evt_vars]
-            else:
-                if isinstance(evt_vars, tuple):
-                    evt_vars = list(evt_vars)
-                else:
-                    evt_vars = [x for x in evt_vars]    # shallow copy
-                evt_vars.reverse()
-            #evt_vars = union_inplace(p_vars, evt_vars)
-            if len(evt_vars) == 1:
-                # p_vars = [e], evt_vars = [e]
-                evt_vars = None
-            else:
-                p_vars = complement(p_vars, evt_vars)
-
-        if self.category.ismodifier or self.category.iscombinator:
-            if evt_vars is not None:
-                evt_vars.reverse()
-                refs.reverse()
-                refs = union_inplace(evt_vars, refs)
-                # shallow copy refs
-                if len(refs) == 1:
-                    conds.append(Rel(self._word, [x for x in refs]))
-                elif len(refs) == 2:
-                    conds.append(Rel(self._word, [x for x in refs]))
-                elif len(refs) > 2:
-                    conds.append(Rel(self._word, [x for x in refs]))
-                refs.reverse() # for caller
-            else:
-                conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
-        elif self.isadjective:
-            if evt_vars is not None:
-                raise DrsComposeError('Adjective "%s" with signature "%s" does not expect an event variable'
-                                      % (self._word, self.signature))
-            conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
-        else:
-            if self.isproper_noun:
-                if len(p_vars) != 1:
-                    pass
-                assert len(p_vars) == 1
-                if self._TypeMonth.match(self._word):
-                    conds.append(Rel('.DATE', p_vars))
-                    if evt_vars is not None:
-                        conds.append(Rel('.EDATE', evt_vars))
-                    if self._word in _MONTHS:
-                        conds.append(Rel(_MONTHS[self._word], p_vars))
-                    else:
-                        conds.append(Rel(self._word, p_vars))
-                elif self._TypeWeekday.match(self._word):
-                    conds.append(Rel('.DATE', p_vars))
-                    if evt_vars is not None:
-                        conds.append(Rel('.EDATE', evt_vars))
-                    if self._word in _WEEKDAYS:
-                        conds.append(Rel(_WEEKDAYS[self._word], p_vars))
-                    else:
-                        conds.append(Rel(self._word, p_vars))
-                else:
-                    if evt_vars is not None:
-                        conds.append(Rel('.RELATED', evt_vars))
-                    conds.append(Rel(self._word, p_vars))
-            elif self.isnumber:
-                assert len(p_vars) == 1
-                conds.append(Rel('.NUM', p_vars))
-                if evt_vars is not None:
-                    conds.append(Rel('.RELATED', evt_vars))
-                conds.append(Rel(self._word, p_vars))
-            elif evt_vars is not None and len(p_vars) != 0:
-                conds.append(Rel('.RELATED', evt_vars))
-                conds.append(Rel(self._word, p_vars))
-            elif len(refs) != 0:
-                conds.append(Rel(self._word, [x for x in refs]))    # shallow copy refs
         return conds
 
     @staticmethod
     def remove_events_from_template(templ):
         """Remove events from a production template."""
-
-        # r'((S\T)\(S\T))/T': ((FunctorProduction, DRSRef('y')),
-        #                     (FunctorProduction, (DRSRef('x'), DRSRef('e'))), DRSRef('e')),
         result = []
         for t in templ[:-1]:
             if isinstance(t[1], tuple):
@@ -545,7 +418,11 @@ class CcgTypeMapper(object):
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
                 return d
             elif self.category == CAT_N:
-                d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=self.isproper_noun)
+                if self.isproper_noun:
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]),
+                                                           Rel('.NNP', [DRSRef('x1')])]), properNoun=True)
+                else:
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]))
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x1')])
                 return d
@@ -577,7 +454,7 @@ class CcgTypeMapper(object):
         # Production templates use tuples so we don't accidentally modify.
         if self.category == CAT_NP_N:    # NP*/N class
             # Ignore template in these cases
-            # FIXME: these relations should be added as part of build_predicates()
+            # FIXME: these relations should be added as part of build_conditions()
             if self.category == CAT_DETERMINER:
                 if self._word in ['a', 'an']:
                     fn = DrsProduction(DRS([], [Rel('.MAYBE', [DRSRef('x1')])]), category=CAT_NP)
@@ -785,7 +662,7 @@ def _process_ccg_node(pt, cl):
         cl.push_right(DrsProduction(DRS([], []), category=Category(pt[0])))
         return
 
-    if pt[1] in ['and', 'eventually']:
+    if pt[1] in ['among', 'more', 'than']:
         pass
     ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
     if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
