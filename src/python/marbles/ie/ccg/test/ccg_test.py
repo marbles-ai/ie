@@ -5,6 +5,7 @@ import unittest
 
 from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS
 from marbles.ie.parse import parse_ccg_derivation
+from marbles.ie.utils.cache import Cache
 
 
 def rule_unique_helper(pt, lst):
@@ -121,7 +122,23 @@ class CcgTest(unittest.TestCase):
         vx = [[Category('A'), Category('S')], [Category('A')], [Category('S')]]
         self.assertListEqual(va, vx)
 
-    def test4_RuleUniquenessLDC(self):
+    def test4_Cache(self):
+        if Category._use_cache:
+            for k, v in Category._cache:
+                self.assertEquals(k, v.signature)
+                self.assertEquals(Category._cache[k], v)
+
+    def test5_Cache(self):
+        if Category._use_cache:
+            cats = [v for k, v in Category._cache]
+            Category._use_cache = False
+            Category._cache = Cache()
+            Category.initialize_cache(cats)
+            for k, v in Category._cache:
+                self.assertEquals(k, v.signature)
+                self.assertEquals(Category._cache[k], v)
+
+    def test6_RuleUniquenessLDC(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -166,16 +183,22 @@ class CcgTest(unittest.TestCase):
                     exclude = []
                     # Should not have ambiguity
                     rule = get_rule(left, right, result, exclude)
+                    limit = 5
                     while rule is not None:
                         rule = get_rule(left, right, result, exclude)
+                        limit -= 1
+                        if limit == 0:
+                            rule = get_rule(left, right, result, exclude)
+                            break
                     if len(exclude) > 1:
                         ambiguous.append((cats, exclude))
+                    self.assertGreater(limit, 0)
 
         for x in ambiguous:
             print('ambiguous rule: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
-    def test5_RuleUniquenessEasySRL(self):
+    def test7_RuleUniquenessEasySRL(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -234,7 +257,7 @@ class CcgTest(unittest.TestCase):
             print('ambiguous rule in %s-%04d: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
-    def test5_RuleExecutionEasySRL(self):
+    def test8_RuleExecutionEasySRL(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
