@@ -463,7 +463,7 @@ class CcgTypeMapper(object):
             elif self.isadverb and template.isfinalevent:
                 if self._word in _ADV:
                     adv = _ADV[self._word]
-                    fn = DrsProduction(adv[0], [x for x in adv[1]])
+                    fn = DrsProduction(adv[0])
                     rs = zip(adv[1], refs)
                     fn.rename_vars(rs)
                 else:
@@ -508,6 +508,7 @@ class Ccg2Drs(object):
         self.options = options
 
     def final_rename(self, d):
+        # Move names to 1:...
         v = set(filter(lambda x: not x.isconst, d.variables))
         ors = filter(lambda x: x.var.idx < len(v), v)
         if len(ors) != 0:
@@ -520,6 +521,15 @@ class Ccg2Drs(object):
         idx = [i+1 for i in range(len(v))]
         rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
         d.rename_vars(rs)
+        # Ensure events are e? refs
+        while True:
+            v = set(filter(lambda x: not x.isconst, d.variables))
+            for x in v:
+                if x.var.name == 'x':
+                    fc = d.drs.find_condition(Rel('.EVENT', [x]))
+                    if fc is not None:
+                        d.rename_vars([(x, DRSRef(DRSVar('e',x.var.idx)))])
+            break
         return d
 
     def rename_vars(self, d):
@@ -638,9 +648,9 @@ class Ccg2Drs(object):
                 assert result.get_scope_count() == cl2.get_scope_count()
             elif len(cats) == 2:
                 # Get the production rule
-                if cats[0] == Category(r'NP') and \
-                                cats[1] == Category(r'NP\NP') and \
-                                result == Category(r'NP'):
+                if cats[1] == Category(r'(S\NP)\(S\NP)') and \
+                                cats[0] == Category(r'(S[dcl]\NP)/(S[adj]\NP)') and \
+                                result == Category(r'(S[dcl]\NP)/(S[adj]\NP)'):
                     pass
                 rule = get_rule(cats[0], cats[1], result)
                 if rule is None:
@@ -697,7 +707,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['Time']:
+        if pt[1] in ['which']:
             pass
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
         if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
