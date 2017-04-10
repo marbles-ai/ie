@@ -91,3 +91,6 @@ ie.ipr
 
 # nohup
 nohup.out
+
+# Stuff specific to easyccg
+ext/easyccg-0.2/bin/
