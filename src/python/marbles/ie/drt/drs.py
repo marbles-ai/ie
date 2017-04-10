@@ -652,8 +652,8 @@ class DRS(AbstractDRS):
     def __init__(self, drsRefs, drsConds):
         if not iterable_type_check(drsRefs, AbstractDRSRef) or not iterable_type_check(drsConds, AbstractDRSCond):
             raise TypeError
-        if any([x.isconst for x in drsRefs]):
-            raise TypeError('DRSConst cannot be bound')
+        #if any([x.isconst for x in drsRefs]):
+        #    raise TypeError('DRSConst cannot be bound')
         super(DRS, self).__init__()
         self._refs = drsRefs
         self._conds = drsConds

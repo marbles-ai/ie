@@ -316,7 +316,6 @@ class ComposeTest(unittest.TestCase):
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0003_1(self):
-        # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago, researchers reported.
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
         # among a group of workers exposed to it more than 30 years ago, researchers reported.
         # ID=wsj_0003.1 PARSER=GOLD NUMPARSE=1
@@ -657,7 +656,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x4,e1,x3| event(e1),event.verb.welcome(e1),event.agent(e1,x4),event.theme(e1,x3),to(x3),Merryweather-High(x3)]'
+        x = u'[x2,e1,Merryweather-High| .EVENT(e1),welcome(e1),.AGENT(e1,x2),.THEME(e1,Merryweather-High),to(Merryweather-High)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -690,7 +689,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
-        x = u'[x1,e3,e2,x2| exists(x1),door(x1),event(e3),event.verb.opens(e3),event.agent(e3,x1),[| i(x2)] \u21D2 [| me(x2),is.anaphora(x2)],event(e2),event.verb.step(e2),event.agent(e2,x2),up(e2),direction(e2)]'
+        x = u'[x1,e2,e3,x4| .EXISTS(x1),door(x1),.EVENT(e2),opens(e2),.AGENT(e2,x1),[| i(x4)] \u21D2 [| me(x4)],.EVENT(e3),step(e3),.AGENT(e3,x4),up(e3),direction(e3)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -703,8 +702,36 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x2,e1,x3| exists(x2),school(x2),bus(x2),event(e1),event.verb.wheezes(e1),event.agent(e1,x2),event.theme(e1,x3),to(x3),my(x3),corner(x3)]'
+        x = u'[x3,e1,x2| .EXISTS(x3),school(x3),bus(x3),.EVENT(e1),wheezes(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),my(x2),corner(x2)]'
         self.assertEquals(x, s)
+
+
+    def test4_Asbestos(self):
+        txt='''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT A NP/N>) (<T N 0 2> (<L N/PP NN NN form N/PP>)
+        (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 1> (<T N 0 2> (<L N NN NN asbestos N>) (<T N\N 0 1>
+        (<T S[pss]\NP 1 2> (<L (S\NP)/(S\NP) RB RB once (S\NP)/(S\NP)>) (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/(S[to]\NP) VBN VBN used (S[pss]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/NP VB VB make (S[b]\NP)/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Kent N/N>) (<T N 1 2>
+        (<L N/N NN NN cigarette N/N>) (<L N NNS NNS filters N>) ) ) ) ) ) ) ) ) ) ) ) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP)/(S[pt]\NP)>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/NP VBN VBN caused (S[pt]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2>
+        (<L N/N JJ JJ high N/N>) (<T N 0 2> (<T N 0 2> (<T N 0 2> (<L N/PP NN NN percentage N/PP>) (<T PP 0 2>
+        (<L PP/NP IN IN of PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN cancer N/N>) (<L N NNS NNS deaths N>) ) ) ) )
+        (<T N\N 0 2> (<L (N\N)/NP IN IN among (N\N)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 0 2>
+        (<L N/PP NN NN group N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 1> (<T N 0 2>
+        (<L N NNS NNS workers N>) (<T N\N 0 1> (<T S[pss]\NP 0 2> (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/PP VBN VBN exposed (S[pss]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
+        (<L NP PRP PRP it NP>) ) ) (<T (S\NP)\(S\NP) 1 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<T (N/N)/(N/N) 1 2>
+        (<L S[adj]\NP JJR JJR more S[adj]\NP>) (<L ((N/N)/(N/N))\(S[adj]\NP) IN IN than ((N/N)/(N/N))\(S[adj]\NP)>) )
+        (<L N/N CD CD 30 N/N>) ) (<L N NNS NNS years N>) ) ) (<L ((S\NP)\(S\NP))\NP RB RB ago ((S\NP)\(S\NP))\NP>) ) )
+        ) ) ) ) ) ) ) ) (<L , , , , ,>) ) ) ) ) ) ) (<T S[dcl]\S[dcl] 0 2> (<T S[dcl]\S[dcl] 1 2> (<T NP 0 1>
+        (<L N NNS NNS researchers N>) ) (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl])\NP>) )
+        (<L . . . . .>) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
 
     def test6_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
@@ -735,7 +762,7 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = []
-        start = 0
+        start = 3
         for fn in allfiles[0:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()

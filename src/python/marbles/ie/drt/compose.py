@@ -3,7 +3,7 @@
 
 import weakref
 
-from common import SHOW_LINEAR
+from common import SHOW_LINEAR, DRSConst
 from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
 from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
@@ -14,7 +14,7 @@ from utils import iterable_type_check, intersect, union, union_inplace, remove_d
 
 ## @{
 ## @ingroup gconst
-## @defgroup CCG to DRS Constants
+## @defgroup ccg2drs_const CCG to DRS Constants
 
 ## Compose option: remove propositions containing single referent in the subordinate DRS.
 CO_REMOVE_UNARY_PROPS = 0x1
@@ -26,14 +26,233 @@ CO_VERIFY_SIGNATURES = 0x4
 ## @}
 
 
+## @{
+## @ingroup gconst
+## @defgroup reftypes DRS Referent Types
+
+RT_PROPERNAME    = 0x0000000000000001
+RT_ENTITY        = 0x0000000000000002
+RT_EVENT         = 0x0000000000000004
+RT_LOCATION      = 0x0000000000000008
+RT_DATE          = 0x0000000000000010
+RT_WEEKDAY       = 0x0000000000000020
+RT_MONTH         = 0x0000000000000040
+RT_HUMAN         = 0x0000000000000080
+RT_ANAPHORA      = 0x0000000000000100
+RT_NUMBER        = 0x0000000000000200
+
+RT_RELATIVE      = 0x8000000000000000
+RT_PLURAL        = 0x4000000000000000
+RT_MALE          = 0x2000000000000000
+RT_FEMALE        = 0x1000000000000000
+
+
+## @}
+
 class DrsComposeError(Exception):
     """Production Error."""
     pass
 
 
+def identity_functor(category, ref=None, dep=None):
+    """Return the identity functor `λx.P(x)`.
+
+    Args:
+        category: A functor category where the result and argument are atoms.
+        ref: optional DRSRef to use as identity referent.
+        dep: optional dependency tree.
+
+    Returns:
+        A FunctorProduction instance.
+
+    Remarks:
+        This can be used for atomic unary rules.
+    """
+    assert category.result_category.isatom
+    assert category.argument_category.isatom
+    d = DrsProduction(DRS([], []), category=category.result_category)
+    if ref is None:
+        ref = DRSRef('x1')
+    d.set_lambda_refs([ref])
+    return FunctorProduction(category, ref, d, dep=dep)
+
+
+class Dependency(object):
+    def __init__(self, drsref, word, typeid, idx=0):
+        """Constructor.
+
+        Args:
+            drsref: Key for dictionary.
+            word: Noun or Proper Name.
+            typeid: An integer type id.
+            idx: position in sentence
+        """
+        if isinstance(drsref, str):
+            drsref = DRSRef(drsref)
+        self._ref = drsref
+        self._word = word
+        self._mask = typeid
+        self._head = None
+        self._children = set()
+
+    def _repr_heads(self, s):
+        if self._ref is None:
+            s = '[()<=(%s)]' % s
+        else:
+            s = '[(%s,%s)<=(%s)]' % (self._ref.var.to_string(), self._word, s)
+        if self.head is None:
+            return s
+        return self.head._repr_heads(s)
+
+    def _repr_children(self):
+        if self._children is not None:
+            nds = ','.join([x._repr_children() for x in self._children])
+        else:
+            nds = ''
+        if self._ref is None:
+            return '[()<-(%s)]' % nds
+        else:
+            return '[(%s,%s)<-(%s)]' % (self._ref, self._word, nds)
+
+    def __repr__(self):
+        s = self._repr_children()
+        if self.head is not None:
+            return self.head._repr_heads(s)
+        return s
+
+    @property
+    def head(self):
+        return self._head() if self._head is not None else None
+
+    @property
+    def children(self):
+        return sorted(self._children)
+
+    @property
+    def descendants(self):
+        u = set()
+        u = u.union(self._children)
+        for c in self._children:
+            u = u.union(c.descendants)
+        return sorted(u)
+
+    @property
+    def root(self):
+        r = self
+        while r.head is not None:
+            r = r.head
+        return r
+
+    def set_head(self, head):
+        if head != self.head:
+            self._head = weakref.ref(head)
+        head._children.add(self)
+        return head
+
+    def _update_referent(self, oldref, newref):
+        if oldref == self._ref:
+            self._ref = newref
+            return True
+        else:
+            for c in self._children:
+                if c._update_referent(oldref, newref):
+                    return True
+        return False
+
+    def update_referent(self, oldref, newref):
+        """Update a referent in the dependency tree.
+
+        Args:
+            oldref: Old referent name.
+            newref: New referent name.
+        """
+        if isinstance(oldref, str):
+            drsref = DRSRef(oldref)
+        if isinstance(newref, str):
+            drsref = DRSRef(newref)
+
+        if oldref != newref:
+            self.root._update_referent(oldref, newref)
+
+    def _update_mapping(self, drsref, word, typeid):
+        if drsref == self._ref:
+            if word is not None:
+                self._word = word
+            self._mask |= typeid
+            return True
+        else:
+            for c in self._children:
+                if c._update_mapping(drsref, word, typeid):
+                    return True
+        return False
+
+    def update_mapping(self, drsref, word, typeid=0):
+        """Update a referents mapping in the dependency tree.
+
+        Args:
+            drsref: Key for dictionary.
+            word: Noun or Proper Name.
+            typeid: An optional integer type id.
+        """
+        if isinstance(drsref, str):
+            drsref = DRSRef(drsref)
+        if drsref == self._ref:
+            if word is not None:
+                self._word = word
+            self._mask |= typeid
+        else:
+            self.root._update_mapping(drsref, word, typeid)
+
+    def _get_mapping(self, drsref):
+        if drsref == self._ref:
+            return (self._word, self._mask)
+        else:
+            for c in self._children:
+                result = c._get_mapping(drsref)
+                if result is not None:
+                    return result
+        return None
+
+    def get_mapping(self, drsref):
+        """Get the referent mapping."""
+        if drsref == self._ref:
+            return self._get_mapping(drsref)
+        return self.root._get_mapping(drsref)
+
+    def get(self):
+        """Get the referent mapping."""
+        return self._ref, self._word, self._mask
+
+    def _remove_ref(self, drsref):
+        if drsref == self._ref:
+            hd = self.head
+            if hd is None:
+                self._ref = DRSRef('ROOT')
+                self._word = ''
+                self._mask = 0
+            else:
+                hd._children = hd._children.difference([self])
+                for c in self._children:
+                    c.set_head(hd)
+                self._children = None
+                self._head = None
+            return True
+        else:
+            for c in self._children:
+                if c._remove_ref(drsref):
+                    return True
+        return False
+
+    def remove_ref(self, drsref):
+        if drsref == self._ref:
+            self._remove_ref(drsref)
+        else:
+            self.root._remove_ref(drsref)
+
+
 class Production(object):
     """An abstract production."""
-    def __init__(self, category=None):
+    def __init__(self, category=None, dep=None):
         self._lambda_refs = None
         self._options = 0
         if category is None:
@@ -42,6 +261,10 @@ class Production(object):
             self._category = category
         else:
             raise TypeError('category must be instance of Category')
+        if dep is None or isinstance(dep, Dependency):
+            self._dep = dep
+        else:
+            raise TypeError('dep must be instance of DepManager')
 
     def __eq__(self, other):
         return id(self) == id(other)
@@ -51,14 +274,14 @@ class Production(object):
         return filter(lambda x: x[0] != x[1], rs)
 
     @property
-    def signature(self):
-        """The drs type signature."""
-        return 'T'
-
-    @property
     def category(self):
         """The CCG category"""
         return self._category
+
+    @property
+    def dep(self):
+        """The dependency node."""
+        return self._dep
 
     @property
     def isempty(self):
@@ -144,20 +367,18 @@ class Production(object):
         """
         return False
 
+    def set_dependency(self, dep):
+        """Set the dependency"""
+        oldep = self._dep
+        self._dep = dep
+        return oldep
+
     def get_scope_count(self):
         """Get the number of scopes in a functor. Zero for non functor types"""
         return 0
 
     def remove_proper_noun(self):
         pass
-
-    def find_anaphora(self, r):
-        """Find anaphora for referent r.
-
-        Args:
-            r: A marbles.ie.drt.drs.DRSRef instance.
-        """
-        return None
 
     def set_category(self, cat):
         """Set the CCG category.
@@ -168,12 +389,12 @@ class Production(object):
         self._category = cat
 
     def set_options(self, options):
-        """Set the compose opions.
+        """Set the compose options.
 
         Args:
             options: The compose options.
         """
-        self._options = int(options)
+        self._options = int(options or 0)
 
     def set_lambda_refs(self, refs):
         """Set the lambda referents for this production.
@@ -194,7 +415,10 @@ class Production(object):
         """
         if self._lambda_refs is not None:
             self._lambda_refs = self._lambda_refs.alpha_convert(rs)
-            self._lambda_refs = self._lambda_refs.substitute(rs)
+            #self._lambda_refs = self._lambda_refs.substitute(rs)
+        if self._dep:
+            for o, n in rs:
+               self._dep.update_referent(o, n)
 
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
@@ -230,8 +454,8 @@ class Production(object):
         Remarks:
             For functors should only call from outer scope.
         """
-        ers = union(arg.lambda_refs, arg.variables)
-        ers2 = union(self.lambda_refs, self.variables)
+        ers = arg.variables
+        ers2 = self.variables
         ors = intersect(ers, ers2)
         if len(ors) != 0:
             nrs = get_new_drsrefs(ors, union(ers, ers2))
@@ -241,14 +465,14 @@ class Production(object):
 
 class DrsProduction(Production):
     """A DRS production."""
-    def __init__(self, drs, properNoun=False, category=None):
+    def __init__(self, drs, properNoun=False, category=None, dep=None):
         """Constructor.
 
         Args:
             drs: A marbles.ie.drt.DRS instance.
             properNoun: True is a proper noun.
         """
-        super(DrsProduction, self).__init__(category)
+        super(DrsProduction, self).__init__(category, dep)
         if not isinstance(drs, AbstractDRS):
             raise TypeError('DrsProduction expects DRS')
         self._drs = drs
@@ -259,16 +483,6 @@ class DrsProduction(Production):
         if len(lr) == 0:
             return self.drs.show(SHOW_LINEAR).encode('utf-8')
         return 'λ' + 'λ'.join(lr) + '.' + self.drs.show(SHOW_LINEAR).encode('utf-8')
-
-    @property
-    def signature(self):
-        """The drs type signature."""
-        if self._category == CAT_EMPTY:
-            if len(self._drs.referents) == 1 and len(self._drs.conditions) == 1 and \
-                    isinstance(self._drs.conditions[0], Prop):
-                return 'Z'
-            return 'T'
-        return self._category.signature
 
     @property
     def isproper_noun(self):
@@ -283,7 +497,7 @@ class DrsProduction(Production):
     @property
     def variables(self):
         """Get the variables. Both free and bound referents are returned."""
-        return union(self._drs.universes, self._drs.freerefs)
+        return union(self._drs.universes, self._drs.freerefs, self.lambda_refs)
 
     @property
     def freerefs(self):
@@ -323,14 +537,6 @@ class DrsProduction(Production):
     def remove_proper_noun(self):
         self._nnp = False
 
-    def find_anaphora(self, r):
-        """Find anphora for referent r.
-
-        Args:
-            r: A marbles.ie.drt.drs.DRSRef instance.
-        """
-        return self._drs.find_condition(Rel('.PRON', [r]))
-
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
 
@@ -349,46 +555,49 @@ class DrsProduction(Production):
         Returns:
             A Production instance representing purified result.
         """
-        # Find proper nouns
-        pn = []
-        u = self._drs.universes
-        for r in u:
-            rc = self._drs.find_condition(Rel('.NNP', [r]))
-            if rc is not None:
-                pn.append(rc)
+        if self.dep is not None:
+            # Find anaphora
+            anap_h = []
+            anap_nh = []
+            pn = []
 
-        # Find anaphora
-        fr = self._drs.freerefs
-        anaphora = []
-        for r in fr:
-            rc = self._drs.find_condition(Rel('.PRON', [r]))
-            if rc is not None:
-                anaphora.append(rc)
-        # If we have more freerefs than those marked as anphora we need to add markers
-        needMarker = len(fr) != len(anaphora)
+            root = self.dep.root
+            for nd in root.descendants:
+                r, w, t = nd.get()
+                if (t & (RT_ANAPHORA | RT_HUMAN)) == (RT_ANAPHORA | RT_HUMAN):
+                    # he, she
+                    anap_h.append((nd, r, w, t))
+                elif (t & RT_PROPERNAME) != 0:
+                    pn.append((nd, r, w, t))
+                elif (t & RT_ANAPHORA) != 0:
+                    # it
+                    anap_nh.append((nd, r, w, t))
 
-        # Create resolve list
-        rs = []
-        for a in anaphora:
-            nn = None
-            for n in pn:
-                if n.gdlevel >= a.ldlevel and n.ldlevel >= a.ldlevel and n.gd.find_subdrs(a.ld) is not None:
-                    if nn is None:
-                        nn = n
-                    elif nn.gdlevel > n.gdlevel:
-                        nn = n
-                    elif nn.gdlevel == n.gdlevel and nn.ldlevel < n.ldlevel:
-                        nn = n
-            if nn is not None:
-                rs.append((a.cond.referents[0], nn.cond.referents[0]))
+            # Resolve it
+            rs = []
+            for dep, r, w, t in anap_nh:
+                for nd in dep.descendants:
+                    rr, ww, tt = nd.get()
+                    if (t & (RT_ENTITY | RT_PLURAL)) == RT_ENTITY:
+                        rs.append((r, rr))
+                        break
+            if len(rs) != 0:
+                self.rename_vars(rs)
 
-        # Resolve anaphora
-        self.rename_vars(rs)
+            # Make proper names constants
+            rs = []
+            for dep, r, w, t in pn:
+                fc = self._drs.find_condition(Rel(w, [r]))
+                if fc is not None:
+                    self._drs.remove_condition(fc)
+                    rs.append((r, DRSRef(DRSConst(w))))
+                    dep.remove_ref(r)
+            if len(rs) != 0:
+                self.rename_vars(rs)
+
+        # Remainder are unresolved
         fr = self._drs.freerefs
         if len(fr) != 0:
-            if needMarker:
-                # FIXME: resolve anaphora later so add marker
-                pass
             self._drs = DRS(union(self._drs.universe, fr), self._drs.conditions)
         self._drs = self._drs.purify()
         return self
@@ -397,8 +606,8 @@ class DrsProduction(Production):
 class ProductionList(Production):
     """A list of productions."""
 
-    def __init__(self, compList=None, category=None):
-        super(ProductionList, self).__init__(category)
+    def __init__(self, compList=None, category=None, dep=None):
+        super(ProductionList, self).__init__(category, dep)
         if compList is None:
             compList = []
         if isinstance(compList, AbstractDRS):
@@ -433,7 +642,7 @@ class ProductionList(Production):
     @property
     def variables(self):
         """Get the variables."""
-        u = set()
+        u = set(self.lambda_refs)
         for d in self._compList:
             u = u.union(d.variables)
         return sorted(u)
@@ -463,23 +672,6 @@ class ProductionList(Production):
                 return True
         return False
 
-    @property
-    def signature(self):
-        """The production type signature."""
-        return ';'.join([x.signature for x in self._compList])
-
-    def find_anaphora(self, r):
-        """Find anphora for referent r.
-
-        Args:
-            r: A marbles.ie.drt.drs.DRSRef instance.
-        """
-        for d in self._compList:
-            rc = d.find_anaphora(r)
-            if rc is not None:
-                return rc
-        return None
-
     def iterator(self):
         """Iterate the productions in this list."""
         for c in self._compList:
@@ -491,7 +683,7 @@ class ProductionList(Production):
             yield c
 
     def clone(self):
-        cl = ProductionList([x for x in self._compList])
+        cl = ProductionList([x for x in self._compList], dep=self.dep)
         cl.set_options(self.compose_options)
         cl.set_lambda_refs(self.lambda_refs)
         return cl
@@ -536,7 +728,7 @@ class ProductionList(Production):
             The self instance.
         """
         if isinstance(other, AbstractDRS):
-            other = DrsProduction(other)
+            other = DrsProduction(other, )
         if merge and isinstance(other, ProductionList):
             self._compList.extend(other._compList)
         else:
@@ -556,7 +748,7 @@ class ProductionList(Production):
             The self instance.
         """
         if isinstance(other, AbstractDRS):
-            other = DrsProduction(other)
+            other = DrsProduction(other, )
         if merge and isinstance(other, ProductionList):
             compList = [x for x in other._compList]
             compList.extend(self._compList)
@@ -656,8 +848,8 @@ class ProductionList(Production):
 
         refs = []
         conds = []
-        pconds = [] # proper nouns
-        oconds = [] # other predicates, for example is.propernoun()
+        pconds = []     # proper nouns
+        oconds = []     # other predicates
         lastr = DRSRef('$$$$')
         proper = 0
         for d in ml:
@@ -673,21 +865,23 @@ class ProductionList(Production):
                     lastr = nextr
                     proper += 1
                     if len(pconds) != 0:
-                        conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
+                        name = '-'.join([c.relation.to_string() for c in pconds])
+                        self.dep.update_mapping(lastr, name)
+                        conds.append(Rel(name, [lastr]))
                         conds.extend(oconds)
-                    if isinstance(ctmp[0], Prop):
-                        pass
-                    pconds = [ ctmp[0] ]
+                    pconds = [ctmp[0]]
                     oconds = ctmp[1:]
                 else:
-                    if isinstance(ctmp[0], Prop):
-                        pass
                     pconds.append(ctmp[0])
                     oconds.extend(ctmp[1:])
             else:
                 # FIXME: proper-noun followed by noun, for example Time magazine, should we collate?
                 if len(pconds) != 0:
-                    conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
+                    name = '-'.join([c.relation.to_string() for c in pconds])
+                    if self.dep is None:
+                        pass
+                    self.dep.update_mapping(lastr, name)
+                    conds.append(Rel(name, [lastr]))
                     conds.extend(oconds)
                 lastr = DRSRef('$$$$')
                 pconds = []
@@ -698,14 +892,18 @@ class ProductionList(Production):
         # FIXME: Boc Raton and Hot Springs => Boca-Raton(x) Hot-Springs(x1)
         # Hyphenate name
         if len(pconds) != 0:
-            conds.append(Rel('-'.join([c.relation.to_string() for c in pconds]), [lastr]))
+            name = '-'.join([c.relation.to_string() for c in pconds])
+            if self.dep is None:
+                pass
+            self.dep.update_mapping(lastr, name)
+            conds.append(Rel(name, [lastr]))
             conds.extend(oconds)
 
         if len(refs) == 0 and len(conds) == 0:
             return self
 
         drs = DRS(refs, conds).purify()
-        d = DrsProduction(drs, proper == 1)
+        d = DrsProduction(drs, proper == 1, dep=self.dep)
         if not self.islambda_inferred:
             d.set_lambda_refs(self.lambda_refs)
         elif not ml[0].islambda_inferred:
@@ -831,7 +1029,7 @@ class ProductionList(Production):
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
-            d = ProductionList(f)
+            d = ProductionList(f, dep=self.dep)
             d.push_right(g)
             d = d.unify()
             c[0] = d
@@ -858,7 +1056,7 @@ class ProductionList(Production):
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
-            d = ProductionList(f)
+            d = ProductionList(f, dep=self.dep)
             d.push_right(g)
             c.append(d.unify())
             self.set_category(f.category)
@@ -974,7 +1172,7 @@ class ProductionList(Production):
 
 class FunctorProduction(Production):
     """A functor production. Functors are curried where the inner most functor is the inner scope."""
-    def __init__(self, category, referent, production=None):
+    def __init__(self, category, referent, production=None, dep=None):
         """Constructor.
 
         Args:
@@ -983,16 +1181,17 @@ class FunctorProduction(Production):
             production: Optionally a marbles.ie.drt.drs.DRS instance or a Production instance. The DRS will be converted
                 to a DrsProduction. If production is a functor then the combination is a curried functor.
         """
-        super(FunctorProduction, self).__init__(category)
         if production is not None:
             if isinstance(production, AbstractDRS):
-                production = DrsProduction(production)
+                production = DrsProduction(production, )
             elif not isinstance(production, Production):
                 raise TypeError('production argument must be a Production type')
         if category is None :
             raise TypeError('category cannot be None for functors')
+        if dep is None and production is not None:
+            dep = production.dep
+        super(FunctorProduction, self).__init__(category, dep)
         self._comp = production
-        self._category = category
         # Store lambda vars as a DRS with no conditions so we inherit alpha conversion methods.
         if isinstance(referent, list):
             self._lambda_refs = DRS(referent, [])
@@ -1041,7 +1240,7 @@ class FunctorProduction(Production):
             if self._comp.isfunctor:
                 u = self._comp._get_variables(u)
             else:
-                u = union_inplace(u, self._comp.variables)
+                u = u.union(self._comp.variables)
         return u
 
     def _get_freerefs(self, u):
@@ -1078,16 +1277,6 @@ class FunctorProduction(Production):
             g = g.outer
             i += 1
         return i
-
-    @property
-    def signature(self):
-        """Get the functor signature. For functors the signature returned is the signature at the inner scope.
-
-        Remarks:
-            Properties outer_scope.signature, self.signature both map to inner_scope.signature. There is no public
-            method to access the signature of outer curried functors.
-        """
-        return self.inner_scope._category.signature
 
     @property
     def outer_scope(self):
@@ -1157,7 +1346,8 @@ class FunctorProduction(Production):
     @property
     def variables(self):
         """Get the variables."""
-        return self._get_variables([])
+        u = self._get_variables(set(self.lambda_refs))
+        return sorted(u)
 
     @property
     def freerefs(self):
@@ -1212,6 +1402,12 @@ class FunctorProduction(Production):
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
+
+    def set_dependency(self, dep):
+        """Set the dependency"""
+        if self._comp is not None:
+            self._dep = dep
+            return self._comp.set_dependency(dep)
 
     def get_scope_count(self):
         """Get the number of scopes in a functor. Zero for non functor types"""
@@ -1277,14 +1473,6 @@ class FunctorProduction(Production):
                 return False
         return inscope._comp.verify()
 
-    def find_anaphora(self, r):
-        """Find anaphora for referent r.
-
-        Args:
-            r: A marbles.ie.drt.drs.DRSRef instance.
-        """
-        return self._comp.find_anaphora(r) if self._comp is not None else None
-
     def clear(self):
         self._comp = None
         self._lambda_refs = DRS([], [])
@@ -1328,7 +1516,7 @@ class FunctorProduction(Production):
         """
         if len(rs) == 0:
             return
-        self._lambda_refs = self._lambda_refs.alpha_convert(rs)
+        self.rename_lambda_refs(rs)
         if self._comp is not None:
             self._comp.rename_vars(rs)
 
@@ -1404,8 +1592,8 @@ class FunctorProduction(Production):
         Remarks:
             Should only call from outer scope.
         """
-        ers = union(arg.lambda_refs, arg.variables)
-        ers2 = union(self.lambda_refs, self.variables)
+        ers = arg.variables
+        ers2 = self.variables
         ors = intersect(ers, ers2)
         if len(ors) != 0:
             nrs = get_new_drsrefs(ors, union(ers, ers2))
@@ -1546,7 +1734,7 @@ class FunctorProduction(Production):
         fc.rename_vars(uy)
 
         # Build
-        pl = ProductionList()
+        pl = ProductionList(dep=self.dep)
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)
@@ -1637,7 +1825,7 @@ class FunctorProduction(Production):
         fc.rename_vars(uy)
 
         # Build
-        pl = ProductionList()
+        pl = ProductionList(dep=self.dep)
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first entry sets lambdas
@@ -1728,7 +1916,7 @@ class FunctorProduction(Production):
         self.pop()
 
         # Build
-        pl = ProductionList()
+        pl = ProductionList(dep=self.dep)
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first in list sets lambdas
@@ -1782,7 +1970,7 @@ class FunctorProduction(Production):
             flr = fc.lambda_refs
             fc.set_lambda_refs([])
 
-            c = ProductionList(fc)
+            c = ProductionList(fc, dep=self.dep)
             c.push_right(gc)
             c.set_lambda_refs(glr if glambdas else flr)
             c.set_category(gc.category if glambdas else fc.category)
@@ -1794,7 +1982,7 @@ class FunctorProduction(Production):
             g.set_lambda_refs([])
             fc = self.pop()
             flr = fc.lambda_refs
-            c = ProductionList(fc)
+            c = ProductionList(fc, dep=self.dep)
             c.push_right(g)
             if glambdas and len(glr) != len(flr):
                 # FIXME: A Production should always have lambda_refs set.
@@ -1866,14 +2054,14 @@ class FunctorProduction(Production):
             # FIXME: Partial unification requires at least one variable
             #if len(rs) == len(ors):
             #    raise DrsComposeError('unification not possible')
-            ers = union(g.variables, g.lambda_refs, self.outer_scope.variables, self.outer_scope.lambda_refs)
+            ers = union(g.variables, self.outer_scope.variables)
             nrs = get_new_drsrefs(ors, ers)
             g.rename_vars(zip(ors, nrs))
 
         if g.isfunctor:
             assert g.inner_scope._comp is not None
             # functor production
-            cl = ProductionList()
+            cl = ProductionList(dep=self.dep)
             cl.set_options(self.compose_options)
 
             # Apply the combinator
@@ -1896,7 +2084,7 @@ class FunctorProduction(Production):
         if isinstance(self._comp, ProductionList):
             c = self._comp
         else:
-            c = ProductionList(self._comp)
+            c = ProductionList(self._comp, dep=self.dep)
 
         if self.isarg_right:
             c.push_right(g)
@@ -1918,8 +2106,8 @@ class FunctorProduction(Production):
 
 class PropProduction(FunctorProduction):
     """A proposition functor."""
-    def __init__(self, category, referent, production=None):
-        super(PropProduction, self).__init__(category, referent, production)
+    def __init__(self, category, referent, production=None, dep=None):
+        super(PropProduction, self).__init__(category, referent, production, dep)
 
     def _repr_helper2(self, i):
         v = chr(i)
@@ -1981,7 +2169,7 @@ class PropProduction(FunctorProduction):
                 print('          := %s' % repr(d))
             return d
         lr = self._lambda_refs.referents
-        dd = DrsProduction(DRS(lr, [Prop(self._lambda_refs.referents[0], d.drs)]))
+        dd = DrsProduction(DRS(lr, [Prop(self._lambda_refs.referents[0], d.drs)]), )
         dd.set_options(self.compose_options)
         self.clear()
         dd.set_lambda_refs(lr)
@@ -1993,8 +2181,8 @@ class PropProduction(FunctorProduction):
 
 class OrProduction(FunctorProduction):
     """An Or functor."""
-    def __init__(self, negate=False):
-        super(OrProduction, self).__init__(CAT_CONJ, [])
+    def __init__(self, negate=False, dep=None):
+        super(OrProduction, self).__init__(CAT_CONJ, [], dep=dep)
         self._negate = negate
 
     ## @cond
@@ -2052,7 +2240,7 @@ class OrProduction(FunctorProduction):
                 raise DrsComposeError('Or functor requires lamba refs to be same size')
 
         if self._comp is None:
-            c = ProductionList(arg)
+            c = ProductionList(arg, dep=self.dep)
             c.set_lambda_refs(arg.lambda_refs)
             self._comp = c
             return self
@@ -2067,7 +2255,7 @@ class OrProduction(FunctorProduction):
         p = [x for x in self._comp.iterator()]
         assert len(p) == 1
         p = p[0]
-        cl = ProductionList()
+        cl = ProductionList(dep=self.dep)
         if p.isfunctor:
             # unify inner production
             assert arg.isfunctor

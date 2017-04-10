@@ -7,72 +7,75 @@ from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N,
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
     RL_TYPE_RAISE, RL_BA
+from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
+    RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
-    DrsComposeError
+    DrsComposeError, Dependency, identity_functor
 from marbles.ie.drt.drs import DRS, DRSRef, Rel
+from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement
 from marbles.ie.parse import parse_drs
 
 ## @cond
 __pron = [
     # 1st person singular
-    ('i',       '([],[([],[i(x1)])->([],[me(x1),.PRON(x1)])])'),
-    ('me',      '([],[me(x1),.PRON(x1)])'),
-    ('myself',  '([],[([],[myself(x1)])->([],[me(x1),.PRON(x1)])])'),
-    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),.PRON(x2),owns(x2,x1)])])'),
-    ('my',      '([],[([],[my(x1)])->([],[me(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('i',       '([],[([],[i(x1)])->([],[me(x1)])])', RT_HUMAN),
+    ('me',      '([],[me(x1)])', RT_HUMAN),
+    ('myself',  '([],[([],[myself(x1)])->([],[me(x1)])])', RT_HUMAN),
+    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('my',      '([],[([],[my(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
     # 2nd person singular
-    ('you',     '([],[you(x1),.PRON(x1)])'),
-    ('yourself','([],[([],[yourself(x1)])->([],[you(x1),.PRON(x1)])])'),
-    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),.PRON(x2),owns(x2,x1)])])'),
-    ('your',    '([],[([],[your(x1)])->([],[you(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('you',     '([],[you(x1)])', RT_HUMAN),
+    ('yourself','([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
+    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('your',    '([],[([],[your(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
     # 3rd person singular
-    ('he',      '([],[([],[he(x1)])->([],[him(x1),.PRON(x1)])])'),
-    ('she',     '([],[([],[she(x1),.PRON(x1)])->([],[her(x1)])])'),
-    ('him',     '([],[him(x1),.PRON(x1)])'),
-    ('her',     '([],[her(x1),.PRON(x1)])'),
-    ('himself', '([],[([],[himself(x1)])->([],[him(x1),.PRON(x1)])])'),
-    ('herself', '([],[([],[herself(x1)])->([],[her(x1),.PRON(x1)])])'),
-    ('hisself', '([],[([],[hisself(x1)])->([],[him(x1),.PRON(x1)])])'),
-    ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])'),
-    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('he',      '([],[([],[he(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('she',     '([],[([],[she(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('him',     '([],[him(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('her',     '([],[her(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('himself', '([],[([],[himself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('herself', '([],[([],[herself(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('hisself', '([],[([],[hisself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),owns(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
     # 1st person plural
-    ('we',      '([],[([],[we(x1)])->([],[us(x1),.PRON(x1)])])'),
-    ('us',      '([],[us(x1),.PRON(x1)])'),
-    ('ourself', '([],[([],[ourself(x1)])->([],[us(x1),.PRON(x1)])])'),
-    ('ourselves','([],[([],[ourselves(x1)])->([],[us(x1),.PRON(x1)])])'),
-    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
-    ('our',     '([],[([],[our(x1)])->([],[us(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('we',      '([],[([],[we(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('us',      '([],[us(x1)])', RT_HUMAN|RT_PLURAL),
+    ('ourself', '([],[([],[ourself(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ourselves','([],[([],[ourselves(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('our',     '([],[([],[our(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # 2nd person plural
-    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1),.PRON(x1),.PLURAL(x1)])])'),
+    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
     # 3rd person plural
-    ('they',    '([],[([],[they(x1)])->([],[them(x1),.PRON(x1)])])'),
-    ('them',    '([],[them(x1),.PRON(x1)])'),
-    ('themself','([],[([],[themself(x1)])->([],[them(x1),.PRON(x1)])])'),
-    ('themselves','([],[([],[themselves(x1)])->([],[them(x1),.PRON(x1)])])'),
-    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),.PRON(x2),owns(x2,x1)])])'),
-    ('their',   '([],[([],[their(x1)])->([],[them(x2),.PRON(x2),owns(x2,x1)])])'),
+    ('they',    '([],[([],[they(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('them',    '([],[them(x1)])', RT_HUMAN|RT_PLURAL),
+    ('themself','([],[([],[themself(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('themselves','([],[([],[themselves(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('their',   '([],[([],[their(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # it
-    ('it',      '([],[it(x1),.PRON(x1)])'),
-    ('its',     '([],[([],[its(x1)])->([],[it(x2),.PRON(x2),owns(x2,x1)])])'),
-    ('itself',  '([],[([],[itself(x1)])->([],[it(x1),.PRON(x1)])])'),
+    ('it',      '([],[it(x1)])', RT_ANAPHORA),
+    ('its',     '([],[([],[its(x1)])->([],[it(x2),owns(x2,x1)])])', RT_ANAPHORA),
+    ('itself',  '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
 ]
 _PRON = {}
-for k,v in __pron:
-    _PRON[k] = parse_drs(v, 'nltk')
+for k,v,u in __pron:
+    _PRON[k] = (parse_drs(v, 'nltk'), u)
 
 
 # Order of referents is lambda_ref binding order
 __adv = [
-    ('up',      '([e],[])', '([],[up(e),direction(e)])'),
-    ('down',    '([e],[])', '([],[down(e),direction(e)])'),
-    ('left',    '([e],[])', '([],[left(e),direction(e)])'),
-    ('right',   '([e],[])', '([],[right(e),direction(e)])'),
+    ('up',      '([e],[])', '([],[up(e),direction(e)])', RT_LOCATION),
+    ('down',    '([e],[])', '([],[down(e),direction(e)])', RT_LOCATION),
+    ('left',    '([e],[])', '([],[left(e),direction(e)])', RT_LOCATION),
+    ('right',   '([e],[])', '([],[right(e),direction(e)])', RT_LOCATION),
 ]
 _ADV = {}
-for k,u,v in __adv:
-    _ADV[k] = (parse_drs(v, 'nltk'), parse_drs(u, 'nltk').universe)
+for k,u,v,w in __adv:
+    _ADV[k] = (parse_drs(v, 'nltk'), parse_drs(u, 'nltk').universe, w)
 ## endcond
 
 
@@ -105,106 +108,22 @@ _WEEKDAYS = {
 }
 
 
-def identity_functor(category, ref=None):
-    """Return the identity functor `λx.P(x)`.
-
-    Args:
-        category: A functor category where the result and argument are atoms.
-        ref: optional DRSRef to use as identity referent.
-
-    Returns:
-        A FunctorProduction instance.
-
-    Remarks:
-        This can be used for atomic unary rules.
-    """
-    assert category.result_category.isatom
-    assert category.argument_category.isatom
-    d = DrsProduction(DRS([], []), category=category.result_category)
-    if ref is None:
-        ref = DRSRef('x1')
-    d.set_lambda_refs([ref])
-    return FunctorProduction(category, ref, d)
-
-
-def empty_production(category, ref=None):
-    """Return the empty production `λx.[|]`.
-
-    Args:
-        category: An atomic categorys.
-        ref: optional DRSRef to use as the referent.
-
-    Returns:
-        A DrsProduction instance.
-    """
-    d = DrsProduction(DRS([], []), category=category)
-    if ref is None:
-        ref = DRSRef('x1')
-    d.set_lambda_refs([ref])
-    return d
-
-
 # Special categories
 CAT_CONJ_CONJ = Category(r'conj\conj')
 CAT_CONJCONJ = Category(r'conj/conj')
 
 
 class CcgTypeMapper(object):
-    """Mapping from CCG types to DRS types and the construction rules.
-
-    Construction Rules:
-    -# We have two levels of construction.
-        - Lambda construction rules apply to DRS, i.e. variables are DRS, not referents.
-        - DRS construction is via unify operation, infix operator ';'
-          Merge works like application in lambda calculus, i.e. right to left.
-          <b>Note:</b> This is not the unify function in our python DRS implementation.
-    -# We have two levels of binding.
-       - Referents in the lambda definition.
-         Given λPλx.P(x) with DRS P, x is always free in the lambda declaration
-         but x can be a free variable in DRS P, or bound in P
-       - Do not support free DRS in the lambda definition<br>
-         i.e. λPλxλy.P(x);G(y) is not supported,<br>
-         λPλGλxλy.P(x);G(y) is OK
-    -# DRS constructions rules can be separated into class:
-       - Functions: Rules which take DRS base types (T,Z) as arguments. Functions can return a base type, another
-         function, or a combinator. Functions are always constructed from inner types to outer types. For example:
-         the application order for (S\T)/T is: /T, \T, S
-       - Combinators: Rules which take a function as the argument and return a function of the same type.
-       - When applying combinators the resultant must produce a function, or combinator, where the DRS unifys are
-         adjacent. For example:
-         - (S/T)/(S/T) combinator:=λP.T[...];P(x) and (S/T) type:=λQ.R[...];Q(x)<br>
-           => λQ.T[...];R[...];Q(x) which is OK<br>
-         - (S/T)\(S/T) combinator:=λP.P(x);T[...] and (S/T) type:=λQ.R[...];Q(x)<br>
-           => λQ.R[...];Q(x);T[...] which is not OK<br>
-       - The CCG parse tree gives us the construction order so we don't need to differentiate between combinators and
-         functions during production.
-    -# Lambda application:
-       - λPλx.P(x) {P(x=x)=G[x|...]} == G[x|...]
-       - λPλx.P(x) {P(x=y)=G[y|...])} == G[y|...]
-    -# Lambda function production
-       - λPλx.P(x).λQλy.Q(y) == λPλQλxλy.P(x);Q(y) == read as P unify Q<br>
-         iff x is a bound in DRS P and y is bound in DRS Q
-       - λPλx.P(x).λQλy.Q(y) == λPλQλx.P(x);Q(x)<br>
-         iff y is a free variable in DRS Q and x is bound, or free, in DRS P
-       - λPλx.P(x).λQλy.Q(y) == λPλQλy.P(y);Q(y)<br>
-         iff x is a free variable in DRS P and y is bound in DRS Q
-    -# We do partial unification when all functors have been applied at some point during the construction phase.<br>
-       P[x|...];Q[x|...] := unify(P[x|...],Q[x|...])
-    -# Promotion to a proposition. This is done to ensure the number of referents agree in a lambda definition.<br>
-       λPλx.P(x);Q[x|...] {P=R[x,y|...]} := [u|u:R[x,y|...]];Q[u|...]<br>
-       λQλx.P[x|...];Q(x) {Q=R[x,y|...]} := P[u|...];[u|u:R[x,y|...]]
-    -# Proposition simplification.<br>
-       [p|p:Q[x|...]] can be simplified to Q(x=p) if p is the only bound referent.
-    """
+    """Mapping from CCG types to DRS types."""
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 
-    def __init__(self, ccgTypeName, word, posTags=None):
-        if isinstance(ccgTypeName, Category):
-            self._ccgcat = ccgTypeName
+    def __init__(self, category, word, posTags=None):
+        if isinstance(category, Category):
+            self._ccgcat = category
         else:
-            self._ccgcat = Category(ccgTypeName)
+            self._ccgcat = Category.from_cache(category)
         self._pos = posTags or ['UNKNOWN']
 
         # We treat modal as verb modifiers - i.e. they don't get their own event
@@ -222,9 +141,10 @@ class CcgTypeMapper(object):
         if self.category.isfunctor and not MODEL.issupported(self.category) \
             and self.category != CAT_CONJ_CONJ and self.category != CAT_CONJCONJ:
             templ = MODEL.infer_template(self.category)
-            if templ is not None:
+            if templ is not None and (self.category.result_category.isfunctor or
+                                      self.category.argument_category.isfunctor):
                 raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s"' %
-                                      (ccgTypeName, word, self.signature))
+                                      (category, word, self.signature))
 
     def __repr__(self):
         return '<' + self._word + ' ' + self.partofspeech + ' ' + self.signature + '>'
@@ -293,8 +213,22 @@ class CcgTypeMapper(object):
         """Get the CCG category."""
         return self._ccgcat
 
-    @classmethod
-    def get_empty_functor(cls, category, key=None):
+    def empty_production(self, ref=None):
+        """Return the empty production `λx.[|]`.
+
+        Args:
+            ref: optional DRSRef to use as the referent.
+
+        Returns:
+            A DrsProduction instance.
+        """
+        d = DrsProduction(DRS([], []), category=self.category)
+        if ref is None:
+            ref = DRSRef('x1')
+        d.set_lambda_refs([ref])
+        return d
+
+    def get_empty_functor(self, category, key=None):
         """Get a functor with an empty DRS. The functor must exist in the class templates
         else an exception will be raised.
 
@@ -410,27 +344,38 @@ class CcgTypeMapper(object):
             if self.category == CAT_CONJ:
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
-                return empty_production(self.category)
+                return self.empty_production()
             elif self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
                 return identity_functor(self.category)
             elif self.ispronoun and self._word in _PRON:
-                d = DrsProduction(_PRON[self._word], category=self.category)
+                pron = _PRON[self._word]
+                d = DrsProduction(pron[0], category=self.category,
+                                  dep=Dependency(pron[0].freerefs[0], self._word, pron[1]))
                 d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
                 return d
             elif self.category == CAT_N:
                 if self.isproper_noun:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]),
-                                                           Rel('.NNP', [DRSRef('x1')])]), properNoun=True)
+                    dep = Dependency(DRSRef('x1'), self._word, RT_PROPERNAME)
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=True, dep=dep)
                 else:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]))
+                    if self.partofspeech == 'NNS':
+                        dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL)
+                    else:
+                        dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY)
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), dep=dep)
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x1')])
                 return d
             elif self.category == CAT_NOUN:
                 if self.isnumber:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]))
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]),
+                                      dep=Dependency(DRSRef('x1'), self._word, RT_NUMBER))
+                elif self.partofspeech == 'NNS':
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]),
+                                      dep=Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL))
                 else:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]))
+                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]),
+                                      dep=Dependency(DRSRef('x1'), self._word, RT_ENTITY))
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x1')])
                 return d
@@ -513,7 +458,8 @@ class CcgTypeMapper(object):
                         rx = [refs[0]]
                         rx.extend(rrf[len(pred):])
                         conds.append(Rel('.EXTRA', rx))
-                    fn = DrsProduction(DRS([refs[0]], conds))
+                    fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
+
             elif self.isadverb and template.isfinalevent:
                 if self._word in _ADV:
                     adv = _ADV[self._word]
@@ -527,6 +473,10 @@ class CcgTypeMapper(object):
                 fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
 
             else:
+                if self.isproper_noun:
+                    dep = Dependency(refs[0], self._word, RT_PROPERNAME)
+                else:
+                    dep = None
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
                         fn = DrsProduction(DRS([], []))
@@ -535,10 +485,10 @@ class CcgTypeMapper(object):
                                                     Rel('.MODAL', [refs[0]])]))
                     else:
                         fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
-                                           properNoun=self.isproper_noun)
+                                           properNoun=self.isproper_noun, dep=dep)
                 else:
                     fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
-                                       properNoun=self.isproper_noun)
+                                       properNoun=self.isproper_noun, dep=dep)
 
             fn.set_lambda_refs([template.final_ref])
             fn.set_category(final_atom)
@@ -547,131 +497,243 @@ class CcgTypeMapper(object):
             return fn
 
 
-debugcount = 0
-def _process_ccg_node(pt, cl):
-    """Internal helper for recursively processing the CCG parse tree.
+class Ccg2Drs(object):
+    """CCG to DRS Converter"""
+    debugcount = 0
 
-    See Also:
-        process_ccg_pt()
-    """
-    global debugcount
-    dbgorig = debugcount
-    if pt[-1] == 'T':
-        head = int(pt[0][1])
-        count = int(pt[0][2])
-        result = Category(pt[0][0])
-        cl2 = ProductionList()
-        cl2.set_options(cl.compose_options)
-        cl2.set_category(result)
-        if result == Category(r'S[dcl]\NP'):
-            pass
-        if count > 2:
-            raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
+    def __init__(self, options=0):
+        self.xid = 10
+        self.eid = 10
+        self.limit = 10
+        self.options = options
 
-        for nd in pt[1:-1]:
-            # FIXME: prefer tail end recursion
-            _process_ccg_node(nd, cl2)
+    def final_rename(self, d):
+        v = set(filter(lambda x: not x.isconst, d.variables))
+        ors = filter(lambda x: x.var.idx < len(v), v)
+        if len(ors) != 0:
+            mx = max([x.var.idx for x in v])
+            idx = [i+mx for i in range(len(ors))]
+            rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
+            d.rename_vars(rs)
+            v = set(filter(lambda x: not x.isconst, d.variables))
+            ors = filter(lambda x: x.var.idx < len(v), v)
+        idx = [i+1 for i in range(len(v))]
+        rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
+        d.rename_vars(rs)
+        return d
 
-        debugcount += 1
-        if debugcount == 170:
-            pass
-        cats = [x.category for x in cl2.iterator()]
-        if len(cats) == 1:
-            if cats[0] == Category('S[ng]\\NP') and result == Category('(S\\NP)\\(S\\NP)'):
-                pass
-            rule = get_rule(cats[0], CAT_EMPTY, result)
-            if rule is None:
-                # TODO: log a warning if we succeed on take 2
-                rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
-                if rule is None:
-                    raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
-
-            if rule == RL_TYPE_RAISE:
-                ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
-                cl2.push_right(ccgt.get_composer())
-            elif rule == RL_TCL_UNARY:
-                rule = RL_BA
-                unary = MODEL.lookup_unary(result, cats[0])
-                if unary is None and result.ismodifier and result.result_category == cats[0]:
-                    unary = MODEL.infer_unary(result)
-                if unary is None:
-                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
-                cl2.push_right(unary.get())
-            elif rule == RL_TC_ATOM:
-                rule = RL_BA
-                cl2.push_right(identity_functor(Category.combine(result, '\\', cats[0])))
-
-            cl2 = cl2.apply(rule).unify()
-            if not cl2.verify() or not cl2.category.can_unify(result):
-                pass
-            if result.get_scope_count() != cl2.get_scope_count():
-                pass
-        elif len(cats) == 2:
-            # Get the production rule
-            if cats[0] == Category(r'S/(S\NP)') and \
-                            cats[1] == Category(r'(S[dcl]\NP)/NP') and \
-                            result == Category(r'S[dcl]/NP'):
-                pass
-            rule = get_rule(cats[0], cats[1], result)
-            if rule is None:
-                # TODO: log a warning if we succeed on take 2
-                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                if rule is None:
-                    raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
-
-            if rule == RL_TC_CONJ:
-                ccgt = CcgTypeMapper(ccgTypeName=result, word='$$$$')
-                cl2.push_right(ccgt.get_composer())
-            elif rule == RL_TCL_UNARY:
-                rule = RL_BA
-                unary = MODEL.lookup_unary(result, cats[0])
-                if unary is None and result.ismodifier and result.result_category == cats[0]:
-                    unary = MODEL.infer_unary(result)
-                if unary is None:
-                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
-                cl2.push_right(unary.get())
-            elif rule == RL_TCR_UNARY:
-                rule = RL_BA
-                unary = MODEL.lookup_unary(result, cats[1])
-                if unary is None and result.ismodifier and result.result_category == cats[1]:
-                    unary = MODEL.infer_unary(result)
-                if unary is None:
-                    unary = MODEL.lookup_unary(result, cats[1])
-                    raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
-                cl2.push_right(unary.get())
-            elif rule == RL_TC_ATOM:
-                # Special rule to change atomic type
-                rule = RL_BA
-                cl2.push_right(identity_functor(Category.combine(result, '\\', cats[0])))
-
-            cl2 = cl2.apply(rule)
-            if not cl2.verify() or not cl2.category.can_unify(result):
-                pass
-            if result.get_scope_count() != cl2.get_scope_count():
-                pass
+    def rename_vars(self, d):
+        """Rename production variables."""
+        v = set(filter(lambda x: not x.isconst, d.variables))
+        xlimit = 0
+        elimit = 0
+        for i in range(10):
+            if DRSRef(DRSVar('x', 1+i)) in v:
+                xlimit = 1 + i
+                if DRSRef(DRSVar('e', 1+i)) in v:
+                    elimit = 1 + i
+            elif DRSRef(DRSVar('e', 1+i)) in v:
+                elimit = 1 + i
+            else:
+                break
+        rs = []
+        if self.xid == 0:
+            self.xid = xlimit
         else:
-            # Parse tree is a binary tree
-            assert len(cats) == 0
+            for i in range(xlimit):
+                rs.append((DRSRef(DRSVar('x', 1+i)), DRSRef(DRSVar('x', 1+i+self.xid))))
+            self.xid += xlimit
+        if self.eid == 0:
+            self.eid = elimit
+        else:
+            for i in range(elimit):
+                rs.append((DRSRef(DRSVar('e', 1+i)), DRSRef(DRSVar('e', 1+i+self.eid))))
+            self.eid += elimit
+        if len(rs) != 0:
+            rs.reverse()
+            d.rename_vars(rs)
+        return d
 
-        cl.push_right(cl2)
-        return
+    def _process_ccg_node(self, pt):
+        """Internal helper for recursively processing the CCG parse tree.
 
-    # L Node in parse tree
-    assert pt[-1] == 'L'
-    if pt[0] in [',', '.', ':', ';']:
-        cl.push_right(DrsProduction(DRS([], []), category=Category(pt[0])))
-        return
+        See Also:
+            process_ccg_pt()
+        """
+        dbgorig = self.debugcount
+        if pt[-1] == 'T':
+            head = int(pt[0][1])
+            count = int(pt[0][2])
+            result = Category.from_cache(pt[0][0])
+            if count > 2:
+                raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
 
-    if pt[1] in ['among', 'more', 'than']:
-        pass
-    ccgt = CcgTypeMapper(ccgTypeName=pt[0], word=pt[1], posTags=pt[2:-1])
-    if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-        # FIXME: start new parse tree
-        return
-    fn = ccgt.get_composer()
-    if not fn.verify():
-        pass
-    cl.push_right(fn)
+            tmp = []
+            for nd in pt[1:-1]:
+                # FIXME: prefer tail end recursion
+                d = self._process_ccg_node(nd)
+                if d is None:
+                    head = 0
+                    continue
+                tmp.append(d)
+
+            hd = None
+            if len(tmp) == 2:
+                hd = tmp[head].dep
+                nd = tmp[1-head].dep
+                if hd is not None:
+                    assert hd.head is None
+                    if nd is not None:
+                        assert nd.head is None
+                        nd.set_head(hd)
+                elif nd is not None:
+                    assert nd.head is None
+                    hd = nd
+            elif len(tmp) == 1:
+                hd = tmp[0].dep
+            else:
+                return None
+
+            for nd in tmp:
+                nd.set_dependency(hd)
+
+            cl2 = ProductionList(tmp, dep=hd)
+            cl2.set_options(self.options)
+            cl2.set_category(result)
+            cats = [x.category for x in cl2.iterator()]
+
+            if len(cats) == 1:
+                if cats[0] == Category('S[ng]\\NP') and result == Category('(S\\NP)\\(S\\NP)'):
+                    pass
+                rule = get_rule(cats[0], CAT_EMPTY, result)
+                if rule is None:
+                    # TODO: log a warning if we succeed on take 2
+                    rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
+                    if rule is None:
+                        raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
+
+                if rule == RL_TYPE_RAISE:
+                    ccgt = CcgTypeMapper(category=result, word='$$$$')
+                    d = self.rename_vars(ccgt.get_composer())
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+                elif rule == RL_TCL_UNARY:
+                    rule = RL_BA
+                    unary = MODEL.lookup_unary(result, cats[0])
+                    if unary is None and result.ismodifier and result.result_category == cats[0]:
+                        unary = MODEL.infer_unary(result)
+                    if unary is None:
+                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
+                    d = self.rename_vars(unary.get())
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+                elif rule == RL_TC_ATOM:
+                    rule = RL_BA
+                    d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+
+                cl2 = cl2.apply(rule).unify()
+                assert cl2.verify() and cl2.category.can_unify(result)
+                assert result.get_scope_count() == cl2.get_scope_count()
+            elif len(cats) == 2:
+                # Get the production rule
+                if cats[0] == Category(r'NP') and \
+                                cats[1] == Category(r'NP\NP') and \
+                                result == Category(r'NP'):
+                    pass
+                rule = get_rule(cats[0], cats[1], result)
+                if rule is None:
+                    # TODO: log a warning if we succeed on take 2
+                    rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
+                    if rule is None:
+                        raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
+
+                if rule == RL_TC_CONJ:
+                    ccgt = CcgTypeMapper(category=result, word='$$$$')
+                    d = self.rename_vars(ccgt.get_composer())
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+                elif rule == RL_TCL_UNARY:
+                    rule = RL_BA
+                    unary = MODEL.lookup_unary(result, cats[0])
+                    if unary is None and result.ismodifier and result.result_category == cats[0]:
+                        unary = MODEL.infer_unary(result)
+                    if unary is None:
+                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
+                    d = self.rename_vars(unary.get())
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+                elif rule == RL_TCR_UNARY:
+                    rule = RL_BA
+                    unary = MODEL.lookup_unary(result, cats[1])
+                    if unary is None and result.ismodifier and result.result_category == cats[1]:
+                        unary = MODEL.infer_unary(result)
+                    if unary is None:
+                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
+                    d = self.rename_vars(unary.get())
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+                elif rule == RL_TC_ATOM:
+                    # Special rule to change atomic type
+                    rule = RL_BA
+                    d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
+                    d.set_dependency(hd)
+                    cl2.push_right(d)
+
+                cl2 = cl2.apply(rule)
+                if not (cl2.verify() and cl2.category.can_unify(result)):
+                    V = cl2.verify()
+                    U = cl2.category.can_unify(result)
+                    pass
+                assert cl2.verify() and cl2.category.can_unify(result)
+                assert result.get_scope_count() == cl2.get_scope_count()
+
+            cl2.set_dependency(hd)
+            return cl2
+
+        # L Node in parse tree
+        assert pt[-1] == 'L'
+        if pt[0] in [',', '.', ':', ';']:
+            return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
+
+        if pt[1] in ['Time']:
+            pass
+        ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
+        if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+            # FIXME: start new parse tree
+            return None
+        fn = ccgt.get_composer()
+        # Rename vars so they are disjoint on creation. This help dependency manager.
+        self.rename_vars(fn)
+        return fn
+
+    def process_ccg_pt(self, pt):
+        """Process the CCG parse tree.
+
+        Args:
+            pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+            options: None or marbles.ie.drt.compose.CO_REMOVE_UNARY_PROPS to simplify propositions.
+
+        Returns:
+            A DrsProduction instance.
+
+        See Also:
+            marbles.ie.drt.parse.parse_ccg_derivation()
+        """
+        if pt is None or len(pt) == 0:
+            return None
+        d = self._process_ccg_node(pt)
+        # Handle verbs with null left arg
+        if d.isfunctor and d.isarg_left:
+            d = d.apply_null_left().unify()
+        if not isinstance(d, DrsProduction):
+            raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
+        d = d.resolve_anaphora()
+        d = self.final_rename(d)
+        if not d.ispure:
+            raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
+        return d
 
 
 def process_ccg_pt(pt, options=None):
@@ -687,22 +749,8 @@ def process_ccg_pt(pt, options=None):
     See Also:
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
-    if pt is None or len(pt) == 0:
-        return None
-    cl = ProductionList()
-    if options is not None:
-        cl.set_options(options)
-    _process_ccg_node(pt, cl)
-    d = cl.unify()
-    # Handle verbs with null left arg
-    if d.isfunctor and d.isarg_left:
-        d = d.apply_null_left().unify()
-    if not isinstance(d, DrsProduction):
-        raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
-    d = d.resolve_anaphora()
-    if not d.ispure:
-        raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
-    return d
+    builder = Ccg2Drs(options)
+    return builder.process_ccg_pt(pt)
 
 
 def _process_sentence_node(pt, s):
