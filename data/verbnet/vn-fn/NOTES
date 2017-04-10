@@ -1,0 +1,18 @@
+vn-fn
+
+This file maps verbnet members to their associated framenet frame (with the associated framenet lexent).
+
+vn-fn-roles
+
+This file maps verbnet roles to their framenet roles.
+
+This is an example of the 9.1 verbnet class
+<vncls class="9.1" fnframe="Placing">
+	<roles>
+		<role fnrole="Agent" vnrole="Agent"/>
+		<role fnrole="Cause" vnrole="Agent"/>
+		<role fnrole="Goal" vnrole="Destination"/>
+		<role fnrole="Theme" vnrole="Theme"/>
+	</roles>
+</vncls>
+
