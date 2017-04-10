@@ -123,6 +123,17 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
             template = FunctorTemplate.create_from_category(predarg)
             if template is None:
                 continue
+
+            f = template.create_empty_functor()
+            U1 = f.get_unify_scopes(False)
+            U2 = f.category.extract_unify_atoms(False)
+            if len(U1) != len(U2):
+                assert False
+            C1 = f.category
+            C2 = template.category.clean(True)
+            if not C1.can_unify(C2):
+                assert False
+
             if catkey.signature not in dict:
                 dict[catkey.signature] = template
             elif verify:
@@ -191,7 +202,9 @@ if __name__ == "__main__":
             print('%s: %s' % (k, str(v)))
 
     if len(dict) != 0:
-        with open(os.path.join(outdir, 'functor_templates.dat'), 'wb') as fd:
+        with open(os.path.join(outdir, 'functor_templates.dat'), 'w') as fd:
             pickle.dump(dict, fd)
+        Category.initialize_cache([Category(k) for k, v in dict.iteritems()])
+        Category.save_cache(os.path.join(outdir, 'categories.dat'))
     else:
         print('no templates generated')

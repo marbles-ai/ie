@@ -182,13 +182,16 @@ class FunctorTemplate(object):
 
         return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom)
 
-    def create_empty_functor(self):
+    def create_empty_functor(self, dep=None):
         """Create a FunctorProduction with an empty inner DrsProduction
+
+        Args:
+            dep: Optional marbles.ie.drt.compose.Dependency instance.
 
         Returns:
             A FunctorProduction.
         """
-        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards())
+        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards(), dep=dep)
         fn.set_lambda_refs([self.final_ref])
         category = self.category.clean(True).remove_wildcards()
         for c in self._constructor_rule:
@@ -248,13 +251,16 @@ class UnaryRule(object):
         """
         return self._template.category.clean(True).signature
 
-    def get(self):
+    def get(self, dep=None):
         """Get a unary functor that can be applied using function application.
+
+        Args:
+            dep: Optional marbles.ie.drt.compose.Dependency instance.
 
         Returns:
             A FunctorProduction instance.
         """
-        return self._template.create_empty_functor()
+        return self._template.create_empty_functor(dep=dep)
 
 
 class Model(object):
@@ -297,7 +303,9 @@ class Model(object):
             cat = Category(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.add_template() expects signature or Category')
-        key = cat.clean(True).signature
+        ccat = Category(cat.clean(True))
+        #ccat = Category.from_cache(cat.clean(True))
+        key = ccat.signature
         if key not in self._TEMPLATES or replace:
             templ = FunctorTemplate.create_from_category(cat, final_atom)
             self._TEMPLATES[key] = templ
@@ -319,6 +327,8 @@ class Model(object):
         key = rule.getkey()
         if key not in self._UNARY or replace:
             self._UNARY[key] = rule
+            # Force add to category cache
+            Category.from_cache(key)
             return rule
         return None
 
@@ -329,13 +339,14 @@ class Model(object):
             if template is not None:
                 taggedcat = template.category.complete_tags()
                 return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat),
-                                           taggedcat)
+                                           taggedcat, False)
         return None
 
     def infer_template(self, category):
         """Attempt to build a template from existing templates if possible."""
         if category.isfunctor and not self.issupported(category):
-            catArgArg = category.argument_category.argument_category
+            catArg = category.argument_category
+            catArgArg = catArg.argument_category
             catResult = category.result_category
             if category.istype_raised and (self.issupported(catResult) or catResult.isatom) \
                     and (self.issupported(catArgArg) or catArgArg.isatom):
@@ -356,11 +367,12 @@ class Model(object):
                                           Category.combine(catResult, category.argument_category.slash, catArgArg))
                 # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
                 return self.add_template(newcat.signature)
-            elif category.ismodifier and self.issupported(category.result_category):
+            elif category.ismodifier and self.issupported(catResult):
                 # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
-                predarg = self.lookup(category.result_category).category.complete_tags()
+                predarg = self.lookup(catResult).category.complete_tags()
                 newcat = Category.combine(predarg, category.slash, predarg)
                 return self.add_template(newcat.signature)
+
         return None
 
     def lookup_unary(self, result, argument):
@@ -408,6 +420,7 @@ class Model(object):
 try:
     MODEL = Model.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'functor_templates.dat'))
     # Add missing categories
+    MODEL.add_template(r'(NP_148\NP_148)/(NP_148\NP_148)', replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
     MODEL.add_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000', replace=True)
     # Attach passive then infinitive to verb that follows

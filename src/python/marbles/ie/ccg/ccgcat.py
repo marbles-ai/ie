@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """CCG Categories and Rules"""
 import re
+import os
+from marbles.ie.utils.cache import Cache
 
 
 def iscombinator_signature(signature):
@@ -138,6 +140,15 @@ class Category(object):
     _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
     _Wildcard = re.compile(r'[X]')
     _Feature = re.compile(r'\[([a-z]+|X)\]')
+    _cache = Cache()
+    _use_cache = False
+    _OP_REMOVE_UNIFY_FALSE = 0
+    _OP_REMOVE_UNIFY_TRUE = 1
+    _OP_REMOVE_WILDCARDS = 2
+    _OP_SIMPLIFY = 3
+    _OP_REMOVE_FEATURES = 4
+    _OP_SLASH = 5
+    _OP_COUNT = 6
     ## @endcond
 
     def __init__(self, signature=None, conj=False):
@@ -147,13 +158,18 @@ class Category(object):
             signature: A CCG type signature string.
             conj: Internally used by simplify. Never set this explicitly.
         """
+        self._ops_cache = None
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
             self._isconj = False
         else:
-            self._isconj = 'conj' in signature or conj
-            self._signature = signature.replace('[conj]', '')
+            if isinstance(signature, str):
+                self._isconj = 'conj' in signature or conj
+                self._signature = signature.replace('[conj]', '')
+            else:
+                self._signature = signature.signature
+                self._isconj = signature.isconj
             self._splitsig = split_signature(self._signature)
             # Don't need to handle | (= any) because parse tree has no ambiguity
             assert self._splitsig[1] in ['/', '\\', '']
@@ -189,13 +205,110 @@ class Category(object):
     ## @endcond
 
     @classmethod
-    def combine(cls, left, slash, right):
+    def from_cache(cls, signature):
+        if not cls._use_cache:
+            if isinstance(signature, Category):
+                return signature
+            return Category(signature)
+        if isinstance(signature, Category):
+            signature = signature.signature
+        try:
+            return cls._cache[signature]
+        except KeyError:
+            cat = Category(signature)
+            retcat = cat
+            # Add to list to avoid initialize_ops_cache() calling from_cache() and getting another KeyError.
+            todo = []
+            while cat.isfunctor:
+                todo.append(cat)
+                todo.append(cat.simplify())
+                todo.append(cat.remove_features())
+                todo.append(cat.remove_wildcards())
+                cat = cat.result_category
+            for c in todo:
+                cls._cache[c.signature] = c
+            cls._cache[cat.signature] = cat
+            cls._cache[cat.simplify().signature] = cat.simplify()
+            cls._cache[cat.remove_features().signature] = cat.remove_features()
+            cls._cache[cat.remove_wildcards().signature] = cat.remove_wildcards()
+            for c in todo:
+                cls._cache[c.signature].initialize_ops_cache()
+            return retcat
+
+    @classmethod
+    def save_cache(cls, filename):
+        """Save the cache to a file.
+
+        Args:
+            filename: The file name and path.
+
+        Remarks:
+            Is threadsafe.
+        """
+        if cls._use_cache:
+            with open(filename, 'w') as fd:
+                for k, v in cls._cache:
+                    fd.write(k)
+                    fd.write('\n')
+
+    @classmethod
+    def load_cache(cls, filename):
+        """Load the cache from a file.
+
+        Args:
+            filename: The file name and path.
+
+        Remarks:
+            Not threadsafe.
+        """
+        with open(filename, 'r') as fd:
+            cache = Cache()
+            sigs = fd.readlines()
+            pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#', map(lambda p: p.strip(), sigs))]
+            cache.initialize(pairs)
+        cls._cache = cache
+        cls._use_cache = True
+        for k, v in pairs:
+            v.initialize_ops_cache()
+
+    @classmethod
+    def initialize_cache(cls, cats):
+        """Initialize the cache with categories.
+
+        Args:
+            cats: A list of categories.
+        """
+        pairs = []
+        for cat in cats:
+            if isinstance(cat, str):
+                cat = Category(cat)
+            while cat.isfunctor:
+                pairs.append((cat.signature, cat))
+                # Avoid copying string in key, value
+                c = cat.simplify()
+                pairs.append((c.signature, c))
+                c = cat.remove_features()
+                pairs.append((c.signature, c))
+                c = cat.remove_wildcards()
+                pairs.append((c.signature, c))
+                cat = cat.result_category
+            pairs.append((cat.signature, cat))
+            c = cat.remove_features()
+            pairs.append((c.signature, c))
+            c = cat.remove_wildcards()
+            pairs.append((c.signature, c))
+        cls._cache.initialize(pairs)
+        cls._use_cache = True
+
+    @classmethod
+    def combine(cls, left, slash, right, cacheable=True):
         """Combine two categories with a slash operator.
 
         Args:
             left: The left category (result).
             right: The right category (argument).
             slash: The slash operator.
+            cacheable: Optional flag indicating the result can be added to the cache.
 
         Returns:
             A Category instance.
@@ -205,13 +318,14 @@ class Category(object):
         assert not left.isempty
         if right.isempty:
             return left
-        c = Category()
-        c._splitsig = left.signature, slash, right.signature
-        c._signature = join_signature(c._splitsig)
-        return c
+        signature = join_signature((left.signature, slash, right.signature))
+        if cls._use_cache and cacheable:
+            return cls.from_cache(signature)
+        return Category(signature)
 
     @property
     def ispunct(self):
+        """Test if punctuation."""
         return self._signature in [',', '.', ':', ';'] or self in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]
 
     @property
@@ -276,11 +390,15 @@ class Category(object):
     @property
     def result_category(self):
         """Get the return category if a functor."""
+        if self._use_cache:
+            return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
 
     @property
     def argument_category(self):
         """Get the argument category if a functor."""
+        if self._use_cache:
+            return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
     @property
@@ -293,12 +411,31 @@ class Category(object):
         """Get the CCG type as a string."""
         return self._signature
 
+    def initialize_ops_cache(self):
+        if not self._use_cache or self._ops_cache is not None:
+            return self
+        ops_cache = [None] * self._OP_COUNT
+        ops_cache[self._OP_SLASH] = ''.join(self._extract_slash_helper([]))
+        ops_cache[self._OP_REMOVE_FEATURES] = self.from_cache(self.remove_features())
+        ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
+        ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
+        ops_cache[self._OP_REMOVE_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
+        uatoms = self.extract_unify_atoms(True)
+        catoms = []
+        for u in uatoms:
+            catoms.append([self.from_cache(a) for a in u])
+        ops_cache[self._OP_REMOVE_UNIFY_TRUE] = catoms
+        self._ops_cache = ops_cache
+        return self
+
     def simplify(self):
         """Simplify the CCG category. Removes features and converts non-sentence atoms to NP.
 
         Returns:
             A Category instance.
         """
+        if self._ops_cache is not None:
+            return self._ops_cache[self._OP_SIMPLIFY]
         return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
 
     def clean(self, deep=False):
@@ -368,6 +505,8 @@ class Category(object):
         Returns:
             A Category instance.
         """
+        if self._ops_cache is not None:
+            return self._ops_cache[self._OP_REMOVE_WILDCARDS]
         if '[X]' in self._signature:
             return Category(self._signature.replace('[X]', ''), self.isconj)
         return self
@@ -378,6 +517,8 @@ class Category(object):
         Returns:
             A Category instance.
         """
+        if self._ops_cache is not None:
+            return self._ops_cache[self._OP_REMOVE_FEATURES]
         return Category(self._Feature.sub('', self._signature))
 
     def _extract_atoms_helper(self, atoms):
@@ -416,6 +557,8 @@ class Category(object):
         if self.isatom:
             return [[self]] if follow else [self]
         elif self.isfunctor:
+            if self._ops_cache is not None:
+                return self._ops_cache[int(follow)]
             if follow:
                 cat = self
                 atoms = []
@@ -484,7 +627,11 @@ class Category(object):
                 for a, b in zip(f, g):
                     if not a.can_unify_atom(b):
                         return False
-            return ''.join(self._extract_slash_helper([])) == ''.join(other._extract_slash_helper([]))
+            slash1 = ''.join(self._extract_slash_helper([])) if self._ops_cache is None \
+                else self._ops_cache[self._OP_SLASH]
+            slash2 = ''.join(other._extract_slash_helper([])) if other._ops_cache is None \
+                else other._ops_cache[other._OP_SLASH]
+            return slash1 == slash2
         return self.can_unify_atom(other)
 
     def get_scope_count(self):
@@ -497,47 +644,55 @@ class Category(object):
         return n
 
 
+# Load cache after we have created the Category class
+try:
+    Category.load_cache(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'categories.dat'))
+except Exception as e:
+    # TODO: log warning
+    print(e)
+
+
 ## @{
 ## @ingroup gconst
 ## @defgroup ccgcat CCG Categories
 
-CAT_NUM = Category('N[num]')
+CAT_NUM = Category.from_cache('N[num]')
 CAT_EMPTY = Category()
-CAT_COMMA = Category(',')
-CAT_CONJ = Category('conj')
-CAT_CONJ_CONJ = Category(r'conj\conj')
-CAT_CONJCONJ = Category(r'conj/conj')
-CAT_LQU = Category('LQU')
-CAT_RQU = Category('RQU')
-CAT_LRB = Category('LRB')
-CAT_RRB = Category('RRB')
-CAT_N = Category('N')
-CAT_NP = Category('NP')
-CAT_NPthr = Category('NP[thr]')
-CAT_NPexpl = Category('NP[expl]')
-CAT_PP = Category('PP')
-CAT_PR = Category('PR')
-CAT_PREPOSITION = Category('PP/NP')
-CAT_SEMICOLON = Category(';')
-CAT_Sadj = Category('S[adj]')
-CAT_Sdcl = Category('S[dcl]')
-CAT_Sem = Category('S[em]')
-CAT_Sq = Category('S[q]')
-CAT_Sb = Category('S[b]')
-CAT_Sto = Category('S[to]')
-CAT_Swq = Category('S[wq]')
-CAT_ADVERB = Category(r'(S\NP)\(S\NP)')
-CAT_POSSESSIVE_ARGUMENT = Category(r'(NP/(N/PP))\NP')
-CAT_POSSESSIVE_PRONOUN = Category('NP/(N/PP)')
-CAT_S = Category('S')
-CAT_ADJECTIVE = Category('N/N')
-CAT_DETERMINER = Category('NP[nb]/N')
-CAT_INFINITIVE = Category(r'(S[to]\NP)/(S[b]\NP)')
+CAT_COMMA = Category.from_cache(',')
+CAT_CONJ = Category.from_cache('conj')
+CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
+CAT_CONJCONJ = Category.from_cache(r'conj/conj')
+CAT_LQU = Category.from_cache('LQU')
+CAT_RQU = Category.from_cache('RQU')
+CAT_LRB = Category.from_cache('LRB')
+CAT_RRB = Category.from_cache('RRB')
+CAT_N = Category.from_cache('N')
+CAT_NP = Category.from_cache('NP')
+CAT_NPthr = Category.from_cache('NP[thr]')
+CAT_NPexpl = Category.from_cache('NP[expl]')
+CAT_PP = Category.from_cache('PP')
+CAT_PR = Category.from_cache('PR')
+CAT_PREPOSITION = Category.from_cache('PP/NP')
+CAT_SEMICOLON = Category.from_cache(';')
+CAT_Sadj = Category.from_cache('S[adj]')
+CAT_Sdcl = Category.from_cache('S[dcl]')
+CAT_Sem = Category.from_cache('S[em]')
+CAT_Sq = Category.from_cache('S[q]')
+CAT_Sb = Category.from_cache('S[b]')
+CAT_Sto = Category.from_cache('S[to]')
+CAT_Swq = Category.from_cache('S[wq]')
+CAT_ADVERB = Category.from_cache(r'(S\NP)\(S\NP)')
+CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
+CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
+CAT_S = Category.from_cache('S')
+CAT_ADJECTIVE = Category.from_cache('N/N')
+CAT_DETERMINER = Category.from_cache('NP[nb]/N')
+CAT_INFINITIVE = Category.from_cache(r'(S[to]\NP)/(S[b]\NP)')
 CAT_NOUN = RegexCategoryClass(r'^N(?:\[[a-z]+\])?$')
 CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
 CAT_NP_NP = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/NP$')
 CAT_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?$')
-CAT_PPNP = Category('PP/NP')
+CAT_PPNP = Category.from_cache('PP/NP')
 ## @}
 
 
@@ -557,6 +712,7 @@ class Rule(object):
                 - 'A': application
                 - 'GC': generalized composition
                 - 'S': substitution
+                - 'PASS': unary pass through
         """
         self._ruleName = ruleName
         self._ruleClass = ruleClass if not None else ruleName
@@ -762,20 +918,20 @@ RL_TCR_UNARY = Rule('R_UNARY_TC')
 
 ## @cond
 CAT_Sany__NP = RegexCategoryClass(r'^S(\[[a-z]+\])?[\\/]NP(\[conj\])?$')
-CAT_NP_NP = Category(r'NP\NP')
-CAT_NPNP = Category(r'NP/NP')
+CAT_NP_NP = Category.from_cache(r'NP\NP')
+CAT_NPNP = Category.from_cache(r'NP/NP')
 CAT_NP__NP = RegexCategoryClass(r'^(NP[\\/]NP(?:\[conj\])?|N[\\/]N)$')
-CAT_Sng_NP = Category(r'S[ng]\NP')
+CAT_Sng_NP = Category.from_cache(r'S[ng]\NP')
 CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
 CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_Sany_NP__Sany_NP = RegexCategoryClass(r'^\(S(\[[a-z]+\])?\\NP\)[\\/]\(S(\[[a-z]+\])?\\NP\)$')
-CAT_S_NP_S_NP = Category(r'(S\NP)\(S\NP)')
-CAT_S_NPS_NP = Category(r'(S\NP)/(S\NP)')
-CAT_Sadj_NP = Category(r'S[adj]\NP')
-CAT_S_NP = Category(r'S\NP')
-CAT_S_S = Category(r'S\S')
+CAT_S_NP_S_NP = Category.from_cache(r'(S\NP)\(S\NP)')
+CAT_S_NPS_NP = Category.from_cache(r'(S\NP)/(S\NP)')
+CAT_Sadj_NP = Category.from_cache(r'S[adj]\NP')
+CAT_S_NP = Category.from_cache(r'S\NP')
+CAT_S_S = Category.from_cache(r'S\S')
 ## @endcond
 
 
@@ -803,13 +959,12 @@ def get_rule(left, right, result, exclude=None):
     # This allows us to test whether the if-else logic has ambiguity. A test in ccg_test.py
     # parses the entire ccgbank and checks whether only one rule interpretation is possible. A 
     # repeated call should return None of we have no ambiguity in our logic, because the if-else
-    # path is exclude after the first call.
+    # path is excluded after the first call.
     def notexcluded(x, num):
         return x is None or num not in x
     def xupdate(x, num):
         if x is not None:
             x.append(num)
-
 
     # Handle punctuation
     if left.ispunct and notexcluded(exclude, 13):
@@ -861,10 +1016,10 @@ def get_rule(left, right, result, exclude=None):
             elif result.ismodifier and result.argument_category.can_unify(right):
                 xupdate(exclude, 0)
                 return RL_TCR_UNARY
-            #elif result.isconj: # or result.ismodifier
-            #    # Section 3.7.2 LDC2005T13 manual
-            #    assert False
-            #    return RL_TC_CONJ
+            elif result.isconj:
+                # Section 3.7.2 LDC2005T13 manual
+                xupdate(exclude, 0)
+                return RL_TC_CONJ
         elif left == CAT_CONJCONJ and right == CAT_CONJ:
             xupdate(exclude, 0)
             return RL_FA
