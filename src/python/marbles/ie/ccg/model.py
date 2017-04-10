@@ -221,7 +221,7 @@ class UnaryRule(object):
         if not isinstance(argument, Category):
             raise TypeError('UnaryRule expects a argument Category')
         # We implement unary rules using backward application of the functor below
-        self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean()))
+        self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean(), False))
 
     @staticmethod
     def create_key(result, argument):
@@ -241,7 +241,7 @@ class UnaryRule(object):
             raise TypeError('UnaryRule.create_key() expects a Category instance ')
         if not isinstance(argument, Category):
             raise TypeError('UnaryRule.create_key() expects a Category instance')
-        return Category.combine(result, '\\', argument).signature
+        return Category.combine(result, '\\', argument, False).signature
 
     def getkey(self):
         """Get the dictionary key for this rule.
@@ -328,7 +328,7 @@ class Model(object):
         if key not in self._UNARY or replace:
             self._UNARY[key] = rule
             # Force add to category cache
-            Category.from_cache(key)
+            #Category.from_cache(key)
             return rule
         return None
 
@@ -364,13 +364,13 @@ class Model(object):
                 else:
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
-                                          Category.combine(catResult, category.argument_category.slash, catArgArg))
+                                          Category.combine(catResult, category.argument_category.slash, catArgArg, False))
                 # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
                 return self.add_template(newcat.signature)
             elif category.ismodifier and self.issupported(catResult):
                 # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
                 predarg = self.lookup(catResult).category.complete_tags()
-                newcat = Category.combine(predarg, category.slash, predarg)
+                newcat = Category.combine(predarg, category.slash, predarg, False)
                 return self.add_template(newcat.signature)
 
         return None
