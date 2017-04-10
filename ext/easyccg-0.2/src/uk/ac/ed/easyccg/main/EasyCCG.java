@@ -1,15 +1,30 @@
 package uk.ac.ed.easyccg.main;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.text.DecimalFormat;
 import java.util.Collection;
 import java.util.InputMismatchException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.nio.file.Path;
+import java.nio.file.FileSystems;
+
+import ai.marbles.grpc.ServiceAcceptor;
+import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
+import uk.co.flamingpenguin.jewel.cli.CliFactory;
+import uk.co.flamingpenguin.jewel.cli.Option;
+
+import com.google.common.base.Stopwatch;
 
 import uk.ac.ed.easyccg.syntax.Category;
 import uk.ac.ed.easyccg.syntax.InputReader;
@@ -24,8 +39,6 @@ import uk.ac.ed.easyccg.syntax.TaggerEmbeddings;
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
 import uk.co.flamingpenguin.jewel.cli.Option;
-
-import com.google.common.base.Stopwatch;
 
 public class EasyCCG
 {
@@ -47,6 +60,8 @@ public class EasyCCG
     @Option(shortName="o", description = "Output Format: one of \"ccgbank\", \"html\", or \"prolog\"", defaultValue="ccgbank")
     String getOutputFormat();
 
+    // Missing -a from easySRL (choose parsing algorithm)
+
     @Option(shortName="l", defaultValue="70", description = "(Optional) Maximum length of sentences in words. Defaults to 70.")
     int getMaxLength();
 
@@ -56,8 +71,12 @@ public class EasyCCG
     @Option(shortName="r", defaultValue={"S[dcl]", "S[wq]", "S[q]", "S[qem]", "NP"}, description = "(Optional) List of valid categories for the root node of the parse. Defaults to: S[dcl] S[wq] S[q] NP")
     List<String> getRootCategories();
 
+    // Extra -s for additional, unrestricted rules
+
     @Option(shortName="s", description = "(Optional) Allow rules not involving category combinations seen in CCGBank. Slows things down by around 20%.")
     boolean getUnrestrictedRules();
+
+    // Supertaggerbeam is 0.01 of that in easySrl!
 
     @Option(defaultValue="0.0001", description = "(Optional) Prunes lexical categories whose probability is less than this ratio of the best category. Defaults to 0.0001.")
     double getSupertaggerbeam();
@@ -65,28 +84,42 @@ public class EasyCCG
     @Option(defaultValue="0.0", description = "(Optional) If using N-best parsing, filter parses whose probability is lower than this fraction of the probability of the best parse. Defaults to 0.0")
     double getNbestbeam();
 
+    // Missing SuperTaggerWeight
+
     @Option(helpRequest = true, description = "Display this message", shortName = "h")
     boolean getHelp();
+
+    @Option(shortName = "d", description = "Run as a gRPC daemon.")
+    boolean getDaemonize();
+
+    @Option(shortName = "p", defaultValue = "8084", description = "Set the port to listen for gRPC connection. Only valid with --daemonize option.")
+    int getPort();
     
     @Option(description = "(Optional) Make a tag dictionary")
     boolean getMakeTagDict();
 
   }
   
+  // Supports same input formats as EasySRL
   public enum InputFormat {
     TOKENIZED, GOLD, SUPERTAGGED, POSTAGGED, POSANDNERTAGGED
   }
   
   public enum OutputFormat {
+
+    // Fewer available output formats; add as are needed
     CCGBANK(ParsePrinter.CCGBANK_PRINTER), HTML(ParsePrinter.HTML_PRINTER), SUPERTAGS(ParsePrinter.SUPERTAG_PRINTER),
     PROLOG(ParsePrinter.PROLOG_PRINTER), EXTENDED(ParsePrinter.EXTENDED_CCGBANK_PRINTER);
+    
     public final ParsePrinter printer;
+
     OutputFormat(ParsePrinter printer) {
       this.printer = printer;
     }
   }
   
-  public static void main(String[] args) throws IOException, ArgumentValidationException {
+  public static void main(String[] args) throws IOException, InterruptedException, ArgumentValidationException {
+    
     
     CommandLineArguments parsedArgs = CliFactory.parseArguments(CommandLineArguments.class, args);
     InputFormat input = InputFormat.valueOf(parsedArgs.getInputFormat().toUpperCase());
@@ -101,6 +134,32 @@ public class EasyCCG
     
     if (!parsedArgs.getModel().exists()) throw new InputMismatchException("Couldn't load model from from: " + parsedArgs.getModel());
     System.err.println("Loading model...");
+
+    // Added for daemon
+        // PWG: run as a gRPC service
+    if (parsedArgs.getDaemonize()) {
+        CcgServiceHandler svc = new CcgServiceHandler(parsedArgs);
+        // Want start routine to exit quickly else connections to gRPC service fail.
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    svc.init();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+
+        ServiceAcceptor server = new ServiceAcceptor(parsedArgs.getPort(), svc);
+        server.start();
+        System.out.println("EasyCCG at port " + parsedArgs.getPort());
+        server.blockUntilShutdown();
+        return;
+    }
+
+
     
     Parser parser = new ParserAStar(
         new TaggerEmbeddings(parsedArgs.getModel(), parsedArgs.getMaxLength(), parsedArgs.getSupertaggerbeam()), 
@@ -155,4 +214,15 @@ public class EasyCCG
       }
     }
   }
+
+    static void daemonize(String modelPath) throws IOException, InterruptedException {
+        CcgServiceHandler svc = new CcgServiceHandler("~/src/ie/ext/easyccg/model/text");
+        svc.init();
+        ServiceAcceptor server = new ServiceAcceptor(8085, svc);
+        server.start();
+        System.out.println("EasyCCG at port 8085");
+        server.blockUntilShutdown();
+
+    }
+
 }
