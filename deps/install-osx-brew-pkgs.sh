@@ -30,3 +30,16 @@ brew_install flex
 
 # GIT-HUB Large File Support
 brew_install git-lfs
+
+# Java
+if [ "x`which java`" == "x" ]; then
+	brew cask install java
+else
+	# check version
+	JAVAVER="`java -version 2>&1 | grep 'java version' | sed 's/^.*"\([0-9.]*\)\.[0-9]_.*".*$/\1/g' | sed 's/\./0/g'`"
+	if [ "x$JAVAVER" != "x" ]; then
+		if [ $JAVAVER -lt 108 ]; then
+			brew cask install java
+		fi
+	fi
+fi
