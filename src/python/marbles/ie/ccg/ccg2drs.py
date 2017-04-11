@@ -508,6 +508,16 @@ class Ccg2Drs(object):
         self.options = options
 
     def final_rename(self, d):
+        """Rename to ensure:
+            - indexes progress is 1,2,...
+            - events are tagged e, others x
+
+        Args:
+            d: A DrsProduction instance.
+
+        Returns:
+            A renamed DrsProduction instance.
+        """
         # Move names to 1:...
         v = set(filter(lambda x: not x.isconst, d.variables))
         ors = filter(lambda x: x.var.idx < len(v), v)
@@ -533,7 +543,14 @@ class Ccg2Drs(object):
         return d
 
     def rename_vars(self, d):
-        """Rename production variables."""
+        """Rename to ensure variable names are disjoint.
+
+        Args:
+            d: A DrsProduction instance.
+
+        Returns:
+            A renamed DrsProduction instance.
+        """
         v = set(filter(lambda x: not x.isconst, d.variables))
         xlimit = 0
         elimit = 0
@@ -660,6 +677,7 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
 
                 if rule == RL_TC_CONJ:
+                    # TODO: change to use empty_functor method
                     ccgt = CcgTypeMapper(category=result, word='$$$$')
                     d = self.rename_vars(ccgt.get_composer())
                     d.set_dependency(hd)
