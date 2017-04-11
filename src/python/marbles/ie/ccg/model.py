@@ -355,9 +355,7 @@ class Model(object):
             cat = Category(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.build_template() expects signature or Category')
-        ccat = Category(cat.clean(True))
-        #ccat = Category.from_cache(cat.clean(True))
-        key = ccat.signature
+        key = Category(cat.clean(True)).signature
         return key, FunctorTemplate.create_from_category(cat, final_atom)
 
     def add_template(self, cat, final_atom=None):
