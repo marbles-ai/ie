@@ -12,9 +12,10 @@ datapath = os.path.join(pypath, 'marbles', 'ie', 'ccg', 'data')
 sys.path.insert(0, pypath)
 
 from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt
-from marbles.ie.ccg.model import FunctorTemplate
+from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccgcat import Category
+from marbles.ie.utils.cache import Cache
 
 
 def print_progress(progress, tick=1, done=False):
@@ -202,9 +203,13 @@ if __name__ == "__main__":
             print('%s: %s' % (k, str(v)))
 
     if len(dict) != 0:
-        with open(os.path.join(outdir, 'functor_templates.dat'), 'w') as fd:
-            pickle.dump(dict, fd)
+        Category.clear_cache()
         Category.initialize_cache([Category(k) for k, v in dict.iteritems()])
         Category.save_cache(os.path.join(outdir, 'categories.dat'))
+
+        cache = Cache()
+        cache.initialize(dict.iteritems())
+        model = Model(templates=cache)
+        model.save_templates(os.path.join(outdir, 'functor_templates.dat'))
     else:
         print('no templates generated')
