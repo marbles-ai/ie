@@ -762,14 +762,14 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = []
-        start = 3
+        start = 50
         for fn in allfiles[0:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(start, len(lines)):
-                start = 0
+            for i in range(start, len(lines), 100):
+                #start = 0
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
                 try:
@@ -800,8 +800,8 @@ class ComposeTest(unittest.TestCase):
             for x in failed_ccg2drs:
                 print('%s-%04d failed: {%s}' % x)
 
-        self.assertEqual(failed_parse, 0)
         self.assertEqual(failed_ccg2drs, 0)
+        self.assertEqual(failed_parse, 0)
 
     def test6_ParseLdc2005T13(self):
         # Mar-2017 PWG
@@ -829,10 +829,10 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = 0
         failed_ccg2drs = 0
-        for fn in allfiles[0:]:
+        for fn in allfiles[0::100]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
-            for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
+            for hdr,ccgbank in zip(lines[0:2], lines[1:2]):
                 print(hdr.strip())
                 try:
                     pt = parse_ccg_derivation(ccgbank)
