@@ -272,6 +272,14 @@ class Category(object):
             v.initialize_ops_cache()
 
     @classmethod
+    def clear_cache(cls):
+        cls._use_cache = False
+        oldcache = cls._cache
+        cls._cache = Cache()
+        for k, v in oldcache:
+            v.clear_ops_cache()
+
+    @classmethod
     def initialize_cache(cls, cats):
         """Initialize the cache with categories.
 
@@ -410,6 +418,9 @@ class Category(object):
     def signature(self):
         """Get the CCG type as a string."""
         return self._signature
+
+    def clear_ops_cache(self):
+        self._ops_cache = None
 
     def initialize_ops_cache(self):
         if not self._use_cache or self._ops_cache is not None:
