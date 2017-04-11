@@ -2,13 +2,13 @@
 """CCG Model"""
 
 import os
-import pickle
 import re
 
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
 from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.drs import DRS, DRSRef
+from marbles.ie.utils.cache import Cache
 
 
 class FunctorTemplateGeneration(object):
@@ -53,6 +53,7 @@ class FunctorTemplate(object):
         """
         self._constructor_rule = rule
         self._category = category
+        self._cleancategory = Category.from_cache(category.clean(True))
         self._final_ref = finalRef
         self._final_atom = finalAtom
 
@@ -92,6 +93,11 @@ class FunctorTemplate(object):
     def category(self):
         """Read only access to category."""
         return self._category
+
+    @property
+    def clean_category(self):
+        """Read only access to cleaned category."""
+        return self._cleancategory
 
     @property
     def final_ref(self):
@@ -271,61 +277,138 @@ class Model(object):
         """Constructor.
 
         Args:
-            templates: A dictionary of FunctorTemplates keyed by category signature.
-            unary_rules: A dictionary of UnaryRules keyed by category signature
+            templates: A cache of FunctorTemplates keyed by category signature.
+            unary_rules: A cache of UnaryRules keyed by category signature
         """
         if templates is None:
-            templates = {}
+            templates = Cache()
+        elif not isinstance(templates, Cache):
+            raise TypeError('Model constructor expects a Cache instance for templates argument.')
         if unary_rules is None:
-            unary_rules = {}
+            unary_rules = Cache()
+        elif not isinstance(unary_rules, Cache):
+            raise TypeError('Model constructor expects a Cache instance for unary_rules argument.')
+
         self._TEMPLATES = templates
         self._UNARY = unary_rules
 
     @classmethod
-    def load(cls, filepath):
+    def load_templates(cls, filepath):
+        """Load the model from a file.
+
+        Args:
+            filepath: The filename and path.
+
+        Returns:
+            A Cache instance.
+        """
         with open(filepath, 'rb') as fd:
-            dict = pickle.load(fd)
-        return Model(dict)
+            templates = fd.readlines()
+        dict = {}
+        for line in templates:
+            ln = line.strip()
+            if len(ln) == 0 or ln[0] == '#':
+                continue
+            predarg = ln.split(',')
+            if len(predarg) == 1:
+                key, templ = cls.build_template(predarg[0])
+                dict[key] = templ
+            elif len(predarg) == 2:
+                key, templ = cls.build_template(predarg[0].strip(), final_atom=predarg[1].strip())
+                dict[key] = templ
+            else:
+                # Ignore this
+                print('Warning: ignoring badly formatted functor template \"%s\"' % ln)
+        cache = Cache()
+        cache.initialize(dict.iteritems())
+        return cache
 
-    def save(self, filepath):
+    def save_templates(self, filepath):
+        """Save the model to a file.
+
+        Args:
+            filepath: The filename and path:
+        """
         with open(filepath, 'wb') as fd:
-            pickle.dump(self, fd)
+            for k, v in self._TEMPLATES:
+                final_atom = v.final_atom
+                if final_atom != Category(k).extract_unify_atoms(False)[-1]:
+                    fd.write('%s,  %s\n' % (v.category.signature, v.final_atom))
+                else:
+                    fd.write('%s\n' % v.category)
 
-    def add_template(self, cat, replace=False, final_atom=None):
-        """Add a template to the model.
+    @classmethod
+    def build_template(cls, cat, final_atom=None):
+        """Build a template.
 
         Args:
             cat: A Category instance or a category signature string.
-            replace: Optional flag to overwrite existing entry. Existing entry is preserved by default.
             final_atom: Optional final atom category for functor template.
+
+        Returns:
+            A tuple of key string and a FunctorTemplate instance.
+
+        Remarks:
+            Used to load templates from a file.
         """
         if isinstance(cat, str):
             cat = Category(cat)
         elif not isinstance(cat, Category):
-            raise TypeError('Model.add_template() expects signature or Category')
+            raise TypeError('Model.build_template() expects signature or Category')
         ccat = Category(cat.clean(True))
         #ccat = Category.from_cache(cat.clean(True))
         key = ccat.signature
-        if key not in self._TEMPLATES or replace:
-            templ = FunctorTemplate.create_from_category(cat, final_atom)
+        return key, FunctorTemplate.create_from_category(cat, final_atom)
+
+    def add_template(self, cat, final_atom=None):
+        """Add a template to the model.
+
+        Args:
+            cat: A Category instance or a category signature string.
+            final_atom: Optional final atom category for functor template.
+        """
+        key, templ = self.build_template(cat, final_atom)
+        if key not in self._TEMPLATES:
             self._TEMPLATES[key] = templ
             return templ
         return
 
-    def add_unary_rule(self, result, argument, replace=False):
-        """Add a unary rule."""
+    @staticmethod
+    def build_unary_rule(result, argument):
+        """Build a unary rule.
+
+        Args:
+            result: The result Category.
+            argument: The argument category.
+
+        Returns:
+            A tuple of key string and a UnaryRule instance.
+
+        Remarks:
+            Used to load unary rules from a file.
+        """
         if isinstance(result, str):
             result = Category(result)
         elif not isinstance(result, Category):
-            raise TypeError('Model.add_unary_rule() expects signature or Category result')
+            raise TypeError('Model.build_unary_rule() expects signature or Category result')
         if isinstance(argument, str):
             argument = Category(argument)
         elif not isinstance(argument, Category):
-            raise TypeError('Model.add_unary_rule() expects signature or Category argument')
+            raise TypeError('Model.build_unary_rule() expects signature or Category argument')
 
         rule = UnaryRule(result, argument)
         key = rule.getkey()
-        if key not in self._UNARY or replace:
+        return key, rule
+
+    def add_unary_rule(self, result, argument):
+        """Add a unary rule.
+
+        Args:
+            result: The result Category.
+            argument: The argument category.
+        """
+        rule, key = self.build_unary_rule(result, argument)
+        if key not in self._UNARY:
             self._UNARY[key] = rule
             # Force add to category cache
             #Category.from_cache(key)
@@ -365,10 +448,8 @@ class Model(object):
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
                                           Category.combine(catResult, category.argument_category.slash, catArgArg, False))
-                # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
                 return self.add_template(newcat.signature)
             elif category.ismodifier and self.issupported(catResult):
-                # FIXME: This is not thread safe. Should add to separate synchronized dictionary.
                 predarg = self.lookup(catResult).category.complete_tags()
                 newcat = Category.combine(predarg, category.slash, predarg, False)
                 return self.add_template(newcat.signature)
@@ -395,7 +476,6 @@ class Model(object):
 
     def lookup(self, category):
         """Lookup a FunctorTemplate with key=category."""
-        # TODO: use two dictionaries, readonly and thread-safe.
         if category.signature in self._TEMPLATES:
             return self._TEMPLATES[category.signature]
         # Perform wildcard replacements
@@ -414,122 +494,114 @@ class Model(object):
             wc = self._Feature.sub('[X]', category.signature)
             return wc in self._TEMPLATES
         return False
-
+    
 
 # Run scripts/make_functor_templates.py to create templates file
 try:
-    MODEL = Model.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'functor_templates.dat'))
+    _tcache = Model.load_templates(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'functor_templates.dat'))
     # Add missing categories
-    MODEL.add_template(r'(NP_148\NP_148)/(NP_148\NP_148)', replace=True)
+    _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
-    MODEL.add_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000', replace=True)
+    _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
-    MODEL.add_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)', replace=True)
-    #MODEL.add_template(r'PP_1002/NP_1002', replace=True)
-    MODEL.add_template(r'N_1003/PP_1003', replace=True)
-    MODEL.add_template(r'NP_1004/PP_1004', replace=True)
-    MODEL.add_template(r'NP_1007/N_2007')
-    MODEL.add_template(r'NP_1005/(N_2005/PP_2005)')
-    MODEL.add_template(r'((N_2006/N_2006)/(N_2006/N_2006))\(S[adj]_1006\NP_2006)', replace=True)
+    _tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
+    #_tcache.addinit(Model.build_template(r'PP_1002/NP_1002'), replace=True)
+    _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
+    _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
+    _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
+    _tcache.addinit(Model.build_template(r'NP_1005/(N_2005/PP_2005)'))
+    _tcache.addinit(Model.build_template(r'((N_2006/N_2006)/(N_2006/N_2006))\(S[adj]_1006\NP_2006)'), replace=True)
 
-    MODEL.add_template(r'S[dcl]_1007/S[dcl]_2007')
-    MODEL.add_template(r'S[dcl]_1008\S[dcl]_2008')
-    MODEL.add_template(r'S_1009/(S_1009\NP)')
-    MODEL.add_template(r'S_1010\(S_1010/NP)')
-    MODEL.add_template(r'(S_2011\NP_1011)/((S_2011\NP_1011)\PP)')
-    MODEL.add_template(r'(S_1012\NP_2012)\((S_1012\NP_2012)/PP)')
-    MODEL.add_template(r'(N_1013\N_1013)/(S[dcl]\NP_1013)')
-    MODEL.add_template(r'(S[dcl]_1014\NP_2014)/((S[dcl]_1014\NP_2014)\PP)')
+    _tcache.addinit(Model.build_template(r'S[dcl]_1007/S[dcl]_2007'))
+    _tcache.addinit(Model.build_template(r'S[dcl]_1008\S[dcl]_2008'))
+    _tcache.addinit(Model.build_template(r'S_1009/(S_1009\NP)'))
+    _tcache.addinit(Model.build_template(r'S_1010\(S_1010/NP)'))
+    _tcache.addinit(Model.build_template(r'(S_2011\NP_1011)/((S_2011\NP_1011)\PP)'))
+    _tcache.addinit(Model.build_template(r'(S_1012\NP_2012)\((S_1012\NP_2012)/PP)'))
+    _tcache.addinit(Model.build_template(r'(N_1013\N_1013)/(S[dcl]\NP_1013)'))
+    _tcache.addinit(Model.build_template(r'(S[dcl]_1014\NP_2014)/((S[dcl]_1014\NP_2014)\PP)'))
 
-    MODEL.add_template(r'S[X]_1015/S[X]_2015')
-    MODEL.add_template(r'S[X]_1016\S[X]_2016')
-    MODEL.add_template(r'((S[dcl]\NP_2017)/NP_1017)/PR')
-    MODEL.add_template(r'(NP_1018\NP_1018)\(S[dcl]\NP_1018)')
-    MODEL.add_template(r'(NP_1019/NP_1019)\(S[adj]\NP_1019)')
-    MODEL.add_template(r'(NP_1020/N_2020)\NP_1020')
+    _tcache.addinit(Model.build_template(r'S[X]_1015/S[X]_2015'))
+    _tcache.addinit(Model.build_template(r'S[X]_1016\S[X]_2016'))
+    _tcache.addinit(Model.build_template(r'((S[dcl]\NP_2017)/NP_1017)/PR'))
+    _tcache.addinit(Model.build_template(r'(NP_1018\NP_1018)\(S[dcl]\NP_1018)'))
+    _tcache.addinit(Model.build_template(r'(NP_1019/NP_1019)\(S[adj]\NP_1019)'))
+    _tcache.addinit(Model.build_template(r'(NP_1020/N_2020)\NP_1020'))
 
-    MODEL.add_template(r'((N_1021\N_1021)/S[dcl])\((N_1021\N_1021)/NP)')
+    _tcache.addinit(Model.build_template(r'((N_1021\N_1021)/S[dcl])\((N_1021\N_1021)/NP)'))
 
     # Add unary rules
-    MODEL.add_unary_rule(r'NP_1', r'N_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'NP_1')
+    _rcache = Cache()
+    _rcache.addinit(Model.build_unary_rule(r'NP_1', r'N_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'NP_1'))
     # Wildcards incur more string processing so cover main rules
-    MODEL.add_unary_rule(r'N_1\N_1', r'S[pss]_2\NP_1')
-    MODEL.add_unary_rule(r'N_1\N_1', r'S[adj]_2\NP_1')
-    MODEL.add_unary_rule(r'N_1\N_1', r'S[dcl]_2\NP_1')
-    MODEL.add_unary_rule(r'N_1\N_1', r'S[ng]_2\NP_1')
-    MODEL.add_unary_rule(r'N_1\N_1', r'S_2\NP_1')
-    MODEL.add_unary_rule(r'N_1\N_1', r'S[X]_2\NP_1')
-
-    MODEL.add_unary_rule(r'S_1/S_1', r'S[pss]_1\NP')
-    MODEL.add_unary_rule(r'S_1/S_1', r'S[to]_1\NP')
-    MODEL.add_unary_rule(r'S_1/S_1', r'S[ng]_1\NP')
-    MODEL.add_unary_rule(r'S_1/S_1', r'S[X]_1\NP')
-    MODEL.add_unary_rule(r'S_1/S_1', r'S_1\NP')
-
-    MODEL.add_unary_rule(r'S_1\S_1', r'S[X]_1\NP')
-    MODEL.add_unary_rule(r'PP_1/PP_1', r'PP_1')
-    MODEL.add_unary_rule(r'PP_1\PP_1', r'PP_1')
-    MODEL.add_unary_rule(r'(N_1\N_1)\(N_1\N_1)', r'(N_1\N_1)')
-
-    MODEL.add_unary_rule(r'(S[X]_1\NP_2)\(S[X]_1\NP_2)', 'S[X]_1\NP_2')
-    MODEL.add_unary_rule(r'((S[X]_1\NP_2)/NP_3)\((S[X]_1\NP_2)/NP_3)', '(S[X]_1\NP_2)/NP_3')
-    MODEL.add_unary_rule(r'((S[dcl]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[dcl]_3\NP_2)_3')
-    MODEL.add_unary_rule(r'((S[pss]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[pss]_3\NP_2)_3')
-    MODEL.add_unary_rule(r'((S[b]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[b]_3\NP_2)_3')
-    MODEL.add_unary_rule(r'((S[ng]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[ng]_3\NP_2)_3')
-
-    MODEL.add_unary_rule(r'((S_1\NP_2)\(S_1\NP_2))\((S_1\NP_2)\(S_1\NP_2))', '(S_1\NP_2)\(S_1\NP_1)')
-    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', '(S_1\NP_2)/(S_1\NP_2)')
-
-    MODEL.add_unary_rule(r'(S[pss]_1\NP_1)\(S[pss]_1\NP_2)', 'S_1\NP_2')
-    MODEL.add_unary_rule(r'(S[dcl]_1\NP_2)\(S[dcl]_1\NP_2)', 'S_1\NP_2')
-    MODEL.add_unary_rule(r'(S[em]_1\NP_2)\(S[em]_1\NP_2)', 'S_1\NP_2')
-    MODEL.add_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[ng]_1\NP_2')
-    MODEL.add_unary_rule(r'(S[X]_1\NP_2)\(S[X]_1\NP_2)', 'S_1\NP_2')
-    MODEL.add_unary_rule(r'(S_1\NP_1)\(S_1\NP_1)', 'S_1\NP_1')
-    MODEL.add_unary_rule(r'(N_1/N_1)\(N_1/N_1)', 'N_1/N_1')
-    MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S[X]_1')
-    MODEL.add_unary_rule(r'S[dcl]_1\S[dcl]_1', r'S_1')
-    MODEL.add_unary_rule(r'S[X]_1\S[X]_1', r'S_1')
-    MODEL.add_unary_rule(r'(S_1\NP_2)/(S_1\NP_2)', r'S[dcl]_1/S[dcl]_1')
-    MODEL.add_unary_rule(r'S_1\S_1', 'S_1')
-    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/NP_3)\((S[dcl]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3')
-    MODEL.add_unary_rule(r'((S[b]_1\NP_2)/NP_3)\((S[b]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3')
-    MODEL.add_unary_rule(r'((S[X]_1\NP_2)/NP_3)\((S[X]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3')
-
-    MODEL.add_unary_rule(r'(N_2/PP_1)\(N_2/PP_1)', r'N_2/PP_1')
-    MODEL.add_unary_rule(r'(S_2/S_1)\(S_2/S_1)', r'S_2/S_1')
-    MODEL.add_unary_rule(r'S_1/S_1', r'S[ng]_1\NP_2')
-
-    MODEL.add_unary_rule(r'NP_1', r'S[ng]_1\NP_2')
-    MODEL.add_unary_rule(r'NP_1', r'S_1\NP_2')
-    MODEL.add_unary_rule(r'NP_1', r'S[X]_1\NP_2')
-
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S[pss]_2\NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S[adj]_2\NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S[dcl]_2\NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S[ng]_2\NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S_2\NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S_2/NP_1')
-    MODEL.add_unary_rule(r'NP_1\NP_1', r'S[X]_2\NP_1')
-    MODEL.add_unary_rule(r'(S_1\NP_2)/(S_1\NP_2)', 'S[ng]_1\NP_2')
-    MODEL.add_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[to]_1\NP_2')
-    MODEL.add_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[X]_1\NP_2')
-    MODEL.add_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'NP_2')
-    MODEL.add_unary_rule(r'NP_1\NP_1', 'S[dcl]_1')
-
-    MODEL.add_unary_rule(r'((S[dcl]_1\NP_3)/S[em]_2)\((S[dcl]_1\NP_3)/S[em]_2)', r'(S_1\NP_3)/S_2[em]')
-    MODEL.add_unary_rule(r'((S[X]_1\NP_3)/S[X]_2)\((S[X]_1\NP_3)/S[X]_2)', r'(S_1\NP_3)/S_2[X]')
-    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', r'(S_1\NP_2)/(S[b]_1\NP_2)')
-    MODEL.add_unary_rule(r'N_2\N_2', r'S[dcl]_1/NP_2')
-    MODEL.add_unary_rule(r'N_2\N_2', r'S[X]_1/NP_2')
-    MODEL.add_unary_rule(r'N_2\N_2', r'S_1/NP_2')
-    MODEL.add_unary_rule(r'((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))\((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))', r'(S_1\NP_2)/(S[adj]_3\NP_2)')
-
-    MODEL.add_unary_rule(r'((S[pss]_1\NP_2)/PP_3)\((S[pss]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3')
-    MODEL.add_unary_rule(r'((S[b]_1\NP_2)/PP_3)\((S[b]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3')
-    MODEL.add_unary_rule(r'((S[X]_1\NP_2)/PP_3)\((S[X]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3')
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S[pss]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S[adj]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S[dcl]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S[ng]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1\N_1', r'S[X]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S[pss]_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S[to]_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S[ng]_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S[X]_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1\S_1', r'S[X]_1\NP'))
+    _rcache.addinit(Model.build_unary_rule(r'PP_1/PP_1', r'PP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'PP_1\PP_1', r'PP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'(N_1\N_1)\(N_1\N_1)', r'(N_1\N_1)'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1\NP_2)\(S[X]_1\NP_2)', 'S[X]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1\NP_2)/NP_3)\((S[X]_1\NP_2)/NP_3)', '(S[X]_1\NP_2)/NP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[dcl]_3\NP_2)_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[pss]_3\NP_2)_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[b]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[b]_3\NP_2)_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[ng]_3\NP_2)_3/((S_3\NP_2)_3\(S_3\NP_2)_3)_1)_3', r'(S[ng]_3\NP_2)_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S_1\NP_2)\(S_1\NP_2))\((S_1\NP_2)\(S_1\NP_2))', '(S_1\NP_2)\(S_1\NP_1)'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', '(S_1\NP_2)/(S_1\NP_2)'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1\NP_1)\(S[pss]_1\NP_2)', 'S_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1\NP_2)\(S[dcl]_1\NP_2)', 'S_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[em]_1\NP_2)\(S[em]_1\NP_2)', 'S_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[ng]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1\NP_2)\(S[X]_1\NP_2)', 'S_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_1)\(S_1\NP_1)', 'S_1\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'(N_1/N_1)\(N_1/N_1)', 'N_1/N_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S[X]_1\S[X]_1', r'S[X]_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S[dcl]_1\S[dcl]_1', r'S_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S[X]_1\S[X]_1', r'S_1'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)/(S_1\NP_2)', r'S[dcl]_1/S[dcl]_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1\S_1', 'S_1'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1\NP_2)/NP_3)\((S[dcl]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1\NP_2)/NP_3)\((S[b]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1\NP_2)/NP_3)\((S[X]_1\NP_2)/NP_3)', r'(S_1\NP_2)/NP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'(N_2/PP_1)\(N_2/PP_1)', r'N_2/PP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_2/S_1)\(S_2/S_1)', r'S_2/S_1'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1/S_1', r'S[ng]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1', r'S[ng]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1', r'S_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1', r'S[X]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S[pss]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S[adj]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S[dcl]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S[ng]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S_2/NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'S[X]_2\NP_1'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)/(S_1\NP_2)', 'S[ng]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[to]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'S[X]_1\NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2)\(S_1\NP_2)', 'NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', 'S[dcl]_1'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1\NP_3)/S[em]_2)\((S[dcl]_1\NP_3)/S[em]_2)', r'(S_1\NP_3)/S_2[em]'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1\NP_3)/S[X]_2)\((S[X]_1\NP_3)/S[X]_2)', r'(S_1\NP_3)/S_2[X]'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1\NP_2)/(S[b]_1\NP_2))\((S[dcl]_1\NP_2)/(S[b]_1\NP_2))', r'(S_1\NP_2)/(S[b]_1\NP_2)'))
+    _rcache.addinit(Model.build_unary_rule(r'N_2\N_2', r'S[dcl]_1/NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'N_2\N_2', r'S[X]_1/NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'N_2\N_2', r'S_1/NP_2'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))\((S[dcl]_1\NP_2)/(S[adj]_3\NP_2))', r'(S_1\NP_2)/(S[adj]_3\NP_2)'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1\NP_2)/PP_3)\((S[pss]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1\NP_2)/PP_3)\((S[b]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1\NP_2)/PP_3)\((S[X]_1\NP_2)/PP_3)', r'(S_1\NP_2)/PP_3'))
+    MODEL = Model(templates=_tcache, unary_rules=_rcache)
 except Exception as e:
     print(e)
     # Allow module to load else we cannot create the dat file.
