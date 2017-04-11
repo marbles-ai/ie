@@ -83,12 +83,34 @@ class Cache(MutableMapping):
         Args:
             kv_pairs: Key-value pairs
 
+        Returns:
+            self.
+
         Remarks:
             Not thread safe. Do once before using cache.
         """
         for k, v in kv_pairs:
             if k not in self._ro_dict:
                 self._ro_dict[k] = v
+        return self
+
+    def addinit(self, kv_pair, replace=False):
+        """Add to the read only part of the cache.
+
+        Args:
+            kv_pair: A Key-value pair
+            replace: If True replace the existing entry.
+
+        Returns:
+            self.
+
+        Remarks:
+            Not thread safe. Do all addinit()'s before using cache.
+        """
+        k, v = kv_pair
+        if k not in self._ro_dict or replace:
+            self._ro_dict[k] = v
+        return self
 
     def save(self, filename):
         """Save the cache to a file.
