@@ -140,6 +140,7 @@ class Category(object):
     _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
     _Wildcard = re.compile(r'[X]')
     _Feature = re.compile(r'\[([a-z]+|X)\]')
+    _Wildtag = re.compile(r'\{_.*\}')
     _cache = Cache()
     _use_cache = False
     _OP_REMOVE_UNIFY_FALSE = 0
@@ -151,7 +152,7 @@ class Category(object):
     _OP_COUNT = 6
     ## @endcond
 
-    def __init__(self, signature=None, conj=False):
+    def __init__(self, signature=None, conj=0):
         """Constructor.
 
         Args:
@@ -162,14 +163,16 @@ class Category(object):
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
-            self._isconj = False
+            self._conj = 0
         else:
             if isinstance(signature, str):
-                self._isconj = 'conj' in signature or conj
+                self._conj = conj
+                self._conj |= 1 if 'conj' in signature else 0
+                self._conj |= 2 if '[conj]' in signature else 0
                 self._signature = signature.replace('[conj]', '')
             else:
                 self._signature = signature.signature
-                self._isconj = signature.isconj
+                self._conj = signature._conj | conj
             self._splitsig = split_signature(self._signature)
             # Don't need to handle | (= any) because parse tree has no ambiguity
             assert self._splitsig[1] in ['/', '\\', '']
@@ -179,9 +182,12 @@ class Category(object):
         return self._signature
 
     def __repr__(self):
+        if (self._conj & 2) != 0:
+            return self._signature + '[conj]'
         return self._signature
 
     def __eq__(self, other):
+        # I have deliberately not used self.isconj in this test. The has does take this into account.
         return (isinstance(other, Category) and str(self) == str(other)) or \
                (isinstance(other, AbstractCategoryClass) and other.ismember(self))
 
@@ -201,7 +207,7 @@ class Category(object):
         return not self.__lt__(other)
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(repr(self))
     ## @endcond
 
     @classmethod
@@ -224,7 +230,7 @@ class Category(object):
                 todo.append(cat.simplify())
                 todo.append(cat.remove_features())
                 todo.append(cat.remove_wildcards())
-                cat = cat.result_category
+                cat = cat.result_category()
             for c in todo:
                 cls._cache[c.signature] = c
             cls._cache[cat.signature] = cat
@@ -264,7 +270,11 @@ class Category(object):
         with open(filename, 'r') as fd:
             cache = Cache()
             sigs = fd.readlines()
-            pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#', map(lambda p: p.strip(), sigs))]
+            pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#'
+                                                                and cls._Wildtag.match(s) is None,
+                                                      map(lambda p: p.strip(), sigs))]
+            conjpairs = [(y[0]+'[conj]', Category(y[1], 0x2)) for y in filter(lambda x: '[conj]' not in x[0], pairs)]
+            pairs.extend(conjpairs)
             cache.initialize(pairs)
         cls._cache = cache
         cls._use_cache = True
@@ -299,7 +309,7 @@ class Category(object):
                 pairs.append((c.signature, c))
                 c = cat.remove_wildcards()
                 pairs.append((c.signature, c))
-                cat = cat.result_category
+                cat = cat.result_category()
             pairs.append((cat.signature, cat))
             c = cat.remove_features()
             pairs.append((c.signature, c))
@@ -358,14 +368,14 @@ class Category(object):
 
     @property
     def isconj(self):
-        return self._isconj
+        return self._conj != 0
 
     @property
     def istype_raised(self):
         """Test if the CCG category is type raised."""
         # X|(X|Y), where | = any slash
-        r = self.argument_category
-        return r.isfunctor and r.result_category == self.result_category
+        r = self.argument_category()
+        return r.isfunctor and r.result_category() == self.result_category()
 
     @property
     def isbackward_type_raised(self):
@@ -396,20 +406,6 @@ class Category(object):
         return not self.isempty and self.extract_unify_atoms()[-1][0] == CAT_Sany
 
     @property
-    def result_category(self):
-        """Get the return category if a functor."""
-        if self._use_cache:
-            return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
-        return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
-
-    @property
-    def argument_category(self):
-        """Get the argument category if a functor."""
-        if self._use_cache:
-            return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
-        return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
-
-    @property
     def slash(self):
         """Get the slash for a functor category."""
         return self._splitsig[1]
@@ -418,6 +414,32 @@ class Category(object):
     def signature(self):
         """Get the CCG type as a string."""
         return self._signature
+
+    def result_category(self, cacheable=True):
+        """Get the return category if a functor.
+
+        Args:
+            cacheable: Optional flag indicating the result can be added to the cache.
+
+        Returns:
+            A Category instance.
+        """
+        if self._use_cache and cacheable:
+            return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
+        return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
+
+    def argument_category(self, cacheable=True):
+        """Get the argument category if a functor.
+
+        Args:
+            cacheable: Optional flag indicating the result can be added to the cache.
+
+        Returns:
+            A Category instance.
+        """
+        if self._use_cache and cacheable:
+            return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
+        return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
     def clear_ops_cache(self):
         self._ops_cache = None
@@ -447,7 +469,7 @@ class Category(object):
         """
         if self._ops_cache is not None:
             return self._ops_cache[self._OP_SIMPLIFY]
-        return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self.isconj)
+        return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self._conj)
 
     def clean(self, deep=False):
         """Clean predicate-argument tags from a category.
@@ -519,7 +541,7 @@ class Category(object):
         if self._ops_cache is not None:
             return self._ops_cache[self._OP_REMOVE_WILDCARDS]
         if '[X]' in self._signature:
-            return Category(self._signature.replace('[X]', ''), self.isconj)
+            return Category(self._signature.replace('[X]', ''), self._conj)
         return self
 
     def remove_features(self):
@@ -534,17 +556,17 @@ class Category(object):
 
     def _extract_atoms_helper(self, atoms):
         if self.isfunctor:
-            atoms = self.argument_category._extract_atoms_helper(atoms)
-            return self.result_category._extract_atoms_helper(atoms)
+            atoms = self.argument_category()._extract_atoms_helper(atoms)
+            return self.result_category()._extract_atoms_helper(atoms)
         else:
             atoms.append(self)
             return atoms
 
     def _extract_slash_helper(self, slashes):
         if self.isfunctor:
-            slashes = self.argument_category._extract_slash_helper(slashes)
+            slashes = self.argument_category()._extract_slash_helper(slashes)
             slashes.append(self.slash)
-            slashes = self.result_category._extract_slash_helper(slashes)
+            slashes = self.result_category()._extract_slash_helper(slashes)
         return slashes
 
     def extract_unify_atoms(self, follow=True):
@@ -574,9 +596,9 @@ class Category(object):
                 cat = self
                 atoms = []
                 while cat.isfunctor:
-                    aa = cat.argument_category._extract_atoms_helper([])
+                    aa = cat.argument_category()._extract_atoms_helper([])
                     atoms.append(aa)
-                    cat = cat.result_category
+                    cat = cat.result_category()
                 atoms.append([cat])
                 return atoms
             else:
@@ -650,7 +672,7 @@ class Category(object):
         n = 0
         cat = self
         while cat.isfunctor:
-            cat = cat.result_category
+            cat = cat.result_category()
             n += 1
         return n
 
@@ -780,25 +802,25 @@ class Rule(object):
         elif self == RL_RPASS:
             return right
         elif self in [RL_FX, RL_FC]:
-            return Category.combine(left.result_category, right.slash, right.argument_category)
+            return Category.combine(left.result_category(), right.slash, right.argument_category())
         elif self == RL_BA:
-            return right.result_category
+            return right.result_category()
         elif self == RL_FA:
-            return left.result_category
+            return left.result_category()
         elif self in [RL_BX, RL_BC]:
-            return Category.combine(right.result_category, left.slash, left.argument_category)
+            return Category.combine(right.result_category(), left.slash, left.argument_category())
         elif self in [RL_FS, RL_FXS]:
-            return Category.combine(left.result_category.result_category, left.slash, right.argument_category)
+            return Category.combine(left.result_category().result_category(), left.slash, right.argument_category())
         elif self in [RL_BS, RL_BXS]:
-            return Category.combine(right.result_category.result_category, left.slash, left.argument_category)
+            return Category.combine(right.result_category().result_category(), left.slash, left.argument_category())
         elif self in [RL_GFC, RL_GFX]:
-            return Category.combine(Category.combine(left.result_category, right.result_category.slash,
-                                                     right.result_category.argument_category),
-                                    right.slash, right.argument_category)
+            return Category.combine(Category.combine(left.result_category(), right.result_category().slash,
+                                                     right.result_category().argument_category()),
+                                    right.slash, right.argument_category())
         elif self in [RL_GBC, RL_GBX]:
-            return Category.combine(Category.combine(right.result_category, left.result_category.slash,
-                                                     left.result_category.argument_category),
-                                    left.slash, left.argument_category)
+            return Category.combine(Category.combine(right.result_category(), left.result_category().slash,
+                                                     left.result_category().argument_category()),
+                                    left.slash, left.argument_category())
         elif self == RL_LCONJ:
             return left
         elif self == RL_RCONJ:
@@ -960,7 +982,7 @@ def get_rule(left, right, result, exclude=None):
     """
 
     # Useful logic for category X.
-    # - If X is not a functor, then X.result_category == X
+    # - If X is not a functor, then X.result_category() == X
 
     assert isinstance(left, Category)
     assert isinstance(right, Category)
@@ -1003,12 +1025,12 @@ def get_rule(left, right, result, exclude=None):
             return RL_LPASS
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
-        elif result.result_category == result.argument_category.result_category and \
-                left.can_unify(result.argument_category.argument_category):
-            if result.isarg_right and result.argument_category.isarg_left:
+        elif result.result_category() == result.argument_category().result_category() and \
+                left.can_unify(result.argument_category().argument_category()):
+            if result.isarg_right and result.argument_category().isarg_left:
                 # X:a => T/(T\X): λxf.f(a)
                 return RL_TYPE_RAISE
-            elif result.isarg_left and result.argument_category.isarg_right:
+            elif result.isarg_left and result.argument_category().isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_TYPE_RAISE
         else:
@@ -1024,7 +1046,7 @@ def get_rule(left, right, result, exclude=None):
                 xupdate(exclude, 0)
                 assert right != CAT_CONJ
                 return RL_RPASS
-            elif result.ismodifier and result.argument_category.can_unify(right):
+            elif result.ismodifier and result.argument_category().can_unify(right):
                 xupdate(exclude, 0)
                 return RL_TCR_UNARY
             elif result.isconj:
@@ -1058,12 +1080,12 @@ def get_rule(left, right, result, exclude=None):
         return RL_RNUM
     elif right == CAT_EMPTY and notexcluded(exclude, 4):
         xupdate(exclude, 4)
-        if result.result_category == result.argument_category.result_category and \
-                        left.can_unify(result.argument_category.argument_category):
-            if result.isarg_right and result.argument_category.isarg_left:
+        if result.result_category() == result.argument_category().result_category() and \
+                        left.can_unify(result.argument_category().argument_category()):
+            if result.isarg_right and result.argument_category().isarg_left:
                 # X:a => T/(T\X): λxf.f(a)
                 return RL_TYPE_RAISE
-            elif result.isarg_left and result.argument_category.isarg_right:
+            elif result.isarg_left and result.argument_category().isarg_right:
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_TYPE_RAISE
         elif left.can_unify(result):
@@ -1073,17 +1095,17 @@ def get_rule(left, right, result, exclude=None):
         else:
             return RL_TCL_UNARY
 
-    elif left.isarg_right and left.argument_category.can_unify(right) and \
-            left.result_category.can_unify(result) and notexcluded(exclude, 5):
+    elif left.isarg_right and left.argument_category().can_unify(right) and \
+            left.result_category().can_unify(result) and notexcluded(exclude, 5):
         xupdate(exclude, 5)
         # Forward Application
         # X/Y:f Y:a => X: f(a)
         return RL_FA
-    elif left.isarg_right and right.isfunctor and left.argument_category.can_unify(right.result_category) and \
-            Category.combine(left.result_category, right.slash, right.argument_category).can_unify(result) \
+    elif left.isarg_right and right.isfunctor and left.argument_category().can_unify(right.result_category()) and \
+            Category.combine(left.result_category(), right.slash, right.argument_category()).can_unify(result) \
             and notexcluded(exclude, 6):
         if exclude is not None:
-            if left == right and left.argument_category == right.argument_category \
+            if left == right and left.argument_category() == right.argument_category() \
                     and (left.isconj or right.isconj):
                 return None # don't count as ambiguous rule N/N[conj] N/N => N/N
             exclude.append(6)
@@ -1096,17 +1118,17 @@ def get_rule(left, right, result, exclude=None):
             # X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             return RL_FX
 
-    elif right.isarg_left and right.argument_category.can_unify(left) and right.result_category.can_unify(result) \
+    elif right.isarg_left and right.argument_category().can_unify(left) and right.result_category().can_unify(result) \
             and notexcluded(exclude, 7):
         xupdate(exclude, 7)
         # Backward Application
         # Y:a X\Y:f => X: f(a)
         return RL_BA
-    elif right.isarg_left and left.isfunctor and right.argument_category.can_unify(left.result_category) \
-            and Category.combine(right.result_category, left.slash, left.argument_category).can_unify(result) \
+    elif right.isarg_left and left.isfunctor and right.argument_category().can_unify(left.result_category()) \
+            and Category.combine(right.result_category(), left.slash, left.argument_category()).can_unify(result) \
             and notexcluded(exclude, 8):
         if exclude is not None:
-            if left == right and left.argument_category == right.argument_category \
+            if left == right and left.argument_category() == right.argument_category() \
                     and (left.isconj or right.isconj):
                 return None
             exclude.append(8)
@@ -1119,9 +1141,9 @@ def get_rule(left, right, result, exclude=None):
             # Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             return RL_BX
 
-    elif left.argument_category.can_unify(right.argument_category) and left.result_category.isarg_right and \
-            left.slash == right.slash and left.result_category.argument_category.can_unify(right.result_category) and \
-            Category.combine(left.result_category.result_category, left.slash, right.argument_category).can_unify(result) \
+    elif left.argument_category().can_unify(right.argument_category()) and left.result_category().isarg_right and \
+            left.slash == right.slash and left.result_category().argument_category().can_unify(right.result_category()) and \
+            Category.combine(left.result_category().result_category(), left.slash, right.argument_category()).can_unify(result) \
             and notexcluded(exclude, 9):
         xupdate(exclude, 9)
         if right.isarg_right:
@@ -1133,9 +1155,9 @@ def get_rule(left, right, result, exclude=None):
             # (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_FXS
 
-    elif right.argument_category.can_unify(left.argument_category) and right.result_category.isarg_left and \
-            left.slash == right.slash and right.result_category.argument_category.can_unify(left.result_category) and \
-            Category.combine(right.result_category.result_category, left.slash, left.argument_category).can_unify(result) \
+    elif right.argument_category().can_unify(left.argument_category()) and right.result_category().isarg_left and \
+            left.slash == right.slash and right.result_category().argument_category().can_unify(left.result_category()) and \
+            Category.combine(right.result_category().result_category(), left.slash, left.argument_category()).can_unify(result) \
             and notexcluded(exclude, 10):
         xupdate(exclude, 10)
         if right.isarg_left:
@@ -1147,14 +1169,14 @@ def get_rule(left, right, result, exclude=None):
             # Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
             return RL_BXS
 
-    elif left.isarg_right and right.result_category.slash == result.result_category.slash and \
-            left.argument_category.can_unify(right.result_category.result_category) and \
-            Category.combine(Category.combine(left.result_category, right.result_category.slash,
-                                              right.result_category.argument_category), right.slash,
-                             right.argument_category).can_unify(result) \
+    elif left.isarg_right and right.result_category().slash == result.result_category().slash and \
+            left.argument_category().can_unify(right.result_category().result_category()) and \
+            Category.combine(Category.combine(left.result_category(), right.result_category().slash,
+                                              right.result_category().argument_category()), right.slash,
+                             right.argument_category()).can_unify(result) \
             and notexcluded(exclude, 11):
         xupdate(exclude, 11)
-        if right.result_category.isarg_right:
+        if right.result_category().isarg_right:
             # Generalized Forward Composition
             # X/Y:f (Y/Z)/$:...λz.gz... => (X/Z)/$: ...λz.f(g(z...))
             return RL_GFC
@@ -1163,14 +1185,14 @@ def get_rule(left, right, result, exclude=None):
             # X/Y:f (Y\Z)$:...λz.gz... => (X\Z)$: ...λz.f(g(z...))
             return RL_GFX
 
-    elif right.isarg_left and left.result_category.slash == result.result_category.slash and \
-            right.argument_category.can_unify(left.result_category.result_category) and \
-            Category.combine(Category.combine(right.result_category, left.result_category.slash,
-                                              left.result_category.argument_category), left.slash,
-                             left.argument_category).can_unify(result) \
+    elif right.isarg_left and left.result_category().slash == result.result_category().slash and \
+            right.argument_category().can_unify(left.result_category().result_category()) and \
+            Category.combine(Category.combine(right.result_category(), left.result_category().slash,
+                                              left.result_category().argument_category()), left.slash,
+                             left.argument_category()).can_unify(result) \
             and notexcluded(exclude, 12):
         xupdate(exclude, 12)
-        if left.result_category.isarg_left:
+        if left.result_category().isarg_left:
             # Generalized Backward Composition
             # (Y\Z)$:...λz.gz... X\Y:f => (X\Z)$: ...λz.f(g(z...))
             return RL_GBC

@@ -76,6 +76,11 @@ __adv = [
 _ADV = {}
 for k,u,v,w in __adv:
     _ADV[k] = (parse_drs(v, 'nltk'), parse_drs(u, 'nltk').universe, w)
+
+# Special behavior for prepositions
+_PREPS = {
+    'to':   MODEL.build_template(r'PP_1002/NP_1002')[1],
+}
 ## endcond
 
 
@@ -165,8 +170,8 @@ class CcgTypeMapper(object):
         if self.category.isfunctor and not MODEL.issupported(self.category) \
             and self.category != CAT_CONJ_CONJ and self.category != CAT_CONJCONJ:
             templ = MODEL.infer_template(self.category)
-            if templ is not None and (self.category.result_category.isfunctor or
-                                      self.category.argument_category.isfunctor):
+            if templ is not None and (self.category.result_category().isfunctor or
+                                      self.category.argument_category().isfunctor):
                 raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type "%s"' %
                                       (category, word, self.signature))
 
@@ -276,7 +281,7 @@ class CcgTypeMapper(object):
         fn.set_category(template.final_atom)
         for c in compose:
             fn = c[0](category, c[1], fn)
-            category = category.result_category
+            category = category.result_category()
         return fn
 
     def build_conditions(self, conds, refs, template):
@@ -356,9 +361,13 @@ class CcgTypeMapper(object):
             A Production instance.
         """
         try:
-            template = MODEL.lookup(self.category)
-            compose = template.constructor_rule
-        except:
+            # Special handling for prepositions
+            if self.ispreposition and self._word in _PREPS:
+                template = _PREPS[self._word]
+            else:
+                template = MODEL.lookup(self.category)
+            compose = None if template is None else template.constructor_rule
+        except Exception:
             template = None
             compose = None
 
@@ -456,7 +465,7 @@ class CcgTypeMapper(object):
                         r = [c[1]]
                     r.extend(refs)
                     refs = r
-                s = s.result_category
+                s = s.result_category()
 
             refs.append(template.final_ref)
             refs.reverse()
@@ -672,7 +681,7 @@ class Ccg2Drs(object):
                 elif rule == RL_TCL_UNARY:
                     rule = RL_BA
                     unary = MODEL.lookup_unary(result, cats[0])
-                    if unary is None and result.ismodifier and result.result_category == cats[0]:
+                    if unary is None and result.ismodifier and result.result_category() == cats[0]:
                         unary = MODEL.infer_unary(result)
                     if unary is None:
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
@@ -711,7 +720,7 @@ class Ccg2Drs(object):
                 elif rule == RL_TCL_UNARY:
                     rule = RL_BA
                     unary = MODEL.lookup_unary(result, cats[0])
-                    if unary is None and result.ismodifier and result.result_category == cats[0]:
+                    if unary is None and result.ismodifier and result.result_category() == cats[0]:
                         unary = MODEL.infer_unary(result)
                     if unary is None:
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
@@ -721,7 +730,7 @@ class Ccg2Drs(object):
                 elif rule == RL_TCR_UNARY:
                     rule = RL_BA
                     unary = MODEL.lookup_unary(result, cats[1])
-                    if unary is None and result.ismodifier and result.result_category == cats[1]:
+                    if unary is None and result.ismodifier and result.result_category() == cats[1]:
                         unary = MODEL.infer_unary(result)
                     if unary is None:
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
@@ -751,7 +760,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['which']:
+        if pt[1] in ['Grace', '&', 'Co.', 'W.R.']:
             pass
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
         if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
@@ -842,7 +851,7 @@ def _extract_predarg_categories_node(pt, lst):
         catkey = Category(pt[0])
 
         # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
-        if not catkey.isfunctor or catkey.result_category == CAT_CONJ or catkey.argument_category == CAT_CONJ:
+        if not catkey.isfunctor or catkey.result_category() == CAT_CONJ or catkey.argument_category() == CAT_CONJ:
             return
 
         predarg = Category(pt[4])

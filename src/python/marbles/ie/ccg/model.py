@@ -128,7 +128,7 @@ class FunctorTemplate(object):
         """
         # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
         catclean = predarg.clean(True)  # strip all pred-arg tags
-        if not catclean.isfunctor or catclean.result_category == CAT_CONJ or catclean.argument_category == CAT_CONJ:
+        if not catclean.isfunctor or catclean.result_category() == CAT_CONJ or catclean.argument_category() == CAT_CONJ:
             return None
 
         if gen is None:
@@ -140,8 +140,8 @@ class FunctorTemplate(object):
 
         fn = []
         while predarg.isfunctor:
-            atoms = predarg.argument_category.extract_unify_atoms(False)
-            predarg = predarg.result_category
+            atoms = predarg.argument_category(False).extract_unify_atoms(False)
+            predarg = predarg.result_category(False)
             refs = []
             for a in atoms:
                 key = None
@@ -204,7 +204,7 @@ class FunctorTemplate(object):
             assert not category.isempty
             assert category.isfunctor
             fn = c[0](category, c[1], fn)
-            category = category.result_category
+            category = category.result_category()
         assert category.isatom
         return fn
 
@@ -416,7 +416,7 @@ class Model(object):
     def infer_unary(self, category):
         """Attempt to build a unary modifier from existing templates if possible."""
         if category.ismodifier:
-            template = self.lookup(category.result_category)
+            template = self.lookup(category.result_category())
             if template is not None:
                 taggedcat = template.category.complete_tags()
                 return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat),
@@ -426,9 +426,9 @@ class Model(object):
     def infer_template(self, category):
         """Attempt to build a template from existing templates if possible."""
         if category.isfunctor and not self.issupported(category):
-            catArg = category.argument_category
-            catArgArg = catArg.argument_category
-            catResult = category.result_category
+            catArg = category.argument_category()
+            catArgArg = catArg.argument_category()
+            catResult = category.result_category()
             if category.istype_raised and (self.issupported(catResult) or catResult.isatom) \
                     and (self.issupported(catArgArg) or catArgArg.isatom):
                 # If the catgeory is type raised then check if result type exists and build now.
@@ -445,7 +445,7 @@ class Model(object):
                 else:
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
-                                          Category.combine(catResult, category.argument_category.slash, catArgArg, False))
+                                          Category.combine(catResult, category.argument_category().slash, catArgArg, False))
                 return self.add_template(newcat.signature)
             elif category.ismodifier and self.issupported(catResult):
                 predarg = self.lookup(catResult).category.complete_tags()

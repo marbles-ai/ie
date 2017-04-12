@@ -68,9 +68,9 @@ def identity_functor(category, ref=None, dep=None):
     Remarks:
         This can be used for atomic unary rules.
     """
-    assert category.result_category.isatom
-    assert category.argument_category.isatom
-    d = DrsProduction(DRS([], []), category=category.result_category)
+    assert category.result_category().isatom
+    assert category.argument_category().isatom
+    d = DrsProduction(DRS([], []), category=category.result_category())
     if ref is None:
         ref = DRSRef('x1')
     d.set_lambda_refs([ref])
@@ -827,6 +827,9 @@ class ProductionList(Production):
         if len(ml) == 1:
             if not self.islambda_inferred:
                 ml[0].set_lambda_refs(self.lambda_refs)
+            # FIXME: should be able to remove this test once it is all debugged
+            if self.category.can_unify(ml[0].category):
+                ml[0].set_category(self.category)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
             self._compList = ml
@@ -1687,7 +1690,7 @@ class FunctorProduction(Production):
         assert g.outer is None  # must be outer scope
 
         # Create a new category
-        cat = Category.combine(self.category.result_category, g.category.slash, g.category.argument_category)
+        cat = Category.combine(self.category.result_category(), g.category.slash, g.category.argument_category())
 
         # Rename so f names are disjoint with g names.
         # Try to keep var subscripts increasing left to right.
@@ -1697,8 +1700,8 @@ class FunctorProduction(Production):
             g.make_vars_disjoint(self.outer_scope)
 
         # Get scopes before we modify f and g
-        fv = self.category.argument_category.extract_unify_atoms(False)
-        gv = g.category.result_category.extract_unify_atoms(False)
+        fv = self.category.argument_category().extract_unify_atoms(False)
+        gv = g.category.result_category().extract_unify_atoms(False)
 
         fc = self.pop()
         assert fc is not None
@@ -1709,7 +1712,7 @@ class FunctorProduction(Production):
         zg = g.pop()
         if zg is None:
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
-            assert g.category.result_category.isatom
+            assert g.category.result_category().isatom
             zg = g
             glr = gc.lambda_refs
         else:
@@ -1747,7 +1750,7 @@ class FunctorProduction(Production):
         fy = self.pop()
         if fy is None:
             # X is atomic
-            assert self.category.result_category.isatom
+            assert self.category.result_category().isatom
             return zg
         self.push(zg)
         return self
@@ -1773,9 +1776,9 @@ class FunctorProduction(Production):
         assert g.outer is None  # must be outer scope
 
         # Create a new category
-        resultcat = Category.combine(self.category.result_category, g.category.result_category.slash,
-                                     g.category.result_category.argument_category)
-        cat = Category.combine(resultcat, g.category.slash, g.category.argument_category)
+        resultcat = Category.combine(self.category.result_category(), g.category.result_category().slash,
+                                     g.category.result_category().argument_category())
+        cat = Category.combine(resultcat, g.category.slash, g.category.argument_category())
 
         # Rename so f names are disjoint with g names.
         # Try to keep var subscripts increasing left to right.
@@ -1785,8 +1788,8 @@ class FunctorProduction(Production):
             g.make_vars_disjoint(self.outer_scope)
 
         # Get scopes before we modify f and g
-        fv = self.category.argument_category.extract_unify_atoms(False)
-        gv = g.category.result_category.result_category.extract_unify_atoms(False)
+        fv = self.category.argument_category().extract_unify_atoms(False)
+        gv = g.category.result_category().result_category().extract_unify_atoms(False)
 
         # Get lambdas
         gc = g.pop()
@@ -1796,7 +1799,7 @@ class FunctorProduction(Production):
         zg = g.pop()
         if zg is None:
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
-            assert g.category.result_category.isatom
+            assert g.category.result_category().isatom
             zg = g
             glr = gc.lambda_refs
         else:
@@ -1840,7 +1843,7 @@ class FunctorProduction(Production):
         fy = self.pop()
         if fy is None:
             # X is atomic
-            assert self.category.result_category.isatom
+            assert self.category.result_category().isatom
             return zg
         self.push(zg)
         return self
@@ -1866,26 +1869,26 @@ class FunctorProduction(Production):
         assert g.outer is None  # must be outer scope
 
         # Create a new category
-        cat = Category.combine(self.category.result_category.result_category, self.category.slash,
-                               g.category.argument_category)
+        cat = Category.combine(self.category.result_category().result_category(), self.category.slash,
+                               g.category.argument_category())
 
         # Rename so f names are disjoint with g names.
         # Try to keep var subscripts increasing left to right.
-        if self.category.result_category.isarg_right:
+        if self.category.result_category().isarg_right:
             self.outer_scope.make_vars_disjoint(g)
         else:
             g.make_vars_disjoint(self.outer_scope)
 
         # Get scopes before we modify f and g
-        fv = self.category.argument_category.extract_unify_atoms(False)
-        gv = g.category.result_category.extract_unify_atoms(False)
+        fv = self.category.argument_category().extract_unify_atoms(False)
+        gv = g.category.result_category().extract_unify_atoms(False)
 
         # Get lambdas
         gc = g.pop()
         zg = g.pop()
         if zg is None:
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
-            assert g.category.result_category.isatom
+            assert g.category.result_category().isatom
             zg = g
         zg._category = cat
 
@@ -1929,7 +1932,7 @@ class FunctorProduction(Production):
         yf = self.pop()
         if yf is None:
             # X is atomic
-            assert self.category.result_category.isatom
+            assert self.category.result_category().isatom
             return zg
         self.push(zg)
         return self
@@ -2037,7 +2040,7 @@ class FunctorProduction(Production):
             # Use Category.extract_unify_atoms to get binding region
             # Bind with inner scope
             flr = self.get_unify_scopes(False)
-            fs = self.category.argument_category.extract_unify_atoms(False)
+            fs = self.category.argument_category().extract_unify_atoms(False)
             gs = g.category.extract_unify_atoms(False)
             if gs is None or fs is None:
                 pass
@@ -2173,7 +2176,7 @@ class PropProduction(FunctorProduction):
         dd.set_options(self.compose_options)
         self.clear()
         dd.set_lambda_refs(lr)
-        dd.set_category(self.category.result_category)
+        dd.set_category(self.category.result_category())
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
             print('          := %s' % repr(dd))
         return dd
