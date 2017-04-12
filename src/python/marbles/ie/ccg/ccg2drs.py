@@ -20,50 +20,50 @@ from marbles.ie.parse import parse_drs
 ## @cond
 __pron = [
     # 1st person singular
-    ('i',       '([],[([],[i(x1)])->([],[me(x1)])])', RT_HUMAN),
-    ('me',      '([],[me(x1)])', RT_HUMAN),
-    ('myself',  '([],[([],[myself(x1)])->([],[me(x1)])])', RT_HUMAN),
-    ('mine',    '([],[([],[mine(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
-    ('my',      '([],[([],[my(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('i',       '([x1],[])',    '([],[([],[i(x1)])->([],[me(x1)])])', RT_HUMAN),
+    ('me',      '([x1],[])',    '([],[me(x1)])', RT_HUMAN),
+    ('myself',  '([x1],[])',    '([],[([],[myself(x1)])->([],[me(x1)])])', RT_HUMAN),
+    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
     # 2nd person singular
-    ('you',     '([],[you(x1)])', RT_HUMAN),
-    ('yourself','([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
-    ('yours',   '([],[([],[yours(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
-    ('your',    '([],[([],[your(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN),
+    ('yourself','([x1],[])',    '([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
+    ('yours',   '([x1],[])',    '([],[([],[yours(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('your',    '([x1],[])',    '([],[([],[your(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
     # 3rd person singular
-    ('he',      '([],[([],[he(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('she',     '([],[([],[she(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('him',     '([],[him(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('her',     '([],[her(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('himself', '([],[([],[himself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('herself', '([],[([],[herself(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('hisself', '([],[([],[hisself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('his',     '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('hers',    '([],[([],[hers(x1)])->([],[her(x2),owns(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('he',      '([x1],[])',    '([],[([],[he(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('she',     '([x1],[])',    '([],[([],[she(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('him',     '([x1],[])',    '([],[him(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('her',     '([x1],[])',    '([],[her(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('himself', '([x1],[])',    '([],[([],[himself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('herself', '([x1],[])',    '([],[([],[herself(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('hisself', '([x1],[])',    '([],[([],[hisself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('his',     '([x1],[])',    '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('hers',    '([x1],[])',    '([],[([],[hers(x1)])->([],[her(x2),owns(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
     # 1st person plural
-    ('we',      '([],[([],[we(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('us',      '([],[us(x1)])', RT_HUMAN|RT_PLURAL),
-    ('ourself', '([],[([],[ourself(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ourselves','([],[([],[ourselves(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ours',    '([],[([],[ours(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('our',     '([],[([],[our(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('we',      '([x1],[])',    '([],[([],[we(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('us',      '([x1],[])',    '([],[us(x1)])', RT_HUMAN|RT_PLURAL),
+    ('ourself', '([x1],[])',    '([],[([],[ourself(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ourselves','([x1],[])',   '([],[([],[ourselves(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ours',    '([x1],[])',    '([],[([],[ours(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('our',     '([x1],[])',    '([],[([],[our(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # 2nd person plural
-    ('yourselves', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
     # 3rd person plural
-    ('they',    '([],[([],[they(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('them',    '([],[them(x1)])', RT_HUMAN|RT_PLURAL),
-    ('themself','([],[([],[themself(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('themselves','([],[([],[themselves(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('theirs',  '([],[([],[theirs(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('their',   '([],[([],[their(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('they',    '([x1],[])',    '([],[([],[they(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('them',    '([x1],[])',    '([],[them(x1)])', RT_HUMAN|RT_PLURAL),
+    ('themself','([x1],[])',    '([],[([],[themself(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('themselves','([x1],[])',  '([],[([],[themselves(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('theirs',  '([x1],[])',    '([],[([],[theirs(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('their',   '([x1],[])',    '([],[([],[their(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # it
-    ('it',      '([],[it(x1)])', RT_ANAPHORA),
-    ('its',     '([],[([],[its(x1)])->([],[it(x2),owns(x2,x1)])])', RT_ANAPHORA),
-    ('itself',  '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
+    ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA),
+    ('its',     '([x1],[])',    '([],[([],[its(x1)])->([],[it(x2),owns(x2,x1)])])', RT_ANAPHORA),
+    ('itself',  '([x1],[])',    '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
 ]
 _PRON = {}
-for k,v,u in __pron:
-    _PRON[k] = (parse_drs(v, 'nltk'), u)
+for k,r,v,u in __pron:
+    _PRON[k] = (parse_drs(v, 'nltk'), u, parse_drs(r, 'nltk').universe)
 
 
 # Order of referents is lambda_ref binding order
@@ -384,7 +384,7 @@ class CcgTypeMapper(object):
                 pron = _PRON[self._word]
                 d = DrsProduction(pron[0], category=self.category,
                                   dep=Dependency(pron[0].freerefs[0], self._word, pron[1]))
-                d.set_lambda_refs(union(d.drs.universe, d.drs.freerefs))
+                d.set_lambda_refs(pron[2])
                 return d
             elif self.category == CAT_N:
                 if self.isproper_noun:
@@ -695,6 +695,10 @@ class Ccg2Drs(object):
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule).unify()
+                if not (cl2.verify() and cl2.category.can_unify(result)):
+                    V = cl2.verify()
+                    U = cl2.category.can_unify(result)
+                    pass
                 assert cl2.verify() and cl2.category.can_unify(result)
                 assert result.get_scope_count() == cl2.get_scope_count()
             elif len(cats) == 2:
