@@ -503,7 +503,7 @@ try:
     _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
     _tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
-    #_tcache.addinit(Model.build_template(r'PP_1002/NP_1002'), replace=True)
+    _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
     _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
