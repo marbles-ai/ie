@@ -420,7 +420,7 @@ class Model(object):
             if template is not None:
                 taggedcat = template.category.complete_tags()
                 return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat),
-                                           taggedcat, False)
+                                           taggedcat)
         return None
 
     def infer_template(self, category):
@@ -492,7 +492,7 @@ class Model(object):
             wc = self._Feature.sub('[X]', category.signature)
             return wc in self._TEMPLATES
         return False
-    
+
 
 # Run scripts/make_functor_templates.py to create templates file
 try:
@@ -528,8 +528,12 @@ try:
 
     _tcache.addinit(Model.build_template(r'((N_1021\N_1021)/S[dcl])\((N_1021\N_1021)/NP)'))
 
+    _tcache.addinit(Model.build_template(r'S[X]_1022/NP_2022'))
+    _tcache.addinit(Model.build_template(r'S[X]_1023\NP_2023'))
+
     # Add unary rules
     _rcache = Cache()
+    _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', 'S_1024/S[dcl]_1024'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1', r'N_1'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'NP_1'))
     # Wildcards incur more string processing so cover main rules
