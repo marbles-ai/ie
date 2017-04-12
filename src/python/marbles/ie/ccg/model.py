@@ -405,7 +405,7 @@ class Model(object):
             result: The result Category.
             argument: The argument category.
         """
-        rule, key = self.build_unary_rule(result, argument)
+        key, rule = self.build_unary_rule(result, argument)
         if key not in self._UNARY:
             self._UNARY[key] = rule
             # Force add to category cache

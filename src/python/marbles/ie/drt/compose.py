@@ -1164,7 +1164,7 @@ class ProductionList(Production):
                     pass
                 if d.get_scope_count() != self.category.get_scope_count():
                     pass
-                d.inner_scope.set_category(self.category)
+                d.set_category(self.category)
             else:
                 if d.get_scope_count() != self.category.get_scope_count():
                     pass
@@ -1492,6 +1492,13 @@ class FunctorProduction(Production):
             cat: A Category instance.
         """
         prev = self._category
+        assert cat.isfunctor
+        if self._comp is not None:
+            if self._comp.isfunctor:
+                cat = self._comp.set_category(cat).result_category()
+            else:
+                self._comp.set_category(cat.extract_unify_atoms(False)[-1])
+
         self._category = cat
         # sanity check
 
@@ -1499,6 +1506,7 @@ class FunctorProduction(Production):
         if (cat.isarg_left and prev.isarg_right) or (cat.isarg_right and prev.isarg_left):
             raise DrsComposeError('Signature %s does not match %s argument position, prev was %s' %
                                  (cat, 'right' if prev.isarg_right else 'left', prev))
+        return cat
 
     def set_options(self, options):
         """Set the compose options.
