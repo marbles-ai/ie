@@ -69,53 +69,18 @@ class ParserTest(unittest.TestCase):
                 self.assertIsNotNone(pt)
                 self.assertLessEqual(len(pt), 3)
 
-    def test4_Derivation1(self):
-        txt = '''
-(<T NP 0 1>
-    (<T N 0 2>
-        (<T N 1 2>
-            (<L N/N CD CD Five N/N>)
-            (<L N NNS NNS things N>)
-        )
-        (<T N\N 0 1>
-            (<T S[dcl]/NP 1 2>
-                (<T S[X]/(S[X]\NP) 0 1>
-                    (<L NP PRP PRP you NP>)
-                )
-                (<T (S[dcl]\NP)/NP 0 2>
-                    (<L (S[dcl]\NP)/(S[b]\NP) MD MD can (S[dcl]\NP)/(S[b]\NP)>)
-                    (<T (S[b]\NP)/NP 0 2>
-                        (<L ((S[b]\NP)/PP)/NP VB VB do ((S[b]\NP)/PP)/NP>)
-                        (<T (S[X]\NP)\((S[X]\NP)/PP) 0 1>
-                            (<T PP 0 2>
-                                (<T PP 0 2>
-                                    (<L PP/NP IN IN for PP/NP>)
-                                    (<T NP 0 1>
-                                        (<T N 0 2>
-                                            (<T N 0 2>
-                                                (<L N/N[num] $ $ $ N/N[num]>)
-                                                (<L N[num] CD CD 15,000 N[num]>)
-                                            )
-                                            (<T N\N 1 2>
-                                                (<L (N\N)/(N\N) CC CC or (N\N)/(N\N)>)
-                                                (<L N\N JJR JJR less N\N>)
-                                            )
-                                        )
-                                    )
-                                )
-                                (<L : : : : :>)
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    )
-) '''
+    def test4_DerivationWithWildcards(self):
+        txt = '''(<T NP 0 1> (<T N 0 2> (<T N 1 2> (<L N/N CD CD Five N/N>) (<L N NNS NNS things N>) )
+        (<T N\N 0 1> (<T S[dcl]/NP 1 2> (<T S[X]/(S[X]\NP) 0 1> (<L NP PRP PRP you NP>) )
+        (<T (S[dcl]\NP)/NP 0 2> (<L (S[dcl]\NP)/(S[b]\NP) MD MD can (S[dcl]\NP)/(S[b]\NP)>) (<T (S[b]\NP)/NP 0 2>
+        (<L ((S[b]\NP)/PP)/NP VB VB do ((S[b]\NP)/PP)/NP>) (<T (S[X]\NP)\((S[X]\NP)/PP) 0 1> (<T PP 0 2> (<T PP 0 2>
+        (<L PP/NP IN IN for PP/NP>) (<T NP 0 1> (<T N 0 2> (<T N 0 2> (<L N/N[num] $ $ $ N/N[num]>)
+        (<L N[num] CD CD 15,000 N[num]>) ) (<T N\N 1 2> (<L (N\N)/(N\N) CC CC or (N\N)/(N\N)>)
+        (<L N\N JJR JJR less N\N>) ) ) ) ) (<L : : : : :>) ) ) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
 
-    def test4_Parser(self):
+    def test5_Parser(self):
         filename = os.path.join(self.iepath, 'ccg', 'data', 'parse_ccg_derivation_failed.dat')
         if os.path.exists(filename):
             success = 0
