@@ -113,6 +113,30 @@ CAT_CONJ_CONJ = Category(r'conj\conj')
 CAT_CONJCONJ = Category(r'conj/conj')
 
 
+def safe_create_empty_functor(category):
+    """Lookup model templates and create an empty functor. If the template
+    does not exits attempt to infer from existing templates.
+
+    Args:
+        category: The functor category.
+
+    Returns:
+        A functor or None.
+    """
+    templ = MODEL.lookup(category)
+    if templ is None:
+        if category.isfunctor:
+            if category != CAT_CONJ_CONJ and category != CAT_CONJCONJ:
+                templ = MODEL.infer_template(category)
+                if templ is not None:
+                    return templ.create_empty_functor()
+            else:
+                return identity_functor(category)
+    else:
+        return templ.create_empty_functor()
+    return None
+
+
 class CcgTypeMapper(object):
     """Mapping from CCG types to DRS types."""
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
@@ -640,8 +664,9 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
 
                 if rule == RL_TYPE_RAISE:
-                    ccgt = CcgTypeMapper(category=result, word='$$$$')
-                    d = self.rename_vars(ccgt.get_composer())
+                    #ccgt = CcgTypeMapper(category=result, word='$$$$')
+                    #d = self.rename_vars(ccgt.get_composer())
+                    d = self.rename_vars(safe_create_empty_functor(result))
                     d.set_dependency(hd)
                     cl2.push_right(d)
                 elif rule == RL_TCL_UNARY:
@@ -678,8 +703,9 @@ class Ccg2Drs(object):
 
                 if rule == RL_TC_CONJ:
                     # TODO: change to use empty_functor method
-                    ccgt = CcgTypeMapper(category=result, word='$$$$')
-                    d = self.rename_vars(ccgt.get_composer())
+                    #ccgt = CcgTypeMapper(category=result, word='$$$$')
+                    #d = self.rename_vars(ccgt.get_composer
+                    d = self.rename_vars(safe_create_empty_functor(result))
                     d.set_dependency(hd)
                     cl2.push_right(d)
                 elif rule == RL_TCL_UNARY:
