@@ -733,6 +733,99 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
+    def test5_PrepositionOf(self):
+        #txt = '''(<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP J.P. N/N>) (<L N NNP NNP Bolduc N>) ) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN vice N/N>) (<T N 0 2> (<L N/PP NN NN chairman N/PP>) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NNP NNP W.R. (N/N)/(N/N)>) (<L N/N NNP NNP Grace N/N>) ) (<T N 1 2> (<L N/N CC CC & N/N>) (<T N 0 2> (<L N NNP NNP Co. N>) (<L , , , , ,>) ) ) ) ) (<T NP\NP 0 2> (<L (NP\NP)/(S[dcl]\NP) WDT WDT which (NP\NP)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBZ VBZ holds (S[dcl]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) CD CD 83.4 (N/N)/(N/N)>) (<L N/N NN NN % N/N>) ) (<T N 0 2> (<L N/PP NN NN interest N/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<T N 1 2> (<L N/N JJ JJ energy-services N/N>) (<L N NN NN company N>) ) ) ) ) ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2> (<L , , , , ,>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>) (<T S[pss]\NP 0 2> (<L (S[pss]\NP)/NP VBN VBN elected (S[pss]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN director N>) ) ) ) ) ) ) ) ) (<L . . . . .>) ) ) ) ) ) ) '''
+        txt = '''
+(<T NP 0 2>
+    (<T NP 0 1>
+        (<T N 1 2>
+            (<L N/N NNP NNP J.P. N/N>)
+            (<L N NNP NNP Bolduc N>)
+        )
+    )
+    (<T NP\NP 1 2>
+        (<L , , , , ,>)
+        (<T NP 0 1>
+            (<T N 1 2>
+                (<L N/N NN NN vice N/N>)
+                (<T N 0 2>
+                    (<L N/PP NN NN chairman N/PP>)
+                    (<T PP 0 2>
+                        (<T PP 0 2>
+                            (<L PP/NP IN IN of PP/NP>)
+                            (<T NP 0 2>
+                                (<T NP 0 1>
+                                    (<T N 1 2>
+                                        (<T N/N 1 2>
+                                            (<L (N/N)/(N/N) NNP NNP W.R. (N/N)/(N/N)>)
+                                            (<L N/N NNP NNP Grace N/N>)
+                                        )
+                                        (<T N 1 2>
+                                            (<L N/N CC CC & N/N>)
+                                            (<T N 0 2>
+                                                (<L N NNP NNP Co. N>)
+                                                (<L , , , , ,>)
+                                            )
+                                        )
+                                    )
+                                )
+                                (<T NP\NP 0 2>
+                                    (<L (NP\NP)/(S[dcl]\NP) WDT WDT which (NP\NP)/(S[dcl]\NP)>)
+                                    (<T S[dcl]\NP 0 2>
+                                        (<T S[dcl]\NP 0 2>
+                                            (<L (S[dcl]\NP)/NP VBZ VBZ holds (S[dcl]\NP)/NP>)
+                                            (<T NP 0 2>
+                                                (<L NP/N DT DT a NP/N>)
+                                                (<T N 1 2>
+                                                    (<T N/N 1 2>
+                                                        (<L (N/N)/(N/N) CD CD 83.4 (N/N)/(N/N)>)
+                                                        (<L N/N NN NN % N/N>)
+                                                    )
+                                                    (<T N 0 2>
+                                                        (<L N/PP NN NN interest N/PP>)
+                                                        (<T PP 0 2>
+                                                            (<L PP/NP IN IN in PP/NP>)
+                                                            (<T NP 0 2>
+                                                                (<L NP/N DT DT this NP/N>)
+                                                                (<T N 1 2>
+                                                                    (<L N/N JJ JJ energy-services N/N>)
+                                                                    (<L N NN NN company N>)
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                        (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2>
+                                            (<L , , , , ,>)
+                                            (<T S[dcl]\NP 0 2>
+                                                (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>)
+                                                (<T S[pss]\NP 0 2>
+                                                    (<L (S[pss]\NP)/NP VBN VBN elected (S[pss]\NP)/NP>)
+                                                    (<T NP 0 2>
+                                                        (<L NP/N DT DT a NP/N>)
+                                                        (<L N NN NN director N>)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                        (<L . . . . .>)
+                    )
+                )
+            )
+        )
+    )
+) '''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+
     def test6_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
         # - ./scripts/extract_lfs.sh
@@ -769,7 +862,7 @@ class ComposeTest(unittest.TestCase):
 
             name, _ = os.path.splitext(os.path.basename(fn))
             for i in range(start, len(lines), 100):
-                #start = 0
+                start = 50
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
                 try:
@@ -786,7 +879,7 @@ class ComposeTest(unittest.TestCase):
                     d = d.unify()
                     assert d is not None
                     assert isinstance(d, DrsProduction)
-                    s = d.drs.show(SHOW_LINEAR)
+                    s = d.drs.show(SHOW_LINEAR).encode('utf-8')
                     print(s)
                 except Exception as e:
                     print(e)
@@ -800,7 +893,7 @@ class ComposeTest(unittest.TestCase):
             for x in failed_ccg2drs:
                 print('%s-%04d failed: {%s}' % x)
 
-        self.assertEqual(failed_ccg2drs, 0)
+        self.assertEqual(len(failed_ccg2drs), 0)
         self.assertEqual(failed_parse, 0)
 
     def test6_ParseLdc2005T13(self):
@@ -832,7 +925,7 @@ class ComposeTest(unittest.TestCase):
         for fn in allfiles[0::100]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
-            for hdr,ccgbank in zip(lines[0:2], lines[1:2]):
+            for hdr,ccgbank in zip(lines[0::10], lines[1::10]):
                 print(hdr.strip())
                 try:
                     pt = parse_ccg_derivation(ccgbank)
@@ -848,7 +941,7 @@ class ComposeTest(unittest.TestCase):
                     d = d.unify()
                     assert d is not None
                     assert isinstance(d, DrsProduction)
-                    s = d.drs.show(SHOW_LINEAR)
+                    s = d.drs.show(SHOW_LINEAR).encode('utf-8')
                     print(s)
                 except Exception as e:
                     raise

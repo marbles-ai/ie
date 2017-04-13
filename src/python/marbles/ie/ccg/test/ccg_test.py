@@ -125,7 +125,8 @@ class CcgTest(unittest.TestCase):
     def test4_Cache(self):
         if Category._use_cache:
             for k, v in Category._cache:
-                self.assertEquals(k, v.signature)
+                # Use repr() because it includes conj
+                self.assertEquals(k, repr(v))
                 self.assertEquals(Category._cache[k], v)
 
     def test5_Cache(self):
@@ -158,7 +159,7 @@ class CcgTest(unittest.TestCase):
         for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
-            for hdr, ccgbank in zip(lines[0:2:], lines[1:2:]):
+            for hdr, ccgbank in zip(lines[0::10], lines[1::10]):
                 print(hdr.strip())
                 try:
                     pt = parse_ccg_derivation(ccgbank)
