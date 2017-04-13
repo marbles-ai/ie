@@ -11,12 +11,6 @@ pypath = os.path.join(projdir, 'src', 'python')
 sys.path.insert(0, pypath)
 
 
-from marbles.ie.ccg import test as ccg_test
-from marbles.ie.drt import test as drs_test
-
-
 if __name__ == '__main__':
-    suite = unittest.defaultTestLoader.discover(start_dir=os.path.join(pypath, 'marbles', 'ie', 'ccg'), pattern='*_test.py')
-    unittest.TextTestRunner().run(suite)
-    suite = unittest.defaultTestLoader.discover(start_dir=os.path.join(pypath, 'marbles', 'ie', 'drt'), pattern='*_test.py')
+    suite = unittest.defaultTestLoader.discover(start_dir=os.path.join(pypath, 'marbles', 'ie'), pattern='*_test.py')
     unittest.TextTestRunner().run(suite)
