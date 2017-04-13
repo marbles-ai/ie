@@ -53,7 +53,7 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
         progress = print_progress(progress, 10)
         with open(fn, 'r') as fd:
             lines = fd.readlines()
-        for hdr,ccgbank in zip(lines[0:2:], lines[1:2:]):
+        for hdr,ccgbank in zip(lines[0::2], lines[1::2]):
             try:
                 pt = parse_ccg_derivation(ccgbank)
                 extract_predarg_categories_from_pt(pt, rules)
