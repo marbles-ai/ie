@@ -656,7 +656,7 @@ class AbstractPDRS(AbstractDRS):
         """Strips projection variables from this PDRS resulting in a DRS."""
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         """Converts a PDRS to a modal FOL formula with world.
 
         Args:
@@ -668,7 +668,7 @@ class AbstractPDRS(AbstractDRS):
         Raises:
             ie.fol.FOLConversionError
         """
-        return self.to_drs().to_mfol(world)
+        return self.to_drs().to_mfol(world, worlds)
 
     def to_drs(self):
         """Translates a PDRS into a DRS."""
@@ -1907,7 +1907,7 @@ class PCond(AbstractDRSCond, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
     def show(self, notation):
@@ -1993,7 +1993,7 @@ class PRel(Rel, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2054,7 +2054,7 @@ class PNeg(Neg, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2139,7 +2139,7 @@ class PImp(Imp, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2222,7 +2222,7 @@ class POr(Or, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2307,7 +2307,7 @@ class PProp(Prop, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2367,7 +2367,7 @@ class PDiamond(Diamond, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 
@@ -2427,7 +2427,7 @@ class PBox(Box, IPDRSCond):
     def _ispure(self, ld, gd, rs):
         raise NotImplementedError
 
-    def to_mfol(self, world):
+    def to_mfol(self, world, worlds):
         raise NotImplementedError
 
 

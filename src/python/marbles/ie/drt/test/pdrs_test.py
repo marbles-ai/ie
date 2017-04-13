@@ -19,7 +19,7 @@ class PDrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'1:[||]'
         self.assertEquals(x, s)
-        f = d.to_fol()
+        f,_ = d.to_fol()
         s = f.show(SHOW_SET)
         x = u'\u22A4'
         self.assertEquals(x, s)
@@ -41,9 +41,9 @@ class PDrsTest(unittest.TestCase):
         self.assertTrue(d.isproper)
         self.assertTrue(d.ispure)
         self.assertTrue(d.isfol)
-        f = d.to_fol()
+        f,_ = d.to_fol()
         s = f.show(SHOW_SET)
-        x = u'\u2203x(happy(w,x) \u2227 man(w,x))'
+        x = u'\u2203x(man(w,x) \u2227 happy(w,x))'
         self.assertEquals(x, s)
 
     def test2_NLTKRegressions(self):

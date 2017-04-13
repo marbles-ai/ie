@@ -490,8 +490,10 @@ class AbstractDRS(Showable):
         Raises:
             ie.fol.FOLConversionError
         """
+        global WORLD_VAR
         worlds = [WORLD_VAR]
-        return self.to_mfol(WORLD_VAR, worlds), worlds
+        mfol = self.to_mfol(WORLD_VAR, worlds)
+        return mfol, worlds
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL</a>
     ##

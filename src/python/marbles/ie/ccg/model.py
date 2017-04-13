@@ -534,6 +534,8 @@ try:
     # Add unary rules
     _rcache = Cache()
     _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', 'S_1024/S[dcl]_1024'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1025\NP_2025)\(S[adj]_1025\NP_2025)', 'S_1025/S[dcl]_1025'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1026\NP_2026)\(S[X]_1026\NP_2026)', 'S_1026/S[dcl]_1026'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1', r'N_1'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1\NP_1', r'NP_1'))
     # Wildcards incur more string processing so cover main rules
