@@ -5,10 +5,10 @@ from . import pos
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from oauth2client.client import GoogleCredentials
-from ..common import IndexSpan as IndexSpan
-from ..common import SubtreeSpan
-from ..common import build_typeof_map
-from ..common import TYPEOF_APPOS
+from marbles.ie.nlp.common import IndexSpan as IndexSpan
+from marbles.ie.nlp.common import SubtreeSpan
+from marbles.ie.nlp.common import build_typeof_map
+from marbles.ie.nlp.common import TYPEOF_APPOS
 import sys
 
 
