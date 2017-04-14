@@ -2,7 +2,7 @@
 """Compositional DRT"""
 
 import weakref
-
+import collections
 from common import SHOW_LINEAR, DRSConst
 from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
@@ -609,15 +609,17 @@ class ProductionList(Production):
     def __init__(self, compList=None, category=None, dep=None):
         super(ProductionList, self).__init__(category, dep)
         if compList is None:
-            compList = []
+            compList = collections.deque()
         if isinstance(compList, AbstractDRS):
-            compList = [DrsProduction(compList)]
+            compList = collections.deque([DrsProduction(compList)])
         elif isinstance(compList, Production):
-            compList = [compList]
+            compList = collections.deque([compList])
         elif iterable_type_check(compList, AbstractDRS):
-            compList = [DrsProduction(x) for x in compList]
+            compList = collections.deque([DrsProduction(x) for x in compList])
         elif not iterable_type_check(compList, Production):
             raise TypeError('DrsProduction construction')
+        elif not isinstance(compList, collections.deque):
+            compList = collections.deque(compList)
         self._compList = compList
 
     def __repr__(self):
@@ -683,14 +685,14 @@ class ProductionList(Production):
             yield c
 
     def clone(self):
-        cl = ProductionList([x for x in self._compList], dep=self.dep)
+        cl = ProductionList(collections.deque(self._compList), dep=self.dep)
         cl.set_options(self.compose_options)
         cl.set_lambda_refs(self.lambda_refs)
         return cl
 
     def flatten(self):
         """Unify subordinate ProductionList's into the current list."""
-        compList = []
+        compList = collections.deque()
         for d in self._compList:
             if d.isempty:
                 continue    # removes punctuation
@@ -748,72 +750,12 @@ class ProductionList(Production):
             The self instance.
         """
         if isinstance(other, AbstractDRS):
-            other = DrsProduction(other, )
+            other = DrsProduction(other)
         if merge and isinstance(other, ProductionList):
-            compList = [x for x in other._compList]
-            compList.extend(self._compList)
-            self._compList = compList
+            self._compList.extendleft(other._compList)
         else:
             other.set_options(self.compose_options)
-            compList = [other]
-            compList.extend(self._compList)
-            self._compList = compList
-        return self
-
-    def apply_forward(self):
-        """Forward application.
-
-        Remarks:
-            Executes a single production rule.
-        """
-        if len(self._compList) == 0:
-            return self
-        fn = self._compList[0]
-        if not fn.isfunctor:
-            pass
-        if len(self._compList) == 1:
-            # This can happen with punctuation etc. Empty productions are removed
-            # after a unify so we must simulate application with empty.
-            d = fn.pop()
-            g = fn.pop()
-            if g is not None:
-                g.push(d)
-                d = g
-        else:
-            arg = self._compList[1]
-            self._compList = self._compList[1:]
-            d = fn.apply(arg)
-        self._compList[0] = d
-        self.set_lambda_refs(d.lambda_refs)
-        self.set_category(d.category)
-        return self
-
-    def apply_backward(self, enableException=False):
-        """Backward application.
-
-        Remarks:
-            Executes a single production rule.
-        """
-        if len(self._compList) == 0:
-            return self
-        fn = self._compList.pop()
-        if not fn.isfunctor:
-            pass
-        if len(self._compList) == 0:
-            # This can happen with punctuation etc. Empty productions are removed
-            # after a unify so we must simulate application with empty.
-            d = fn.pop()
-            g = fn.pop()
-            if g is not None:
-                g.push(d)
-                d = g
-        else:
-            arg = self._compList.pop()
-            d = fn.apply(arg)
-
-        self._compList.append(d)
-        self.set_lambda_refs(d.lambda_refs)
-        self.set_category(d.category)
+            self._compList.appendleft(other)
         return self
 
     def unify(self):
@@ -823,7 +765,7 @@ class ProductionList(Production):
             A Production instance.
         """
         ml = [x.unify() for x in self._compList]
-        self._compList = []
+        self._compList = collections.deque()
         if len(ml) == 1:
             if not self.islambda_inferred:
                 ml[0].set_lambda_refs(self.lambda_refs)
@@ -832,7 +774,7 @@ class ProductionList(Production):
                 ml[0].set_category(self.category)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
-            self._compList = ml
+            self._compList.extend(ml)
             return self
 
         # Always unify reversed
@@ -913,7 +855,62 @@ class ProductionList(Production):
             d.set_lambda_refs(ml[0].lambda_refs)
         d.set_category(self.category)
         return d
-    
+
+    def apply_forward(self):
+        """Forward application.
+
+        Remarks:
+            Executes a single production rule.
+        """
+        if len(self._compList) == 0:
+            return self
+        fn = self._compList.popleft()
+        if not fn.isfunctor:
+            pass
+        if len(self._compList) == 0:
+            # This can happen with punctuation etc. Empty productions are removed
+            # after a unify so we must simulate application with empty.
+            d = fn.pop()
+            g = fn.pop()
+            if g is not None:
+                g.push(d)
+                d = g
+        else:
+            arg = self._compList.popleft()
+            d = fn.apply(arg)
+        self._compList.appendleft(d)
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
+    def apply_backward(self, enableException=False):
+        """Backward application.
+
+        Remarks:
+            Executes a single production rule.
+        """
+        if len(self._compList) == 0:
+            return self
+        fn = self._compList.pop()
+        if not fn.isfunctor:
+            pass
+        if len(self._compList) == 0:
+            # This can happen with punctuation etc. Empty productions are removed
+            # after a unify so we must simulate application with empty.
+            d = fn.pop()
+            g = fn.pop()
+            if g is not None:
+                g.push(d)
+                d = g
+        else:
+            arg = self._compList.pop()
+            d = fn.apply(arg)
+
+        self._compList.append(d)
+        self.set_lambda_refs(d.lambda_refs)
+        self.set_category(d.category)
+        return self
+
     def compose_forward(self, generalized=False):
         """Forward composition and forward crossing composition.
 
@@ -924,9 +921,8 @@ class ProductionList(Production):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList[0]
-        arg = self._compList[1]
-        c = self._compList[1:]
+        fn = self._compList.popleft()
+        arg = self._compList.popleft()
         if generalized:
             # CALL[X/Y](Y|Z)$
             # Generalized Forward Composition           X/Y:f (Y/Z)/$ => (X/Z)/$
@@ -937,8 +933,7 @@ class ProductionList(Production):
             # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             d = fn.compose(arg)
-        c[0] = d
-        self._compList = c
+        self._compList.appendleft(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -953,9 +948,8 @@ class ProductionList(Production):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList[-1]
-        arg = self._compList[-2]
-        c = self._compList[0:-1]
+        fn = self._compList.pop()
+        arg = self._compList.pop()
         if generalized:
             # CALL[X\Y](Y|Z)$
             # Generalized Backward Composition          (Y\Z)$  X\Y:f => (X\Z)$
@@ -966,8 +960,7 @@ class ProductionList(Production):
             # Backward Composition          Y\Z:g X\Y:f => X\Z: λx􏰓.f(g(x))
             # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
             d = fn.compose(arg)
-        c[-1] = d
-        self._compList = c
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -979,15 +972,13 @@ class ProductionList(Production):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList[0]
-        arg = self._compList[1]
-        c = self._compList[1:]
+        fn = self._compList.popleft()
+        arg = self._compList.popleft()
         # CALL[(X/Y)|Z](Y|Z)
         # Forward Substitution          (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         # Forward Crossing Substitution (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         d = fn.substitute(arg)
-        c[0] = d
-        self._compList = c
+        self._compList.appendleft(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -999,15 +990,13 @@ class ProductionList(Production):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList[-1]
-        arg = self._compList[-2]
-        c = self._compList[0:-1]
+        fn = self._compList.pop()
+        arg = self._compList.pop()
         # CALL[(X\Y)|Z](Y|Z)
         # Backward Substitution             Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         # Backward Crossing Substitution    Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         d = fn.substitute(arg)
-        c[-1] = d
-        self._compList = c
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -1016,26 +1005,23 @@ class ProductionList(Production):
         """Forward conjoin of like types."""
         if len(self._compList) <= 1:
             return
-        f = self._compList[0]
-        g = self._compList[1]
-        c = self._compList[1:]
+        f = self._compList.popleft()
+        g = self._compList.popleft()
         if f.isfunctor:
             d = f.conjoin(g, False)
-            c[0] = d
-            self._compList = c
+            self._compList.appendleft(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         elif g.isfunctor:
             d = g.conjoin(f, True)
-            c[0] = d
-            self._compList = c
+            self._compList.appendleft(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
             d = ProductionList(f, dep=self.dep)
             d.push_right(g)
             d = d.unify()
-            c[0] = d
+            self._compList.appendleft(d)
             self.set_category(f.category)
         return self
 
@@ -1045,23 +1031,20 @@ class ProductionList(Production):
             return
         g = self._compList.pop()
         f = self._compList.pop()
-        c = self._compList
         if f.isfunctor:
             d = f.conjoin(g, False)
-            c.append(d)
-            self._compList = c
+            self._compList.append(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         elif g.isfunctor:
             d = g.conjoin(f, True)
-            c.append(d)
-            self._compList = c
+            self._compList.append(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
             d = ProductionList(f, dep=self.dep)
             d.push_right(g)
-            c.append(d.unify())
+            self._compList.append(d.unify())
             self.set_category(f.category)
         return self
 
@@ -1077,15 +1060,13 @@ class ProductionList(Production):
         """
         assert len(self._compList) >= 2
         template = self._compList.pop()
-        vp_or_np = self._compList[-1]
-        c = self._compList
+        vp_or_np = self._compList.pop()
         if rule == RL_TC_CONJ:
             # Section 3.7.2
             d = template.type_change_np_snp(vp_or_np)
         else:
             assert False
-        c[-1] = d
-        self._compList = c
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -1098,11 +1079,9 @@ class ProductionList(Production):
         """
         assert len(self._compList) >= 2
         template = self._compList.pop()
-        np = self._compList[-1]
-        c = self._compList
+        np = self._compList.pop()
         d = template.type_raise(np)
-        c[-1] = d
-        self._compList = c
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -1124,7 +1103,7 @@ class ProductionList(Production):
             # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
             d = self.unify()
             if id(d) != id(self):
-                self._compList = [d]
+                self._compList = collections.deque([d])
         elif rule == RL_BA:
             self.apply_backward()
         elif rule == RL_FA:
@@ -1157,8 +1136,7 @@ class ProductionList(Production):
             return self
 
         if len(self._compList) == 1:
-            d = self._compList[0]
-            self._compList = []
+            d = self._compList.popleft()
             if d.isfunctor:
                 if d.get_scope_count() != d.category.get_scope_count():
                     pass
@@ -1595,7 +1573,7 @@ class FunctorProduction(Production):
             raise DrsComposeError('cannot push functor to non-functor inner scope')
 
         # tail recursion
-        return self._comp.push(fn)
+        return self._comp.append(fn)
 
     def make_vars_disjoint(self, arg):
         """Make variable names disjoint. This is always done before unification.
