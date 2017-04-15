@@ -594,6 +594,7 @@ class DrsProduction(Production):
                 self.rename_vars(rs)
 
             # Make proper names constants
+            '''
             rs = []
             for dep, r, w, t in pn:
                 fc = self._drs.find_condition(Rel(w, [r]))
@@ -603,6 +604,7 @@ class DrsProduction(Production):
                     dep.remove_ref(r)
             if len(rs) != 0:
                 self.rename_vars(rs)
+            '''
 
         # Remainder are unresolved
         fr = self._drs.freerefs
@@ -669,7 +671,7 @@ class ProductionList(Production):
     @property
     def isempty(self):
         """Test if the production results in an empty DRS."""
-        return len(self._compList) == 0
+        return len(self._compList) == 0 or all([x.isempty for x in self._compList])
 
     @property
     def contains_functor(self):
@@ -1060,6 +1062,7 @@ class ProductionList(Production):
         else:
             d = ProductionList(f, dep=self.dep)
             d.push_right(g)
+            d.flatten()
             d = d.unify()
             self._compList.appendleft(d)
             self.set_category(f.category)
@@ -1084,6 +1087,7 @@ class ProductionList(Production):
         else:
             d = ProductionList(f, dep=self.dep)
             d.push_right(g)
+            d.flatten()
             self._compList.append(d.unify())
             self.set_category(f.category)
         return self
@@ -1429,6 +1433,34 @@ class FunctorProduction(Production):
         """Test if the production resolves to a proper noun"""
         c =  self.inner_scope._comp
         return False if c is None else c.isproper_noun
+
+    def unify_atoms(self, a, b):
+        """Unify two atoms: a and b.
+
+        Args:
+            a: A DrsProduction instance or ProductionList instance.
+            b: A DrsProduction instance or ProductionList instance.
+
+        Returns:
+            The unified result.
+        """
+        if isinstance(a, ProductionList):
+            a.push_right(b)
+            a.flatten()
+            return a.unify()
+        elif isinstance(b, ProductionList):
+            b.push_left(a)
+            b.flatten()
+            return b.unify()
+        else:
+            assert isinstance(a, DrsProduction)
+            assert isinstance(b, DrsProduction)
+            pl = ProductionList()
+            pl.set_options(self.compose_options)
+            pl.push_right(a)
+            pl.push_right(b)
+            pl.flatten()
+            return pl.unify()
 
     def proper_noun_promote(self):
         """Promote to a proper noun."""
@@ -1779,6 +1811,7 @@ class FunctorProduction(Production):
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)
         pl.push_right(gc)
+        pl.flatten()
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
@@ -1870,6 +1903,7 @@ class FunctorProduction(Production):
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first entry sets lambdas
         pl.push_right(gc)
+        pl.flatten()
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
         dollar.push(pl)
@@ -1961,6 +1995,7 @@ class FunctorProduction(Production):
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first in list sets lambdas
         pl.push_right(gc)
+        pl.flatten()
         pl = pl.unify()
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
@@ -2014,6 +2049,7 @@ class FunctorProduction(Production):
             c.push_right(gc)
             c.set_lambda_refs(glr if glambdas else flr)
             c.set_category(gc.category if glambdas else fc.category)
+            c.flatten()
             self.push(c.unify())
         else:
             # Rename f so disjoint with g names
@@ -2031,6 +2067,7 @@ class FunctorProduction(Production):
             else:
                 c.set_lambda_refs(glr if glambdas else flr)
             c.set_category(fc.category)
+            c.flatten()
             self.push(c.unify())
 
         return self
@@ -2117,6 +2154,7 @@ class FunctorProduction(Production):
                 cl.push_right(gcomp)
 
             self.clear()
+            cl.flatten()
             return cl.unify()
 
         # Remove resolved referents from lambda refs list
@@ -2134,6 +2172,7 @@ class FunctorProduction(Production):
 
         lr = self._comp.lambda_refs
         c.set_options(self.compose_options)
+        c.flatten()
         c = c.unify()
         c.set_lambda_refs(lr)
         c.set_category(self._comp.category)
@@ -2315,6 +2354,7 @@ class OrProduction(FunctorProduction):
                 cl.push_right(p_inner._comp)
                 cl.push_right(arg_inner._comp)
             cl.set_lambda_refs(lr)
+            cl.flatten()
             d = cl.unify()
             assert isinstance(d, DrsProduction)
             p_inner.clear()
@@ -2333,6 +2373,7 @@ class OrProduction(FunctorProduction):
                 cl.push_right(p)
                 cl.push_right(arg)
             cl.set_lambda_refs(arg.lambda_refs)
+            cl.flatten()
             d = cl.unify()
             assert isinstance(d, DrsProduction)
 

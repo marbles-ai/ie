@@ -538,7 +538,7 @@ class Ccg2Drs(object):
         self.xid = 10
         self.eid = 10
         self.limit = 10
-        self.options = options
+        self.options = options or 0
 
     def final_rename(self, d):
         """Rename to ensure:
@@ -638,13 +638,16 @@ class Ccg2Drs(object):
                 tmp.append(d)
 
             hd = None
+            extra_options = 0
             if len(tmp) == 2:
                 # Special handling for proper nouns
                 if tmp[0].isunify_disabled:
                     if not tmp[1].isproper_noun:
                         tmp[0].set_options(tmp[1].compose_options ^ CO_DISABLE_UNIFY)
-                        if tmp[1].isunify_disabled:
-                            tmp[1].set_options(tmp[1].compose_options | CO_DISABLE_UNIFY)
+                        tmp[1].set_options(tmp[1].compose_options & ~CO_DISABLE_UNIFY)
+                    else:
+                        extra_options = CO_DISABLE_UNIFY
+                        tmp[1].set_options(tmp[1].compose_options | CO_DISABLE_UNIFY)
                 elif tmp[1].isunify_disabled:
                     if tmp[0].category == CAT_ADJECTIVE and tmp[0].isproper_noun:
                         tmp[1].proper_noun_promote()
@@ -671,7 +674,7 @@ class Ccg2Drs(object):
                 nd.set_dependency(hd)
 
             cl2 = ProductionList(tmp, dep=hd)
-            cl2.set_options(self.options)
+            cl2.set_options(self.options | extra_options)
             cl2.set_category(result)
             cats = [x.category for x in cl2.iterator()]
 
@@ -699,12 +702,14 @@ class Ccg2Drs(object):
                     if unary is None:
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
                     d = self.rename_vars(unary.get())
+                    d.set_options(cl2.compose_options)
                     d.set_dependency(hd)
                     cl2.push_right(d)
                 elif rule == RL_TC_ATOM:
                     rule = RL_BA
                     d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
                     d.set_dependency(hd)
+                    d.set_options(cl2.compose_options)
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule).unify()
@@ -733,6 +738,7 @@ class Ccg2Drs(object):
                     #d = self.rename_vars(ccgt.get_composer
                     d = self.rename_vars(safe_create_empty_functor(result))
                     d.set_dependency(hd)
+                    d.set_options(cl2.compose_options)
                     cl2.push_right(d)
                 elif rule == RL_TCL_UNARY:
                     rule = RL_BA
@@ -743,6 +749,7 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
                     d = self.rename_vars(unary.get())
                     d.set_dependency(hd)
+                    d.set_options(cl2.compose_options)
                     cl2.push_right(d)
                 elif rule == RL_TCR_UNARY:
                     rule = RL_BA
@@ -753,12 +760,14 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
                     d = self.rename_vars(unary.get())
                     d.set_dependency(hd)
+                    d.set_options(cl2.compose_options)
                     cl2.push_right(d)
                 elif rule == RL_TC_ATOM:
                     # Special rule to change atomic type
                     rule = RL_BA
                     d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
                     d.set_dependency(hd)
+                    d.set_options(cl2.compose_options)
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule)
@@ -767,6 +776,10 @@ class Ccg2Drs(object):
                     U = cl2.category.can_unify(result)
                     pass
                 assert cl2.verify() and cl2.category.can_unify(result)
+                if result.get_scope_count() != cl2.get_scope_count():
+                    A = result.get_scope_count()
+                    B = cl2.get_scope_count()
+                    pass
                 assert result.get_scope_count() == cl2.get_scope_count()
 
             cl2.set_dependency(hd)
@@ -777,7 +790,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['Grace', '&', 'Co.', 'W.R.']:
+        if pt[1] in ['Public', 'International', 'Affairs']:
             pass
 
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
@@ -789,7 +802,7 @@ class Ccg2Drs(object):
         self.rename_vars(fn)
 
         # Special handling for proper nouns
-        if fn.category == CAT_ADJECTIVE and pt[1] in ['&']:
+        if fn.category == CAT_ADJECTIVE and pt[1] == '&':
             fn.set_options(fn.compose_options | CO_DISABLE_UNIFY)
 
         return fn
