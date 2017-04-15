@@ -6,7 +6,7 @@ import collections
 from common import SHOW_LINEAR, DRSConst
 from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
-from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, \
+from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_ADJECTIVE, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
     RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TC_CONJ
@@ -22,6 +22,8 @@ CO_REMOVE_UNARY_PROPS = 0x1
 CO_PRINT_DERIVATION = 0x2
 ## Compose option: verify signature during production
 CO_VERIFY_SIGNATURES = 0x4
+## Disable unification by ProductionList's.
+CO_DISABLE_UNIFY = 0x8
 
 ## @}
 
@@ -152,12 +154,8 @@ class Dependency(object):
     def _update_referent(self, oldref, newref):
         if oldref == self._ref:
             self._ref = newref
-            return True
-        else:
             for c in self._children:
-                if c._update_referent(oldref, newref):
-                    return True
-        return False
+                c._update_referent(oldref, newref)
 
     def update_referent(self, oldref, newref):
         """Update a referent in the dependency tree.
@@ -274,6 +272,10 @@ class Production(object):
         return filter(lambda x: x[0] != x[1], rs)
 
     @property
+    def isunify_disabled(self):
+        return 0 != (self._options & CO_DISABLE_UNIFY)
+
+    @property
     def category(self):
         """The CCG category"""
         return self._category
@@ -349,11 +351,6 @@ class Production(object):
         yield self
 
     @property
-    def size(self):
-        """If a list then get the number of elements in the production list else return 1."""
-        return 1
-
-    @property
     def contains_functor(self):
         """If a list then return true if the list contains 1 or more functors, else returns isfunctor()."""
         return self.isfunctor
@@ -366,6 +363,14 @@ class Production(object):
             True if a pure DRS.
         """
         return False
+
+    def size(self):
+        """If a list then get the number of elements in the production list else return 1."""
+        return 1
+
+    def proper_noun_promote(self):
+        """Promote to a proper noun."""
+        pass
 
     def set_dependency(self, dep):
         """Set the dependency"""
@@ -528,6 +533,10 @@ class DrsProduction(Production):
         """
         return self._drs.ispure
 
+    def proper_noun_promote(self):
+        """Promote to a proper noun."""
+        self._nnp = True
+
     def verify(self):
         """Test helper."""
         if len(self.lambda_refs) != 1 or not self.category.isatom:
@@ -663,16 +672,20 @@ class ProductionList(Production):
         return len(self._compList) == 0
 
     @property
-    def size(self):
-        """Get the number of elements in this production list."""
-        return len(self._compList)
-
-    @property
     def contains_functor(self):
         for c in self._compList:
             if c.contains_functor:
                 return True
         return False
+
+    def proper_noun_promote(self):
+        """Promote to a proper noun."""
+        for c in self._compList:
+            c.proper_noun_promote()
+
+    def size(self):
+        """Get the number of elements in this production list."""
+        return len(self._compList)
 
     def iterator(self):
         """Iterate the productions in this list."""
@@ -692,6 +705,9 @@ class ProductionList(Production):
 
     def flatten(self):
         """Unify subordinate ProductionList's into the current list."""
+        if self.isunify_disabled:
+            return
+
         compList = collections.deque()
         for d in self._compList:
             if d.isempty:
@@ -764,6 +780,9 @@ class ProductionList(Production):
         Returns:
             A Production instance.
         """
+        if self.isunify_disabled:
+            return self
+
         ml = [x.unify() for x in self._compList]
         self._compList = collections.deque()
         if len(ml) == 1:
@@ -810,9 +829,16 @@ class ProductionList(Production):
                     lastr = nextr
                     proper += 1
                     if len(pconds) != 0:
-                        name = '-'.join([c.relation.to_string() for c in pconds])
-                        self.dep.update_mapping(lastr, name)
-                        conds.append(Rel(name, [lastr]))
+                        if len(pconds) == 1:
+                            conds.extend(pconds)
+                        else:
+                            name = '-'.join([c.relation.to_string() for c in pconds])
+                            self.dep.update_mapping(lastr, name)
+                            for dep in self.dep.root.descendants:
+                                ref, word, _ = dep.get()
+                                if ref == lastr and word != name:
+                                    dep.remove_ref(lastr)
+                            conds.append(Rel(name, [lastr]))
                         conds.extend(oconds)
                     pconds = [ctmp[0]]
                     oconds = ctmp[1:]
@@ -822,11 +848,18 @@ class ProductionList(Production):
             else:
                 # FIXME: proper-noun followed by noun, for example Time magazine, should we collate?
                 if len(pconds) != 0:
-                    name = '-'.join([c.relation.to_string() for c in pconds])
-                    if self.dep is None:
-                        pass
-                    self.dep.update_mapping(lastr, name)
-                    conds.append(Rel(name, [lastr]))
+                    if len(pconds) == 1:
+                        conds.extend(pconds)
+                    else:
+                        name = '-'.join([c.relation.to_string() for c in pconds])
+                        if self.dep is None:
+                            pass
+                        self.dep.update_mapping(lastr, name)
+                        for dep in self.dep.root.descendants:
+                            ref, word, _ = dep.get()
+                            if ref == lastr and word != name:
+                                dep.remove_ref(lastr)
+                        conds.append(Rel(name, [lastr]))
                     conds.extend(oconds)
                 lastr = DRSRef('$$$$')
                 pconds = []
@@ -837,11 +870,18 @@ class ProductionList(Production):
         # FIXME: Boc Raton and Hot Springs => Boca-Raton(x) Hot-Springs(x1)
         # Hyphenate name
         if len(pconds) != 0:
-            name = '-'.join([c.relation.to_string() for c in pconds])
-            if self.dep is None:
-                pass
-            self.dep.update_mapping(lastr, name)
-            conds.append(Rel(name, [lastr]))
+            if len(pconds) == 1:
+                conds.extend(pconds)
+            else:
+                name = '-'.join([c.relation.to_string() for c in pconds])
+                if self.dep is None:
+                    pass
+                self.dep.update_mapping(lastr, name)
+                for dep in self.dep.root.descendants:
+                    ref, word, _ = dep.get()
+                    if ref == lastr and word != name:
+                        dep.remove_ref(lastr)
+                conds.append(Rel(name, [lastr]))
             conds.extend(oconds)
 
         if len(refs) == 0 and len(conds) == 0:
@@ -1383,6 +1423,17 @@ class FunctorProduction(Production):
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
+
+    @property
+    def isproper_noun(self):
+        """Test if the production resolves to a proper noun"""
+        c =  self.inner_scope._comp
+        return False if c is None else c.isproper_noun
+
+    def proper_noun_promote(self):
+        """Promote to a proper noun."""
+        if self._comp is not None:
+            self._comp.proper_noun_promote()
 
     def set_dependency(self, dep):
         """Set the dependency"""
@@ -2070,6 +2121,7 @@ class FunctorProduction(Production):
 
         # Remove resolved referents from lambda refs list
         assert len(self._lambda_refs.referents) != 0
+        self_isproper_noun = self._comp.isproper_noun
         if isinstance(self._comp, ProductionList):
             c = self._comp
         else:

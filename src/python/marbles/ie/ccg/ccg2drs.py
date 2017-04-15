@@ -11,7 +11,7 @@ from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVE
     RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
-    DrsComposeError, Dependency, identity_functor
+    DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY
 from marbles.ie.drt.drs import DRS, DRSRef, Rel
 from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement
@@ -639,6 +639,17 @@ class Ccg2Drs(object):
 
             hd = None
             if len(tmp) == 2:
+                # Special handling for proper nouns
+                if tmp[0].isunify_disabled:
+                    if not tmp[1].isproper_noun:
+                        tmp[0].set_options(tmp[1].compose_options ^ CO_DISABLE_UNIFY)
+                        if tmp[1].isunify_disabled:
+                            tmp[1].set_options(tmp[1].compose_options | CO_DISABLE_UNIFY)
+                elif tmp[1].isunify_disabled:
+                    if tmp[0].category == CAT_ADJECTIVE and tmp[0].isproper_noun:
+                        tmp[1].proper_noun_promote()
+                    tmp[1].set_options(tmp[1].compose_options ^ CO_DISABLE_UNIFY)
+
                 hd = tmp[head].dep
                 nd = tmp[1-head].dep
                 if hd is not None:
@@ -651,6 +662,8 @@ class Ccg2Drs(object):
                     hd = nd
             elif len(tmp) == 1:
                 hd = tmp[0].dep
+                if tmp[0].isunify_disabled:
+                    tmp[0].set_options(tmp[0].compose_options ^ CO_DISABLE_UNIFY)
             else:
                 return None
 
@@ -766,6 +779,7 @@ class Ccg2Drs(object):
 
         if pt[1] in ['Grace', '&', 'Co.', 'W.R.']:
             pass
+
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
         if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
             # FIXME: start new parse tree
@@ -773,6 +787,11 @@ class Ccg2Drs(object):
         fn = ccgt.get_composer()
         # Rename vars so they are disjoint on creation. This help dependency manager.
         self.rename_vars(fn)
+
+        # Special handling for proper nouns
+        if fn.category == CAT_ADJECTIVE and pt[1] in ['&']:
+            fn.set_options(fn.compose_options | CO_DISABLE_UNIFY)
+
         return fn
 
     def process_ccg_pt(self, pt):
