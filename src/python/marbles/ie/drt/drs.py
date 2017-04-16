@@ -747,7 +747,7 @@ class DRS(AbstractDRS):
         if rc is None:
             return
         if not isinstance(rc, ConditionRef):
-            raise TypeError()
+            raise TypeError('DRS.remove_condition expects a ConditionRef.')
         if id(rc.ld) == id(self):
             conds = filter(lambda c: c != rc.cond, self._conds)
             self._conds = conds
@@ -1004,7 +1004,7 @@ class Merge(AbstractDRS):
     """A merge between two DRSs"""
     def __init__(self, drsA, drsB):
         if not isinstance(drsA, AbstractDRS) or not isinstance(drsB, AbstractDRS):
-            raise TypeError
+            raise TypeError('Merge expects DRS arguments')
         super(Merge, self).__init__()
         if drsA._set_accessible(self) and drsB._set_accessible(self):
             self._drsA = drsA
@@ -1289,7 +1289,7 @@ def get_new_drsrefs(ors, ers):
     for i in range(len(ors)):
         r = ors[i]
         if not isinstance(r, AbstractDRSRef):
-            raise TypeError
+            raise TypeError('get_new_drsrefs expects a DRS argument')
         rd = r.increase_new()
         if rd in union(ors[i+1:], ers):
             ors = [x for x in ors[i:]]  # shallow partial copy
@@ -1411,7 +1411,7 @@ class DRSRef(AbstractDRSRef):
         if isinstance(drsVar, str):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, (DRSVar, DRSConst)):
-            raise TypeError
+            raise TypeError('DRSRef expect string or DRSVar')
         self._var = drsVar
 
     def __ne__(self, other):
@@ -1522,7 +1522,7 @@ class DRSRelation(AbstractDRSRelation):
         if isinstance(drsVar, str):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, DRSVar):
-            raise TypeError
+            raise TypeError('DRSRelation expects DRSVar')
         self._var = drsVar
 
     def __ne__(self, other):
@@ -1665,11 +1665,11 @@ class Rel(AbstractDRSCond):
         if isinstance(drsRefs, AbstractDRSRef):
             drsRefs = [drsRefs]
         elif not iterable_type_check(drsRefs, AbstractDRSRef):
-            raise TypeError
+            raise TypeError('Rel expects DRS')
         if isinstance(drsRel, str):
             drsRel = DRSRelation(drsRel)
         if not isinstance(drsRel, AbstractDRSRelation):
-            raise TypeError
+            raise TypeError('Rel expects DRSRelation')
         self._rel = drsRel
         self._refs = drsRefs
 
@@ -1808,7 +1808,7 @@ class Neg(AbstractDRSCond):
     """A negated DRS"""
     def __init__(self, drs):
         if not isinstance(drs, AbstractDRS):
-            raise TypeError
+            raise TypeError('Neg constructor')
         self._drs = drs
 
     def __ne__(self, other):
@@ -1950,7 +1950,7 @@ class Imp(AbstractDRSCond):
     """An implication between two DRSs"""
     def __init__(self, antecedent, consequent):
         if not isinstance(antecedent, AbstractDRS) or not isinstance(consequent, AbstractDRS):
-            raise TypeError
+            raise TypeError('Imp constructor')
         self._drsA = antecedent
         self._drsB = consequent
 
@@ -2128,7 +2128,7 @@ class Or(AbstractDRSCond):
     """A disjunction between two DRSs"""
     def __init__(self, drsA, drsB):
         if not isinstance(drsA, AbstractDRS) or not isinstance(drsB, AbstractDRS):
-            raise TypeError
+            raise TypeError('Or constructor')
         self._drsA = drsA
         self._drsB = drsB
 
@@ -2298,7 +2298,7 @@ class Prop(AbstractDRSCond):
     """A proposition DRS"""
     def __init__(self, drsRef, drs):
         if not isinstance(drs, AbstractDRS) or not isinstance(drsRef, AbstractDRSRef):
-            raise TypeError
+            raise TypeError('Prop constructor')
         self._drs = drs
         self._ref = drsRef
 
@@ -2456,7 +2456,7 @@ class Diamond(AbstractDRSCond):
     """A possible DRS - possibly among other things."""
     def __init__(self, drs):
         if not isinstance(drs, AbstractDRS):
-            raise TypeError
+            raise TypeError('Diamond constructor')
         self._drs = drs
 
     def __ne__(self, other):
@@ -2599,7 +2599,7 @@ class Box(AbstractDRSCond):
     """A necessary DRS"""
     def __init__(self, drs):
         if not isinstance(drs, AbstractDRS):
-            raise TypeError
+            raise TypeError('Box constructor')
         self._drs = drs
 
     def __ne__(self, other):

@@ -334,7 +334,7 @@ class LambdaDRSVar(AbstractDRSVar):
             drsVarSet: The set of referents to be applied to the DRS.
         """
         if not isinstance(drsVar, DRSVar) or not iterable_type_check(drsVarSet, DRSVar):
-            raise TypeError
+            raise TypeError()
         self._var = drsVar
         self._set = drsVarSet
 
