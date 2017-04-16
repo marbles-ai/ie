@@ -1,9 +1,10 @@
+#!/usr/bin/env python
+
 '''
     The purpose of this code is to suck in the verbnet xml files
     and order them in a way for fast verb lookups
 
     Each VERBNET class is assigned to one of several THEMATIC ROLES
-
 
     What we wanna know is:
     1. What's the wordnet id?
@@ -46,13 +47,16 @@ def dump_json(dictionary, filename):
 
 # Load verbnet dictionary from json file
 def load_json(filename):
-    with open(filename, 'r') as f:
-        MEMBER_LOOKUP = json.load(f)
+    try:
+        with open(filename, 'r') as f:
+            MEMBER_LOOKUP = json.load(f)
+    except IOError as e:
+        print "I/O error({0}): {1}".format(e.errno, e.strerror)
+
     return MEMBER_LOOKUP
 
 # JSON Frame is not serializable... hm why?
 #  For now, I'm going to make Frame a dictionary
-
 
 '''
 class Frame(object):
@@ -89,7 +93,11 @@ if __name__ == '__main__':
     usage = '%prog [options][text]'
     parser = OptionParser(usage)
     parser.add_option('-x', '--xml', type='string', dest='xml',
+                      default='../data/verbnet/',
                       help='Directory containing verbnet xml files')
+    parser.add_option('-d', '--dest', type='string', dest='dest',
+                      default='../src/python/marbles/ie/kb/verbnet/json/',
+                      help="Directory to drop json files")
     parser.add_option('-v', '--verbose', action='store_true',
                       default=False, dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -110,14 +118,14 @@ if __name__ == '__main__':
             root = tree.getroot()
 
             MEMBERS = {}
-            THEMROLES = {}
+            THEMEROLES = {}
             FRAMES = []
 
             # VerbNet class ID
             if root.tag == "VNCLASS":
                 _id = root.attrib['ID']
             else:
-                print "ERROR"
+                print "ERROR: cannot parse file ", filename
                 exit()
 
             for _i in root:
@@ -159,20 +167,20 @@ if __name__ == '__main__':
 
                 # Parse roles;
                 # Some verbnet classes don't have roles...
-                elif _i.tag == "THEMROLES":
+                elif _i.tag == "THEMEROLES":
                     for _r in _i:
                         if _r.tag is etree.Comment:
                             continue
 
                         # Grab the thematic role type
                         _type = _r.attrib['type']
-                        assert _type not in THEMROLES
+                        assert _type not in THEMEROLES
 
                         roles = []
                         for _roles in _r:
                             roles.append(_roles.tag)
 
-                        THEMROLES[_type] = roles
+                        THEMEROLES[_type] = roles
 
                 elif _i.tag == "FRAMES":
                     for _frame in _i:
@@ -272,20 +280,24 @@ if __name__ == '__main__':
                     FRAMES.append(frame)
 
             VNCLASSES[_id] = {'members': MEMBERS,
-                              'themroles': THEMROLES,
+                              'themeroles': THEMEROLES,
                               'frames': FRAMES}
 
     # Dump Verb ID lookup into JSON
-    dump_json(VNCLASSES, 'vn_classes.json')
-    dump_json(MEMBER_LOOKUP, 'verb_lookup.json')
+    dump_json(VNCLASSES, options.dest + 'vn_classes.json')
+    dump_json(MEMBER_LOOKUP, options.dest + 'verb_lookup.json')
 
-    print "----- Testing Time -----"
-
-    vn_lookup = load_json('vn_classes.json')
-    verb_lookup = load_json('verb_lookup.json')
-
-    for verb in verb_lookup.keys():
-        print("Verb: ", verb)
-        for attribute in verb_lookup[verb]:
-            print("\tWordnet:%s, Class:%s" %
-                  (attribute['wn'], attribute['class']))
+    # print "----- Testing Time -----"
+    #
+    # vn_lookup = load_json('vn_classes.json')
+    # verb_lookup = load_json('verb_lookup.json')
+    #
+    # for vn_class in vn_lookup.keys():
+    #     print "Class: ", vn_class
+    #     for frame in vn_lookup[vn_class]['frames']:
+    #         print "Frame: ", frame
+    # for verb in verb_lookup.keys():
+    #     print("Verb: ", verb)
+    #     for attribute in verb_lookup[verb]:
+    #         print("\tWordnet:%s, Class:%s" %
+    #               (attribute['wn'], attribute['class']))
