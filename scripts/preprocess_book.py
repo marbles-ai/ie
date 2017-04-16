@@ -11,7 +11,12 @@ projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
 pypath = os.path.join(projdir, 'src', 'python')
 datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
+
 from marbles.ie import grpc
+from marbles.ie.parse import parse_ccg_derivation
+from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, DrsProduction
+from marbles.ie.drt.common import SHOW_LINEAR
 
 
 def die(s):
@@ -95,17 +100,16 @@ def process_file(stub, out, args, titleSrch, wordsep, sessionId):
 if __name__ == '__main__':
     usage = 'Usage: %prog [options] input-file(s)'
     parser = OptionParser(usage)
-    parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='word separator, defaults to hyphen')
-    parser.add_option('-t', '--title', type='string', action='store', dest='title', help='title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
     parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name')
     parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
-    parser.add_option('-D', '--direct', action='store_true', dest='direct', default=False, help='direct input from command line args')
+    parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
+    parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='book mode word separator, defaults to hyphen')
+    parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
 
     (options, args) = parser.parse_args()
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
     wordsep = options.wordsep or '-'
     outfile = options.outfile or None
-    direct = options.direct or False
 
     if len(args) == 0:
         die('missing filename')
@@ -128,21 +132,57 @@ if __name__ == '__main__':
     try:
         sessionId = grpc.DEFAULT_SESSION
         if options.ofmt is not None:
-            if options.ofmt.lower() not in ['ccgbank', 'html', 'logic', 'extended']:
+            if options.ofmt not in ['ccgbank', 'html', 'logic', 'extended', 'drs']:
                 die('bad output format %s, must be ccgbank|html|logic|extended' % options.ofmt)
             # Create a session to match output format, default is CCGBANK
-            if options.ofmt.lower() != 'ccgbank':
+            if options.ofmt != 'ccgbank' and options.ofmt != 'drs':
                 sessionId = grpc.create_session(stub, options.ofmt.upper())
 
         titleSrch = re.compile(titleRe)
-        if direct:
+        if not options.book:
             line = ' '.join(args)
-            ccg = grpc.ccg_parse(stub, line, sessionId)
+            # FIXME: Convert to python 3. Unicode is default.
+            ccg = grpc.ccg_parse(stub, line, sessionId).encode('utf-8')
+            drs = None
+            if options.ofmt == 'drs':
+                try:
+                    pt = parse_ccg_derivation(ccg)
+                except Exception as e:
+                    print('Error: failed to parse ccgbank - %s' % str(e))
+                    raise
+
+                try:
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+                    d = d.unify()
+                    d = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
+                    drs = d
+                except Exception as e:
+                    print('Error: failed to compose DRS - %s' % str(e))
+                    raise
+
             if outfile is None:
-                sys.stdout.write(ccg)
+                sys.stdout.write('<ccg>\n')
+                sys.stdout.write(ccg.strip())
+                sys.stdout.write('\n')
+                sys.stdout.write('</ccg>\n')
+                if drs:
+                    sys.stdout.write('<drs>\n')
+                    sys.stdout.write(drs)
+                    sys.stdout.write('\n')
+                    sys.stdout.write('</drs>\n')
             else:
                 with open(outfile, 'wb') as fd:
                     fd.write(ccg)
+                    fd.write('<ccg>\n')
+                    fd.write(ccg)
+                    fd.write('\n')
+                    fd.write('</ccg>\n')
+                    if drs:
+                        fd.write('<drs>\n')
+                        fd.write(drs)
+                        fd.write('\n')
+                        fd.write('</drs>\n')
+
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
         else:
