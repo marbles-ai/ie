@@ -102,6 +102,7 @@ if __name__ == '__main__':
     parser = OptionParser(usage)
     parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name')
     parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
+    parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default),easyccg]')
     parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
     parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='book mode word separator, defaults to hyphen')
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
@@ -110,21 +111,26 @@ if __name__ == '__main__':
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
     wordsep = options.wordsep or '-'
     outfile = options.outfile or None
+    daemon = options.daemon or 'easysrl'
+    daemon_port = grpc.EASYSRL_PORT if daemon == 'easysrl' else grpc.EASYCCG_PORT
 
     if len(args) == 0:
         die('missing filename')
+
+    if daemon not in ['easysrl', 'easyccg']:
+        die('daemon must be easysrl or easyccg')
 
     svc_cmd = None
     progress = 0
     try:
         # Check if service has started. If not start it.
-        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
+        stub, _ = grpc.get_client_transport('localhost', daemon_port)
         ccg = grpc.ccg_parse(stub, '')
     except Exception:
         # Not started
-        call([os.path.join(projdir, 'scripts', 'start_server.sh'), 'easysrl'])
+        call([os.path.join(projdir, 'scripts', 'start_server.sh'), daemon])
         time.sleep(4)   # Give it some time to lock session access
-        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
+        stub, _ = grpc.get_client_transport('localhost', daemon_port)
         # Call asynchronously - will wait until default session is created
         ccg = grpc.ccg_parse(stub, '', timeout=120)
         svc_cmd = os.path.join(projdir, 'scripts', 'stop_server.sh')
@@ -192,4 +198,4 @@ if __name__ == '__main__':
         if svc_cmd is not None:
             # Stop service
             stub = None
-            call([svc_cmd, 'easysrl'])
+            call([svc_cmd, daemon])
