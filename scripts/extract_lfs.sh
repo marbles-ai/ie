@@ -28,11 +28,11 @@ if [ ! -e ./text/categories ]; then
 fi
 popd
 
-[ -e ${PROJROOT}/ext/easyccg/model/model_questions.tar.gz ] || die "Missing model_questions.tar.gz"
-[ -e ${PROJROOT}/ext/easyccg/model/model.tar.gz ] || die "Missing model.tar.gz"
-[ -e ${PROJROOT}/ext/easyccg/model/model_rebank.tar.gz ] || die "Missing model_rebank.tar.gz"
+[ -e ${PROJROOT}/ext/easyccg-0.2/model/model_questions.tar.gz ] || die "Missing model_questions.tar.gz"
+[ -e ${PROJROOT}/ext/easyccg-0.2/model/model.tar.gz ] || die "Missing model.tar.gz"
+[ -e ${PROJROOT}/ext/easyccg-0.2/model/model_rebank.tar.gz ] || die "Missing model_rebank.tar.gz"
 
-pushd ${PROJROOT}/ext/easyccg/model
+pushd ${PROJROOT}/ext/easyccg-0.2/model
 if [ ! -e ./questions/categories ]; then
 	rm -rf questions 
 	tar -zxf model_questions.tar.gz 
