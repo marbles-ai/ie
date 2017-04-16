@@ -23,13 +23,17 @@ sessionPrefix, _ = os.path.splitext(os.path.basename(__file__))
 
 
 def write_title(fd, id, title, ccg):
-    fd.write('TITLE:%d:%s\n' % (id, title))
-    fd.write('CCG:%d:%s\n' % (id, ccg))
+    sentence = u'TITLE:%d:%s\n' % (id, title.strip().decode('utf-8'))
+    ccgbank  = u'CCG:%d:%s\n' % (id, ccg.strip())
+    fd.write(sentence.encode('utf-8'))
+    fd.write(ccgbank.encode('utf-8'))
 
 
 def write_line(fd, id, line, ccg):
-    fd.write('SENTENCE:%d:%s\n' % (id, line))
-    fd.write('CCG:%d:%s\n' % (id, ccg))
+    sentence = u'SENTENCE:%d:%s\n' % (id, line.strip().decode('utf-8'))
+    ccgbank  = u'CCG:%d:%s\n' % (id, ccg.strip())
+    fd.write(sentence.encode('utf-8'))
+    fd.write(ccgbank.encode('utf-8'))
 
 
 def write_hdr(fd):
@@ -137,7 +141,7 @@ if __name__ == '__main__':
             if outfile is None:
                 sys.stdout.write(ccg)
             else:
-                with open(outfile, 'w') as fd:
+                with open(outfile, 'wb') as fd:
                     fd.write(ccg)
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
