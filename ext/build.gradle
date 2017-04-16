@@ -4,9 +4,9 @@
 
 dependencies {
 	compile project(':ext:easysrl')
+	compile project(':ext:easyccg-0.2')
 }
 
 test {
-	// OpenEphyra opens files relative to its project directory
-	workingDir 'easysrl'
+	workingDir '.'
 }

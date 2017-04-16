@@ -154,6 +154,7 @@ def exportedProjects= [
 	":",
 	":ext",
 	":ext:easysrl",
+	":ext:easyccg-0.2",
 ]
 
 // Build documentation for all projects
