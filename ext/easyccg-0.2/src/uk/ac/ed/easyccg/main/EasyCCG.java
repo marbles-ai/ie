@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.file.Path;
 import java.nio.file.FileSystems;
 
-import ai.marbles.grpc.ServiceAcceptor;
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
 import uk.co.flamingpenguin.jewel.cli.Option;
@@ -36,9 +35,10 @@ import uk.ac.ed.easyccg.syntax.SyntaxTreeNode;
 import uk.ac.ed.easyccg.syntax.SyntaxTreeNode.SyntaxTreeNodeFactory;
 import uk.ac.ed.easyccg.syntax.TagDict;
 import uk.ac.ed.easyccg.syntax.TaggerEmbeddings;
-import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
-import uk.co.flamingpenguin.jewel.cli.CliFactory;
-import uk.co.flamingpenguin.jewel.cli.Option;
+import uk.ac.ed.easyccg.main.CcgServiceHandler;
+
+import ai.marbles.grpc.ServiceAcceptor;
+import uk.ac.ed.easyccg.main.CcgServiceHandler;
 
 public class EasyCCG
 {
@@ -137,27 +137,13 @@ public class EasyCCG
 
     // Added for daemon
         // PWG: run as a gRPC service
-    if (parsedArgs.getDaemonize()) {
-        CcgServiceHandler svc = new CcgServiceHandler(parsedArgs);
-        // Want start routine to exit quickly else connections to gRPC service fail.
-        ExecutorService executorService = Executors.newFixedThreadPool(1);
-        executorService.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    svc.init();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-
-        ServiceAcceptor server = new ServiceAcceptor(parsedArgs.getPort(), svc);
-        server.start();
-        System.out.println("EasyCCG at port " + parsedArgs.getPort());
-        server.blockUntilShutdown();
-        return;
-    }
+      if (true) {
+          CcgServiceHandler svc = new CcgServiceHandler();
+          ServiceAcceptor server = new ServiceAcceptor(8085, svc);
+          server.start();
+          server.blockUntilShutdown();
+          return;
+      }
 
 
     
@@ -214,15 +200,5 @@ public class EasyCCG
       }
     }
   }
-
-    static void daemonize(String modelPath) throws IOException, InterruptedException {
-        CcgServiceHandler svc = new CcgServiceHandler("~/src/ie/ext/easyccg/model/text");
-        svc.init();
-        ServiceAcceptor server = new ServiceAcceptor(8085, svc);
-        server.start();
-        System.out.println("EasyCCG at port 8085");
-        server.blockUntilShutdown();
-
-    }
 
 }

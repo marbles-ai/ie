@@ -30,6 +30,3 @@ sourceSets {
 
 // Ensure our task is called after build
 build.finalizedBy(standaloneJar)
-
-
-
