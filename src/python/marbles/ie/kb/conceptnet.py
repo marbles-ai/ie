@@ -3,7 +3,8 @@
 
     Available Relationships:
     ['RelatedTo', 'HasProperty', 'ReceivesAction', 'AtLocation',
-     'CapableOf', 'HasA', 'UsedFor']
+     'CapableOf', 'HasA', 'UsedFor', 'Synonym', 'DerivedFrom',
+     'ExternalURL', 'FormOf']
 
 '''
 import requests
@@ -17,17 +18,17 @@ class Conceptnet(object):
 
     def __init__(self, term):
         self.term = term.strip().lower()
-        self.reply = self.request()
-        self._edges = self.process_edges()
+        self._reply = self.request()
+        self._edges = self.process_edges(self._reply)
         self.relations = self._edges.keys()
 
     def request(self):
         reply = requests.get(BASEURL + self.term).json()
         return reply
 
-    def process_edges(self):
+    def process_edges(self, reply):
         edges = OrderedDict()
-        for edge in self.reply['edges']:
+        for edge in reply['edges']:
             _edge = {'start': edge['start'],
                      'end': edge['end'],
                      'weight': edge['weight'],
@@ -36,6 +37,7 @@ class Conceptnet(object):
                      'rel': edge['rel'],
                      'id': edge['@id'],
                      'surfaceText': edge['surfaceText']}
+            # For now, indexing by label of relation
             rel = _edge['rel']['label']
             if rel not in edges.keys():
                 edges[rel] = []
@@ -47,14 +49,14 @@ class Conceptnet(object):
         try:
             return self._edges[rel]
         except KeyError:
-            print "Could not find edges with rel=", rel
+            print "Could not find edges with rel:", rel
             return None
 
 
 # For testing
 if __name__ == '__main__':
 
-    lu = Conceptnet('Apple')
+    lu = Conceptnet('Paul')
 
     print lu.relations
     print "-----"
