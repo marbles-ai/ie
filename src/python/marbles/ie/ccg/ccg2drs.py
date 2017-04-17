@@ -20,45 +20,45 @@ from marbles.ie.parse import parse_drs
 ## @cond
 __pron = [
     # 1st person singular
-    ('i',       '([x1],[])',    '([],[([],[i(x1)])->([],[me(x1)])])', RT_HUMAN),
-    ('me',      '([x1],[])',    '([],[me(x1)])', RT_HUMAN),
-    ('myself',  '([x1],[])',    '([],[([],[myself(x1)])->([],[me(x1)])])', RT_HUMAN),
-    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
-    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[me(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN),
+    ('me',      '([x1],[])',    '([],[([],[me(x1)])->([],[i(x1)])])', RT_HUMAN),
+    ('myself',  '([x1],[])',    '([],[([],[myself(x1)])->([],[i(x1)])])', RT_HUMAN),
+    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[i(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[i(x2),owns(x2,x1)])])', RT_HUMAN),
     # 2nd person singular
     ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN),
     ('yourself','([x1],[])',    '([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
     ('yours',   '([x1],[])',    '([],[([],[yours(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
     ('your',    '([x1],[])',    '([],[([],[your(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
     # 3rd person singular
-    ('he',      '([x1],[])',    '([],[([],[he(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('she',     '([x1],[])',    '([],[([],[she(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('him',     '([x1],[])',    '([],[him(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('her',     '([x1],[])',    '([],[her(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('himself', '([x1],[])',    '([],[([],[himself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('herself', '([x1],[])',    '([],[([],[herself(x1)])->([],[her(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('hisself', '([x1],[])',    '([],[([],[hisself(x1)])->([],[him(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('his',     '([x1],[])',    '([],[([],[his(x1)])->([],[him(x2),owns(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('hers',    '([x1],[])',    '([],[([],[hers(x1)])->([],[her(x2),owns(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('him',     '([x1],[])',    '([],[([],[him(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('her',     '([x1],[])',    '([],[([],[her(x1)])->([],[she(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('himself', '([x1],[])',    '([],[([],[himself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('herself', '([x1],[])',    '([],[([],[herself(x1)])->([],[she(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('hisself', '([x1],[])',    '([],[([],[hisself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('his',     '([x1],[])',    '([],[([],[his(x1)])->([],[he(x2),own(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('hers',    '([x1],[])',    '([],[([],[hers(x1)])->([],[she(x2),own(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
     # 1st person plural
-    ('we',      '([x1],[])',    '([],[([],[we(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('us',      '([x1],[])',    '([],[us(x1)])', RT_HUMAN|RT_PLURAL),
-    ('ourself', '([x1],[])',    '([],[([],[ourself(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ourselves','([x1],[])',   '([],[([],[ourselves(x1)])->([],[us(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ours',    '([x1],[])',    '([],[([],[ours(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('our',     '([x1],[])',    '([],[([],[our(x1)])->([],[us(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL),
+    ('us',      '([x1],[])',    '([],[([],[us(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ourself', '([x1],[])',    '([],[([],[ourself(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ourselves','([x1],[])',   '([],[([],[ourselves(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ours',    '([x1],[])',    '([],[([],[ours(x1)])->([],[we(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('our',     '([x1],[])',    '([],[([],[our(x1)])->([],[we(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # 2nd person plural
     ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
     # 3rd person plural
-    ('they',    '([x1],[])',    '([],[([],[they(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('them',    '([x1],[])',    '([],[them(x1)])', RT_HUMAN|RT_PLURAL),
-    ('themself','([x1],[])',    '([],[([],[themself(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('themselves','([x1],[])',  '([],[([],[themselves(x1)])->([],[them(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('theirs',  '([x1],[])',    '([],[([],[theirs(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('their',   '([x1],[])',    '([],[([],[their(x1)])->([],[them(x2),owns(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('they',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL),
+    ('them',    '([x1],[])',    '([],[([],[them(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('themself','([x1],[])',    '([],[([],[themself(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('themselves','([x1],[])',  '([],[([],[themselves(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('theirs',  '([x1],[])',    '([],[([],[theirs(x1)])->([],[they(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('their',   '([x1],[])',    '([],[([],[their(x1)])->([],[they(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
     # it
     ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA),
-    ('its',     '([x1],[])',    '([],[([],[its(x1)])->([],[it(x2),owns(x2,x1)])])', RT_ANAPHORA),
+    ('its',     '([x1],[])',    '([],[([],[its(x1)])->([],[it(x2),own(x2,x1)])])', RT_ANAPHORA),
     ('itself',  '([x1],[])',    '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
 ]
 _PRON = {}
@@ -111,6 +111,106 @@ _WEEKDAYS = {
     'Sat':  'Saturday',
     'Sun':  'Sunday'
 }
+
+# To indicate time order
+_TIME_ORDER = [
+    'in the past', 'before', 'earlier', 'previously', 'formerly', 'yesterday', 'recently', 'not long ago',
+    'at present', 'presently', 'currently', 'now', 'by now', 'until', 'today', 'immediately', 'simultaneously',
+    'at the same time', 'during', 'all the while', 'in the future', 'tomorrow', 'henceforth', 'after',
+    'after a short time', 'after a while', 'soon', 'later', 'later on', 'following'
+]
+
+# To indicate how or when something occurs in time
+_TIME_OCCURRENCE = [
+    'suddenly', 'all at once', 'instantly', 'immediately', 'quickly', 'directly', 'soon', 'as soon as', 'just then',
+    'when', 'sometimes', 'some of the time', 'in the meantime', 'occasionally', 'rarely', 'seldom', 'infrequently',
+    'temporarily', 'periodically', 'gradually', 'eventually', 'little by little', 'slowly', 'while', 'meanwhile',
+    'always', 'all of the time', 'without exception', 'at the same time', 'repeatedly', 'often', 'frequently',
+    'generally', 'usually', 'as long as', 'never', 'not at all'
+]
+
+# To indicate sequence
+_SEQUENCE = [
+    'first', 'in the first place', 'at first', 'once', 'once upon time', 'to begin with', 'at the beginning',
+    'starting with', 'initially', 'from this point', 'earlier', 'second', 'secondly', 'in the second place', 'next',
+    'the next time', 'the following week', 'then', 'after that', 'following that', 'subsequently',
+    'on the next occasion', 'so far', 'later on', 'third', 'in the third place', 'last', 'last of all', 'at last',
+    'at the end', 'in the end', 'final finally', 'to finish', 'to conclude', 'in conclusion', 'consequently'
+]
+
+# To repeat
+_REPEAT = [
+    'all in all', 'altogether', 'in brief', 'in short', 'in fact', 'in particular', 'that is', 'in simpler terms',
+    'to put it differently', 'in other words', 'again', 'once more', 'again and again', 'over and over', 'to repeat',
+    'as stated', 'that is to say', 'to retell', 'to review', 'to rephrase', 'to paraphrase', 'to reconsider',
+    'to clarify', 'to explain', 'to outline', 'to summarize'
+]
+
+# To provide an example
+_EXAMPLE = [
+    'for example', 'as an example', 'for instance', 'in this case', 'to illustrate', 'to show', 'to demonstrate',
+    'to explain', 'suppose that', 'specifically', 'to be exact', 'in particular', 'such as', 'namely', 'for one thing',
+    'indeed', 'in other words', 'to put it in another way', 'thus'
+]
+
+# To concede
+
+_CONCEDE = [
+    'of course', 'after all', 'no doubt', 'naturally', 'unfortunately', 'while it is true', 'although this may be true',
+    'although', 'to admit', 'to confess', 'to agree'
+]
+
+# To conclude or to summarize
+_SUMMARIZE = [
+    'to conclude', 'in conclusion', 'to close', 'last of all', 'finally', 'to end', 'to complete', 'to bring to an end',
+    'thus', 'hence', 'therefore', 'as a consequence of', 'as a result', 'in short', 'to sum up', 'to summarize',
+    'to recapitulate'
+]
+
+# To add a point
+_POINT = [
+    'also', 'too', 'as well as', 'besides', 'equally important', 'first of all', 'furthermore', 'in addition (to)',
+    'moreover', 'likewise', 'above all', 'most of all', 'least of all', 'and', 'either…or', 'neither…nor', 'however',
+    'yet', 'but', 'nevertheless', 'still', 'to continue'
+]
+
+# To compare
+_COMPARE = [
+    'As', 'as well as', 'like', 'in much the same way', 'resembling', 'parallel to', 'same as', 'identically',
+    'of little difference', 'equally', 'matching', 'also', 'exactly', 'similarly', 'similar to',
+    'in comparison', 'in relation to'
+]
+
+# To contrast
+_CONTRAST = [
+    'though', 'although', 'and yet', 'but', 'despite', 'despite this fact', 'in spite of', 'even so', 'for all that',
+    'however', 'in contrast', 'by contrast', 'on one hand', 'on the other hand', 'on the contrary', 'in one way',
+    'in another way', 'although this may be true', 'nevertheless', 'nonetheless', 'still', 'yet', 'to differ from',
+    'a striking difference', 'another distinction', 'otherwise', 'after all', 'instead', 'unlike', 'opposite',
+    'to oppose', 'in opposition to', 'versus', 'against'
+]
+
+# To emphasise or to intensify
+_EMPHASIZE = [
+    'above all', 'after all', 'indeed', 'as a matter of fact', 'chiefly', 'especially', 'actually',
+    'more important', 'more importantly', 'most important of all', 'most of all', 'moreover', 'furthermore',
+    'significantly', 'the most significant', 'more and more', 'of major interest', 'the chief characteristic',
+    'the major point', 'the main problem (issue)', 'the most necessary', 'extremely', 'to emphasize', 'to highlight',
+    'to stress', 'by all means', 'undoubtedly', 'without a doubt', 'certainly', 'to be sure', 'surely', 'absolutely',
+    'obviously', 'to culminate', 'in truth', 'the climax of', 'to add to that', 'without question', 'unquestionably',
+    'as a result'
+]
+
+# To generalize
+_GENERALIZE = [
+    'On the whole', 'in general', 'as a rule', 'in most cases', 'broadly speaking', 'to some extent', 'mostly'
+]
+
+# Showing our attitude to what we are saying
+_ATTITUDE = [
+    'Frankly', 'honestly', 'I think', 'I suppose', 'after all', 'no doubt', 'I’m afraid', 'actually',
+    'as a matter of fact', 'to tell the truth', 'unfortunately'
+]
 
 
 # Special categories
@@ -828,8 +928,8 @@ class Ccg2Drs(object):
             d = d.apply_null_left().unify()
         if not isinstance(d, DrsProduction):
             raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
-        d = d.resolve_anaphora()
         d = self.final_rename(d)
+        d = d.resolve_anaphora()
         if not d.ispure:
             raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
         return d
