@@ -148,7 +148,7 @@ if __name__ == '__main__':
         if not options.book:
             line = ' '.join(args)
             # FIXME: Convert to python 3. Unicode is default.
-            ccg = grpc.ccg_parse(stub, line, sessionId).encode('utf-8')
+            ccg = grpc.ccg_parse(stub, line, sessionId)
             drs = None
             if options.ofmt == 'drs':
                 try:
@@ -177,7 +177,7 @@ if __name__ == '__main__':
                     sys.stdout.write('\n')
                     sys.stdout.write('</drs>\n')
             else:
-                with open(outfile, 'wb') as fd:
+                with open(outfile, 'w') as fd:
                     fd.write(ccg)
                     fd.write('<ccg>\n')
                     fd.write(ccg)
