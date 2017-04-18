@@ -656,7 +656,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x2,e1,Merryweather-High| .EVENT(e1),welcome(e1),.AGENT(e1,x2),.THEME(e1,Merryweather-High),to(Merryweather-High)]'
+        x = u'[x3,e1,x2| .EVENT(e1),welcome(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -689,7 +689,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
-        x = u'[x1,e2,e3,x4| .EXISTS(x1),door(x1),.EVENT(e2),opens(e2),.AGENT(e2,x1),[| i(x4)] \u21D2 [| me(x4)],.EVENT(e3),step(e3),.AGENT(e3,x4),up(e3),direction(e3)]'
+        x = u'[x1,e2,e3,x4| door(x1),.EVENT(e2),opens(e2),.AGENT(e2,x1),i(x4),.EVENT(e3),step(e3),.AGENT(e3,x4),up(e3),direction(e3)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -702,7 +702,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x2| .EXISTS(x3),school(x3),bus(x3),.EVENT(e1),wheezes(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),my(x2),corner(x2)]'
+        x = u'[x3,e1,x2| school(x3),bus(x3),.EVENT(e1),wheezes(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),my(x2),corner(x2)]'
         self.assertEquals(x, s)
 
 
@@ -733,7 +733,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
-    def test5_PrepositionOf(self):
+    def test5_ProperNouns1(self):
         #txt = '''(<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP J.P. N/N>) (<L N NNP NNP Bolduc N>) ) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN vice N/N>) (<T N 0 2> (<L N/PP NN NN chairman N/PP>) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NNP NNP W.R. (N/N)/(N/N)>) (<L N/N NNP NNP Grace N/N>) ) (<T N 1 2> (<L N/N CC CC & N/N>) (<T N 0 2> (<L N NNP NNP Co. N>) (<L , , , , ,>) ) ) ) ) (<T NP\NP 0 2> (<L (NP\NP)/(S[dcl]\NP) WDT WDT which (NP\NP)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBZ VBZ holds (S[dcl]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) CD CD 83.4 (N/N)/(N/N)>) (<L N/N NN NN % N/N>) ) (<T N 0 2> (<L N/PP NN NN interest N/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<T N 1 2> (<L N/N JJ JJ energy-services N/N>) (<L N NN NN company N>) ) ) ) ) ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2> (<L , , , , ,>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>) (<T S[pss]\NP 0 2> (<L (S[pss]\NP)/NP VBN VBN elected (S[pss]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN director N>) ) ) ) ) ) ) ) ) (<L . . . . .>) ) ) ) ) ) ) '''
         txt = '''
 (<T NP 0 2>
@@ -826,6 +826,308 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
+    def test5_ProperNouns2(self):
+        txt='''
+(<T S[dcl] 1 2>
+    (<T S[dcl] 0 2>
+        (<T S[dcl] 1 2>
+            (<T S/S 0 2>
+                (<L S/S RB RB Rather S/S>)
+                (<L , , , , ,>)
+            )
+            (<T S[dcl] 1 2>
+                (<T NP 0 1>
+                    (<T N 1 2>
+                        (<L N/N JJ JJ Japanese N/N>)
+                        (<L N NN NN investment N>)
+                    )
+                )
+                (<T S[dcl]\NP 0 2>
+                    (<L (S[dcl]\NP)/(S[b]\NP) MD MD will (S[dcl]\NP)/(S[b]\NP)>)
+                    (<T S[b]\NP 0 2>
+                        (<L (S[b]\NP)/NP VB VB spur (S[b]\NP)/NP>)
+                        (<T NP 0 1>
+                            (<T N 0 2>
+                                (<L N/PP NN NN integration N/PP>)
+                                (<T PP 0 2>
+                                    (<L PP/NP IN IN of PP/NP>)
+                                    (<T NP 0 1>
+                                        (<T N 1 2>
+                                            (<L N/N JJ JJ certain N/N>)
+                                            (<L N NNS NNS sectors N>)
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        (<L , , , , ,>)
+    )
+    (<T S[dcl]\S[dcl] 0 2>
+        (<L (S[dcl]\S[dcl])/NP VBZ VBZ says (S[dcl]\S[dcl])/NP>)
+        (<T NP 0 2>
+            (<T NP 0 1>
+                (<T N 1 2>
+                    (<L N/N NNP NNP Kent N/N>)
+                    (<L N NNP NNP Calder N>)
+                )
+            )
+            (<T NP\NP 1 2>
+                (<L , , , , ,>)
+                (<T NP 0 2>
+                    (<L NP/N DT DT a NP/N>)
+                    (<T N 0 2>
+                        (<T N 0 2>
+                            (<L N/PP NN NN specialist N/PP>)
+                            (<T PP 0 2>
+                                (<L PP/NP IN IN in PP/NP>)
+                                (<T NP 0 1>
+                                    (<T N 0 2>
+                                        (<T N 0 2>
+                                            (<T N 1 2>
+                                                (<T N/N 1 2>
+                                                    (<L (N/N)/(N/N) JJ JJ East (N/N)/(N/N)>)
+                                                    (<L N/N JJ JJ Asian N/N>)
+                                                )
+                                                (<L N NNS NNS economies N>)
+                                            )
+                                            (<T N\N 0 2>
+                                                (<L (N\N)/NP IN IN at (N\N)/NP>)
+                                                (<T NP 0 2>
+                                                    (<L NP/N DT DT the NP/N>)
+                                                    (<T N 1 2>
+                                                        (<L N/N NNP NNP Woodrow N/N>)
+                                                        (<T N 1 2>
+                                                            (<L N/N NNP NNP Wilson N/N>)
+                                                            (<L N NNP NNP School N>)
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                        (<T N\N 0 2>
+                                            (<L (N\N)/NP IN IN for (N\N)/NP>)
+                                            (<T NP 0 1>
+                                                (<T N 1 2>
+                                                    (<T N/N 0 2>
+                                                        (<L N/N NNP NNP Public N/N>)
+                                                        (<T (N/N)\(N/N) 1 2>
+                                                            (<L conj CC CC and conj>)
+                                                            (<L N/N NNP NNP International N/N>)
+                                                        )
+                                                    )
+                                                    (<L N NNP NNP Affairs N>)
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                        (<T N\N 0 2>
+                            (<T N\N 0 2>
+                                (<L (N\N)/NP IN IN at (N\N)/NP>)
+                                (<T NP 0 1>
+                                    (<T N 1 2>
+                                        (<L N/N NNP NNP Princeton N/N>)
+                                        (<L N NNP NNP University N>)
+                                    )
+                                )
+                            )
+                            (<L . . . . .>)
+                        )
+                    )
+                )
+            )
+        )
+    )
+)'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+
+    def test7_Brexit(self):
+        # The managing director of the International Monetary Fund has said she wants Britain to stay in the EU,
+        # warning that a looming Brexit referendum posed a risk to the UK economy
+        txt = []
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN managing N/N>)
+        (<T N 0 2> (<L N/PP NN NN director N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNP NNP International N/N>) (<T N 1 2>
+        (<L N/N NNP NNP Monetary N/N>) (<L N NNP NNP Fund N>) ) ) ) ) ) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP)/(S[pt]\NP)>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/S[dcl] VBN VBN said (S[pt]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<L NP PRP PRP she NP>)
+        (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/(S[to]\NP) 0 2> (<L ((S[dcl]\NP)/(S[to]\NP))/NP VBZ VBZ wants
+        ((S[dcl]\NP)/(S[to]\NP))/NP>) (<T NP 0 1> (<L N NNP NNP Britain N>) ) ) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/PP VB VB stay (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<T N 0 2> (<L N NN NN EU, N>) (<T N\N 0 1> (<T S[ng]\NP 0 2>
+        (<L (S[ng]\NP)/S[em] NN NN warning (S[ng]\NP)/S[em]>) (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>)
+        (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2> (<L N/N VBG VBG looming N/N>) (<T N 1 2>
+        (<L N/N NN NN Brexit N/N>) (<L N NN NN referendum N>) ) ) ) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2>
+        (<L ((S[dcl]\NP)/PP)/NP VBD VBD posed ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>)
+        (<L N NN NN risk N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<T N 1 2> (<L N/N NNP NNP UK N/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) )''')
+        # In an upbeat assessment, Christine Lagarde said the UK was enjoying strong growth, record employment and had
+        # largely recovered from the global financial crisis
+        txt.append('''(<T S[dcl] 1 2> (<T S/S 0 2> (<L (S/S)/NP IN IN In (S/S)/NP>) (<T NP 0 2> (<L NP/N DT DT an NP/N>)
+        (<T N 1 2> (<L N/N JJ JJ upbeat N/N>) (<L N NN NN assessment, N>) ) ) ) (<T S[dcl] 1 2> (<T NP 0 1>
+        (<T N 1 2> (<L N/N NNP NNP Christine N/N>) (<L N NNP NNP Lagarde N>) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<L N NNP NNP UK N>) ) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[ng]\NP) VBD VBD was (S[dcl]\NP)/(S[ng]\NP)>) (<T S[ng]\NP 0 2>
+        (<L (S[ng]\NP)/NP VBG VBG enjoying (S[ng]\NP)/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ strong N/N>)
+        (<T N 1 2> (<L N/N NN NN growth, N/N>) (<T N 1 2> (<L N/N NN NN record N/N>) (<L N NN NN employment N>) ) ) )
+        ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2> (<L conj CC CC and conj>) (<T S[dcl]\NP 0 2>
+        (<T (S[dcl]\NP)/(S[pt]\NP) 0 2> (<L (S[dcl]\NP)/(S[pt]\NP) VBD VBD had (S[dcl]\NP)/(S[pt]\NP)>)
+        (<L (S\NP)\(S\NP) RB RB largely (S\NP)\(S\NP)>) ) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/PP VBN VBN recovered (S[pt]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN from PP/NP>)
+        (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ global N/N>) (<T N 1 2>
+        (<L N/N JJ JJ financial N/N>) (<L N NN NN crisis N>) ) ) ) ) ) ) ) ) ) ) ) )''')
+        # Presenting the IMF’s annual healthcheck of the economy alongside George Osborne, Lagarde said there were
+        # risks to the outlook, including from the housing market, but she was generally positive
+        txt.append('''(<T S[dcl] 1 2> (<T S/S 0 1> (<T S[ng]\NP 0 2> (<T S[ng]\NP 0 2> (<T (S[ng]\NP)/PP 0 2>
+        (<T (S[ng]\NP)/PP 0 2> (<L ((S[ng]\NP)/PP)/NP VBG VBG Presenting ((S[ng]\NP)/PP)/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNS NNS IMF’s N/N>) (<T N 1 2> (<L N/N JJ JJ annual N/N>)
+        (<T N 0 2> (<L N/PP NN NN healthcheck N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/S[dcl] IN IN alongside ((S\NP)\(S\NP))/S[dcl]>) (<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2>
+        (<L N/N NNP NNP George N/N>) (<T N 1 2> (<L N/N NNP NNP Osborne, N/N>) (<L N NNP NNP Lagarde N>) ) ) )
+        (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2>
+        (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2>
+        (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<L N NNS NNS risks N>) ) ) ) ) ) ) )
+        (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN outlook, N>) ) ) )
+        (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/PP VBG VBG including ((S\NP)\(S\NP))/PP>) (<T PP 0 2>
+        (<L PP/NP IN IN from PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN housing N>) ) ) ) ) )
+        (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 1> (<L N NN NN market, N>) ) (<T NP\NP 1 2> (<L conj CC CC but conj>)
+        (<L NP PRP PRP she NP>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD was (S[dcl]\NP)/(S[adj]\NP)>)
+        (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB generally (S[adj]\NP)/(S[adj]\NP)>)
+        (<L S[adj]\NP JJ JJ positive S[adj]\NP>) ) ) ) )''')
+        # “The UK authorities have managed to repair the damage of the crisis in a way few other countries have been
+        # able to do,” she said
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP “The N/N>) (<T N 1 2> (<L N/N NNP NNP UK N/N>)
+        (<L N NNS NNS authorities N>) ) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pt]\NP) VBP VBP have (S[dcl]\NP)/(S[pt]\NP)>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/(S[to]\NP) VBN VBN managed (S[pt]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2> (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/NP VB VB repair (S[b]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 0 2>
+        (<L N/PP NN NN damage N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<L N NN NN crisis N>) ) ) ) ) ) ) (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN in ((S\NP)\(S\NP))/NP>)
+        (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 0 2> (<L N/S[dcl] NN NN way N/S[dcl]>) (<T S[dcl] 1 2>
+        (<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ few N/N>) (<T N 1 2> (<L N/N JJ JJ other N/N>)
+        (<L N NNS NNS countries N>) ) ) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pt]\NP) VBP VBP have (S[dcl]\NP)/(S[pt]\NP)>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/(S[adj]\NP) VBN VBN been (S[pt]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 0 2>
+        (<L (S[adj]\NP)/(S[to]\NP) JJ JJ able (S[adj]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
+        (<L S[to]\NP TO TO to S[to]\NP>) (<L RQU VB VB do,” RQU>) ) ) ) ) ) (<T S[dcl]\S[dcl] 1 2>
+        (<L NP PRP PRP she NP>) (<L (S[dcl]\S[dcl])\NP VBD VBD said (S[dcl]\S[dcl])\NP>) ) ) ) ) ) ) ) ) )''')
+        # Lagarde said the IMF would work through various scenarios for the EU referendum outcome in its next assessment
+        # of the UK in May 2016
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Lagarde N>) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<L N NNP NNP IMF N>) ) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[b]\NP) MD MD would (S[dcl]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/PP VB VB work (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN through PP/NP>) (<T NP 0 1>
+        (<T N 1 2> (<L N/N JJ JJ various N/N>) (<T N 0 2> (<L N/PP NNS NNS scenarios N/PP>) (<T PP 0 2>
+        (<L PP/NP IN IN for PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNP NNP EU N/N>)
+        (<T N 1 2> (<L N/N NN NN referendum N/N>) (<T N 0 2> (<L N/PP NN NN outcome N/PP>) (<T PP 0 2>
+        (<L PP/NP IN IN in PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ its NP/(N/PP)>) (<T N/PP 1 2>
+        (<L N/N JJ JJ next N/N>) (<T N/PP 0 2> (<L (N/PP)/PP NN NN assessment (N/PP)/PP>) (<T PP 0 2>
+        (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) ) ) ) ) ) ) ) ) ) ) )
+        ) ) ) ) (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN in ((S\NP)\(S\NP))/NP>) (<T NP 0 1> (<T N 0 2>
+        (<L N NNP NNP May N>) (<L N\N CD CD 2016 N\N>) ) ) ) ) ) ) )''')
+        # “On a personal basis … I am very, very much hopeful that the UK stays within the EU,” she added
+        txt.append('''(<T NP 1 2> (<L NP/NP NN NN “On NP/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 0 2> (<T N 0 2>
+        (<T N 1 2> (<L N/N JJ JJ personal N/N>) (<T N 0 2> (<L N NN NN basis N>) (<L RQU NN NN … RQU>) ) )
+        (<T N\N 0 1> (<T S[dcl]/NP 1 2> (<T S[X]/(S[X]\NP) 0 1> (<L NP PRP PRP I NP>) )
+        (<L (S[dcl]\NP)/NP VBP VBP am (S[dcl]\NP)/NP>) ) ) ) (<T N\N 0 1> (<T S[adj]\NP 0 2>
+        (<T (S[adj]\NP)/S[em] 0 2> (<L ((S[adj]\NP)/S[em])/(S[adj]\NP) RB RB very, ((S[adj]\NP)/S[em])/(S[adj]\NP)>)
+        (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB very (S[adj]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2>
+        (<L (S[adj]\NP)/(S[adj]\NP) JJ JJ much (S[adj]\NP)/(S[adj]\NP)>) (<L S[adj]\NP NN NN hopeful S[adj]\NP>) ) ) )
+        (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>) (<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/PP VBZ VBZ stays (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN within PP/NP>)
+        (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NNP NNP EU,” N>) ) ) ) ) (<T S[dcl]\S[dcl] 1 2>
+        (<L NP PRP PRP she NP>) (<L (S[dcl]\S[dcl])\NP VBD VBD added (S[dcl]\S[dcl])\NP>) ) ) ) ) ) ) ) )''')
+        # Separately, ratings agency Standard & Poor’s reiterated a warning on Friday that leaving the EU could cost
+        # the UK its top credit score
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NN NN Separately, (N/N)/(N/N)>)
+        (<T N/N 1 2> (<L (N/N)/(N/N) NNS NNS ratings (N/N)/(N/N)>) (<L N/N NN NN agency N/N>) ) ) (<T N 1 2>
+        (<L N/N NNP NNP Standard N/N>) (<T N 1 2> (<L N/N CC CC & N/N>) (<L N NNP NNP Poor’s N>) ) ) ) )
+        (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBD VBD reiterated (S[dcl]\NP)/NP>) (<T NP 0 2>
+        (<L NP/N DT DT a NP/N>) (<L N NN NN warning N>) ) ) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/NP IN IN on ((S\NP)\(S\NP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N NNP NNP Friday N>)
+        (<T N\N 0 2> (<L (N\N)/S[dcl] WDT WDT that (N\N)/S[dcl]>) (<T S[dcl] 1 2> (<T NP 0 1> (<T S[ng]\NP 0 2>
+        (<L (S[ng]\NP)/NP VBG VBG leaving (S[ng]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NNP NNP EU N>) ) )
+         ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[b]\NP) MD MD could (S[dcl]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+         (<T (S[b]\NP)/NP 0 2> (<L ((S[b]\NP)/NP)/NP VB VB cost ((S[b]\NP)/NP)/NP>) (<T NP 0 2>
+         (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ its NP/(N/PP)>)
+         (<T N/PP 1 2> (<L N/N JJ JJ top N/N>) (<T N/PP 1 2> (<L N/N NN NN credit N/N>) (<L N/PP NN NN score N/PP>) ) )
+        ) ) ) ) ) ) ) ) ) )''')
+        # The IMF, which is based in Washington, also used its assessment to recommend that interest rates remain at
+        # their record low of 0
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 0 2> (<L N NN NN IMF, N>) (<T N\N 0 2>
+        (<L (N\N)/(S[dcl]\NP) WDT WDT which (N\N)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pss]\NP) VBZ VBZ is (S[dcl]\NP)/(S[pss]\NP)>) (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/PP VBN VBN based (S[pss]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 1>
+        (<L N NNP NNP Washington, N>) ) ) ) ) ) ) ) (<T S[dcl]\NP 1 2> (<L (S\NP)/(S\NP) RB RB also (S\NP)/(S\NP)>)
+        (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/(S[to]\NP) 0 2>
+        (<L ((S[dcl]\NP)/(S[to]\NP))/NP VBD VBD used ((S[dcl]\NP)/(S[to]\NP))/NP>) (<T NP 0 2>
+        (<L NP/(N/PP) PRP$ PRP$ its NP/(N/PP)>) (<L N/PP NN NN assessment N/PP>) ) ) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/S[em] VB VB recommend (S[b]\NP)/S[em]>) (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>)
+        (<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NN NN interest N/N>) (<L N NNS NNS rates N>) ) )
+        (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBP VBP remain (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN at PP/NP>)
+        (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ their NP/(N/PP)>) (<T N/PP 1 2> (<L N/N NN NN record N/N>) (<T N/PP 0 2>
+        (<L (N/PP)/PP NN NN low (N/PP)/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 1> (<L N CD CD 0 N>) ) ) )
+        ) ) ) ) ) ) ) ) ) ) )''')
+        # 0.5% until there were clearer signs of inflationary pressures
+        txt.append('''(<T NP 0 1> (<T N 0 2> (<L N NN NN 5% N>) (<T N\N 0 2> (<L (N\N)/S[dcl] IN IN until (N\N)/S[dcl]>)
+        (<T S[dcl] 1 2> (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2>
+        (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<T N 1 2>
+        (<L N/N JJR JJR clearer N/N>) (<T N 0 2> (<L N/PP NNS NNS signs N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>)
+        (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ inflationary N/N>) (<L N NNS NNS pressures N>) ) ) ) ) ) ) ) ) ) ) )''')
+        # Its report on the UK was delayed for six months due to the general election
+        txt.append('''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ Its NP/(N/PP)>) (<T N/PP 0 2>
+        (<L (N/PP)/PP NN NN report (N/PP)/PP>) (<T PP 0 2> (<L PP/NP IN IN on PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) ) ) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>) (<L S[pss]\NP VBN VBN delayed S[pss]\NP>) )
+        (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN for ((S\NP)\(S\NP))/NP>) (<T NP 0 1> (<T N 1 2>
+        (<L N/N CD CD six N/N>) (<L N NNS NNS months N>) ) ) ) ) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/PP JJ JJ due ((S\NP)\(S\NP))/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ general N/N>) (<L N NN NN election N>) ) ) ) ) ) )''')
+        for t in txt:
+            pt = parse_ccg_derivation(t.decode('utf-8'))
+            self.assertIsNotNone(pt)
+            s = sentence_from_pt(pt)
+            print(s)
+            d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+            self.assertIsNotNone(d)
+            print(d)
+
+    def test5_AT1(self):
+        txt = '''(<T S[dcl] 1 2> (<T S/S 0 2> (<L (S/S)/NP IN IN At (S/S)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN minimum, N>) ) ) (<T S[dcl] 1 2> (<L NP PRP PRP we NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[to]\NP) VBP VBP need (S[dcl]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2> (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2> (<L (S[b]\NP)/NP VB VB get (S[b]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<L N NN NN right. N>) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test5_AT2(self):
+        txt = '''(<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 0 2> (<L N NN NN world N>) (<T N\N 0 2> (<L (N\N)/NP IN IN at (N\N)/NP>) (<T NP 0 1> (<L N NN NN large. N>) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
     def test6_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
         # - ./scripts/extract_lfs.sh
@@ -861,7 +1163,7 @@ class ComposeTest(unittest.TestCase):
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(start, len(lines), 100):
+            for i in range(start, len(lines), 200):
                 start = 50
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
@@ -925,7 +1227,7 @@ class ComposeTest(unittest.TestCase):
         for fn in allfiles[0::100]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
-            for hdr,ccgbank in zip(lines[0::10], lines[1::10]):
+            for hdr,ccgbank in zip(lines[0::20], lines[1::20]):
                 print(hdr.strip())
                 try:
                     pt = parse_ccg_derivation(ccgbank)
