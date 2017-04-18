@@ -242,6 +242,16 @@ def safe_create_empty_functor(category):
     return None
 
 
+def strip_apostrophe_s(word):
+    # Must support utf-8
+    if len(word) > 2:
+        if word.endswith("'s"):
+            return word[0:-2]
+        elif word.endswith("’s"):
+            return word.replace("’s", '')
+    return word
+
+
 class CcgTypeMapper(object):
     """Mapping from CCG types to DRS types."""
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
@@ -253,7 +263,7 @@ class CcgTypeMapper(object):
             self._ccgcat = category
         else:
             self._ccgcat = Category.from_cache(category)
-        self._pos = posTags or ['UNKNOWN']
+        self._pos = posTags[0:2] if posTags else ['UNKNOWN']
 
         # We treat modal as verb modifiers - i.e. they don't get their own event
         if self._pos[0] == 'MD':
@@ -261,8 +271,19 @@ class CcgTypeMapper(object):
             if tmpcat.ismodifier:
                 self._ccgcat = tmpcat
 
-        if self.isproper_noun:
-            self._word = word.title().rstrip('?.,:;')
+        if len(word) > 3 and word[0] == 'I':
+            pass
+
+        # TODO: should lookup nouns via conceptnet or wordnet
+        wd = strip_apostrophe_s(word)
+        if (self.category == CAT_NOUN or self._pos[0] == 'NN' or self._pos[0] == 'NNS') and wd.upper() == wd:
+            # If all uppercase then keep it that way
+            self._word = word.rstrip('?.,:;')
+        elif self.isproper_noun:
+            if wd.upper() == wd:
+                self._word = word.rstrip('?.,:;')
+            else:
+                self._word = word.title().rstrip('?.,:;')
         else:
             self._word = word.lower().rstrip('?.,:;')
 
@@ -540,8 +561,8 @@ class CcgTypeMapper(object):
                     fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
-            elif self.partofspeech == 'DT' and self._word in ['the', 'thy']:
-                fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
+            elif self.partofspeech == 'DT' and self._word in ['the', 'thy', 'a', 'an']:
+                fn = DrsProduction(DRS([], []), category=CAT_NP)
             else:
                 fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
             fn.set_lambda_refs([DRSRef('x1')])
@@ -608,6 +629,8 @@ class CcgTypeMapper(object):
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
+                elif self.category == CAT_NOUN:
+                    dep = Dependency(refs[0], self._word, RT_ENTITY)
                 else:
                     dep = None
                 if template.isfinalevent:
@@ -949,6 +972,17 @@ def process_ccg_pt(pt, options=None):
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
     builder = Ccg2Drs(options)
+    if isinstance(pt[-1], unicode):
+        # Convert to utf-8
+        stk = [pt]
+        while len(stk) != 0:
+            lst = stk.pop()
+            for i in range(len(lst)):
+                x = lst[i]
+                if isinstance(x, list):
+                    stk.append(x)
+                elif isinstance(x, unicode):
+                    lst[i] = x.encode('utf-8')
     return builder.process_ccg_pt(pt)
 
 
