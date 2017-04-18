@@ -646,6 +646,8 @@ class DrsProduction(Production):
         fr = self._drs.freerefs
         if len(fr) != 0:
             self._drs = DRS(union(self._drs.universe, fr), conds)
+        else:
+            self._drs = DRS(self._drs.referents, conds)
         self._drs = self._drs.purify()
         return self
 
