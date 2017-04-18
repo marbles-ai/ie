@@ -84,7 +84,8 @@ if __name__ == '__main__':
                 progress = print_progress(progress, 10)
 
             try:
-                pt = parse_ccg_derivation(ccgbank)
+                # CCG parser is Java so output is UTF-8.
+                pt = parse_ccg_derivation(ccgbank.decode('utf-8'))
                 s = sentence_from_pt(pt).strip()
             except Exception:
                 failed_parse += 1
