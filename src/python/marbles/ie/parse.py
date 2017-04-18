@@ -513,8 +513,8 @@ def parse_ccg_derivation(s):
         marbles.ie.drt.ccg2drs.process_ccg_pt to convert to a DRS.
     """
     p = Parser()
-    if isinstance(s, str):
-        s = s.decode('utf-8')
+    #if isinstance(s, str):
+    #    s = s.decode('utf-8')
     pt = p.parse(s, EsrlDecl)
     return pt[1].to_list()
 
