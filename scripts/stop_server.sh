@@ -53,7 +53,7 @@ fi
 echo "Terminating process $PID"
 kill -15 ${PID} &>/dev/null
 timed_wait 5 && cleanup || echo "$PID still running after 5 seconds after SIGTERM. Will attempt SIGINT."
-kill -2 ${PID} &>/dev/null"
+kill -2 ${PID} &>/dev/null
 timed_wait 5 && cleanup || echo "$PID still running after 5 seconds after SIGINT. Will attempt SIGKILL."
 kill -9 ${PID} &>/dev/null
 timed_wait 5 && cleanup || die "Cannot terminate $PID."
