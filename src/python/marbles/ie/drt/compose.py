@@ -3,7 +3,7 @@
 
 import weakref
 import collections
-from common import SHOW_LINEAR, DRSConst
+from common import SHOW_LINEAR, DRSConst, DRSVar
 from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
 from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_ADJECTIVE, \
@@ -17,13 +17,15 @@ from utils import iterable_type_check, intersect, union, union_inplace, remove_d
 ## @defgroup ccg2drs_const CCG to DRS Constants
 
 ## Compose option: remove propositions containing single referent in the subordinate DRS.
-CO_REMOVE_UNARY_PROPS = 0x1
+CO_REMOVE_UNARY_PROPS = 0x0001
 ## Compose option: print derivations to stdout during production
-CO_PRINT_DERIVATION = 0x2
+CO_PRINT_DERIVATION = 0x0002
 ## Compose option: verify signature during production
-CO_VERIFY_SIGNATURES = 0x4
+CO_VERIFY_SIGNATURES = 0x0004
 ## Disable unification by ProductionList's.
-CO_DISABLE_UNIFY = 0x8
+CO_DISABLE_UNIFY = 0x0008
+## Build state slots
+CO_BUILD_STATES = 0x0010
 
 ## @}
 
@@ -154,8 +156,8 @@ class Dependency(object):
     def _update_referent(self, oldref, newref):
         if oldref == self._ref:
             self._ref = newref
-            for c in self._children:
-                c._update_referent(oldref, newref)
+        for c in self._children:
+            c._update_referent(oldref, newref)
 
     def update_referent(self, oldref, newref):
         """Update a referent in the dependency tree.
@@ -569,6 +571,11 @@ class DrsProduction(Production):
             anap_h = []
             anap_nh = []
             pn = []
+            events = []
+            entities = []
+            dates = []
+            numbers = []
+            locations = []
 
             root = self.dep.root
             for nd in root.descendants:
@@ -581,6 +588,16 @@ class DrsProduction(Production):
                 elif (t & RT_ANAPHORA) != 0:
                     # it
                     anap_nh.append((nd, r, w, t))
+                elif (t & RT_ENTITY) != 0:
+                    entities.append((nd, r, w, t))
+                elif (t & RT_EVENT) != 0:
+                    events.append((nd, r, w, t))
+                elif (t & (RT_DATE | RT_WEEKDAY | RT_MONTH)) != 0:
+                    dates.append((nd, r, w, t))
+                elif (t & RT_NUMBER) != 0:
+                    numbers.append((nd, r, w, t))
+                elif (t & RT_LOCATION) != 0:
+                    locations.append((nd, r, w, t))
 
             # Resolve it
             rs = []
@@ -592,6 +609,22 @@ class DrsProduction(Production):
                         break
             if len(rs) != 0:
                 self.rename_vars(rs)
+
+            conds = []
+
+            todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
+                    ('.LOC', locations)]
+            for rel, lst in todo:
+                for nd, r, w, t in lst:
+                    fc = self._drs.find_condition(Rel(w, [r]))
+                    if fc is not None:
+                        self._drs.remove_condition(fc)
+                        nr = DRSRef(DRSVar('y', r.var.idx))
+                        conds.append(Prop(r, DRS([nr], [Rel(rel, nr), Rel(w, nr)])))
+            for nd, r, w, t in events:
+                fc = self._drs.find_condition(Rel('.EVENT', [r]))
+                if fc is not None:
+                    self._drs.remove_condition(fc)
 
             # Make proper names constants
             '''
@@ -605,11 +638,14 @@ class DrsProduction(Production):
             if len(rs) != 0:
                 self.rename_vars(rs)
             '''
+            conds.extend(self._drs.conditions)
+        else:
+            conds = self._drs.conditions
 
         # Remainder are unresolved
         fr = self._drs.freerefs
         if len(fr) != 0:
-            self._drs = DRS(union(self._drs.universe, fr), self._drs.conditions)
+            self._drs = DRS(union(self._drs.universe, fr), conds)
         self._drs = self._drs.purify()
         return self
 
@@ -788,11 +824,11 @@ class ProductionList(Production):
         ml = [x.unify() for x in self._compList]
         self._compList = collections.deque()
         if len(ml) == 1:
+            # FIXME: Should never infer.
             if not self.islambda_inferred:
                 ml[0].set_lambda_refs(self.lambda_refs)
-            # FIXME: should be able to remove this test once it is all debugged
-            if self.category.can_unify(ml[0].category):
-                ml[0].set_category(self.category)
+            # Unary type changes require we set here
+            ml[0].set_category(self.category)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
             self._compList.extend(ml)
