@@ -159,7 +159,8 @@ class Showable(object):
         Returns:
             A unicode string.
         """
-        if len(m) == 0: return s
+        if len(m) == 0:
+            return s
         lns = s.split(u'\n')
         k = len(m)
         if len(lns) <= p:
@@ -168,8 +169,10 @@ class Showable(object):
         for i in range(p):
             lns[i] = ws + lns[i]
         lns[p] = m + u' ' + lns[p]
-        for i in range(p+1,len(lns)):
+        for i in range(p+1, len(lns)-1):
             lns[i] = ws + lns[i]
+        if len(lns[-1]) != 0:
+            lns[-1] = ws + lns[-1]
         return u'\n'.join(lns)
 
     @classmethod
