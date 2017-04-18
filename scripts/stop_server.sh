@@ -13,6 +13,12 @@ timed_wait () {
 	return 0
 }
 
+cleanup () {
+    rm -f $PIDFILE
+    echo
+    exit 0
+}
+
 usage() {
 	echo "Usage: stop_server.sh service"
 	if [ -e ${PROJROOT}/daemons/running -a "x`ls ${PROJROOT}/daemons/running/*.pid 2>/dev/null`" != "x" ]; then
@@ -44,13 +50,10 @@ if ! kill -0 ${PID} &>/dev/null; then
 	echo "Server not running but pid file exists. Will remove."
 	exit 0
 fi
-echo "Killing process $PID"
-kill -2 ${PID} &>/dev/null || die "kill SIGINT $PID failed"
-timed_wait 10 || echo "$PID still running after 10 seconds after SIGINT. Will attempt SIGTERM."
+echo "Terminating process $PID"
 kill -15 ${PID} &>/dev/null
-timed_wait 5 || echo "$PID still running after 5 seconds after SIGTERM."
+timed_wait 5 && cleanup || echo "$PID still running after 5 seconds after SIGTERM. Will attempt SIGINT."
+kill -2 ${PID} &>/dev/null"
+timed_wait 5 && cleanup || echo "$PID still running after 5 seconds after SIGINT. Will attempt SIGKILL."
 kill -9 ${PID} &>/dev/null
-timed_wait 5 || die "Cannot terminate $PID."
-rm -f $PIDFILE
-echo
-exit 0
+timed_wait 5 && cleanup || die "Cannot terminate $PID."
