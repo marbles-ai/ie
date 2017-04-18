@@ -1695,7 +1695,7 @@ class FunctorProduction(Production):
             raise DrsComposeError('cannot push functor to non-functor inner scope')
 
         # tail recursion
-        return self._comp.append(fn)
+        return self._comp.push(fn)
 
     def make_vars_disjoint(self, arg):
         """Make variable names disjoint. This is always done before unification.
