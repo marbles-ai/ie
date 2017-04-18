@@ -983,11 +983,12 @@ class DRS(AbstractDRS):
                 ul = u' '
             else:
                 ul = self._show_universe(u'  ', notation)
-            cl = self._show_conditions(notation) + u'\n'
+            cl = self._show_conditions(notation).rstrip()
             l = 4 + max(union(map(len, ul.split(u'\n')), map(len, cl.split(u'\n'))))
-            return self.show_horz_line(l, self.boxTopLeft, self.boxTopRight) + \
-                   self.show_content(l, ul) + u'\n' + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight) + \
-                   self.show_content(l, cl) + u'\n' + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight)
+            top = self.show_horz_line(l, self.boxTopLeft, self.boxTopRight)
+            mid = self.show_content(l, ul) + u'\n' + self.show_horz_line(l, self.boxMiddleLeft, self.boxMiddleRight)
+            bottom = self.show_content(l, cl) + u'\n' + self.show_horz_line(l, self.boxBottomLeft, self.boxBottomRight)
+            return top + mid + bottom
         elif notation == SHOW_LINEAR:
             ul = self._show_universe(',', notation)
             cl = self._show_conditions(notation)
