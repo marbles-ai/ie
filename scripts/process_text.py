@@ -14,8 +14,8 @@ sys.path.insert(0, pypath)
 
 from marbles.ie import grpc
 from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, DrsProduction
+from marbles.ie.ccg.ccg2drs import process_ccg_pt
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
 
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
                     raise
 
                 try:
-                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
                     d = d.unify()
                     d = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
                     drs = d
