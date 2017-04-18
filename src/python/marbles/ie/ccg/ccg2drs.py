@@ -916,6 +916,8 @@ class Ccg2Drs(object):
                 assert result.get_scope_count() == cl2.get_scope_count()
 
             cl2.set_dependency(hd)
+            if (cl2.compose_options & self.options) != self.options:
+                cl2.set_options(self.options)
             return cl2
 
         # L Node in parse tree
@@ -936,7 +938,9 @@ class Ccg2Drs(object):
 
         # Special handling for proper nouns
         if fn.category == CAT_ADJECTIVE and pt[1] == '&':
-            fn.set_options(fn.compose_options | CO_DISABLE_UNIFY)
+            fn.set_options(self.options | CO_DISABLE_UNIFY)
+        else:
+            fn.set_options(self.options)
 
         return fn
 
