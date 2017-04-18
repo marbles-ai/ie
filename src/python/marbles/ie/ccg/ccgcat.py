@@ -5,6 +5,7 @@ import os
 from marbles.ie.utils.cache import Cache
 
 
+## @ingroup gfn
 def iscombinator_signature(signature):
     """Test if a DRS, or CCG type, is a combinator. A combinator expects a function as the argument and returns a
     function.
@@ -14,10 +15,14 @@ def iscombinator_signature(signature):
 
     Returns:
         True if the signature is a combinator
+
+    See Also:
+        marbles.ie.ccg.ccgcat.Category
     """
     return len(signature) > 2 and signature[-1] == ')' and signature[0] == '('
 
 
+## @ingroup gfn
 def isfunction_signature(signature):
     """Test if a DRS, or CCG type, is a function.
 
@@ -26,10 +31,14 @@ def isfunction_signature(signature):
 
     Returns:
         True if the signature is a function.
+
+    See Also:
+        marbles.ie.ccg.ccgcat.Category
     """
     return len(signature.replace('\\', '/').split('/')) > 1
 
 
+## @ingroup gfn
 def split_signature(signature):
     """Split a DRS, or CCG type, into argument and return types.
 
@@ -39,6 +48,9 @@ def split_signature(signature):
     Returns:
         A 3-tuple of <return type>, [\/], <argument type>. Basic non-functor types are encoded:
         <basic-type>, '', ''
+
+    See Also:
+        marbles.ie.ccg.ccgcat.Category
     """
     b = 0
     for i in reversed(range(len(signature))):
@@ -57,6 +69,7 @@ def split_signature(signature):
     return signature, '', ''
 
 
+## @ingroup gfn
 def join_signature(sig):
     """Join a split signature.
 
@@ -68,6 +81,7 @@ def join_signature(sig):
 
     See Also:
         split_signature()
+        marbles.ie.ccg.ccgcat.Category
     """
     assert len(sig) == 3 and isinstance(sig, tuple)
     fr = isfunction_signature(sig[0])
@@ -968,6 +982,7 @@ CAT_S_S = Category.from_cache(r'S\S')
 ## @endcond
 
 
+## @ingroup gfn
 def get_rule(left, right, result, exclude=None):
     """Check if left can be combined with right to produce result.
 
@@ -979,6 +994,9 @@ def get_rule(left, right, result, exclude=None):
 
     Returns:
         A production rule instance or None if the rule could not be found.
+
+    See Also:
+        marbles.ie.ccg.ccgcat.Rule
     """
 
     # Useful logic for category X.

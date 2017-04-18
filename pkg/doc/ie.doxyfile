@@ -79,11 +79,11 @@ ENABLED_SECTIONS       =
 MAX_INITIALIZER_LINES  = 30
 SHOW_USED_FILES        = NO
 # deprecated in 1.8
-#SHOW_DIRECTORIES       = NO
+#SHOW_DIRECTORIES      = NO
 SHOW_FILES             = NO
 SHOW_NAMESPACES        = YES
 FILE_VERSION_FILTER    = 
-#LAYOUT_FILE            = doxygen_layout.xml
+#LAYOUT_FILE           = doxygen_layout.xml
 #---------------------------------------------------------------------------
 # configuration options related to warning and progress messages
 #---------------------------------------------------------------------------
@@ -98,14 +98,19 @@ WARN_LOGFILE           =
 # configuration options related to the input files
 #---------------------------------------------------------------------------
 INPUT                  = ie-help.py \ 
+                         ../../src/python/marbles/ie/parse.py \
                          ../../src/python/marbles/ie/drt/common.py \
 						 ../../src/python/marbles/ie/drt/drs.py \
 						 ../../src/python/marbles/ie/drt/pdrs.py \
-						 ../../src/python/marbles/ie/drt/ccg2drs.py \
-						 ../../src/python/marbles/ie/drt/ccgcat.py \
 						 ../../src/python/marbles/ie/drt/compose.py \
 						 ../../src/python/marbles/ie/drt/parse.py \
 						 ../../src/python/marbles/ie/drt/fol.py \
+						 ../../src/python/marbles/ie/grpc/marbles_service_pb2.py \
+						 ../../src/python/marbles/ie/utils/cache.py \
+						 ../../src/python/marbles/ie/ccg/ccg2drs.py \
+						 ../../src/python/marbles/ie/ccg/ccgcat.py \
+						 ../../src/python/marbles/ie/ccg/model.py \
+						 ../../src/python/marbles/ie/kb/conceptnet.py \
 						 ../../src/main/java/ai/marbles/grpc/ \
 						 ../../build/grpc/python/ \
 						 ../../build/generated/source/proto/main/grpc/ai/marbles/grpc/ \
@@ -122,7 +127,9 @@ INPUT                  = ie-help.py \
 						 ../../ext/easysrl/src/edu/uw/easysrl/syntax/model/feature/ \
 						 ../../ext/easysrl/src/edu/uw/easysrl/syntax/parser/ \
 						 ../../ext/easysrl/src/edu/uw/easysrl/syntax/tagger/ \
-						 ../../ext/easysrl/src/edu/uw/easysrl/syntax/training/
+						 ../../ext/easysrl/src/edu/uw/easysrl/syntax/training/ \
+						 ../../ext/easyccg-0.2/src/uk/ac/ed/easyccg/syntax/ \
+						 ../../ext/easyccg-0.2/src/uk/ac/ed/easyccg/main/
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.c \
                          *.cc \

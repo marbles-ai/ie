@@ -493,7 +493,7 @@ class Model(object):
             return wc in self._TEMPLATES
         return False
 
-
+## @cond
 # Run scripts/make_functor_templates.py to create templates file
 try:
     _tcache = Model.load_templates(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'functor_templates.dat'))
@@ -610,4 +610,4 @@ except Exception as e:
     print(e)
     # Allow module to load else we cannot create the dat file.
     MODEL = Model()
-
+## @endcond

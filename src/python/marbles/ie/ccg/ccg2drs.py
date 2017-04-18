@@ -81,7 +81,6 @@ for k,u,v,w in __adv:
 _PREPS = {
     'to':   MODEL.build_template(r'PP_1002/NP_1002')[1],
 }
-## endcond
 
 
 _MONTHS = {
@@ -216,8 +215,10 @@ _ATTITUDE = [
 # Special categories
 CAT_CONJ_CONJ = Category(r'conj\conj')
 CAT_CONJCONJ = Category(r'conj/conj')
+## @endcond
 
 
+## @ingroup gfn
 def safe_create_empty_functor(category):
     """Lookup model templates and create an empty functor. If the template
     does not exits attempt to infer from existing templates.
@@ -242,7 +243,16 @@ def safe_create_empty_functor(category):
     return None
 
 
+## @ingroup gfn
 def strip_apostrophe_s(word):
+    """Strip trailing 's from nouns.
+
+    Args:
+        word: An ascii or utf-8 string.
+
+    Returns:
+        The stripped word.
+    """
     # Must support utf-8
     if len(word) > 2:
         if word.endswith("'s"):
@@ -958,6 +968,7 @@ class Ccg2Drs(object):
         return d
 
 
+## @ingroup gfn
 def process_ccg_pt(pt, options=None):
     """Process the CCG parse tree.
 
@@ -986,6 +997,7 @@ def process_ccg_pt(pt, options=None):
     return builder.process_ccg_pt(pt)
 
 
+## @cond
 def _process_sentence_node(pt, s):
     if pt[-1] == 'T':
         for nd in pt[1:-1]:
@@ -993,8 +1005,10 @@ def _process_sentence_node(pt, s):
             _process_sentence_node(nd, s)
     else:
         s.append(pt[1])
+## @endcond
 
 
+## @ingroup gfn
 def sentence_from_pt(pt):
     """Get the sentence from a CCG parse tree.
 
@@ -1009,6 +1023,7 @@ def sentence_from_pt(pt):
     return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 
+## @cond
 def _extract_predarg_categories_node(pt, lst):
     global _PredArgIdx
     if pt[-1] == 'T':
@@ -1027,8 +1042,10 @@ def _extract_predarg_categories_node(pt, lst):
         predarg = Category(pt[4])
         assert catkey == predarg.clean(True)
         lst.append(predarg)
+## @endcond
 
 
+## @ingroup gfn
 def extract_predarg_categories_from_pt(pt, lst=None):
     """Extract the predicate-argument categories from a CCG parse tree.
 
