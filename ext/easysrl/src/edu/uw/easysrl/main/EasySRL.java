@@ -283,6 +283,8 @@ public class EasySRL {
 		final ParserBuilder<? extends ParserBuilder<?>> result;
 		if (o.getParsingAlgorithm().equals("astar")) {
 			result = new ParserAStar.Builder(new File(absolutePath(o.getModel())));
+		} else if (o.getParsingAlgorithm().equals("cky")) {
+			result = new ParserCKY.Builder(new File(absolutePath(o.getModel())));
 		} else {
 			throw new IllegalArgumentException("Unknown parsing algorithm: " + o.getParsingAlgorithm());
 		}
