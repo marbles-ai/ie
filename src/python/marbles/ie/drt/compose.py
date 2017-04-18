@@ -612,19 +612,20 @@ class DrsProduction(Production):
 
             conds = []
 
-            todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
-                    ('.LOC', locations)]
-            for rel, lst in todo:
-                for nd, r, w, t in lst:
-                    fc = self._drs.find_condition(Rel(w, [r]))
+            if 0 != (self.compose_options & CO_BUILD_STATES):
+                todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
+                        ('.LOC', locations)]
+                for rel, lst in todo:
+                    for nd, r, w, t in lst:
+                        fc = self._drs.find_condition(Rel(w, [r]))
+                        if fc is not None:
+                            self._drs.remove_condition(fc)
+                            nr = DRSRef(DRSVar('y', r.var.idx))
+                            conds.append(Prop(r, DRS([nr], [Rel(rel, nr), Rel(w, nr)])))
+                for nd, r, w, t in events:
+                    fc = self._drs.find_condition(Rel('.EVENT', [r]))
                     if fc is not None:
                         self._drs.remove_condition(fc)
-                        nr = DRSRef(DRSVar('y', r.var.idx))
-                        conds.append(Prop(r, DRS([nr], [Rel(rel, nr), Rel(w, nr)])))
-            for nd, r, w, t in events:
-                fc = self._drs.find_condition(Rel('.EVENT', [r]))
-                if fc is not None:
-                    self._drs.remove_condition(fc)
 
             # Make proper names constants
             '''
