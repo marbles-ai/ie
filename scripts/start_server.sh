@@ -23,6 +23,7 @@ done
 shift $((OPTIND-1))   
 [ "x$1" != "" ] || die "missing service name $*"
 SERVICE="$1"
+shift
 [ "x$SERVICE" != "x" ] && [ -f $PROJROOT/daemons/$SERVICE ] || die "bad service name $SERVICE"
 PIDFILE=$PROJROOT/daemons/running/$SERVICE.pid
 LOGFILE=$PROJROOT/daemons/log/$(create_logfile_name $SERVICE)
@@ -37,7 +38,7 @@ echo "====================================================="
 echo "Running service $SERVICE"
 echo "  To stop run stop_server.sh $SERVICE"
 echo "  The pid will be saved at $PIDFILE"
-[ $DEBUG_ON -eq 0 ] && $PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE
-[ $DEBUG_ON -ne 0 ] && echo "$PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE"
+[ $DEBUG_ON -eq 0 ] && $PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE $*
+[ $DEBUG_ON -ne 0 ] && echo "$PROJROOT/daemons/$SERVICE $PIDFILE $LOGFILE $*"
 exit 0
 
