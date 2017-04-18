@@ -26,6 +26,8 @@ CO_VERIFY_SIGNATURES = 0x0004
 CO_DISABLE_UNIFY = 0x0008
 ## Build state slots
 CO_BUILD_STATES = 0x0010
+## Add state predicates
+CO_ADD_STATE_PREDICATES = 0x0020
 
 ## @}
 
@@ -612,9 +614,9 @@ class DrsProduction(Production):
 
             conds = []
 
+            todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
+                    ('.LOC', locations)]
             if 0 != (self.compose_options & CO_BUILD_STATES):
-                todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
-                        ('.LOC', locations)]
                 for rel, lst in todo:
                     for nd, r, w, t in lst:
                         fc = self._drs.find_condition(Rel(w, [r]))
@@ -626,6 +628,12 @@ class DrsProduction(Production):
                     fc = self._drs.find_condition(Rel('.EVENT', [r]))
                     if fc is not None:
                         self._drs.remove_condition(fc)
+            elif 0 != (self.compose_options & CO_ADD_STATE_PREDICATES):
+                for rel, lst in todo:
+                    if rel == '.EVENT':
+                        continue
+                    for nd, r, w, t in lst:
+                        conds.append(Rel(rel, r))
 
             # Make proper names constants
             '''
@@ -832,6 +840,7 @@ class ProductionList(Production):
                 ml[0].set_lambda_refs(self.lambda_refs)
             # Unary type changes require we set here
             ml[0].set_category(self.category)
+            ml[0].set_options(self.compose_options)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
             self._compList.extend(ml)
@@ -935,6 +944,7 @@ class ProductionList(Production):
         elif not ml[0].islambda_inferred:
             d.set_lambda_refs(ml[0].lambda_refs)
         d.set_category(self.category)
+        d.set_options(self.compose_options)
         return d
 
     def apply_forward(self):
