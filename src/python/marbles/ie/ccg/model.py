@@ -229,6 +229,11 @@ class UnaryRule(object):
         # We implement unary rules using backward application of the functor below
         self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean(), False))
 
+    @property
+    def template(self):
+        """Read only access to template."""
+        return self._template
+
     @staticmethod
     def create_key(result, argument):
         """Create a rule key from result and argument categories.
