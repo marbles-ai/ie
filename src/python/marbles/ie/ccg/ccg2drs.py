@@ -6,7 +6,7 @@ import re
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
-    RL_TYPE_RAISE, RL_BA
+    RL_TYPE_RAISE, RL_BA, RL_LPASS, RL_RPASS
 from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
     RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER
 from marbles.ie.ccg.model import MODEL
@@ -999,6 +999,97 @@ def process_ccg_pt(pt, options=None):
                 elif isinstance(x, unicode):
                     lst[i] = x.encode('utf-8')
     return builder.process_ccg_pt(pt)
+
+
+## @cond
+def _pt_to_ccgbank_helper(pt, lst, pretty):
+    if pretty > 0:
+        indent = '  ' * pretty
+    else:
+        indent = ''
+
+    if pt[-1] == 'T':
+        pretty += 1
+        head = int(pt[0][1])
+        count = int(pt[0][2])
+        result = Category.from_cache(pt[0][0])
+
+        lst.append('%s(<T %s %d %d>' % (indent, pt[0][0], head, count))
+        cats = []
+        for nd in pt[1:-1]:
+            c = _pt_to_ccgbank_helper(nd, lst, pretty+1)
+            cats.append(c)
+
+        if len(cats) == 1:
+            rule = get_rule(cats[0], CAT_EMPTY, result)
+            if rule is None:
+                rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
+                assert rule is not None
+
+            if rule == RL_TCL_UNARY:
+                if pretty > 0:
+                    indent2 = indent + '    '
+                else:
+                    indent2 = ''
+                unary = MODEL.lookup_unary(result, cats[0])
+                if unary is None and result.ismodifier and result.result_category() == cats[0]:
+                    unary = MODEL.infer_unary(result)
+                assert unary is not None
+                template = unary.template
+                lst.append('%s(<L %s %s %s %s %s>)' % (indent2, template.clean_category, 'UNARY', 'UNARY',
+                                                       '.UNARY', template.category.signature))
+        else:
+            assert len(cats) == 2
+            rule = get_rule(cats[0], cats[1], result)
+            if rule is None:
+                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
+                assert rule is not None
+        lst.append('%s)' % indent)
+        return result
+
+    else:
+        # CcgTypeMapper will infer template if it does not exist in MODEL
+        ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:4])
+        if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+            lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], pt[4]))
+            return ccgt.category
+        template = MODEL.lookup(ccgt.category)
+        if template is None:
+            lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], pt[4]))
+            return ccgt.category
+        # Leaf nodes contains six fields:
+        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
+        lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], template.category.signature))
+        return template.clean_category
+## @endcond
+
+
+## @ingroup gfn
+def pt_to_ccgbank(pt, fmt=True):
+    """Process the CCG parse tree, add predicate argument tags, and return the ccgbank string.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+        fmt: If True format for pretty print.
+    Returns:
+        A string
+    """
+    if isinstance(pt[-1], unicode):
+        # Convert to utf-8
+        stk = [pt]
+        while len(stk) != 0:
+            lst = stk.pop()
+            for i in range(len(lst)):
+                x = lst[i]
+                if isinstance(x, list):
+                    stk.append(x)
+                elif isinstance(x, unicode):
+                    lst[i] = x.encode('utf-8')
+    lst = []
+    _pt_to_ccgbank_helper(pt, lst, 0 if fmt else -1000000)
+    if fmt:
+        return '\n'.join(lst)
+    return ''.join(lst)
 
 
 ## @cond
