@@ -14,7 +14,7 @@ sys.path.insert(0, pypath)
 
 from marbles.ie import grpc
 from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import process_ccg_pt
+from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
 
@@ -150,9 +150,12 @@ if __name__ == '__main__':
             # FIXME: Convert to python 3. Unicode is default.
             ccg = grpc.ccg_parse(stub, line, sessionId)
             drs = None
+            pccg = None
+
             if options.ofmt == 'drs':
                 try:
                     pt = parse_ccg_derivation(ccg)
+                    pccg = pt_to_ccgbank(pt)
                 except Exception as e:
                     print('Error: failed to parse ccgbank - %s' % str(e))
                     raise
@@ -171,6 +174,11 @@ if __name__ == '__main__':
                 sys.stdout.write(ccg.strip())
                 sys.stdout.write('\n')
                 sys.stdout.write('</ccg>\n')
+                if pccg:
+                    sys.stdout.write('<predarg>\n')
+                    sys.stdout.write(pccg)
+                    sys.stdout.write('\n')
+                    sys.stdout.write('</predarg>\n')
                 if drs:
                     sys.stdout.write('<drs>\n')
                     sys.stdout.write(drs)
@@ -183,6 +191,11 @@ if __name__ == '__main__':
                     fd.write(ccg)
                     fd.write('\n')
                     fd.write('</ccg>\n')
+                    if pccg:
+                        fd.write('<predarg>\n')
+                        fd.write(pccg)
+                        fd.write('\n')
+                        fd.write('</predarg>\n')
                     if drs:
                         fd.write('<drs>\n')
                         fd.write(drs)
