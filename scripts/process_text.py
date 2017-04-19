@@ -186,9 +186,8 @@ if __name__ == '__main__':
                     sys.stdout.write('</drs>\n')
             else:
                 with open(outfile, 'w') as fd:
-                    fd.write(ccg)
                     fd.write('<ccg>\n')
-                    fd.write(ccg)
+                    fd.write(ccg.strip().encode('utf-8'))
                     fd.write('\n')
                     fd.write('</ccg>\n')
                     if pccg:
