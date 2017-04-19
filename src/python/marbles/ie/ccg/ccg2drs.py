@@ -1005,8 +1005,10 @@ def process_ccg_pt(pt, options=None):
 def _pt_to_ccgbank_helper(pt, lst, pretty):
     if pretty > 0:
         indent = '  ' * pretty
+        indent2 = '  ' * (pretty+1)
     else:
         indent = ''
+        indent2 = indent
 
     if pt[-1] == 'T':
         pretty += 1
@@ -1015,35 +1017,63 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
         result = Category.from_cache(pt[0][0])
 
         lst.append('%s(<T %s %d %d>' % (indent, pt[0][0], head, count))
-        cats = []
-        for nd in pt[1:-1]:
-            c = _pt_to_ccgbank_helper(nd, lst, pretty+1)
-            cats.append(c)
 
-        if len(cats) == 1:
-            rule = get_rule(cats[0], CAT_EMPTY, result)
+        if count == 2:
+            # For binary nodes we need to check if a unary rule before recursion
+            cats = []
+            for nd in pt[1:-1]:
+                if nd[-1] == 'T':
+                    cats.append(Category.from_cache(nd[0][0]))
+                else:
+                    cats.append(Category.from_cache(nd[0]))
+            rule = get_rule(cats[0], cats[1], result)
             if rule is None:
-                rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
+                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                 assert rule is not None
 
             if rule == RL_TCL_UNARY:
-                if pretty > 0:
-                    indent2 = indent + '    '
-                else:
-                    indent2 = ''
                 unary = MODEL.lookup_unary(result, cats[0])
                 if unary is None and result.ismodifier and result.result_category() == cats[0]:
                     unary = MODEL.infer_unary(result)
                 assert unary is not None
                 template = unary.template
+                lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
+                _pt_to_ccgbank_helper(pt[1], lst, pretty+1)
+                lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
+                                                       '.UNARY', template.category.signature))
+                lst.append('%s)' % indent2)
+                _pt_to_ccgbank_helper(pt[2], lst, pretty)
+            elif rule == RL_TCR_UNARY:
+                unary = MODEL.lookup_unary(result, cats[1])
+                if unary is None and result.ismodifier and result.result_category() == cats[1]:
+                    unary = MODEL.infer_unary(result)
+                assert unary is not None
+                template = unary.template
+                _pt_to_ccgbank_helper(pt[1], lst, pretty)
+                lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
+                _pt_to_ccgbank_helper(pt[2], lst, pretty+1)
+                lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
+                                                       '.UNARY', template.category.signature))
+                lst.append('%s)' % indent2)
+            else:
+                _pt_to_ccgbank_helper(pt[1], lst, pretty)
+                _pt_to_ccgbank_helper(pt[2], lst, pretty)
+        else:
+            assert count == 1
+            cat = _pt_to_ccgbank_helper(pt[1], lst, pretty)
+            rule = get_rule(cat, CAT_EMPTY, result)
+            if rule is None:
+                rule = get_rule(cat.simplify(), CAT_EMPTY, result)
+                assert rule is not None
+
+            if rule == RL_TCL_UNARY:
+                unary = MODEL.lookup_unary(result, cat)
+                if unary is None and result.ismodifier and result.result_category() == cat:
+                    unary = MODEL.infer_unary(result)
+                assert unary is not None
+                template = unary.template
                 lst.append('%s(<L %s %s %s %s %s>)' % (indent2, template.clean_category, 'UNARY', 'UNARY',
                                                        '.UNARY', template.category.signature))
-        else:
-            assert len(cats) == 2
-            rule = get_rule(cats[0], cats[1], result)
-            if rule is None:
-                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                assert rule is not None
         lst.append('%s)' % indent)
         return result
 
