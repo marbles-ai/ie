@@ -297,6 +297,12 @@ class POS(object):
     def __hash__(self):
         return hash(self._tag)
 
+    def __str__(self):
+        return self._tag
+
+    def __repr__(self):
+        return self._tag
+
     @property
     def tag(self):
         """Readonly access to POS tag."""
