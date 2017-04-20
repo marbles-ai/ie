@@ -552,6 +552,7 @@ class CcgTypeMapper(object):
                 fn = DrsProduction(pron[0], category=CAT_NP,
                                    dep=Dependency(DRSRef('x1'), self._word, pron[1]))
                 fn.set_lambda_refs(pron[2])
+                return FunctorProduction(category=self.category, referent=pron[2], production=fn)
             else:
                 if self.category == CAT_DETERMINER:
                     if self._word in ['a', 'an']:
@@ -911,7 +912,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['was', 'positive', 'generally']:
+        if pt[1] in ['apple', 'pie', 'was', 'positive', 'generally']:
             pass
 
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
