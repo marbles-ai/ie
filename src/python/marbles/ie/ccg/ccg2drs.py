@@ -16,8 +16,11 @@ from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduct
     DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY
 from marbles.ie.drt.drs import DRS, DRSRef, Rel
 from marbles.ie.drt.common import DRSConst, DRSVar
-from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement
+from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
+from marbles.ie.drt.drs import get_new_drsrefs
+from marbles.ie.utils.cache import Cache
+
 
 ## @cond
 __pron = [
@@ -25,13 +28,13 @@ __pron = [
     ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN),
     ('me',      '([x1],[])',    '([],[([],[me(x1)])->([],[i(x1)])])', RT_HUMAN),
     ('myself',  '([x1],[])',    '([],[([],[myself(x1)])->([],[i(x1)])])', RT_HUMAN),
-    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[i(x2),owns(x2,x1)])])', RT_HUMAN),
-    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[i(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[i(x2),own(x2,x1)])])', RT_HUMAN),
+    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[i(x2),own(x2,x1)])])', RT_HUMAN),
     # 2nd person singular
     ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN),
     ('yourself','([x1],[])',    '([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
-    ('yours',   '([x2],[])',    '([],[([],[yours(x2)])->([],[you(x1),owns(x1,x2)])])', RT_HUMAN),
-    ('your',    '([x2],[])',    '([],[([],[your(x2)])->([],[you(x1),owns(x1,x2)])])', RT_HUMAN),
+    ('yours',   '([x2],[])',    '([],[([],[yours(x2)])->([],[you(x1),own(x1,x2)])])', RT_HUMAN),
+    ('your',    '([x2],[])',    '([],[([],[your(x2)])->([],[you(x1),own(x1,x2)])])', RT_HUMAN),
     # 3rd person singular
     ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
     ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
@@ -219,7 +222,13 @@ _ATTITUDE = [
 CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
 CAT_CONJCONJ = Category.from_cache(r'conj/conj')
 CAT_ADJ_PHRASE = Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)')
+# Transitive verb
 CAT_TV = Category.from_cache(r'(S\NP)/NP')
+# Ditransitive verb
+CAT_DTV = Category.from_cache(r'(S\NP)/NP/NP')
+# Verb phrase
+CAT_VP = Category.from_cache(r'S\NP')
+
 ## @endcond
 
 
@@ -267,6 +276,85 @@ def strip_apostrophe_s(word):
     return word
 
 
+class POS(object):
+    """Penn Treebank Part-Of-Speech."""
+    _cache = Cache()
+
+    def __init__(self, tag):
+        self._tag = tag
+        self._freeze = False
+
+    def __eq__(self, other):
+        if self._freeze and other.isfrozen:
+            return id(other) == id(self)
+        return self._tag == other.tag
+
+    def __ne__(self, other):
+        if self._freeze and other.isfrozen:
+            return id(other) != id(self)
+        return self._tag != other.tag
+
+    def __hash__(self):
+        return hash(self._tag)
+
+    @property
+    def tag(self):
+        """Readonly access to POS tag."""
+        return self._tag
+
+    @property
+    def isfrozen(self):
+        """Test if a POS cache entry is frozen."""
+        return self._freeze
+
+    @classmethod
+    def from_cache(cls, tag):
+        """Get the cached POS tag"""
+        if isinstance(tag, POS):
+            tag = tag.tag
+        try:
+            return cls._cache[tag]
+        except KeyError:
+            pos = POS(tag)
+            cls._cache[pos.tag] = pos
+            pos.freeze()
+            return pos
+
+    def freeze(self):
+        """Freeze a cache entry so equality requires same object id."""
+        self._freeze = True
+
+
+# Initialize POS cache
+_tags = [
+    'CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD', 'NN', 'NNS', 'NNP', 'NNPS',
+    'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN',
+    'VBP', 'VBZ', 'WDT', 'WP', 'WP$', 'WRB', 'UNKNOWN', ',', '.', ':', ';'
+]
+for _t in _tags:
+    POS._cache.addinit((_t, POS(_t)))
+for _t in _tags:
+    POS.from_cache(_t).freeze()
+
+
+# Useful tags
+POS_DETERMINER = POS.from_cache('DT')
+POS_LIST_PERSON_PRONOUN = [POS.from_cache('PRP'), POS.from_cache('PRP$')]
+POS_LIST_PRONOUN = [POS.from_cache('PRP'), POS.from_cache('PRP$'), POS.from_cache('WP'), POS.from_cache('WP$')]
+POS_LIST_VERB = [POS.from_cache('VB'), POS.from_cache('VBD'), POS.from_cache('VBN'), POS.from_cache('VBP'),
+                 POS.from_cache('VBZ')]
+POS_ADJECTIVE = POS.from_cache('JJ')
+POS_GERUND = POS.from_cache('VBG')
+POS_PROPER_NOUN = POS.from_cache('NNP')
+POS_NOUN = POS.from_cache('NN')
+POS_POSSESSIVE = POS.from_cache('NNS')
+POS_MODAL = POS.from_cache('MD')
+POS_UNKNOWN = POS.from_cache('UNKNOWN')
+POS_NUMBER = POS.from_cache('CD')
+POS_PREPOSITION = POS.from_cache('IN')
+POS_LIST_PUNCT = [POS.from_cache(','), POS.from_cache('.'), POS.from_cache(':'), POS.from_cache(';')]
+
+
 class CcgTypeMapper(object):
     """Mapping from CCG types to DRS types."""
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
@@ -278,17 +366,17 @@ class CcgTypeMapper(object):
             self._ccgcat = category
         else:
             self._ccgcat = Category.from_cache(category)
-        self._pos = posTags[0:2] if posTags else ['UNKNOWN']
+        self._pos = POS.from_cache(posTags[0]) if posTags is not None else POS_UNKNOWN
 
         # We treat modal as verb modifiers - i.e. they don't get their own event
-        if self._pos[0] == 'MD':
+        if self._pos == POS_MODAL:
             tmpcat = self._ccgcat.remove_features().simplify()
             if tmpcat.ismodifier:
                 self._ccgcat = tmpcat
 
         # TODO: should lookup nouns via conceptnet or wordnet
         wd = strip_apostrophe_s(word)
-        if (self.category == CAT_NOUN or self._pos[0] == 'NN' or self._pos[0] == 'NNS') and wd.upper() == wd:
+        if (self.category == CAT_NOUN or self._pos == POS_NOUN or self._pos == POS_POSSESSIVE) and wd.upper() == wd:
             # If all uppercase then keep it that way
             self._word = word.rstrip('?.,:;')
         elif self.isproper_noun:
@@ -309,17 +397,17 @@ class CcgTypeMapper(object):
                                       (category, word, self.signature))
 
     def __repr__(self):
-        return '<' + self._word + ' ' + self.partofspeech + ' ' + self.signature + '>'
+        return '<' + self._word + ' ' + str(self.partofspeech) + ' ' + self.signature + '>'
 
     @property
     def ispunct(self):
         """Test if the word attached to this category is a punctuation mark."""
-        return self.partofspeech in [',', '.', ':', ';']
+        return self.partofspeech in POS_LIST_PUNCT
 
     @property
     def ispronoun(self):
         """Test if the word attached to this category is a pronoun."""
-        return (self.partofspeech in ['PRP', 'PRP$', 'WP', 'WP$']) or self._word in _PRON
+        return (self.partofspeech in POS_LIST_PRONOUN) or self._word in _PRON
 
     @property
     def ispreposition(self):
@@ -337,22 +425,22 @@ class CcgTypeMapper(object):
     def isverb(self):
         """Test if the word attached to this category is a verb."""
         # Verbs can behave as adjectives
-        return self.partofspeech in ['VB', 'VBD', 'VBN', 'VBP', 'VBZ'] and self.category != CAT_ADJECTIVE
+        return self.partofspeech in POS_LIST_VERB and self.category != CAT_ADJECTIVE
 
     @property
     def isgerund(self):
         """Test if the word attached to this category is a gerund."""
-        return self.partofspeech == 'VBG'
+        return self.partofspeech == POS_GERUND
 
     @property
     def isproper_noun(self):
         """Test if the word attached to this category is a proper noun."""
-        return self.partofspeech == 'NNP'
+        return self.partofspeech == POS_PROPER_NOUN
 
     @property
     def isnumber(self):
         """Test if the word attached to this category is a number."""
-        return self.partofspeech == 'CD'
+        return self.partofspeech == POS_NUMBER
 
     @property
     def isadjective(self):
@@ -363,7 +451,7 @@ class CcgTypeMapper(object):
     @property
     def partofspeech(self):
         """Get part of speech of the word attached to this category."""
-        return self._pos[0] if self._pos is not None else 'UNKNOWN'
+        return self._pos
 
     @property
     def signature(self):
@@ -462,7 +550,7 @@ class CcgTypeMapper(object):
         elif self.isnumber:
             conds.append(Rel(self._word, [refs[0]]))
             conds.append(Rel('.NUM', refs))
-        elif self.partofspeech == 'IN' and not self.ispreposition:
+        elif self.partofspeech == POS_PREPOSITION and not self.ispreposition:
             conds.append(Rel(self._word, refs))
         else:
             conds.append(Rel(self._word, [refs[0]]))
@@ -505,7 +593,7 @@ class CcgTypeMapper(object):
                     dep = Dependency(DRSRef('x1'), self._word, RT_PROPERNAME)
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=True, dep=dep)
                 else:
-                    if self.partofspeech == 'NNS':
+                    if self.partofspeech == POS_POSSESSIVE:
                         dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL)
                     else:
                         dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY)
@@ -517,7 +605,7 @@ class CcgTypeMapper(object):
                 if self.isnumber:
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]),
                                       dep=Dependency(DRSRef('x1'), self._word, RT_NUMBER))
-                elif self.partofspeech == 'NNS':
+                elif self.partofspeech == POS_POSSESSIVE:
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]),
                                       dep=Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL))
                 else:
@@ -561,12 +649,13 @@ class CcgTypeMapper(object):
                         fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
                     else:
                         fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
-                elif self.partofspeech == 'DT' and self._word in ['the', 'thy', 'a', 'an']:
+                elif self.partofspeech == POS_DETERMINER and self._word in ['the', 'thy', 'a', 'an']:
                     fn = DrsProduction(DRS([], []), category=CAT_NP)
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
                 fn.set_lambda_refs([DRSRef('x1')])
             return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
+
         else:
             refs = []
             signatures = []
@@ -632,6 +721,19 @@ class CcgTypeMapper(object):
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
 
+            #elif self.partofspeech == POS_DETERMINER and self._word == 'a':
+
+            elif self.ispronoun and self._word in _PRON:
+                pron = _PRON[self._word]
+                fn = DrsProduction(pron[0], category=self.category,
+                                   dep=Dependency(DRSRef('x1'), self._word, pron[1]))
+                ers = complement(fn.variables, pron[2])
+                ors = intersect(refs, ers)
+                if len(ors) != 0:
+                    nrs = get_new_drsrefs(ors, union(ers, refs, pron[2]))
+                    fn.rename_vars(zip(ors, nrs))
+                fn.rename_vars([(pron[2][0], template.final_ref)])
+
             elif self.ispreposition:
                 if template.construct_empty:
                     fn = DrsProduction(DRS([], []))
@@ -650,14 +752,15 @@ class CcgTypeMapper(object):
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
-                elif self.category == CAT_NOUN or self.partofspeech in ['NN', 'NNS']:
-                    dep = Dependency(refs[0], self._word, RT_ENTITY)
+                elif final_atom == CAT_N and not self.category.ismodifier:
+                    dep = Dependency(refs[0], self._word, (RT_ENTITY | RT_PLURAL)
+                                     if self.partofspeech == POS_POSSESSIVE else RT_ENTITY)
                 else:
                     dep = None
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
                         fn = DrsProduction(DRS([], []))
-                    elif self.partofspeech == 'MD':
+                    elif self.partofspeech == POS_MODAL:
                         fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]),
                                                     Rel('.MODAL', [refs[0]])]))
                     else:
