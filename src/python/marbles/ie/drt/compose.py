@@ -1276,7 +1276,7 @@ class FunctorProduction(Production):
         self._outer = None
         if self._comp is not None:
             if isinstance(self._comp, FunctorProduction):
-                self.comp._set_outer(self)
+                self._comp._set_outer(self)
 
     def _set_outer(self, outer):
         if outer is not None:
