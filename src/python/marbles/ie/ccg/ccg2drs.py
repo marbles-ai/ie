@@ -4,9 +4,11 @@
 import re
 
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
-    CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, \
+    CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
-    RL_TYPE_RAISE, RL_BA, RL_LPASS, RL_RPASS
+    RL_TYPE_RAISE, RL_BA, RL_LPASS, RL_RPASS, \
+    FEATURE_ADJ, FEATURE_PSS, FEATURE_TO
+
 from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
     RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER
 from marbles.ie.ccg.model import MODEL
@@ -28,8 +30,8 @@ __pron = [
     # 2nd person singular
     ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN),
     ('yourself','([x1],[])',    '([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
-    ('yours',   '([x1],[])',    '([],[([],[yours(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
-    ('your',    '([x1],[])',    '([],[([],[your(x1)])->([],[you(x2),owns(x2,x1)])])', RT_HUMAN),
+    ('yours',   '([x2],[])',    '([],[([],[yours(x2)])->([],[you(x1),owns(x1,x2)])])', RT_HUMAN),
+    ('your',    '([x2],[])',    '([],[([],[your(x2)])->([],[you(x1),owns(x1,x2)])])', RT_HUMAN),
     # 3rd person singular
     ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
     ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
@@ -38,15 +40,15 @@ __pron = [
     ('himself', '([x1],[])',    '([],[([],[himself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
     ('herself', '([x1],[])',    '([],[([],[herself(x1)])->([],[she(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
     ('hisself', '([x1],[])',    '([],[([],[hisself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('his',     '([x1],[])',    '([],[([],[his(x1)])->([],[he(x2),own(x2,x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('hers',    '([x1],[])',    '([],[([],[hers(x1)])->([],[she(x2),own(x2,x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('his',     '([x2],[])',    '([],[([],[his(x2)])->([],[he(x1),own(x1,x2)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
+    ('hers',    '([x2],[])',    '([],[([],[hers(x2)])->([],[she(x1),own(x1,x2)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
     # 1st person plural
     ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL),
     ('us',      '([x1],[])',    '([],[([],[us(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
     ('ourself', '([x1],[])',    '([],[([],[ourself(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
     ('ourselves','([x1],[])',   '([],[([],[ourselves(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ours',    '([x1],[])',    '([],[([],[ours(x1)])->([],[we(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('our',     '([x1],[])',    '([],[([],[our(x1)])->([],[we(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('ours',    '([x2],[])',    '([],[([],[ours(x2)])->([],[we(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
+    ('our',     '([x2],[])',    '([],[([],[our(x2)])->([],[we(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
     # 2nd person plural
     ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
     # 3rd person plural
@@ -54,11 +56,11 @@ __pron = [
     ('them',    '([x1],[])',    '([],[([],[them(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
     ('themself','([x1],[])',    '([],[([],[themself(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
     ('themselves','([x1],[])',  '([],[([],[themselves(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('theirs',  '([x1],[])',    '([],[([],[theirs(x1)])->([],[they(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
-    ('their',   '([x1],[])',    '([],[([],[their(x1)])->([],[they(x2),own(x2,x1)])])', RT_HUMAN|RT_PLURAL),
+    ('theirs',  '([x2],[])',    '([],[([],[theirs(x2)])->([],[they(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
+    ('their',   '([x2],[])',    '([],[([],[their(x2)])->([],[they(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
     # it
     ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA),
-    ('its',     '([x1],[])',    '([],[([],[its(x1)])->([],[it(x2),own(x2,x1)])])', RT_ANAPHORA),
+    ('its',     '([x2],[])',    '([],[([],[its(x2)])->([],[it(x1),own(x1,x2)])])', RT_ANAPHORA),
     ('itself',  '([x1],[])',    '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
 ]
 _PRON = {}
@@ -79,7 +81,8 @@ for k,u,v,w in __adv:
 
 # Special behavior for prepositions
 _PREPS = {
-    'to':   MODEL.build_template(r'PP_1002/NP_1002')[1],
+    'to':           MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
+    'alongside':    MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
 }
 
 
@@ -213,8 +216,10 @@ _ATTITUDE = [
 
 
 # Special categories
-CAT_CONJ_CONJ = Category(r'conj\conj')
-CAT_CONJCONJ = Category(r'conj/conj')
+CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
+CAT_CONJCONJ = Category.from_cache(r'conj/conj')
+CAT_ADJ_PHRASE = Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)')
+CAT_TV = Category.from_cache(r'(S\NP)/NP')
 ## @endcond
 
 
@@ -280,9 +285,6 @@ class CcgTypeMapper(object):
             tmpcat = self._ccgcat.remove_features().simplify()
             if tmpcat.ismodifier:
                 self._ccgcat = tmpcat
-
-        if len(word) > 3 and word[0] == 'I':
-            pass
 
         # TODO: should lookup nouns via conceptnet or wordnet
         wd = strip_apostrophe_s(word)
@@ -466,25 +468,6 @@ class CcgTypeMapper(object):
             conds.append(Rel(self._word, [refs[0]]))
         return conds
 
-    @staticmethod
-    def remove_events_from_template(templ):
-        """Remove events from a production template."""
-        result = []
-        for t in templ[:-1]:
-            if isinstance(t[1], tuple):
-                #result.append((t[0],t[1][0:-1] if t[1] is not None else None))
-                if isinstance(t[1], tuple):
-                    if len(t[1]) > 2:
-                        result.append((t[0],t[1][0:-1]))
-                    else:
-                        result.append((t[0],t[1][0]))
-                else:
-                    result.append(t)
-            else:
-                result.append(t)
-        result.append(None)
-        return tuple(result)
-
     def get_composer(self):
         """Get the production model for this category.
 
@@ -505,7 +488,7 @@ class CcgTypeMapper(object):
         if compose is None:
             # Simple type
             # Handle prepositions
-            if self.category == CAT_CONJ:
+            if self.category in [CAT_CONJ, CAT_NPthr]:
                 if self._word == ['or', 'nor']:
                     return OrProduction(negate=('n' in self._word))
                 return self.empty_production()
@@ -514,7 +497,7 @@ class CcgTypeMapper(object):
             elif self.ispronoun and self._word in _PRON:
                 pron = _PRON[self._word]
                 d = DrsProduction(pron[0], category=self.category,
-                                  dep=Dependency(pron[0].freerefs[0], self._word, pron[1]))
+                                  dep=Dependency(DRSRef('x1'), self._word, pron[1]))
                 d.set_lambda_refs(pron[2])
                 return d
             elif self.category == CAT_N:
@@ -564,18 +547,24 @@ class CcgTypeMapper(object):
         if self.category == CAT_NP_N:    # NP*/N class
             # Ignore template in these cases
             # FIXME: these relations should be added as part of build_conditions()
-            if self.category == CAT_DETERMINER:
-                if self._word in ['a', 'an']:
-                    fn = DrsProduction(DRS([], [Rel('.MAYBE', [DRSRef('x1')])]), category=CAT_NP)
-                elif self._word in ['the', 'thy']:
-                    fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
+            if self.ispronoun and self._word in _PRON:
+                pron = _PRON[self._word]
+                fn = DrsProduction(pron[0], category=CAT_NP,
+                                   dep=Dependency(DRSRef('x1'), self._word, pron[1]))
+                fn.set_lambda_refs(pron[2])
+            else:
+                if self.category == CAT_DETERMINER:
+                    if self._word in ['a', 'an']:
+                        fn = DrsProduction(DRS([], [Rel('.MAYBE', [DRSRef('x1')])]), category=CAT_NP)
+                    elif self._word in ['the', 'thy']:
+                        fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
+                    else:
+                        fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
+                elif self.partofspeech == 'DT' and self._word in ['the', 'thy', 'a', 'an']:
+                    fn = DrsProduction(DRS([], []), category=CAT_NP)
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
-            elif self.partofspeech == 'DT' and self._word in ['the', 'thy', 'a', 'an']:
-                fn = DrsProduction(DRS([], []), category=CAT_NP)
-            else:
-                fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
-            fn.set_lambda_refs([DRSRef('x1')])
+                fn.set_lambda_refs([DRSRef('x1')])
             return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
         else:
             refs = []
@@ -604,8 +593,17 @@ class CcgTypeMapper(object):
             final_atom = template.final_atom.remove_wildcards()
 
             # Verbs can also be adjectives so check event
-            if self.isverb and template.isfinalevent:
-                if self.category.iscombinator or self.category.ismodifier:
+            isverb = self.isverb
+            if self.isgerund:
+                vp = CAT_TV
+                result = self.category
+                while not isverb and not result.isatom:
+                    isverb = result.can_unify(vp)
+                    result = result.result_category()
+
+            if isverb and template.isfinalevent:
+                if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
+                            or self.category.ismodifier:
                     # passive case
                     if len(refs) > 1:
                         fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]), Rel('.MOD', refs)]))
@@ -633,13 +631,25 @@ class CcgTypeMapper(object):
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
 
-            elif self.ispreposition or (final_atom == CAT_Sadj and len(refs) > 1):
-                fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
+            elif self.ispreposition:
+                if template.construct_empty:
+                    fn = DrsProduction(DRS([], []))
+                else:
+                    fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
+
+            elif final_atom == CAT_Sadj and len(refs) > 1:
+                if self.category.ismodifier:
+                    fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
+                else:
+                    conds = [Rel(self._word, refs[0])]
+                    for r in refs[1:]:
+                        conds.append(Rel('.ATTRIBUTE', [refs[0], r]))
+                    fn = DrsProduction(DRS([], conds))
 
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
-                elif self.category == CAT_NOUN:
+                elif self.category == CAT_NOUN or self.partofspeech in ['NN', 'NNS']:
                     dep = Dependency(refs[0], self._word, RT_ENTITY)
                 else:
                     dep = None
@@ -688,7 +698,7 @@ class Ccg2Drs(object):
         v = set(filter(lambda x: not x.isconst, d.variables))
         ors = filter(lambda x: x.var.idx < len(v), v)
         if len(ors) != 0:
-            mx = max([x.var.idx for x in v])
+            mx = 1 + max([x.var.idx for x in v])
             idx = [i+mx for i in range(len(ors))]
             rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
             d.rename_vars(rs)
@@ -763,7 +773,6 @@ class Ccg2Drs(object):
 
             tmp = []
             for nd in pt[1:-1]:
-                # FIXME: prefer tail end recursion
                 d = self._process_ccg_node(nd)
                 if d is None:
                     head = 0
@@ -812,8 +821,6 @@ class Ccg2Drs(object):
             cats = [x.category for x in cl2.iterator()]
 
             if len(cats) == 1:
-                if cats[0] == Category('S[ng]\\NP') and result == Category('(S\\NP)\\(S\\NP)'):
-                    pass
                 rule = get_rule(cats[0], CAT_EMPTY, result)
                 if rule is None:
                     # TODO: log a warning if we succeed on take 2
@@ -822,8 +829,6 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
 
                 if rule == RL_TYPE_RAISE:
-                    #ccgt = CcgTypeMapper(category=result, word='$$$$')
-                    #d = self.rename_vars(ccgt.get_composer())
                     d = self.rename_vars(safe_create_empty_functor(result))
                     d.set_dependency(hd)
                     cl2.push_right(d)
@@ -846,18 +851,10 @@ class Ccg2Drs(object):
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule).unify()
-                if not (cl2.verify() and cl2.category.can_unify(result)):
-                    V = cl2.verify()
-                    U = cl2.category.can_unify(result)
-                    pass
                 assert cl2.verify() and cl2.category.can_unify(result)
                 assert result.get_scope_count() == cl2.get_scope_count()
             elif len(cats) == 2:
                 # Get the production rule
-                if cats[1] == Category(r'(S\NP)\(S\NP)') and \
-                                cats[0] == Category(r'(S[dcl]\NP)/(S[adj]\NP)') and \
-                                result == Category(r'(S[dcl]\NP)/(S[adj]\NP)'):
-                    pass
                 rule = get_rule(cats[0], cats[1], result)
                 if rule is None:
                     # TODO: log a warning if we succeed on take 2
@@ -866,9 +863,6 @@ class Ccg2Drs(object):
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
 
                 if rule == RL_TC_CONJ:
-                    # TODO: change to use empty_functor method
-                    #ccgt = CcgTypeMapper(category=result, word='$$$$')
-                    #d = self.rename_vars(ccgt.get_composer
                     d = self.rename_vars(safe_create_empty_functor(result))
                     d.set_dependency(hd)
                     d.set_options(cl2.compose_options)
@@ -904,15 +898,7 @@ class Ccg2Drs(object):
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule)
-                if not (cl2.verify() and cl2.category.can_unify(result)):
-                    V = cl2.verify()
-                    U = cl2.category.can_unify(result)
-                    pass
-                assert cl2.verify() and cl2.category.can_unify(result)
-                if result.get_scope_count() != cl2.get_scope_count():
-                    A = result.get_scope_count()
-                    B = cl2.get_scope_count()
-                    pass
+                assert cl2.verify() and cl2.category.can_unify(result), 'cl2.category=%s, result=%s' % (cl2.category, result)
                 assert result.get_scope_count() == cl2.get_scope_count()
 
             cl2.set_dependency(hd)
@@ -925,7 +911,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['Public', 'International', 'Affairs']:
+        if pt[1] in ['was', 'positive', 'generally']:
             pass
 
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])

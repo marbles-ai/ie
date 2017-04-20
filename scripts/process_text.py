@@ -142,13 +142,17 @@ if __name__ == '__main__':
                 die('bad output format %s, must be ccgbank|html|logic|extended' % options.ofmt)
             # Create a session to match output format, default is CCGBANK
             if options.ofmt != 'ccgbank' and options.ofmt != 'drs':
-                sessionId = grpc.create_session(stub, options.ofmt.upper())
+                sessionId = grpc.create_session(stub, options.ofmt)
 
         titleSrch = re.compile(titleRe)
         if not options.book:
             line = ' '.join(args)
+            html = None
             # FIXME: Convert to python 3. Unicode is default.
             ccg = grpc.ccg_parse(stub, line, sessionId)
+            if options.ofmt == 'html':
+                html = ccg
+                ccg = None
             drs = None
             pccg = None
 
@@ -170,10 +174,14 @@ if __name__ == '__main__':
                     raise
 
             if outfile is None:
-                sys.stdout.write('<ccg>\n')
-                sys.stdout.write(ccg.strip())
-                sys.stdout.write('\n')
-                sys.stdout.write('</ccg>\n')
+                if html:
+                    sys.stdout.write(html)
+                    sys.stdout.write('\n')
+                if ccg:
+                    sys.stdout.write('<ccg>\n')
+                    sys.stdout.write(ccg.strip())
+                    sys.stdout.write('\n')
+                    sys.stdout.write('</ccg>\n')
                 if pccg:
                     sys.stdout.write('<predarg>\n')
                     sys.stdout.write(pccg)
@@ -186,10 +194,14 @@ if __name__ == '__main__':
                     sys.stdout.write('</drs>\n')
             else:
                 with open(outfile, 'w') as fd:
-                    fd.write('<ccg>\n')
-                    fd.write(ccg.strip().encode('utf-8'))
-                    fd.write('\n')
-                    fd.write('</ccg>\n')
+                    if html:
+                        fd.write(html.encode('utf-8'))
+                        fd.write('\n')
+                    if ccg:
+                        fd.write('<ccg>\n')
+                        fd.write(ccg.strip().encode('utf-8'))
+                        fd.write('\n')
+                        fd.write('</ccg>\n')
                     if pccg:
                         fd.write('<predarg>\n')
                         fd.write(pccg)

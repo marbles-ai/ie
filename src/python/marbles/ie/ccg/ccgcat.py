@@ -4,14 +4,45 @@ import re
 import os
 from marbles.ie.utils.cache import Cache
 
+ISCONJMASK = 0x00000001
+FEATURE_CONJ = 0x00000002
+FEATURE_ADJ = 0x00000004
+FEATURE_PSS = 0x00000008
+FEATURE_NG = 0x00000010
+FEATURE_EM = 0x00000020
+FEATURE_DCL = 0x00000040
+FEATURE_TO = 0x00000080
+
+
+## @ingroup gfn
+def extract_features(signature):
+    """Extract features from a signature.
+
+    Args:
+        signature: The CCG signature.
+
+    Returns:
+        A tuple of the modified signature and the feature mask.
+    """
+    features = FEATURE_CONJ if '[conj]' in signature else 0
+    if features:
+        signature = signature.replace('[conj]', '')
+    features |= FEATURE_ADJ if '[adj]' in signature else 0
+    features |= FEATURE_PSS if '[pss]' in signature else 0
+    features |= FEATURE_NG if '[ng]' in signature else 0
+    features |= FEATURE_EM if '[em]' in signature else 0
+    features |= FEATURE_DCL if '[dcl]' in signature else 0
+    features |= FEATURE_TO if '[to]' in signature else 0
+    return signature, features
+
 
 ## @ingroup gfn
 def iscombinator_signature(signature):
-    """Test if a DRS, or CCG type, is a combinator. A combinator expects a function as the argument and returns a
+    """Test if a CCG type is a combinator. A combinator expects a function as the argument and returns a
     function.
 
     Args:
-        signature: The DRS signature.
+        signature: The CCG signature.
 
     Returns:
         True if the signature is a combinator
@@ -137,7 +168,7 @@ class RegexCategoryClass(AbstractCategoryClass):
         Returns:
             True if in the class.
         """
-        return self._srch.match(category.signature)
+        return self._srch.match(category.signature) is not None
 
 
 class Category(object):
@@ -166,27 +197,26 @@ class Category(object):
     _OP_COUNT = 6
     ## @endcond
 
-    def __init__(self, signature=None, conj=0):
+    def __init__(self, signature=None, features=0):
         """Constructor.
 
         Args:
             signature: A CCG type signature string.
-            conj: Internally used by simplify. Never set this explicitly.
+            features: Internally used by simplify. Never set this explicitly.
         """
         self._ops_cache = None
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
-            self._conj = 0
+            self._features = 0
         else:
             if isinstance(signature, str):
-                self._conj = conj
-                self._conj |= 1 if 'conj' in signature else 0
-                self._conj |= 2 if '[conj]' in signature else 0
-                self._signature = signature.replace('[conj]', '')
+                self._signature, self._features = extract_features(signature)
+                self._features |= features
+                self._features |= ISCONJMASK if 'conj' in signature else 0
             else:
                 self._signature = signature.signature
-                self._conj = signature._conj | conj
+                self._features = signature._features | features
             self._splitsig = split_signature(self._signature)
             # Don't need to handle | (= any) because parse tree has no ambiguity
             assert self._splitsig[1] in ['/', '\\', '']
@@ -196,7 +226,7 @@ class Category(object):
         return self._signature
 
     def __repr__(self):
-        if (self._conj & 2) != 0:
+        if (self._features & FEATURE_CONJ) != 0:
             return self._signature + '[conj]'
         return self._signature
 
@@ -382,7 +412,7 @@ class Category(object):
 
     @property
     def isconj(self):
-        return self._conj != 0
+        return self.has_any_features(ISCONJMASK | FEATURE_CONJ)
 
     @property
     def istype_raised(self):
@@ -428,6 +458,14 @@ class Category(object):
     def signature(self):
         """Get the CCG type as a string."""
         return self._signature
+
+    def has_all_features(self, features):
+        """Test if the category has all the features specified."""
+        return features != 0 and (self._features & features) == features
+
+    def has_any_features(self, features):
+        """Test if the category has any of the features specified."""
+        return (self._features & features) != 0
 
     def result_category(self, cacheable=True):
         """Get the return category if a functor.
@@ -483,7 +521,7 @@ class Category(object):
         """
         if self._ops_cache is not None:
             return self._ops_cache[self._OP_SIMPLIFY]
-        return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), conj=self._conj)
+        return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), features=self._features)
 
     def clean(self, deep=False):
         """Clean predicate-argument tags from a category.
@@ -555,7 +593,7 @@ class Category(object):
         if self._ops_cache is not None:
             return self._ops_cache[self._OP_REMOVE_WILDCARDS]
         if '[X]' in self._signature:
-            return Category(self._signature.replace('[X]', ''), self._conj)
+            return Category(self._signature.replace('[X]', ''), self._features)
         return self
 
     def remove_features(self):

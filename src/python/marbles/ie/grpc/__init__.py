@@ -60,7 +60,7 @@ def create_session(client, output_format, session_prefix=None):
         session_prefix, _ = os.path.splitext(os.path.basename(__file__))
 
     if output_format not in ['ccgbank', 'html', 'logic', 'extended']:
-        raise ValueError('bad output format passed to create_session')
+        raise ValueError('bad output format passed to create_session - %s' % output_format)
 
     query_input = create_query_input('text', output_format.upper())
     request = Request()
