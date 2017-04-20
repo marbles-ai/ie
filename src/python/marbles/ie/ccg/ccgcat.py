@@ -205,6 +205,7 @@ class Category(object):
             features: Internally used by simplify. Never set this explicitly.
         """
         self._ops_cache = None
+        self._freeze = False
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
@@ -232,23 +233,14 @@ class Category(object):
 
     def __eq__(self, other):
         # I have deliberately not used self.isconj in this test. The has does take this into account.
-        return (isinstance(other, Category) and str(self) == str(other)) or \
-               (isinstance(other, AbstractCategoryClass) and other.ismember(self))
+        if isinstance(other, AbstractCategoryClass):
+            return other.ismember(self)
+        elif self._freeze and other.isfrozen:
+            return id(self) == id(other)
+        return isinstance(other, Category) and self._signature == other.signature
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __lt__(self, other):
-        return isinstance(other, Category) and str(self) < str(other)
-
-    def __le__(self, other):
-        return isinstance(other, Category) and str(self) <= str(other)
-
-    def __gt__(self, other):
-        return not self.__le__(other)
-
-    def __ge__(self, other):
-        return not self.__lt__(other)
 
     def __hash__(self):
         return hash(repr(self))
@@ -324,6 +316,8 @@ class Category(object):
         cls._use_cache = True
         for k, v in pairs:
             v.initialize_ops_cache()
+        for k, v in cache:
+            v.freeze()
 
     @classmethod
     def clear_cache(cls):
@@ -331,6 +325,7 @@ class Category(object):
         oldcache = cls._cache
         cls._cache = Cache()
         for k, v in oldcache:
+            v.freeze(False)
             v.clear_ops_cache()
 
     @classmethod
@@ -458,6 +453,15 @@ class Category(object):
     def signature(self):
         """Get the CCG type as a string."""
         return self._signature
+
+    @property
+    def isfrozen(self):
+        """Test if a POS cache entry is frozen."""
+        return self._freeze
+
+    def freeze(self, frozen=True):
+        """Freeze a cache entry so equality requires same object id."""
+        self._freeze = frozen
 
     def has_all_features(self, features):
         """Test if the category has all the features specified."""
