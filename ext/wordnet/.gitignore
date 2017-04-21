@@ -10,3 +10,5 @@ wishwn
 wn
 *.in
 aclocal.m4
+stamp-h1
+configure
