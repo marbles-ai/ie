@@ -482,7 +482,7 @@ class Model(object):
         if key in self._UNARY:
             return self._UNARY[key]
         # Perform wildcard replacements
-        wc = self._Feature.sub('[X]', key)
+        wc = Category.from_cache(self._Feature.sub('[X]', key.signature))
         if wc in self._UNARY:
             return self._UNARY[wc]
         return None
@@ -493,9 +493,9 @@ class Model(object):
             return self._TEMPLATES[category]
         # Perform wildcard replacements
         if category.isfunctor:
-            wc = self._Feature.sub('[X]', category.signature)
+            wc = Category.from_cache(self._Feature.sub('[X]', category.signature))
             if wc in self._TEMPLATES:
-                return self._TEMPLATES[Category.from_cache(wc)]
+                return self._TEMPLATES[wc]
         return None
 
     def issupported(self, category):
@@ -504,8 +504,8 @@ class Model(object):
             return True
         # Perform wildcard replacements
         if category.isfunctor:
-            wc = self._Feature.sub('[X]', category.signature)
-            return Category.from_cache(wc) in self._TEMPLATES
+            wc = Category.from_cache(self._Feature.sub('[X]', category.signature))
+            return wc in self._TEMPLATES
         return False
 
 
@@ -546,6 +546,9 @@ try:
 
     _tcache.addinit(Model.build_template(r'S[X]_1022/NP_2022'))
     _tcache.addinit(Model.build_template(r'S[X]_1023\NP_2023'))
+    _tcache.addinit(Model.build_template(r'S[X]_1095/(S[X]_1095\NP)'))
+    _tcache.addinit(Model.build_template(r'(S[X]_1096\NP_2096)\((S[X]_1096\NP_2096)/PP)'))
+
 
     # Add unary rules
     _rcache = Cache()
