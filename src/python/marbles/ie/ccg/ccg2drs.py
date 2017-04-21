@@ -19,7 +19,7 @@ from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
 from marbles.ie.drt.drs import get_new_drsrefs
-from marbles.ie.utils.cache import Cache
+from marbles.ie.utils.cache import Cache, Freezable
 
 
 ## @cond
@@ -276,16 +276,16 @@ def strip_apostrophe_s(word):
     return word
 
 
-class POS(object):
+class POS(Freezable):
     """Penn Treebank Part-Of-Speech."""
     _cache = Cache()
 
     def __init__(self, tag):
+        super(POS, self).__init__()
         self._tag = tag
-        self._freeze = False
 
     def __eq__(self, other):
-        if self._freeze and other.isfrozen:
+        if self.isfrozen and other.isfrozen:
             return id(other) == id(self)
         return self._tag == other.tag
 
@@ -308,11 +308,6 @@ class POS(object):
         """Readonly access to POS tag."""
         return self._tag
 
-    @property
-    def isfrozen(self):
-        """Test if a POS cache entry is frozen."""
-        return self._freeze
-
     @classmethod
     def from_cache(cls, tag):
         """Get the cached POS tag"""
@@ -325,10 +320,6 @@ class POS(object):
             cls._cache[pos.tag] = pos
             pos.freeze()
             return pos
-
-    def freeze(self):
-        """Freeze a cache entry so equality requires same object id."""
-        self._freeze = True
 
 
 # Initialize POS cache
