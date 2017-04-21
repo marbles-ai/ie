@@ -184,13 +184,18 @@ if __name__ == "__main__":
         print('path is not a directory - %s' % outdir)
         sys.exit(1)
 
+    # Clear category cache
+    Category.clear_cache()
+
+    # FIXME: no longer using pickle so merge fails
     # Merge dictionaries
+    '''
     for fname in args:
         with open(fname, 'rb') as fd:
             d = pickle.load(fd)
         dict.update(d)
         d = None
-
+    '''
     if options.esrl is not None:
         build_from_easysrl(dict, outdir, options.esrl, options.verbose)
 
@@ -203,12 +208,11 @@ if __name__ == "__main__":
             print('%s: %s' % (k, str(v)))
 
     if len(dict) != 0:
-        Category.clear_cache()
         Category.initialize_cache([Category(k) for k, v in dict.iteritems()])
         Category.save_cache(os.path.join(outdir, 'categories.dat'))
 
         cache = Cache()
-        cache.initialize(dict.iteritems())
+        cache.initialize([(Category(k), v) for k, v in dict.iteritems()])
         model = Model(templates=cache)
         model.save_templates(os.path.join(outdir, 'functor_templates.dat'))
     else:
