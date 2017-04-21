@@ -8,3 +8,5 @@ Makefile
 .deps
 wishwn
 wn
+*.in
+aclocal.m4
