@@ -261,7 +261,7 @@ class UnaryRule(object):
             raise TypeError('UnaryRule.create_key() expects a Category instance ')
         if not isinstance(argument, Category):
             raise TypeError('UnaryRule.create_key() expects a Category instance')
-        return Category.combine(result, '\\', argument, False).signature
+        return Category.combine(result, '\\', argument)
 
     def getkey(self):
         """Get the dictionary key for this rule.
@@ -269,7 +269,7 @@ class UnaryRule(object):
         Returns:
             A string.
         """
-        return self._template.category.clean(True).signature
+        return self._template.category.clean(True)
 
     def get(self, dep=None):
         """Get a unary functor that can be applied using function application.
@@ -291,8 +291,8 @@ class Model(object):
         """Constructor.
 
         Args:
-            templates: A cache of FunctorTemplates keyed by category signature.
-            unary_rules: A cache of UnaryRules keyed by category signature
+            templates: A cache of FunctorTemplates keyed by category.
+            unary_rules: A cache of UnaryRules keyed by category.
         """
         if templates is None:
             templates = Cache()
@@ -367,10 +367,10 @@ class Model(object):
             Used to load templates from a file.
         """
         if isinstance(cat, str):
-            cat = Category(cat)
+            cat = Category.from_cache(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.build_template() expects signature or Category')
-        key = Category(cat.clean(True)).signature
+        key = cat.clean(True)
         return key, FunctorTemplate.create_from_category(cat, final_atom, construct_empty=construct_empty)
 
     def add_template(self, cat, final_atom=None):
@@ -434,7 +434,7 @@ class Model(object):
             template = self.lookup(category.result_category())
             if template is not None:
                 taggedcat = template.category.complete_tags()
-                return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat),
+                return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat, False),
                                            taggedcat)
         return None
 
@@ -460,12 +460,12 @@ class Model(object):
                 else:
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
-                                          Category.combine(catResult, category.argument_category().slash, catArgArg, False))
-                return self.add_template(newcat.signature)
+                                          Category.combine(catResult, category.argument_category().slash, catArgArg), False)
+                return self.add_template(newcat)
             elif category.ismodifier and self.issupported(catResult):
                 predarg = self.lookup(catResult).category.complete_tags()
                 newcat = Category.combine(predarg, category.slash, predarg, False)
-                return self.add_template(newcat.signature)
+                return self.add_template(newcat)
 
         return None
 
@@ -489,24 +489,25 @@ class Model(object):
 
     def lookup(self, category):
         """Lookup a FunctorTemplate with key=category."""
-        if category.signature in self._TEMPLATES:
-            return self._TEMPLATES[category.signature]
+        if category in self._TEMPLATES:
+            return self._TEMPLATES[category]
         # Perform wildcard replacements
         if category.isfunctor:
             wc = self._Feature.sub('[X]', category.signature)
             if wc in self._TEMPLATES:
-                return self._TEMPLATES[wc]
+                return self._TEMPLATES[Category.from_cache(wc)]
         return None
 
     def issupported(self, category):
         """Test a FunctorTemplate is in TEMPLATES with key=category."""
-        if category.signature in self._TEMPLATES:
+        if category in self._TEMPLATES:
             return True
         # Perform wildcard replacements
         if category.isfunctor:
             wc = self._Feature.sub('[X]', category.signature)
-            return wc in self._TEMPLATES
+            return Category.from_cache(wc) in self._TEMPLATES
         return False
+
 
 ## @cond
 # Run scripts/make_functor_templates.py to create templates file
