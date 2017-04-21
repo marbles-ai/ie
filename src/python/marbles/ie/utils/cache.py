@@ -39,6 +39,21 @@ class ConstString(object):
         return self._s >= other._s
 
 
+class Freezable(object):
+    """Frozen objects require strict equality based on instance id."""
+    def __init__(self):
+        self._freeze = False
+
+    @property
+    def isfrozen(self):
+        """Test if a cache entry is frozen."""
+        return self._freeze
+
+    def freeze(self, frozen=True):
+        """Freeze a cache entry so equality requires same object id."""
+        self._freeze = frozen
+
+
 class Cache(MutableMapping):
     """A cache object for managing types."""
     def __init__(self):

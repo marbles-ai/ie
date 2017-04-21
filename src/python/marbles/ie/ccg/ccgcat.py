@@ -2,7 +2,7 @@
 """CCG Categories and Rules"""
 import re
 import os
-from marbles.ie.utils.cache import Cache
+from marbles.ie.utils.cache import Cache, Freezable
 
 ISCONJMASK = 0x00000001
 FEATURE_CONJ = 0x00000002
@@ -171,7 +171,7 @@ class RegexCategoryClass(AbstractCategoryClass):
         return self._srch.match(category.signature) is not None
 
 
-class Category(object):
+class Category(Freezable):
     """CCG Category"""
     ## @cond
     _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
@@ -204,8 +204,8 @@ class Category(object):
             signature: A CCG type signature string.
             features: Internally used by simplify. Never set this explicitly.
         """
+        super(Category, self).__init__()
         self._ops_cache = None
-        self._freeze = False
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
@@ -232,10 +232,10 @@ class Category(object):
         return self._signature
 
     def __eq__(self, other):
-        # I have deliberately not used self.isconj in this test. The has does take this into account.
+        # I have deliberately not used self.isconj in this test.
         if isinstance(other, AbstractCategoryClass):
             return other.ismember(self)
-        elif self._freeze and other.isfrozen:
+        elif self.isfrozen and other.isfrozen:
             return id(self) == id(other)
         return isinstance(other, Category) and self._signature == other.signature
 
@@ -243,7 +243,7 @@ class Category(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash(self.__repr__())
     ## @endcond
 
     @classmethod
@@ -453,15 +453,6 @@ class Category(object):
     def signature(self):
         """Get the CCG type as a string."""
         return self._signature
-
-    @property
-    def isfrozen(self):
-        """Test if a POS cache entry is frozen."""
-        return self._freeze
-
-    def freeze(self, frozen=True):
-        """Freeze a cache entry so equality requires same object id."""
-        self._freeze = frozen
 
     def has_all_features(self, features):
         """Test if the category has all the features specified."""
