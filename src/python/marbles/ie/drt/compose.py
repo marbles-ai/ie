@@ -56,7 +56,7 @@ RT_FEMALE        = 0x1000000000000000
 ## @}
 
 class DrsComposeError(Exception):
-    """Production Error."""
+    """AbstractProduction Error."""
     pass
 
 
@@ -252,7 +252,7 @@ class Dependency(object):
             self.root._remove_ref(drsref)
 
 
-class Production(object):
+class AbstractProduction(object):
     """An abstract production."""
     def __init__(self, category=None, dep=None):
         self._lambda_refs = None
@@ -441,7 +441,7 @@ class Production(object):
         """Perform a DRS unification.
 
         Returns:
-            A Production instance representing unified result.
+            A AbstractProduction instance representing unified result.
         """
         return self
 
@@ -449,7 +449,7 @@ class Production(object):
         """Purify the underlying DRS instance.
 
         Returns:
-            A Production instance representing purified result.
+            A AbstractProduction instance representing purified result.
         """
         return self
 
@@ -472,7 +472,7 @@ class Production(object):
             self.rename_vars(xrs)
 
 
-class DrsProduction(Production):
+class DrsProduction(AbstractProduction):
     """A DRS production."""
     def __init__(self, drs, properNoun=False, category=None, dep=None):
         """Constructor.
@@ -566,7 +566,7 @@ class DrsProduction(Production):
         """Resolve anaphora and purify the underlying DRS instance.
 
         Returns:
-            A Production instance representing purified result.
+            A AbstractProduction instance representing purified result.
         """
         if self.dep is not None:
             # Find anaphora
@@ -661,7 +661,7 @@ class DrsProduction(Production):
         return self
 
 
-class ProductionList(Production):
+class ProductionList(AbstractProduction):
     """A list of productions."""
 
     def __init__(self, compList=None, category=None, dep=None):
@@ -670,11 +670,11 @@ class ProductionList(Production):
             compList = collections.deque()
         if isinstance(compList, AbstractDRS):
             compList = collections.deque([DrsProduction(compList)])
-        elif isinstance(compList, Production):
+        elif isinstance(compList, AbstractProduction):
             compList = collections.deque([compList])
         elif iterable_type_check(compList, AbstractDRS):
             compList = collections.deque([DrsProduction(x) for x in compList])
-        elif not iterable_type_check(compList, Production):
+        elif not iterable_type_check(compList, AbstractProduction):
             raise TypeError('DrsProduction construction')
         elif not isinstance(compList, collections.deque):
             compList = collections.deque(compList)
@@ -827,7 +827,7 @@ class ProductionList(Production):
         """Finalize the production by performing a unification right to left.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
         if self.isunify_disabled:
             return self
@@ -1186,7 +1186,7 @@ class ProductionList(Production):
             rule: A marbles.ie.drt.ccgcat.Rule instance.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
 
         # alpha convert variables
@@ -1244,7 +1244,7 @@ class ProductionList(Production):
         return self
 
 
-class FunctorProduction(Production):
+class FunctorProduction(AbstractProduction):
     """A functor production. Functors are curried where the inner most functor is the inner scope."""
     def __init__(self, category, referent, production=None, dep=None):
         """Constructor.
@@ -1252,14 +1252,14 @@ class FunctorProduction(Production):
         Args:
             category: A marbles.ie.drt.ccgcat.Category instance.
             referent: Either a list of, or a single, marbles.ie.drt.drs.DRSRef instance.
-            production: Optionally a marbles.ie.drt.drs.DRS instance or a Production instance. The DRS will be converted
+            production: Optionally a marbles.ie.drt.drs.DRS instance or a AbstractProduction instance. The DRS will be converted
                 to a DrsProduction. If production is a functor then the combination is a curried functor.
         """
         if production is not None:
             if isinstance(production, AbstractDRS):
                 production = DrsProduction(production, )
-            elif not isinstance(production, Production):
-                raise TypeError('production argument must be a Production type')
+            elif not isinstance(production, AbstractProduction):
+                raise TypeError('production argument must be a AbstractProduction type')
         if category is None :
             raise TypeError('category cannot be None for functors')
         if dep is None and production is not None:
@@ -1656,7 +1656,7 @@ class FunctorProduction(Production):
         the imperative form of a verb.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
         # TODO: Check if we have a proper noun accessible to the right and left
         if self.isarg_right or self._comp is None or self._comp.isfunctor:
@@ -1674,7 +1674,7 @@ class FunctorProduction(Production):
             level: Level relative to outer less 1. If -1 then pop the inner scope.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
 
         Remarks:
             An instance of self is never returned since the true level is always +1.
@@ -1794,7 +1794,7 @@ class FunctorProduction(Production):
             g: The Y|Z functor where self (f) is the X|Y functor.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
 
         Remarks:
             CALL[X|Y](Y|Z)
@@ -1881,7 +1881,7 @@ class FunctorProduction(Production):
             g: The (Y|Z)$ functor where self (f) is the X|Y functor.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
 
         Remarks:
             CALL[X|Y](Y|Z)$
@@ -1975,7 +1975,7 @@ class FunctorProduction(Production):
             g: The Y|Z functor where self (f) is the (X|Y)|Z functor.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
 
         Remarks:
             CALL[(X|Y)|Z](Y|Z)
@@ -2066,7 +2066,7 @@ class FunctorProduction(Production):
             glambdas: If True set lambda from g, else set from self.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
 
         Remarks:
             CALL[X1|Y1](X2|Y2)
@@ -2110,7 +2110,7 @@ class FunctorProduction(Production):
             c = ProductionList(fc, dep=self.dep)
             c.push_right(g)
             if glambdas and len(glr) != len(flr):
-                # FIXME: A Production should always have lambda_refs set.
+                # FIXME: A AbstractProduction should always have lambda_refs set.
                 c.set_lambda_refs(flr)
                 c.set_category(fc.category)
             else:
@@ -2128,7 +2128,7 @@ class FunctorProduction(Production):
             g: The application argument.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(g)
@@ -2271,7 +2271,7 @@ class PropProduction(FunctorProduction):
             d: The substitution argument.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(d)
@@ -2353,7 +2353,7 @@ class OrProduction(FunctorProduction):
             The substitution argument.
 
         Returns:
-            A Production instance.
+            A AbstractProduction instance.
         """
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(arg)
