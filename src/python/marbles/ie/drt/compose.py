@@ -1864,14 +1864,12 @@ class FunctorProduction(AbstractProduction):
             pass
         assert len(yflr) == len(glr)
 
-        # Set Y unification
+        # Get Y unification scope
         assert len(fv) == len(gv)
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
-        # Unify
         assert len(uy) != 0
-        fc.rename_vars(uy)
 
         # Build
         pl = ProductionList(dep=self.dep)
@@ -1889,8 +1887,10 @@ class FunctorProduction(AbstractProduction):
         if fy is None:
             # X is atomic
             assert self.category.result_category().isatom
+            zg.rename_vars(uy)  # unify
             return zg
         self.push(zg)
+        self.rename_vars(uy)    # unify
         return self
 
     def generalized_compose(self, g):
@@ -1956,14 +1956,12 @@ class FunctorProduction(AbstractProduction):
             pass
         assert len(yflr) == len(glr)
 
-        # Set Y unification
+        # Get Y unification scope
         assert len(fv) == len(gv)
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
-        # Unify
         assert len(uy) != 0
-        fc.rename_vars(uy)
 
         # Build
         pl = ProductionList(dep=self.dep)
@@ -1983,8 +1981,10 @@ class FunctorProduction(AbstractProduction):
         if fy is None:
             # X is atomic
             assert self.category.result_category().isatom
+            zg.rename_vars(uy)  # unify
             return zg
         self.push(zg)
+        self.rename_vars(uy)    # unify
         return self
 
     def substitute(self, g):
@@ -2047,14 +2047,12 @@ class FunctorProduction(AbstractProduction):
             pass
         assert len(yflr) == len(glr)
 
-        # Set Y unification
+        # Get Y unification scope
         assert len(fv) == len(gv)
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
-        # Unify
         assert len(uy) != 0
-        self.rename_vars(uy)
         self.pop()
 
         # Build
@@ -2073,8 +2071,10 @@ class FunctorProduction(AbstractProduction):
         if yf is None:
             # X is atomic
             assert self.category.result_category().isatom
+            zg.rename_vars(uy)  # unify
             return zg
         self.push(zg)
+        self.rename_vars(uy)    # unify
         return self
 
     def conjoin(self, g, glambdas):
