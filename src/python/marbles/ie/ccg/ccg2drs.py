@@ -285,13 +285,13 @@ class POS(Freezable):
         self._tag = tag
 
     def __eq__(self, other):
-        if self.isfrozen and other.isfrozen:
-            return id(other) == id(self)
+        if self._freeze and other.isfrozen:
+            return self is other
         return self._tag == other.tag
 
     def __ne__(self, other):
         if self._freeze and other.isfrozen:
-            return id(other) != id(self)
+            return self is not other
         return self._tag != other.tag
 
     def __hash__(self):
@@ -340,11 +340,12 @@ POS_LIST_PERSON_PRONOUN = [POS.from_cache('PRP'), POS.from_cache('PRP$')]
 POS_LIST_PRONOUN = [POS.from_cache('PRP'), POS.from_cache('PRP$'), POS.from_cache('WP'), POS.from_cache('WP$')]
 POS_LIST_VERB = [POS.from_cache('VB'), POS.from_cache('VBD'), POS.from_cache('VBN'), POS.from_cache('VBP'),
                  POS.from_cache('VBZ')]
-POS_ADJECTIVE = POS.from_cache('JJ')
+POS_LIST_ADJECTIVE = [POS.from_cache('JJ'), POS.from_cache('JJR'), POS.from_cache('JJS')]
 POS_GERUND = POS.from_cache('VBG')
 POS_PROPER_NOUN = POS.from_cache('NNP')
+POS_PROPER_NOUN_S = POS.from_cache('NNPS')
 POS_NOUN = POS.from_cache('NN')
-POS_POSSESSIVE = POS.from_cache('NNS')
+POS_NOUN_S = POS.from_cache('NNS')
 POS_MODAL = POS.from_cache('MD')
 POS_UNKNOWN = POS.from_cache('UNKNOWN')
 POS_NUMBER = POS.from_cache('CD')
@@ -373,7 +374,7 @@ class CcgTypeMapper(object):
 
         # TODO: should lookup nouns via conceptnet or wordnet
         wd = strip_apostrophe_s(word)
-        if (self.category == CAT_NOUN or self._pos == POS_NOUN or self._pos == POS_POSSESSIVE) and wd.upper() == wd:
+        if (self.category == CAT_NOUN or self._pos == POS_NOUN or self._pos == POS_NOUN_S) and wd.upper() == wd:
             # If all uppercase then keep it that way
             self._word = word.rstrip('?.,:;')
         elif self.isproper_noun:
@@ -404,18 +405,16 @@ class CcgTypeMapper(object):
     @property
     def ispronoun(self):
         """Test if the word attached to this category is a pronoun."""
-        return (self.partofspeech in POS_LIST_PRONOUN) or self._word in _PRON
+        return (self.partofspeech in POS_LIST_PRONOUN)  # or self._word in _PRON
 
     @property
     def ispreposition(self):
         """Test if the word attached to this category is a preposition."""
-        #return self.partofspeech == 'IN'
         return self.category == CAT_PREPOSITION
 
     @property
     def isadverb(self):
         """Test if the word attached to this category is an adverb."""
-        #return self.partofspeech in ['RB', 'RBR', 'RBS']
         return self.category == CAT_ADVERB
 
     @property
@@ -432,7 +431,7 @@ class CcgTypeMapper(object):
     @property
     def isproper_noun(self):
         """Test if the word attached to this category is a proper noun."""
-        return self.partofspeech == POS_PROPER_NOUN
+        return self.partofspeech == POS_PROPER_NOUN or self.partofspeech == POS_PROPER_NOUN_S
 
     @property
     def isnumber(self):
@@ -442,7 +441,6 @@ class CcgTypeMapper(object):
     @property
     def isadjective(self):
         """Test if the word attached to this category is an adjective."""
-        #return self.partofspeech == 'JJ' or
         return self.category == CAT_ADJECTIVE
 
     @property
@@ -474,33 +472,6 @@ class CcgTypeMapper(object):
             ref = DRSRef('x1')
         d.set_lambda_refs([ref])
         return d
-
-    def get_empty_functor(self, category, key=None):
-        """Get a functor with an empty DRS. The functor must exist in the class templates
-        else an exception will be raised.
-
-        Args:
-            category: A category.
-            key: A signature string. If none then defaults to category signature.
-
-        Returns:
-            A FunctionProduction instance.
-
-        Raises:
-            KeyError
-
-        Remarks:
-            Used for special type shift rules.
-        """
-        template = MODEL.lookup(category if key is None else key)
-        compose = template.constructor_rule
-        fn = DrsProduction(DRS([], []))
-        fn.set_lambda_refs([template.final_ref])
-        fn.set_category(template.final_atom)
-        for c in compose:
-            fn = c[0](category, c[1], fn)
-            category = category.result_category()
-        return fn
 
     def build_conditions(self, conds, refs, template):
         """Refs are reversed, refs[0] is the functor return value.
@@ -590,7 +561,7 @@ class CcgTypeMapper(object):
                     dep = Dependency(DRSRef('x1'), self._word, RT_PROPERNAME)
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]), properNoun=True, dep=dep)
                 else:
-                    if self.partofspeech == POS_POSSESSIVE:
+                    if self.partofspeech == POS_NOUN_S:
                         dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL)
                     else:
                         dep = Dependency(DRSRef('x1'), self._word, RT_ENTITY)
@@ -602,7 +573,7 @@ class CcgTypeMapper(object):
                 if self.isnumber:
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]),
                                       dep=Dependency(DRSRef('x1'), self._word, RT_NUMBER))
-                elif self.partofspeech == POS_POSSESSIVE:
+                elif self.partofspeech == POS_NOUN_S:
                     d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._word, [DRSRef('x1')])]),
                                       dep=Dependency(DRSRef('x1'), self._word, RT_ENTITY | RT_PLURAL))
                 else:
@@ -749,9 +720,9 @@ class CcgTypeMapper(object):
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
-                elif final_atom == CAT_N and not self.category.ismodifier:
+                elif final_atom == CAT_N: # and not self.category.test_returns_modifier()
                     dep = Dependency(refs[0], self._word, (RT_ENTITY | RT_PLURAL)
-                                     if self.partofspeech == POS_POSSESSIVE else RT_ENTITY)
+                                     if self.partofspeech == POS_NOUN_S else RT_ENTITY)
                 else:
                     dep = None
                 if template.isfinalevent:
@@ -1176,7 +1147,7 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
             return ccgt.category
         # Leaf nodes contains six fields:
         # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-        lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], template.category.signature))
+        lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], template.predarg_category.signature))
         return template.clean_category
 ## @endcond
 
