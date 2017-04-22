@@ -87,6 +87,7 @@ for k,u,v,w in __adv:
 _PREPS = {
     'to':           MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
     'alongside':    MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
+    'with':    MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
 }
 
 
@@ -654,10 +655,9 @@ class CcgTypeMapper(object):
             # Verbs can also be adjectives so check event
             isverb = self.isverb
             if self.isgerund:
-                vp = CAT_TV
                 result = self.category
                 while not isverb and not result.isatom:
-                    isverb = result.can_unify(vp)
+                    isverb = result.can_unify(CAT_TV)
                     result = result.result_category()
 
             if isverb and template.isfinalevent:
@@ -668,6 +668,19 @@ class CcgTypeMapper(object):
                         fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]), Rel('.MOD', refs)]))
                     else:
                         fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]])]))
+                elif self._word in ['am', 'are', 'is']:
+                    # eq(x1,x2)
+                    assert len(refs) == 3, "to-be expects 3 referents"
+
+                    # Special handling
+                    d = DrsProduction(DRS([refs[0]], [Rel('.BE', [refs[0], refs[2]])]))
+                    d.set_lambda_refs([refs[0]])
+                    fn = template.create_empty_functor()
+                    fn.pop()
+                    fn.push(d)
+                    fn.rename_vars((refs[1], refs[0]))
+                    return fn
+
                 else:
                     # TODO: use verbnet to get semantics
                     rrf = [x for x in reversed(refs[1:])]
@@ -980,6 +993,10 @@ class Ccg2Drs(object):
                     cl2.push_right(d)
 
                 cl2 = cl2.apply(rule)
+                if not cl2.verify() or not cl2.category.can_unify(result):
+                    U = cl2.verify()
+                    V = cl2.category.can_unify(result)
+                    pass
                 assert cl2.verify() and cl2.category.can_unify(result), 'cl2.category=%s, result=%s' % (cl2.category, result)
                 assert result.get_scope_count() == cl2.get_scope_count()
 
