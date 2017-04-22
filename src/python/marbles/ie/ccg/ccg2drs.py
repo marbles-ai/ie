@@ -10,7 +10,7 @@ from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N,
     FEATURE_ADJ, FEATURE_PSS, FEATURE_TO
 
 from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
-    RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER
+    RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER, RT_1P, RT_2P, RT_3P
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
     DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY
@@ -23,48 +23,49 @@ from marbles.ie.utils.cache import Cache, Freezable
 
 
 ## @cond
+# The pronouns must always be referent x1
 __pron = [
     # 1st person singular
-    ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN),
-    ('me',      '([x1],[])',    '([],[([],[me(x1)])->([],[i(x1)])])', RT_HUMAN),
-    ('myself',  '([x1],[])',    '([],[([],[myself(x1)])->([],[i(x1)])])', RT_HUMAN),
-    ('mine',    '([x1],[])',    '([],[([],[mine(x1)])->([],[i(x2),own(x2,x1)])])', RT_HUMAN),
-    ('my',      '([x1],[])',    '([],[([],[my(x1)])->([],[i(x2),own(x2,x1)])])', RT_HUMAN),
+    ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN|RT_1P),
+    ('me',      '([x1],[])',    '([],[i(x1),.OBJ(x1)])', RT_HUMAN|RT_1P),
+    ('myself',  '([x1],[])',    '([],[i(x1),.REFLEX(x1)])', RT_HUMAN|RT_1P),
+    ('mine',    '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
+    ('my',      '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
     # 2nd person singular
-    ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN),
-    ('yourself','([x1],[])',    '([],[([],[yourself(x1)])->([],[you(x1)])])', RT_HUMAN),
-    ('yours',   '([x2],[])',    '([],[([],[yours(x2)])->([],[you(x1),own(x1,x2)])])', RT_HUMAN),
-    ('your',    '([x2],[])',    '([],[([],[your(x2)])->([],[you(x1),own(x1,x2)])])', RT_HUMAN),
+    ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN|RT_2P),
+    ('yourself','([x1],[])',    '([],[you(x1),.REFLEX(x1)])', RT_HUMAN|RT_2P),
+    ('yours',   '([x2],[])',    '([],[you(x1),.OWN(x1,x2)])', RT_HUMAN|RT_2P),
+    ('your',    '([x1],[])',    '([],[you(x1),.POSS(x1,x2)])', RT_HUMAN|RT_2P),
     # 3rd person singular
-    ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('him',     '([x1],[])',    '([],[([],[him(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('her',     '([x1],[])',    '([],[([],[her(x1)])->([],[she(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('himself', '([x1],[])',    '([],[([],[himself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('herself', '([x1],[])',    '([],[([],[herself(x1)])->([],[she(x1)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
-    ('hisself', '([x1],[])',    '([],[([],[hisself(x1)])->([],[he(x1)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('his',     '([x2],[])',    '([],[([],[his(x2)])->([],[he(x1),own(x1,x2)])])', RT_HUMAN|RT_MALE|RT_ANAPHORA),
-    ('hers',    '([x2],[])',    '([],[([],[hers(x2)])->([],[she(x1),own(x1,x2)])])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA),
+    ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('him',     '([x1],[])',    '([],[he(x1),.OBJ(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('her',     '([x1],[])',    '([],[she(x1),.OBJ(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('himself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('herself', '([x1],[])',    '([],[she(x1),.REFLEX(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('hisself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('his',     '([x2],[])',    '([],[he(x1),.POSS(x1,x2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('hers',    '([x2],[])',    '([],[she(x1),.POSS(x1,x2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     # 1st person plural
-    ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL),
-    ('us',      '([x1],[])',    '([],[([],[us(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ourself', '([x1],[])',    '([],[([],[ourself(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ourselves','([x1],[])',   '([],[([],[ourselves(x1)])->([],[we(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('ours',    '([x2],[])',    '([],[([],[ours(x2)])->([],[we(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
-    ('our',     '([x2],[])',    '([],[([],[our(x2)])->([],[we(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
+    ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('us',      '([x1],[])',    '([],[we(x1),.OBJ(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourself', '([x1],[])',    '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourselves','([x1],[])',   '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ours',    '([x2],[])',    '([],[we(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('our',     '([x2],[])',    '([],[we(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_1P),
     # 2nd person plural
-    ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL),
+    ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
-    ('they',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL),
-    ('them',    '([x1],[])',    '([],[([],[them(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('themself','([x1],[])',    '([],[([],[themself(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('themselves','([x1],[])',  '([],[([],[themselves(x1)])->([],[they(x1)])])', RT_HUMAN|RT_PLURAL),
-    ('theirs',  '([x2],[])',    '([],[([],[theirs(x2)])->([],[they(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
-    ('their',   '([x2],[])',    '([],[([],[their(x2)])->([],[they(x1),own(x1,x2)])])', RT_HUMAN|RT_PLURAL),
+    ('they',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('them',    '([x1],[])',    '([],[they(x1),.OBJ(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themself','([x1],[])',    '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themselves','([x1],[])',  '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('theirs',  '([x2],[])',    '([],[they(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('their',   '([x2],[])',    '([],[they(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_3P),
     # it
-    ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA),
-    ('its',     '([x2],[])',    '([],[([],[its(x2)])->([],[it(x1),own(x1,x2)])])', RT_ANAPHORA),
-    ('itself',  '([x1],[])',    '([],[([],[itself(x1)])->([],[it(x1)])])', RT_ANAPHORA),
+    ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA|RT_3P),
+    ('its',     '([x2],[])',    '([],[it(x1),.POSS(x1,x2)])', RT_ANAPHORA|RT_3P),
+    ('itself',  '([x1],[])',    '([],[it(x1),.REFLEX(x1)])', RT_ANAPHORA|RT_3P),
 ]
 _PRON = {}
 for k,r,v,u in __pron:
@@ -698,15 +699,24 @@ class CcgTypeMapper(object):
                 ers = complement(fn.variables, pron[2])
                 ors = intersect(refs, ers)
                 if len(ors) != 0:
+                    # Make disjoint
                     nrs = get_new_drsrefs(ors, union(ers, refs, pron[2]))
                     fn.rename_vars(zip(ors, nrs))
-                fn.rename_vars([(pron[2][0], template.final_ref)])
+                if len(ers) != 0:
+                    ers = complement(fn.variables, pron[2])
+                    fn.rename_vars(zip([pron[2][0], ers[0]], refs))
+                else:
+                    fn.rename_vars([(pron[2][0], template.final_ref)])
 
             elif self.ispreposition:
                 if template.construct_empty:
                     fn = DrsProduction(DRS([], []))
                 else:
                     fn = DrsProduction(DRS([], [Rel(self._word, refs)]))
+
+            elif self.partofspeech == POS_PREPOSITION and self.category.test_returns_modifier() \
+                    and len(refs) > 1 and not self.category.ismodifier:
+                fn = DrsProduction(DRS([], [Rel(self._word, [refs[0], refs[-1]])]))
 
             elif final_atom == CAT_Sadj and len(refs) > 1:
                 if self.category.ismodifier:
@@ -720,7 +730,7 @@ class CcgTypeMapper(object):
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
-                elif final_atom == CAT_N: # and not self.category.test_returns_modifier()
+                elif final_atom == CAT_N and not self.category.test_returns_modifier():
                     dep = Dependency(refs[0], self._word, (RT_ENTITY | RT_PLURAL)
                                      if self.partofspeech == POS_NOUN_S else RT_ENTITY)
                 else:
@@ -983,7 +993,7 @@ class Ccg2Drs(object):
         if pt[0] in [',', '.', ':', ';']:
             return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
 
-        if pt[1] in ['apple', 'pie', 'was', 'positive', 'generally']:
+        if pt[1] in ['for']:
             pass
 
         ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])

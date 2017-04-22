@@ -523,7 +523,7 @@ try:
     _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
-    _tcache.addinit(Model.build_template(r'NP_1005/(N_2005/PP_2005)'))
+    _tcache.addinit(Model.build_template(r'NP_1005/(N_1005/PP_1005)'), replace=True)
     _tcache.addinit(Model.build_template(r'((N_2006/N_2006)/(N_2006/N_2006))\(S[adj]_1006\NP_2006)'), replace=True)
 
     _tcache.addinit(Model.build_template(r'S[dcl]_1007/S[dcl]_2007'))

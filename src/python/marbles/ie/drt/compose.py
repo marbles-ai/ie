@@ -51,6 +51,9 @@ RT_RELATIVE      = 0x8000000000000000
 RT_PLURAL        = 0x4000000000000000
 RT_MALE          = 0x2000000000000000
 RT_FEMALE        = 0x1000000000000000
+RT_1P            = 0x0800000000000000
+RT_2P            = 0x0400000000000000
+RT_3P            = 0x0200000000000000
 
 
 ## @}
@@ -578,6 +581,8 @@ class DrsProduction(AbstractProduction):
             dates = []
             numbers = []
             locations = []
+            p1 = []
+            p2 = []
 
             root = self.dep.root
             for nd in root.descendants:
@@ -600,6 +605,20 @@ class DrsProduction(AbstractProduction):
                     numbers.append((nd, r, w, t))
                 elif (t & RT_LOCATION) != 0:
                     locations.append((nd, r, w, t))
+                elif (t & (RT_1P|RT_PLURAL)) == RT_1P:
+                    p1.append((nd, r, w, t))
+                elif (t & (RT_2P|RT_PLURAL)) == RT_2P:
+                    p2.append((nd, r, w, t))
+
+            # Simple resolutions i(x2)
+            #    i(x3) => i(x2), i(x2)
+            #    you(x2), you(x3) => you(x2), you(x2)
+            if len(p1) > 1:
+                rs = [(p1[0][1], r) for dep, r, w, t in p1[1:]]
+                self.rename_vars(rs)
+            if len(p2) > 1:
+                rs = [(p2[0][1], r) for dep, r, w, t in p2[1:]]
+                self.rename_vars(rs)
 
             # Resolve it
             rs = []
@@ -654,9 +673,9 @@ class DrsProduction(AbstractProduction):
         # Remainder are unresolved
         fr = self._drs.freerefs
         if len(fr) != 0:
-            self._drs = DRS(union(self._drs.universe, fr), conds)
+            self._drs = DRS(remove_dups(union(self._drs.universe, fr)), conds)
         else:
-            self._drs = DRS(self._drs.referents, conds)
+            self._drs = DRS(remove_dups(self._drs.referents), conds)
         self._drs = self._drs.purify()
         return self
 
