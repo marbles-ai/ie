@@ -42,26 +42,26 @@ class FunctorTemplate(object):
     _names = ['f', 'g', 'h', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w']
     _PredArgIdx = re.compile(r'^.*_(?P<idx>\d+)$')
 
-    def __init__(self, rule, category, finalRef, finalAtom, construct_empty=False):
+    def __init__(self, rule, predarg_category, finalRef, finalAtom, construct_empty=False):
         """Constructor.
 
         Args:
             rule: The production constructor rule.
-            category: A predarg category.
+            predarg_category: A predarg category.
             finalRef: The final referent result.
             finalAtom: The final atomic category result.
             construct_empty: If true the functor should be constructed with an empty DrsProduction as the final atom.
         """
         self._constructor_rule = rule
-        self._category = category
-        self._cleancategory = Category.from_cache(category.clean(True))
+        self._predarg_category = predarg_category
+        self._clean_category = Category.from_cache(predarg_category.clean(True))
         self._final_ref = finalRef
         self._final_atom = finalAtom
         self._construct_empty = construct_empty
 
     def __repr__(self):
         """Return the model as a string."""
-        return self.category.clean(True).signature + ':' + self.__str__()
+        return self._clean_category.signature + ':' + self.__str__()
 
     def __str__(self):
         """Return the model as a string."""
@@ -97,14 +97,14 @@ class FunctorTemplate(object):
         return self._construct_empty
 
     @property
-    def category(self):
+    def predarg_category(self):
         """Read only access to category."""
-        return self._category
+        return self._predarg_category
 
     @property
     def clean_category(self):
         """Read only access to cleaned category."""
-        return self._cleancategory
+        return self._clean_category
 
     @property
     def final_ref(self):
@@ -208,7 +208,7 @@ class FunctorTemplate(object):
         """
         fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards(), dep=dep)
         fn.set_lambda_refs([self.final_ref])
-        category = self.category.clean(True).remove_wildcards()
+        category = self.clean_category.remove_wildcards()
         for c in self._constructor_rule:
             assert not category.isempty
             assert category.isfunctor
@@ -269,7 +269,7 @@ class UnaryRule(object):
         Returns:
             A string.
         """
-        return self._template.category.clean(True)
+        return self._template.clean_category
 
     def get(self, dep=None):
         """Get a unary functor that can be applied using function application.
@@ -347,9 +347,9 @@ class Model(object):
             for k, v in self._TEMPLATES:
                 final_atom = v.final_atom
                 if final_atom != Category(k).extract_unify_atoms(False)[-1]:
-                    fd.write('%s,  %s\n' % (v.category.signature, v.final_atom))
+                    fd.write('%s,  %s\n' % (v.predarg_category.signature, v.final_atom))
                 else:
-                    fd.write('%s\n' % v.category)
+                    fd.write('%s\n' % v.predarg_category)
 
     @classmethod
     def build_template(cls, cat, final_atom=None, construct_empty=False):
@@ -433,7 +433,7 @@ class Model(object):
         if category.ismodifier:
             template = self.lookup(category.result_category())
             if template is not None:
-                taggedcat = template.category.complete_tags()
+                taggedcat = template.predarg_category.complete_tags()
                 return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat, False),
                                            taggedcat)
         return None
@@ -451,19 +451,19 @@ class Model(object):
                 print('Adding type-raised category %s to TEMPLATES' % category.signature)
                 # Template categories contain predarg info so build new from these
                 if catResult.isfunctor:
-                    catResult = self.lookup(catResult).category.complete_tags()
+                    catResult = self.lookup(catResult).predarg_category.complete_tags()
                 else:
                     catResult = Category(catResult.signature + '_999')  # synthesize pred-arg info
                 if catArgArg.isfunctor:
                     # FIXME: Should really check predarg info does not overlap with catResult. Chances are low.
-                    catArgArg = self.lookup(catArgArg).category.complete_tags()
+                    catArgArg = self.lookup(catArgArg).predarg_category.complete_tags()
                 else:
                     catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
                                           Category.combine(catResult, category.argument_category().slash, catArgArg), False)
                 return self.add_template(newcat)
             elif category.ismodifier and self.issupported(catResult):
-                predarg = self.lookup(catResult).category.complete_tags()
+                predarg = self.lookup(catResult).predarg_category.complete_tags()
                 newcat = Category.combine(predarg, category.slash, predarg, False)
                 return self.add_template(newcat)
 
