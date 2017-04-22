@@ -12,6 +12,12 @@ FEATURE_NG = 0x00000010
 FEATURE_EM = 0x00000020
 FEATURE_DCL = 0x00000040
 FEATURE_TO = 0x00000080
+FUNCTOR_RETURN_PREP_CHECKED = 0x80000000
+FUNCTOR_RETURN_PREP = 0x40000000
+FUNCTOR_RETURN_MOD_CHECKED = 0x20000000
+FUNCTOR_RETURN_MOD = 0x10000000
+FUNCTOR_RETURN_ENTITY_MOD_CHECKED = 0x08000000
+FUNCTOR_RETURN_ENTITY_MOD = 0x04000000
 
 
 ## @ingroup gfn
@@ -194,7 +200,9 @@ class Category(Freezable):
     _OP_SIMPLIFY = 3
     _OP_REMOVE_FEATURES = 4
     _OP_SLASH = 5
-    _OP_COUNT = 6
+    _OP_RESULT_CAT = 6
+    _OP_ARG_CAT = 7
+    _OP_COUNT = 8
     ## @endcond
 
     def __init__(self, signature=None, features=0):
@@ -209,7 +217,7 @@ class Category(Freezable):
         if signature is None:
             self._signature = ''
             self._splitsig = '', '', ''
-            self._features = 0
+            self._features = FUNCTOR_RETURN_PREP_CHECKED | FUNCTOR_RETURN_MOD_CHECKED
         else:
             if isinstance(signature, str):
                 self._signature, self._features = extract_features(signature)
@@ -236,8 +244,8 @@ class Category(Freezable):
         if isinstance(other, AbstractCategoryClass):
             return other.ismember(self)
         elif self.isfrozen and other.isfrozen:
-            return id(self) == id(other)
-        return isinstance(other, Category) and self._signature == other.signature
+            return self is other
+        return self._signature == other.signature
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -267,14 +275,18 @@ class Category(Freezable):
                 todo.append(cat.remove_features())
                 todo.append(cat.remove_wildcards())
                 cat = cat.result_category()
+            todo.append(cat)
+            todo.append(cat.simplify())
+            todo.append(cat.remove_features())
+            todo.append(cat.remove_wildcards())
             for c in todo:
                 cls._cache[c.signature] = c
-            cls._cache[cat.signature] = cat
-            cls._cache[cat.simplify().signature] = cat.simplify()
-            cls._cache[cat.remove_features().signature] = cat.remove_features()
-            cls._cache[cat.remove_wildcards().signature] = cat.remove_wildcards()
             for c in todo:
-                cls._cache[c.signature].initialize_ops_cache()
+                cat = cls._cache[c.signature]
+                cat.initialize_ops_cache()
+            for c in todo:
+                cat = cls._cache[c.signature]
+                cat.freeze()
             return retcat
 
     @classmethod
@@ -316,8 +328,19 @@ class Category(Freezable):
         cls._use_cache = True
         for k, v in pairs:
             v.initialize_ops_cache()
-        for k, v in cache:
             v.freeze()
+
+    @classmethod
+    def finalize_cache(cls):
+        """Call after loading of the cache but before module import completes.
+
+        Remarks:
+            Not threadsafe.
+        """
+        for k, v in cls._cache:
+            v.test_returns_modifier()
+            v.test_returns_preposition()
+            v.test_returns_entity_modifier()
 
     @classmethod
     def clear_cache(cls):
@@ -472,6 +495,8 @@ class Category(Freezable):
             A Category instance.
         """
         if self._use_cache and cacheable:
+            if self._ops_cache:
+                return self._ops_cache[self._OP_RESULT_CAT]
             return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
 
@@ -485,6 +510,8 @@ class Category(Freezable):
             A Category instance.
         """
         if self._use_cache and cacheable:
+            if self._ops_cache:
+                return self._ops_cache[self._OP_ARG_CAT]
             return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
@@ -500,6 +527,8 @@ class Category(Freezable):
         ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
         ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
         ops_cache[self._OP_REMOVE_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
+        ops_cache[self._OP_RESULT_CAT] = self.result_category()
+        ops_cache[self._OP_ARG_CAT] = self.argument_category()
         uatoms = self.extract_unify_atoms(True)
         catoms = []
         for u in uatoms:
@@ -723,21 +752,99 @@ class Category(Freezable):
             n += 1
         return n
 
+    def test_returns_modifier(self):
+        """Test if the functor returns a modifier.
 
+        Returns:
+            True if a functor and it returns a modifier category.
+        """
+        # Cache result
+        if 0 == (self._features & FUNCTOR_RETURN_MOD_CHECKED):
+            result = self
+            while not result.isatom:
+                result = result.result_category()
+                if result.ismodifier:
+                    self._features |= FUNCTOR_RETURN_MOD
+                    break
+            self._features |= FUNCTOR_RETURN_MOD_CHECKED
+        return 0 != (self._features & FUNCTOR_RETURN_MOD)
+
+    def test_return(self, result_category, exact=True):
+        """Test if the functor returns result_category.
+        
+        Args:
+            exact: If True then use equality test else use can_unify() test.
+            
+        Returns:
+            True if a functor and it returns a category matching result_category.
+        """
+        return (exact and self == result_category) or \
+               (not exact and self.can_unify(result_category)) or \
+               self.result_category().test_return(result_category, exact)
+
+    def test_returns_preposition(self):
+        """Test if the functor returns a preposition.
+
+        Returns:
+            True if a functor and it returns a CAT_PP category.
+        """
+        # Cache result
+        if 0 == (self._features & FUNCTOR_RETURN_PREP_CHECKED):
+            if self == CAT_POSSESSIVE_ARGUMENT or self == CAT_POSSESSIVE_PRONOUN:
+                self._features |= FUNCTOR_RETURN_PREP
+            else:
+                result = self
+                ismod = False
+                while not result.isatom:
+                    ismod = result.ismodifier   # but not a (PP|PP)|$
+                    result = result.result_category()
+                if not ismod and result == CAT_PP:
+                    self._features |= FUNCTOR_RETURN_PREP
+            self._features |= FUNCTOR_RETURN_PREP_CHECKED
+        return 0 != (self._features & FUNCTOR_RETURN_PREP)
+
+    def test_returns_entity_modifier(self):
+        """Test if the functor returns any of: (NP|NP)$, (PP|PP)$, (NP|PP)$, (PP|NP)$.
+
+        Returns:
+            True if a functor and it returns a CAT_PP category.
+        """
+        # Cache result
+        if 0 == (self._features & FUNCTOR_RETURN_ENTITY_MOD_CHECKED):
+            result = self
+            while not result.isatom:
+                new_result = result.result_category()
+                if new_result.isatom and new_result in [CAT_PP, CAT_NP] \
+                        and result.argument_category() in [CAT_NP, CAT_PP]:
+                    self._features |= FUNCTOR_RETURN_ENTITY_MOD
+                result = new_result
+            self._features |= FUNCTOR_RETURN_ENTITY_MOD_CHECKED
+        return 0 != (self._features & FUNCTOR_RETURN_ENTITY_MOD)
+
+
+
+## @cond
 # Load cache after we have created the Category class
+# Need CAT_EMPTY for load_cache()
+CAT_EMPTY = Category()
+CAT_EMPTY.freeze()
 try:
     Category.load_cache(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'categories.dat'))
+    # Need these for finalize_cache()
+    CAT_PP = Category.from_cache('PP')
+    CAT_NP = Category.from_cache('NP')
+    CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
+    CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
+    Category.finalize_cache()
 except Exception as e:
     # TODO: log warning
+    CAT_PP = Category.from_cache('PP')
+    CAT_NP = Category.from_cache('NP')
+    CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
+    CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
     print(e)
 
-
-## @{
-## @ingroup gconst
-## @defgroup ccgcat CCG Categories
-
 CAT_NUM = Category.from_cache('N[num]')
-CAT_EMPTY = Category()
 CAT_COMMA = Category.from_cache(',')
 CAT_CONJ = Category.from_cache('conj')
 CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
@@ -747,10 +854,8 @@ CAT_RQU = Category.from_cache('RQU')
 CAT_LRB = Category.from_cache('LRB')
 CAT_RRB = Category.from_cache('RRB')
 CAT_N = Category.from_cache('N')
-CAT_NP = Category.from_cache('NP')
 CAT_NPthr = Category.from_cache('NP[thr]')
 CAT_NPexpl = Category.from_cache('NP[expl]')
-CAT_PP = Category.from_cache('PP')
 CAT_PR = Category.from_cache('PR')
 CAT_PREPOSITION = Category.from_cache('PP/NP')
 CAT_SEMICOLON = Category.from_cache(';')
@@ -762,8 +867,6 @@ CAT_Sb = Category.from_cache('S[b]')
 CAT_Sto = Category.from_cache('S[to]')
 CAT_Swq = Category.from_cache('S[wq]')
 CAT_ADVERB = Category.from_cache(r'(S\NP)\(S\NP)')
-CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
-CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
 CAT_S = Category.from_cache('S')
 CAT_ADJECTIVE = Category.from_cache('N/N')
 CAT_DETERMINER = Category.from_cache('NP[nb]/N')
@@ -773,7 +876,7 @@ CAT_NP_N = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/N$')
 CAT_NP_NP = RegexCategoryClass(r'^NP(?:\[[a-z]+\])?/NP$')
 CAT_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?$')
 CAT_PPNP = Category.from_cache('PP/NP')
-## @}
+## @endcond
 
 
 class Rule(object):
