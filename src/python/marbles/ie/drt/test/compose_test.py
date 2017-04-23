@@ -480,11 +480,6 @@ class ComposeTest(unittest.TestCase):
     def test2_Wsj0004_1(self):
         # Yields on money-market mutual funds continued to slide, amid signs that portfolio managers expect further
         # declines in interest rates.
-        '''
-        [x,e,y| x: [x3,y3| yields(x3),on(x3,y3),money-market(y3),mutual(y3),funds(y3)],event.attribute.continued(e,x),
-        event.attribute.to(e,x),event(e),event.verb.slide(e),event.agent(e,x),amid(y),event.related(e,y),signs(y),
-        event.related(y), y: [x2,e1,y2| portfolio(x2),managers(x2),event(e1),event.verb.expect(e1),event.agent(e1,x2),
-        event.theme(e1,y2),y2: [x1,y1| further(x1),declines(x1),in(x1,y1),interest(y1),rates(y1)]]]        '''
         txt='''(<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 2> (<T NP 0 1> (<L N NNS NNS Yields N>) ) (<T NP\NP 0 2>
         (<L (NP\NP)/NP IN IN on (NP_111\NP_111)/NP_112>) (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ money-market N_128/N_128>)
         (<T N 1 2> (<L N/N JJ JJ mutual N_121/N_121>) (<L N NNS NNS funds N>) ) ) ) ) ) (<T S[dcl]\NP 0 2>
@@ -656,7 +651,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x2| .EVENT(e1),welcome(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
+        x = u'[x3,e1,x2| .EVENT(e1),welcome(e1),.AGENT(e1,x3),.THEME(e1,x2),Merryweather-High(x2)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -950,6 +945,13 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
         self.assertIsNotNone(d)
 
+    def test6_Pronouns(self):
+        txt = '''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2> (<L ((S[dcl]\NP)/PP)/NP VBD VBD leased ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN car N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ my NP/(N/PP)>) (<T N/PP 0 2> (<L N/PP NN NN friend N/PP>) (<T (N/PP)\(N/PP) 0 2> (<L ((N/PP)\(N/PP))/NP IN IN for ((N/PP)\(N/PP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N CD CD $5 N>) (<T N\N 0 2> (<L (N\N)/N DT DT a (N\N)/N>) (<L N NN NN month. N>) ) ) ) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+
     def test7_Brexit(self):
         # The managing director of the International Monetary Fund has said she wants Britain to stay in the EU,
         # warning that a looming Brexit referendum posed a risk to the UK economy
@@ -1128,7 +1130,83 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         print(d)
 
-    def test6_ParseEasySRL2005T13(self):
+    def test6_Gerund1(self):
+        txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T S/S 0 1> (<T S[ng]\NP 0 2> (<T (S[ng]\NP)/PP 0 2> (<L ((S[ng]\NP)/PP)/NP VBG VBG Presenting ((S[ng]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNS NNS IMF’s N/N>) (<T N 1 2> (<L N/N JJ JJ annual N/N>) (<T N 0 2> (<L N/PP NN NN healthcheck N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN alongside PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP George N/N>) (<L N NNP NNP Osborne N>) ) ) ) (<L , , , , ,>) ) ) ) (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Lagarde N>) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2> (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<T N 0 2> (<L N/PP NNS NNS risks N/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN outlook N>) ) ) ) ) ) ) ) ) (<L , , , , ,>) ) (<T S\S 0 2> (<L (S\S)/PP VBG VBG including (S\S)/PP>) (<T PP 0 2> (<L PP/NP IN IN from PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NN NN housing N/N>) (<L N NN NN market N>) ) ) ) ) ) (<L , , , , ,>) ) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC but conj>) (<T S[dcl] 1 2> (<L NP PRP PRP she NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD was (S[dcl]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB generally (S[adj]\NP)/(S[adj]\NP)>) (<L S[adj]\NP JJ JJ positive. S[adj]\NP>) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test7_AdjPhrase1(self):
+        txt = '''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N PRP$ PRP$ Your NP/N>) (<T N 1 2> (<L N/N NN NN apple N/N>) (<L N NN NN pie N>) ) ) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBZ VBZ smells S[dcl]\NP>) (<T (S\NP)\(S\NP) 1 2> (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) RB RB very ((S\NP)\(S\NP))/((S\NP)\(S\NP))>) (<L (S\NP)\(S\NP) JJ JJ tempting. (S\NP)\(S\NP)>) ) ) )'''
+        # (<T S[dcl] 1 2>
+        #   (<T NP 0 2>
+        #     (<L NP/N PRP$ PRP$ Your NP_636/N_636>)
+        #     (<T N 1 2>
+        #       (<L N/N NN NN apple N_107/N_107>)
+        #       (<L N NN NN pie N>)
+        #     )
+        #   )
+        #   (<T S[dcl]\NP 0 2>
+        #     (<L S[dcl]\NP VBZ VBZ smells S[dcl]\NP_125>)
+        #     (<T (S\NP)\(S\NP) 1 2>
+        #       (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) RB RB very ((S_133\NP_134)\(S_133\NP_134))/((S_133\NP_134)\(S_133\NP_134))>)
+        #       (<L (S\NP)\(S\NP) JJ JJ tempting. (S_113\NP_114)\(S_113\NP_114)>)
+        #     )
+        #   )
+        # )
+        # [x1,e2,x3| .ENTITY(x1),.ENTITY(x1),[| your(x3)] ⇒ [| you(x1),owns(x1,x3)],apple(x1),pie(x1),.EVENT(e2),smells(e2),.AGENT(e2,x3),very(e2),tempting(e2)]
+        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test8_CopularToBe1(self):
+        # I am sorry
+        txt='''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L S[adj]\NP IN IN sorry. S[adj]\NP>) ) )'''
+        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test8_NonCopularToBe1(self):
+        txt = '''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2>
+        (<L (S[adj]\NP)/(S[adj]\NP) RB RB really (S[adj]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 0 2>
+        (<L (S[adj]\NP)/PP VBN VBN disappointed (S[adj]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN with PP/NP>) (<T NP 0 2>
+        (<L NP/N DT DT the NP/N>) (<L N NN NN review. N>) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test8_NonCopularToBe2(self):
+        # I am really sorry
+        txt = '''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/(S[adj]\NP) 0 2>
+        (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L (S\NP)\(S\NP) RB RB really (S\NP)\(S\NP)>)
+        ) (<L S[adj]\NP JJ JJ sorry. S[adj]\NP>) ) )'''
+        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test10_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
         # - ./scripts/extract_lfs.sh
         #   Extracts LDC2005T13 dataset
@@ -1198,7 +1276,7 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(len(failed_ccg2drs), 0)
         self.assertEqual(failed_parse, 0)
 
-    def test6_ParseLdc2005T13(self):
+    def test10_ParseLdc2005T13(self):
         # Mar-2017 PWG
         #
         # LDC2005T13 is a conversion of the Penn Treebank into CCG derivations.
