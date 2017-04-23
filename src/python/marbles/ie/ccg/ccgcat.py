@@ -185,7 +185,7 @@ class Category(Freezable):
     _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
     _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+|X)\]')
     _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
-    _CleanPredArg1 = re.compile(r':[A-Z]')
+    _CleanPredArg1 = re.compile(r':[A-Z]|\{_\*\}')
     _CleanPredArg2 = re.compile(r'\)_\d+')
     _CleanPredArg3 = re.compile(r'_\d+')
     _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
@@ -193,7 +193,7 @@ class Category(Freezable):
     _Feature = re.compile(r'\[([a-z]+|X)\]')
     _Wildtag = re.compile(r'\{_.*\}')
     _cache = Cache()
-    _use_cache = False
+    _use_cache = 0
     _OP_REMOVE_UNIFY_FALSE = 0
     _OP_REMOVE_UNIFY_TRUE = 1
     _OP_REMOVE_WILDCARDS = 2
@@ -256,7 +256,7 @@ class Category(Freezable):
 
     @classmethod
     def from_cache(cls, signature):
-        if not cls._use_cache:
+        if 0 == cls._use_cache:
             if isinstance(signature, Category):
                 return signature
             return Category(signature)
@@ -279,8 +279,14 @@ class Category(Freezable):
             todo.append(cat.simplify())
             todo.append(cat.remove_features())
             todo.append(cat.remove_wildcards())
-            for c in todo:
-                cls._cache[c.signature] = c
+            todo = set(todo)
+            if cls._use_cache > 0:
+                for c in todo:
+                    if c.signature not in cls._cache:
+                        cls._cache[c.signature] = c
+            else:
+                for c in todo:
+                    cls._cache.addinit((c.signature, c))
             for c in todo:
                 cat = cls._cache[c.signature]
                 cat.initialize_ops_cache()
@@ -299,7 +305,7 @@ class Category(Freezable):
         Remarks:
             Is threadsafe.
         """
-        if cls._use_cache:
+        if 0 != cls._use_cache:
             with open(filename, 'w') as fd:
                 for k, v in cls._cache:
                     fd.write(k)
@@ -318,6 +324,35 @@ class Category(Freezable):
         with open(filename, 'r') as fd:
             cache = Cache()
             sigs = fd.readlines()
+
+            # Ensure these are in the read only section
+            sigs.append(r'S[X]')
+            sigs.append(r'S[X]\NP')
+            sigs.append(r'S\NP')
+            sigs.append(r'S/NP')
+            sigs.append(r'S[pt]/NP')
+            sigs.append(r'S\(S/NP)')
+            sigs.append(r'S')
+            sigs.append(r'S[pt]')
+            sigs.append(r'NP/(S[b]/NP)')
+            sigs.append(r'N\N')
+            sigs.append(r'NP\NP')
+            sigs.append(r'NP[expl]')
+            sigs.append(r'(NP/(N/PP))\NP')
+            sigs.append('NP/(N/PP)')
+            sigs.append(',')
+            sigs.append('.')
+            sigs.append(':')
+            sigs.append(';')
+            sigs.append('conj')
+            sigs.append(r'conj\conj')
+            sigs.append(r'conj/conj')
+            sigs.append('LQU')
+            sigs.append('RQU')
+            sigs.append('LRB')
+            sigs.append('RRB')
+            sigs = set(sigs)
+
             pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#'
                                                                 and cls._Wildtag.match(s) is None,
                                                       map(lambda p: p.strip(), sigs))]
@@ -325,10 +360,12 @@ class Category(Freezable):
             pairs.extend(conjpairs)
             cache.initialize(pairs)
         cls._cache = cache
-        cls._use_cache = True
+        cls._use_cache = -1
         for k, v in pairs:
             v.initialize_ops_cache()
             v.freeze()
+
+        cls._use_cache = 1
 
     @classmethod
     def finalize_cache(cls):
@@ -337,14 +374,20 @@ class Category(Freezable):
         Remarks:
             Not threadsafe.
         """
-        for k, v in cls._cache:
+        cls._use_cache = -1
+
+        # Cache can change size during iteration so get key,values first
+        cats = [v for k, v in cls._cache]
+        for v in cats:
             v.test_returns_modifier()
             v.test_returns_preposition()
             v.test_returns_entity_modifier()
 
+        cls._use_cache = 1
+
     @classmethod
     def clear_cache(cls):
-        cls._use_cache = False
+        cls._use_cache = 0
         oldcache = cls._cache
         cls._cache = Cache()
         for k, v in oldcache:
@@ -378,7 +421,7 @@ class Category(Freezable):
             c = cat.remove_wildcards()
             pairs.append((c.signature, c))
         cls._cache.initialize(pairs)
-        cls._use_cache = True
+        cls._use_cache = 1
 
     @classmethod
     def combine(cls, left, slash, right, cacheable=True):
@@ -399,7 +442,7 @@ class Category(Freezable):
         if right.isempty:
             return left
         signature = join_signature((left.signature, slash, right.signature))
-        if cls._use_cache and cacheable:
+        if 0 != cls._use_cache and cacheable:
             return cls.from_cache(signature)
         return Category(signature)
 
@@ -494,7 +537,7 @@ class Category(Freezable):
         Returns:
             A Category instance.
         """
-        if self._use_cache and cacheable:
+        if 0 != self._use_cache and cacheable:
             if self._ops_cache:
                 return self._ops_cache[self._OP_RESULT_CAT]
             return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
@@ -509,7 +552,7 @@ class Category(Freezable):
         Returns:
             A Category instance.
         """
-        if self._use_cache and cacheable:
+        if 0 != self._use_cache and cacheable:
             if self._ops_cache:
                 return self._ops_cache[self._OP_ARG_CAT]
             return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
@@ -519,7 +562,7 @@ class Category(Freezable):
         self._ops_cache = None
 
     def initialize_ops_cache(self):
-        if not self._use_cache or self._ops_cache is not None:
+        if 0 >= self._use_cache or self._ops_cache is not None:
             return self
         ops_cache = [None] * self._OP_COUNT
         ops_cache[self._OP_SLASH] = ''.join(self._extract_slash_helper([]))
@@ -562,7 +605,7 @@ class Category(Freezable):
             newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
         while not newcat.isfunctor and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
             newcat = Category(newcat.signature[1:-1])
-        return newcat
+        return newcat if not deep else Category.from_cache(newcat.signature)
 
     def complete_tags(self, tag=900):
         """Add predicate argument tags to atoms that don't have a tag.
@@ -630,10 +673,10 @@ class Category(Freezable):
             return self._ops_cache[self._OP_REMOVE_FEATURES]
         return Category(self._Feature.sub('', self._signature))
 
-    def _extract_atoms_helper(self, atoms):
+    def _extract_atoms_helper(self, atoms, cacheable):
         if self.isfunctor:
-            atoms = self.argument_category()._extract_atoms_helper(atoms)
-            return self.result_category()._extract_atoms_helper(atoms)
+            atoms = self.argument_category(cacheable)._extract_atoms_helper(atoms, cacheable)
+            return self.result_category(cacheable)._extract_atoms_helper(atoms, cacheable)
         else:
             atoms.append(self)
             return atoms
@@ -645,12 +688,13 @@ class Category(Freezable):
             slashes = self.result_category()._extract_slash_helper(slashes)
         return slashes
 
-    def extract_unify_atoms(self, follow=True):
+    def extract_unify_atoms(self, follow=True, cacheable=True):
         """Extract the atomic categories for unification.
 
         Args:
             follow: If True, return atoms for argument and result functors recursively. If false return the atoms
                 for the category.
+            cacheable: Optional flag indicating the result can be added to the cache.
 
         Returns:
             A list of sub-lists containing atomic categories. Each sub-list is ordered for unification at the functor
@@ -672,13 +716,13 @@ class Category(Freezable):
                 cat = self
                 atoms = []
                 while cat.isfunctor:
-                    aa = cat.argument_category()._extract_atoms_helper([])
+                    aa = cat.argument_category(cacheable)._extract_atoms_helper([], cacheable)
                     atoms.append(aa)
-                    cat = cat.result_category()
+                    cat = cat.result_category(cacheable)
                 atoms.append([cat])
                 return atoms
             else:
-                return self._extract_atoms_helper([])
+                return self._extract_atoms_helper([], cacheable)
         return None
 
     def can_unify_atom(self, other):
@@ -820,7 +864,6 @@ class Category(Freezable):
                 result = new_result
             self._features |= FUNCTOR_RETURN_ENTITY_MOD_CHECKED
         return 0 != (self._features & FUNCTOR_RETURN_ENTITY_MOD)
-
 
 
 ## @cond

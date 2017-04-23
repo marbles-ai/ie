@@ -148,7 +148,7 @@ class FunctorTemplate(object):
 
         fn = []
         while predarg.isfunctor:
-            atoms = predarg.argument_category(False).extract_unify_atoms(False)
+            atoms = predarg.argument_category(False).extract_unify_atoms(False, cacheable=False)
             predarg = predarg.result_category(False)
             refs = []
             for a in atoms:
@@ -367,7 +367,7 @@ class Model(object):
             Used to load templates from a file.
         """
         if isinstance(cat, str):
-            cat = Category.from_cache(cat)
+            cat = Category(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.build_template() expects signature or Category')
         key = cat.clean(True)
@@ -479,12 +479,16 @@ class Model(object):
         elif not isinstance(argument, Category):
             raise TypeError('Model.lookup_unary() expects signature or Category argument')
         key = UnaryRule.create_key(result, argument)
-        if key in self._UNARY:
+        try:
             return self._UNARY[key]
+        except Exception:
+            pass
         # Perform wildcard replacements
         wc = Category.from_cache(self._Feature.sub('[X]', key.signature))
-        if wc in self._UNARY:
+        try:
             return self._UNARY[wc]
+        except Exception:
+            pass
         return None
 
     def lookup(self, category):
@@ -494,8 +498,10 @@ class Model(object):
         # Perform wildcard replacements
         if category.isfunctor:
             wc = Category.from_cache(self._Feature.sub('[X]', category.signature))
-            if wc in self._TEMPLATES:
+            try:
                 return self._TEMPLATES[wc]
+            except Exception:
+                pass
         return None
 
     def issupported(self, category):
@@ -519,7 +525,7 @@ try:
     _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
     _tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
-    _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
+    #_tcache.addinit(Model.build_template(r'PP_1002/NP_1002'), replace=True)
     _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
