@@ -2,6 +2,9 @@
 """CCG to DRS Production Generator"""
 
 import re
+from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.stem.snowball import EnglishStemmer
+
 
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
@@ -35,7 +38,7 @@ __pron = [
     ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN|RT_2P),
     ('yourself','([x1],[])',    '([],[you(x1),.REFLEX(x1)])', RT_HUMAN|RT_2P),
     ('yours',   '([x2],[])',    '([],[you(x1),.OWN(x1,x2)])', RT_HUMAN|RT_2P),
-    ('your',    '([x1],[])',    '([],[you(x1),.POSS(x1,x2)])', RT_HUMAN|RT_2P),
+    ('your',    '([x2],[])',    '([],[you(x1),.POSS(x1,x2)])', RT_HUMAN|RT_2P),
     # 3rd person singular
     ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
     ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
@@ -85,9 +88,7 @@ for k,u,v,w in __adv:
 
 # Special behavior for prepositions
 _PREPS = {
-    'to':           MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
-    'alongside':    MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
-    'with':    MODEL.build_template(r'PP_1002/NP_1002', construct_empty=True)[1],
+    'of':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
 }
 
 
@@ -118,6 +119,13 @@ _WEEKDAYS = {
     'Sat':  'Saturday',
     'Sun':  'Sunday'
 }
+
+# Copular verbs
+_COPULAR = [
+    'act', 'appear', 'be', 'become', 'bleed', 'come', 'come out', 'constitute', 'end up', 'die', 'get', 'go', 'grow',
+    'fall', 'feel', 'freeze', 'keep', 'look', 'prove', 'remain', 'run', 'seem', 'shine', 'smell', 'sound', 'stay',
+    'taste', 'turn', 'turn up', 'wax'
+]
 
 # To indicate time order
 _TIME_ORDER = [
@@ -223,14 +231,22 @@ _ATTITUDE = [
 # Special categories
 CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
 CAT_CONJCONJ = Category.from_cache(r'conj/conj')
-CAT_ADJ_PHRASE = Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)')
 # Transitive verb
 CAT_TV = Category.from_cache(r'(S\NP)/NP')
 # Ditransitive verb
 CAT_DTV = Category.from_cache(r'(S\NP)/NP/NP')
 # Verb phrase
 CAT_VP = Category.from_cache(r'S\NP')
-
+CAT_VPdcl = Category.from_cache(r'S[dcl]\NP')
+# Copular verb
+CAT_COPULAR = Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)')
+# CAT_AP
+# Adjectival phrase
+CAT_AP = Category.from_cache(r'S[adj]\NP')
+# Adjectival prepositional phrase
+CAT_AP_PP = Category.from_cache(r'(S[adj]\NP)/PP')
+# Past participle
+CAT_MODAL_PAST = Category.from_cache(r'(S[dcl]\NP)/(S[pt]\NP)')
 ## @endcond
 
 
@@ -360,6 +376,7 @@ class CcgTypeMapper(object):
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
+    _Lemmatizer = WordNetLemmatizer()
 
     def __init__(self, category, word, posTags=None):
         if isinstance(category, Category):
@@ -379,13 +396,22 @@ class CcgTypeMapper(object):
         if (self.category == CAT_NOUN or self._pos == POS_NOUN or self._pos == POS_NOUN_S) and wd.upper() == wd:
             # If all uppercase then keep it that way
             self._word = word.rstrip('?.,:;')
+            self._stem = self._word
         elif self.isproper_noun:
             if wd.upper() == wd:
                 self._word = word.rstrip('?.,:;')
             else:
                 self._word = word.title().rstrip('?.,:;')
+            self._stem = self._word
         else:
+            if word == 'am':
+                pass
             self._word = word.lower().rstrip('?.,:;')
+            if self._pos in POS_LIST_VERB or self._pos == POS_GERUND:
+                # FIXME: move to python 3 so its all unicode
+                self._stem = self._Lemmatizer.lemmatize(self._word, pos='v').encode('utf-8')
+            else:
+                self._stem = self._word
 
         # Atomic types don't need a template
         if self.category.isfunctor and not MODEL.issupported(self.category) \
@@ -398,6 +424,10 @@ class CcgTypeMapper(object):
 
     def __repr__(self):
         return '<' + self._word + ' ' + str(self.partofspeech) + ' ' + self.signature + '>'
+
+    @property
+    def word_predicate(self):
+        return self._stem
 
     @property
     def ispunct(self):
@@ -594,7 +624,7 @@ class CcgTypeMapper(object):
                 d.set_lambda_refs(d.drs.universe)
                 return d
             else:
-                d = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x')])]))
+                d = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x')])]))
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x')])
                 return d
@@ -611,6 +641,7 @@ class CcgTypeMapper(object):
                                    dep=Dependency(DRSRef('x1'), self._word, pron[1]))
                 fn.set_lambda_refs(pron[2])
                 return FunctorProduction(category=self.category, referent=pron[2], production=fn)
+
             else:
                 if self.category == CAT_DETERMINER:
                     if self._word in ['a', 'an']:
@@ -618,11 +649,11 @@ class CcgTypeMapper(object):
                     elif self._word in ['the', 'thy']:
                         fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
+                        fn = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x1')])]), category=CAT_NP)
                 elif self.partofspeech == POS_DETERMINER and self._word in ['the', 'thy', 'a', 'an']:
                     fn = DrsProduction(DRS([], []), category=CAT_NP)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
+                    fn = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x1')])]), category=CAT_NP)
                 fn.set_lambda_refs([DRSRef('x1')])
             return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
 
@@ -665,26 +696,46 @@ class CcgTypeMapper(object):
                             or self.category.ismodifier:
                     # passive case
                     if len(refs) > 1:
-                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]), Rel('.MOD', refs)]))
+                        fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]]), Rel('.MOD', refs)]))
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]])]))
-                elif self._word in ['am', 'are', 'is']:
-                    # eq(x1,x2)
-                    assert len(refs) == 3, "to-be expects 3 referents"
+                        fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]])]))
+
+                elif self.category == CAT_MODAL_PAST:
+                    fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]]),
+                                                Rel('.MODAL', [refs[0]])]))
+
+                elif self.category == CAT_COPULAR:
+                    assert len(refs) == 3, "copular expects 3 referents"
 
                     # Special handling
-                    d = DrsProduction(DRS([refs[0]], [Rel('.BE', [refs[0], refs[2]])]))
+                    d = DrsProduction(DRS([refs[0]], [Rel('.COPULAR', [refs[0]]),
+                                                      Rel('.AGENT', [refs[0], refs[2]]), Rel(self._stem, [refs[0]])]),
+                                      dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
                     fn.push(d)
-                    fn.rename_vars((refs[1], refs[0]))
+                    fn.rename_vars([(refs[1], refs[0])])
+                    return fn
+
+                elif self.category == CAT_VPdcl:
+
+                    assert len(refs) == 2, "maybe_copular expects 2 referents"
+
+                    # Special handling
+                    d = DrsProduction(DRS([refs[0]], [Rel('.MAYBE_COPULAR', [refs[0]]),
+                                                      Rel('.AGENT', [refs[0], refs[1]]), Rel(self._stem, [refs[0]])]),
+                                      dep=Dependency(refs[0], self._word, RT_EVENT))
+                    d.set_lambda_refs([refs[0]])
+                    fn = template.create_empty_functor()
+                    fn.pop()
+                    fn.push(d)
                     return fn
 
                 else:
                     # TODO: use verbnet to get semantics
                     rrf = [x for x in reversed(refs[1:])]
-                    conds = [Rel('.EVENT', [refs[0]]), Rel(self._word, [refs[0]])]
+                    conds = [Rel('.EVENT', [refs[0]]), Rel(self._stem, [refs[0]])]
                     pred = zip(rrf, self._EventPredicates)
                     for v, e in pred:
                         conds.append(Rel(e, [refs[0], v]))
@@ -701,7 +752,7 @@ class CcgTypeMapper(object):
                     rs = zip(adv[1], refs)
                     fn.rename_vars(rs)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
+                    fn = DrsProduction(DRS([], [Rel(self._stem, refs[0])]))
 
             #elif self.partofspeech == POS_DETERMINER and self._word == 'a':
 
@@ -732,7 +783,8 @@ class CcgTypeMapper(object):
                 fn = DrsProduction(DRS([], [Rel(self._word, [refs[0], refs[-1]])]))
 
             elif final_atom == CAT_Sadj and len(refs) > 1:
-                if self.category.ismodifier:
+                if self.category == CAT_AP_PP or self.category.ismodifier or \
+                        self.category.test_returns_modifier():
                     fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
                 else:
                     conds = [Rel(self._word, refs[0])]
@@ -743,7 +795,8 @@ class CcgTypeMapper(object):
             else:
                 if self.isproper_noun:
                     dep = Dependency(refs[0], self._word, RT_PROPERNAME)
-                elif final_atom == CAT_N and not self.category.test_returns_modifier():
+                elif final_atom == CAT_N and not self.category.ismodifier \
+                        and not self.category.test_returns_modifier():
                     dep = Dependency(refs[0], self._word, (RT_ENTITY | RT_PLURAL)
                                      if self.partofspeech == POS_NOUN_S else RT_ENTITY)
                 else:
@@ -752,7 +805,7 @@ class CcgTypeMapper(object):
                     if self.category == CAT_INFINITIVE:
                         fn = DrsProduction(DRS([], []))
                     elif self.partofspeech == POS_MODAL:
-                        fn = DrsProduction(DRS([], [Rel(self._word, [refs[0]]),
+                        fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]]),
                                                     Rel('.MODAL', [refs[0]])]))
                     else:
                         fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
@@ -933,6 +986,7 @@ class Ccg2Drs(object):
                     if unary is None and result.ismodifier and result.result_category() == cats[0]:
                         unary = MODEL.infer_unary(result)
                     if unary is None:
+                        unary = MODEL.lookup_unary(result, cats[0])
                         raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
                     d = self.rename_vars(unary.get())
                     d.set_options(cl2.compose_options)
@@ -1125,7 +1179,7 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
                 lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
                 _pt_to_ccgbank_helper(pt[1], lst, pretty+1)
                 lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.category.signature))
+                                                       '.UNARY', template.predarg_category.signature))
                 lst.append('%s)' % indent2)
                 _pt_to_ccgbank_helper(pt[2], lst, pretty)
             elif rule == RL_TCR_UNARY:
@@ -1138,7 +1192,7 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
                 lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
                 _pt_to_ccgbank_helper(pt[2], lst, pretty+1)
                 lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.category.signature))
+                                                       '.UNARY', template.predarg_category.signature))
                 lst.append('%s)' % indent2)
             else:
                 _pt_to_ccgbank_helper(pt[1], lst, pretty)
@@ -1158,7 +1212,7 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
                 assert unary is not None
                 template = unary.template
                 lst.append('%s(<L %s %s %s %s %s>)' % (indent2, template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.category.signature))
+                                                       '.UNARY', template.predarg_category.signature))
         lst.append('%s)' % indent)
         return result
 
