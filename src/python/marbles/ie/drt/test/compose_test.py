@@ -5,7 +5,7 @@ import unittest
 
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
 from marbles.ie.ccg.ccgcat import Category
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
@@ -163,7 +163,7 @@ class ComposeTest(unittest.TestCase):
             (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
         self.assertIsNotNone(d)
         print(d.drs.show(SHOW_LINEAR))
 
@@ -241,7 +241,7 @@ class ComposeTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
         self.assertIsNotNone(d)
         d = d.unify()
         self.assertIsNotNone(d)
@@ -308,7 +308,7 @@ class ComposeTest(unittest.TestCase):
 )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
         self.assertIsNotNone(d)
         d = d.unify()
         self.assertIsNotNone(d)
@@ -468,7 +468,7 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
         self.assertIsNotNone(d)
         d = d.unify()
         self.assertIsNotNone(d)
@@ -521,7 +521,7 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
         self.assertIsNotNone(d)
         d = d.unify()
         self.assertIsNotNone(d)
