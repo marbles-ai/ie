@@ -194,6 +194,15 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		return new SynchronizedSession(parser2, reader, outputFormat);
 	}
 
+	/**
+	 * Parse using default session
+	 * @param sentence
+	 * @return
+	 */
+	public String parse(String sentence) {
+		return parse(defaultSession_, sentence);
+	}
+
 	public static String parse(Session session, String sentence) {
 		if (session.getParser() != null) {
 			List<CCGandSRLparse> parses = session.getParser().parseTokens(session.getReader().readInput(sentence)

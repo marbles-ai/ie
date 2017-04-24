@@ -8,5 +8,6 @@ dependencies {
 }
 
 test {
-	workingDir '.'
+	// Make model path accessible to all sub projects
+	workingDir './'
 }
