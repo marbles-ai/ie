@@ -18,6 +18,7 @@ jar {
 dependencies {
     compile 'com.google.guava:guava:19.0'
     compile fileTree(dir: 'lib/', include: ['*.jar'])
+    compile fileTree(dir: '../edu.mit.jwi_2.4.0_all/', include: ['*.jar'])
 }
 
 sourceSets {
