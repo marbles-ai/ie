@@ -138,7 +138,7 @@ public class EasyCCG
     // Added for daemon
         // PWG: run as a gRPC service
       if (true) {
-          CcgServiceHandler svc = new CcgServiceHandler();
+          CcgServiceHandler svc = new CcgServiceHandler("" /* path to model file */);
           ServiceAcceptor server = new ServiceAcceptor(8085, svc);
           server.start();
           server.blockUntilShutdown();

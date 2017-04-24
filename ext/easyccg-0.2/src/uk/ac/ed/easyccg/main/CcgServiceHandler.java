@@ -23,6 +23,16 @@ import ai.marbles.grpc.QueryInput;
  */
 public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
+    public CcgServiceHandler(String pathToModel) {
+    }
+
+    public void init() {
+    }
+
+    public String parse(String sentence) {
+        return "";
+    }
+
     @Override
     /** {@inheritDoc} */
     public void create(Request request, StreamObserver<Empty> responseObserver) {
