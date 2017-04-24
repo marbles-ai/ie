@@ -23,7 +23,7 @@ public class EasyCCGDaemonTest {
 //		try {
 //
 //			System.out.println("Starting EasyCCGDaemonTest...");
-//			CcgServiceHandler svc = new CcgServiceHandler("~/easyccg-0.2/model/text");
+//			CcgServiceHandler svc = new CcgServiceHandler("./easyccg-0.2/model/text");
 //			svc.init();
 //			server = new ServiceAcceptor(port, svc);
 //			server.start();
