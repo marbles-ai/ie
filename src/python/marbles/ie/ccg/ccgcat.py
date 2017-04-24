@@ -741,7 +741,7 @@ class Category(Freezable):
             return False
         if self == other:
             return True
-        if self in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N] and other in [CAT_PP, CAT_NP, CAT_Sadj, CAT_N]:
+        if self in [CAT_PP, CAT_NP, CAT_N] and other in [CAT_PP, CAT_NP, CAT_N]:
             return True
         s1 = self.signature
         s2 = other.signature
