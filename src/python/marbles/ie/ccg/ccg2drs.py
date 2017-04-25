@@ -721,7 +721,8 @@ class CcgTypeMapper(object):
                         conds.append(Rel('.COPULAR', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[2]]))
                     conds.append(Rel(self._stem, [refs[0]]))
-                    d = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
+                    d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
+                                      dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
@@ -738,7 +739,7 @@ class CcgTypeMapper(object):
                     conds.append(Rel(self._stem, [refs[0]]))
 
                     # Special handling
-                    d = DrsProduction(DRS([refs[0]], conds),
+                    d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
                                       dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
