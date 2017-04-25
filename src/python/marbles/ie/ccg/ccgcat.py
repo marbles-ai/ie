@@ -31,8 +31,8 @@ def extract_features(signature):
         A tuple of the modified signature and the feature mask.
     """
     features = FEATURE_CONJ if '[conj]' in signature else 0
-    if features:
-        signature = signature.replace('[conj]', '')
+    #if features:
+    #    signature = signature.replace('[conj]', '')
     features |= FEATURE_ADJ if '[adj]' in signature else 0
     features |= FEATURE_PSS if '[pss]' in signature else 0
     features |= FEATURE_NG if '[ng]' in signature else 0
@@ -344,6 +344,8 @@ class Category(Freezable):
             sigs.append('.')
             sigs.append(':')
             sigs.append(';')
+            sigs.append('N[conj]')
+            sigs.append('NP[conj]')
             sigs.append('conj')
             sigs.append(r'conj\conj')
             sigs.append(r'conj/conj')
@@ -741,7 +743,7 @@ class Category(Freezable):
             return False
         if self == other:
             return True
-        if self in [CAT_PP, CAT_NP, CAT_N] and other in [CAT_PP, CAT_NP, CAT_N]:
+        if self.remove_features() in [CAT_PP, CAT_NP, CAT_N] and other.remove_features() in [CAT_PP, CAT_NP, CAT_N]:
             return True
         s1 = self.signature
         s2 = other.signature
@@ -888,6 +890,8 @@ except Exception as e:
     print(e)
 
 CAT_NUM = Category.from_cache('N[num]')
+CAT_NPconj = Category.from_cache('NP[conj]')
+CAT_Nconj = Category.from_cache('N[conj]')
 CAT_COMMA = Category.from_cache(',')
 CAT_CONJ = Category.from_cache('conj')
 CAT_CONJ_CONJ = Category.from_cache(r'conj\conj')
