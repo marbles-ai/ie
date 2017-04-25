@@ -404,8 +404,6 @@ class CcgTypeMapper(object):
                 self._word = word.title().rstrip('?.,:;')
             self._stem = self._word
         else:
-            if word == 'am':
-                pass
             self._word = word.lower().rstrip('?.,:;')
             if self._pos in POS_LIST_VERB or self._pos == POS_GERUND:
                 # FIXME: move to python 3 so its all unicode
@@ -703,21 +701,21 @@ class CcgTypeMapper(object):
                             or self.category.ismodifier:
                     # passive case
                     if len(refs) > 1:
-                        fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]]), Rel('.MOD', refs)]))
+                        conds.extend([Rel(self._stem, [refs[0]]), Rel('.MOD', refs)])
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]])]))
+                        conds.append(Rel(self._stem, [refs[0]]))
+                    fn = DrsProduction(DRS([], conds))
 
                 elif self.category == CAT_MODAL_PAST:
-                    fn = DrsProduction(DRS([], [Rel(self._stem, [refs[0]]),
-                                                Rel('.MODAL', [refs[0]])]))
+                    conds.extend([Rel(self._stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
+                    fn = DrsProduction(DRS([], conds))
 
                 elif self.category == CAT_COPULAR:
                     assert len(refs) == 3, "copular expects 3 referents"
 
                     # Special handling
-                    if len(conds) != 0:
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                    else:
+                    conds.append(Rel('.EVENT', [refs[0]]))
+                    if len(conds) == 0:
                         conds.append(Rel('.COPULAR', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[2]]))
                     conds.append(Rel(self._stem, [refs[0]]))
@@ -734,6 +732,7 @@ class CcgTypeMapper(object):
 
                     assert len(refs) == 2, "maybe_copular expects 2 referents"
 
+                    conds.append(Rel('.EVENT', [refs[0]]))
                     conds.append(Rel('.MAYBE_COPULAR', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[1]]))
                     conds.append(Rel(self._stem, [refs[0]]))
