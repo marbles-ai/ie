@@ -4,14 +4,11 @@
 import re
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.stem.snowball import EnglishStemmer
-
-
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
     RL_TYPE_RAISE, RL_BA, RL_LPASS, RL_RPASS, \
     FEATURE_ADJ, FEATURE_PSS, FEATURE_TO
-
 from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
     RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER, RT_1P, RT_2P, RT_3P
 from marbles.ie.ccg.model import MODEL
@@ -23,7 +20,7 @@ from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, 
 from marbles.ie.parse import parse_drs
 from marbles.ie.drt.drs import get_new_drsrefs
 from marbles.ie.utils.cache import Cache, Freezable
-
+from marbles.ie.kb.verbnet import VerbnetDB
 
 ## @cond
 # The pronouns must always be referent x1
@@ -89,6 +86,7 @@ for k,u,v,w in __adv:
 # Special behavior for prepositions
 _PREPS = {
     'of':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'on':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
 }
 
 
@@ -377,8 +375,10 @@ class CcgTypeMapper(object):
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
     _Lemmatizer = WordNetLemmatizer()
+    _verbnetDB = VerbnetDB()
 
     def __init__(self, category, word, posTags=None):
+        self._vnclasses = None
         if isinstance(category, Category):
             self._ccgcat = category
         else:
@@ -409,7 +409,7 @@ class CcgTypeMapper(object):
             self._word = word.lower().rstrip('?.,:;')
             if self._pos in POS_LIST_VERB or self._pos == POS_GERUND:
                 # FIXME: move to python 3 so its all unicode
-                self._stem = self._Lemmatizer.lemmatize(self._word, pos='v').encode('utf-8')
+                self._stem = self._Lemmatizer.lemmatize(self._word.decode('utf-8'), pos='v').encode('utf-8')
             else:
                 self._stem = self._word
 
@@ -692,6 +692,13 @@ class CcgTypeMapper(object):
                     result = result.result_category()
 
             if isverb and template.isfinalevent:
+                conds = []
+                try:
+                    self._vnclasses = self._verbnetDB.name_index[self._stem]
+                    for vn in self._vnclasses:
+                        conds.append(Rel('.VN.' + vn.ID.encode('utf-8'), [refs[0]]))
+                except Exception:
+                    pass
                 if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
                             or self.category.ismodifier:
                     # passive case
@@ -708,9 +715,13 @@ class CcgTypeMapper(object):
                     assert len(refs) == 3, "copular expects 3 referents"
 
                     # Special handling
-                    d = DrsProduction(DRS([refs[0]], [Rel('.COPULAR', [refs[0]]),
-                                                      Rel('.AGENT', [refs[0], refs[2]]), Rel(self._stem, [refs[0]])]),
-                                      dep=Dependency(refs[0], self._word, RT_EVENT))
+                    if len(conds) != 0:
+                        conds.append(Rel('.EVENT', [refs[0]]))
+                    else:
+                        conds.append(Rel('.COPULAR', [refs[0]]))
+                    conds.append(Rel('.AGENT', [refs[0], refs[2]]))
+                    conds.append(Rel(self._stem, [refs[0]]))
+                    d = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
@@ -722,9 +733,12 @@ class CcgTypeMapper(object):
 
                     assert len(refs) == 2, "maybe_copular expects 2 referents"
 
+                    conds.append(Rel('.MAYBE_COPULAR', [refs[0]]))
+                    conds.append(Rel('.AGENT', [refs[0], refs[1]]))
+                    conds.append(Rel(self._stem, [refs[0]]))
+
                     # Special handling
-                    d = DrsProduction(DRS([refs[0]], [Rel('.MAYBE_COPULAR', [refs[0]]),
-                                                      Rel('.AGENT', [refs[0], refs[1]]), Rel(self._stem, [refs[0]])]),
+                    d = DrsProduction(DRS([refs[0]], conds),
                                       dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
@@ -735,7 +749,7 @@ class CcgTypeMapper(object):
                 else:
                     # TODO: use verbnet to get semantics
                     rrf = [x for x in reversed(refs[1:])]
-                    conds = [Rel('.EVENT', [refs[0]]), Rel(self._stem, [refs[0]])]
+                    conds.extend([Rel('.EVENT', [refs[0]]), Rel(self._stem, [refs[0]])])
                     pred = zip(rrf, self._EventPredicates)
                     for v, e in pred:
                         conds.append(Rel(e, [refs[0], v]))
@@ -920,11 +934,13 @@ class Ccg2Drs(object):
                 raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
 
             tmp = []
+            cats = []
             for nd in pt[1:-1]:
-                d = self._process_ccg_node(nd)
+                d, c = self._process_ccg_node(nd)
                 if d is None:
                     head = 0
                     continue
+                cats.append(c)
                 tmp.append(d)
 
             hd = None
@@ -958,7 +974,7 @@ class Ccg2Drs(object):
                 if tmp[0].isunify_disabled:
                     tmp[0].set_options(tmp[0].compose_options ^ CO_DISABLE_UNIFY)
             else:
-                return None
+                return None, result
 
             for nd in tmp:
                 nd.set_dependency(hd)
@@ -966,7 +982,7 @@ class Ccg2Drs(object):
             cl2 = ProductionList(tmp, dep=hd)
             cl2.set_options(self.options | extra_options)
             cl2.set_category(result)
-            cats = [x.category for x in cl2.iterator()]
+            #cats = [x.category for x in cl2.iterator()]
 
             if len(cats) == 1:
                 rule = get_rule(cats[0], CAT_EMPTY, result)
@@ -1009,6 +1025,7 @@ class Ccg2Drs(object):
                     # TODO: log a warning if we succeed on take 2
                     rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                     if rule is None:
+                        rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
 
                 if rule == RL_TC_CONJ:
@@ -1057,20 +1074,21 @@ class Ccg2Drs(object):
             cl2.set_dependency(hd)
             if (cl2.compose_options & self.options) != self.options:
                 cl2.set_options(self.options)
-            return cl2
+            return cl2, result
 
         # L Node in parse tree
         assert pt[-1] == 'L'
+        cat = Category.from_cache(pt[0])
         if pt[0] in [',', '.', ':', ';']:
-            return DrsProduction(DRS([], []), category=Category.from_cache(pt[0]))
+            return DrsProduction(DRS([], []), category=cat), cat
 
         if pt[1] in ['for']:
             pass
 
-        ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:-1])
+        ccgt = CcgTypeMapper(category=cat, word=pt[1], posTags=pt[2:-1])
         if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
             # FIXME: start new parse tree
-            return None
+            return None, cat
         fn = ccgt.get_composer()
         # Rename vars so they are disjoint on creation. This help dependency manager.
         self.rename_vars(fn)
@@ -1081,7 +1099,7 @@ class Ccg2Drs(object):
         else:
             fn.set_options(self.options)
 
-        return fn
+        return fn, cat
 
     def process_ccg_pt(self, pt):
         """Process the CCG parse tree.
@@ -1098,7 +1116,7 @@ class Ccg2Drs(object):
         """
         if pt is None or len(pt) == 0:
             return None
-        d = self._process_ccg_node(pt)
+        d, _ = self._process_ccg_node(pt)
         # Handle verbs with null left arg
         if d.isfunctor and d.isarg_left:
             d = d.apply_null_left().unify()
