@@ -12,8 +12,8 @@ sys.path.insert(0, pypath)
 
 
 from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, DrsProduction
+from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt, pt_to_ccgbank
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, DrsProduction
 from marbles.ie.drt.common import SHOW_LINEAR
 
 
@@ -87,12 +87,13 @@ if __name__ == '__main__':
                 # CCG parser is Java so output is UTF-8.
                 pt = parse_ccg_derivation(ccgbank.decode('utf-8'))
                 s = sentence_from_pt(pt).strip()
+                pccg = pt_to_ccgbank(pt)
             except Exception:
                 failed_parse += 1
                 continue
 
             try:
-                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
+                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
                 assert d is not None
                 d = d.unify()
                 assert d is not None
@@ -104,12 +105,14 @@ if __name__ == '__main__':
                 continue
 
             with open(os.path.join(easysrl_path, idx, 'drs_%s_%04d.dat' % (idx, i)), 'w') as fd:
-                fd.write('SENTENCE:')
+                fd.write('<sentence>\n')
                 fd.write(s)
-                fd.write('\n')
-                fd.write('DRS:')
+                fd.write('\n</sentence>\n<drs>\n')
                 fd.write(d)
+                fd.write('\n</drs>\n<predarg>\n')
+                fd.write(pccg)
                 fd.write('\n')
+                fd.write('</predarg>\n')
 
     if failed_parse != 0:
         print('%d derivations failed to parse' % failed_parse)
