@@ -2165,7 +2165,7 @@ class Or(AbstractDRSCond):
         return True, rs
 
     def _universes(self, u):
-        u = self._drsA.get_universes()
+        u = self._drsA.get_universes(u)
         return self._drsB.get_universes(u)
 
     # Helper for DRS.get_lambda_tuples()
