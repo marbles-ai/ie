@@ -651,7 +651,7 @@ class ComposeTest(unittest.TestCase):
         d = process_ccg_pt(pt)
         self.assertIsNotNone(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x2| .EVENT(e1),welcome(e1),.AGENT(e1,x3),.THEME(e1,x2),Merryweather-High(x2)]'
+        x = u'[x3,e1,x2| .VN.admit-65(e1),.EVENT(e1),welcome(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -1206,7 +1206,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         print(d)
 
-    def test10_ParseEasySRL2005T13(self):
+    def testA1_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
         # - ./scripts/extract_lfs.sh
         #   Extracts LDC2005T13 dataset
@@ -1276,7 +1276,7 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(len(failed_ccg2drs), 0)
         self.assertEqual(failed_parse, 0)
 
-    def test10_ParseLdc2005T13(self):
+    def testA2_ParseLdc2005T13(self):
         # Mar-2017 PWG
         #
         # LDC2005T13 is a conversion of the Penn Treebank into CCG derivations.

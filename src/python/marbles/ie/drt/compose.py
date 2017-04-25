@@ -2239,11 +2239,12 @@ class FunctorProduction(AbstractProduction):
             c.push_left(g)
 
         lr = self._comp.lambda_refs
+        cat = self._comp.category
         c.set_options(self.compose_options)
         c.flatten()
         c = c.unify()
         c.set_lambda_refs(lr)
-        c.set_category(self._comp.category)
+        c.set_category(cat)
         self.clear()
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
