@@ -629,6 +629,8 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
     _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', 'S[dcl]_1095/S[dcl]_1095'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', 'S[X]_1096/S[X]_1096'))
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
 except Exception as e:
     print(e)
