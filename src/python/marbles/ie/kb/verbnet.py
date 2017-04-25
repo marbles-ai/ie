@@ -24,12 +24,15 @@ class VerbnetDB(object):
 
     def _create_name_index(self):
         results = {}
-        for vc in self.classes:
+        classes = [x for x in self.classes]
+        while len(classes) != 0:
+            vc = classes.pop()
             for name in vc.names:
                 if name not in results:
                     results[name] = [vc]
                 else:
                     results[name].append(vc)
+            classes.extend(vc.subclasses)
         self.name_index = results
 
 
