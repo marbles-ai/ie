@@ -15,7 +15,7 @@ sys.path.insert(0, pypath)
 from marbles.ie import grpc
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET
 from marbles.ie.drt.common import SHOW_LINEAR
 
 
@@ -104,6 +104,7 @@ if __name__ == '__main__':
     parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
     parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default),easyccg]')
     parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
+    parser.add_option('-N', '--no-verbnet', action='store_true', dest='no_vn', default=False, help='disable verbnet, default is enabled')
     parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='book mode word separator, defaults to hyphen')
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
 
@@ -155,6 +156,7 @@ if __name__ == '__main__':
                 ccg = None
             drs = None
             pccg = None
+            fol = None
 
             if options.ofmt == 'drs':
                 try:
@@ -164,11 +166,15 @@ if __name__ == '__main__':
                     print('Error: failed to parse ccgbank - %s' % str(e))
                     raise
 
+                ops = CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES
+                ops |= CO_NO_VERBNET if options.no_vn else 0
+
                 try:
-                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
+                    d = process_ccg_pt(pt, ops)
                     d = d.unify()
-                    d = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
-                    drs = d
+                    drs = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
+                    fol, _ = d.drs.to_fol()
+                    fol = unicode(fol).encode('utf-8')
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise
@@ -180,18 +186,19 @@ if __name__ == '__main__':
                 if ccg:
                     sys.stdout.write('<ccg>\n')
                     sys.stdout.write(ccg.strip())
-                    sys.stdout.write('\n')
-                    sys.stdout.write('</ccg>\n')
+                    sys.stdout.write('\n</ccg>\n')
                 if pccg:
                     sys.stdout.write('<predarg>\n')
                     sys.stdout.write(pccg)
-                    sys.stdout.write('\n')
-                    sys.stdout.write('</predarg>\n')
+                    sys.stdout.write('\n</predarg>\n')
                 if drs:
                     sys.stdout.write('<drs>\n')
                     sys.stdout.write(drs)
-                    sys.stdout.write('\n')
-                    sys.stdout.write('</drs>\n')
+                    sys.stdout.write('\n</drs>\n')
+                if fol:
+                    sys.stdout.write('<fol>\n')
+                    sys.stdout.write(fol)
+                    sys.stdout.write('\n</fol>\n')
             else:
                 with open(outfile, 'w') as fd:
                     if html:
@@ -200,18 +207,19 @@ if __name__ == '__main__':
                     if ccg:
                         fd.write('<ccg>\n')
                         fd.write(ccg.strip().encode('utf-8'))
-                        fd.write('\n')
-                        fd.write('</ccg>\n')
+                        fd.write('\n</ccg>\n')
                     if pccg:
                         fd.write('<predarg>\n')
                         fd.write(pccg)
-                        fd.write('\n')
-                        fd.write('</predarg>\n')
+                        fd.write('\n</predarg>\n')
                     if drs:
                         fd.write('<drs>\n')
                         fd.write(drs)
-                        fd.write('\n')
-                        fd.write('</drs>\n')
+                        fd.write('\n</drs>\n')
+                    if drs:
+                        fd.write('<fol>\n')
+                        fd.write(fol)
+                        fd.write('\n</fol>\n')
 
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
