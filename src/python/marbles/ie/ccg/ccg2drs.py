@@ -2,7 +2,7 @@
 """CCG to DRS Production Generator"""
 
 import re
-from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.stem import wordnet as wn
 from nltk.stem.snowball import EnglishStemmer
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
@@ -237,7 +237,8 @@ CAT_DTV = Category.from_cache(r'(S\NP)/NP/NP')
 CAT_VP = Category.from_cache(r'S\NP')
 CAT_VPdcl = Category.from_cache(r'S[dcl]\NP')
 # Copular verb
-CAT_COPULAR = Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)')
+CAT_COPULAR = [Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)'),
+               Category.from_cache(r'(S[b]\NP)/(S[adj]\NP)')]
 # CAT_AP
 # Adjectival phrase
 CAT_AP = Category.from_cache(r'S[adj]\NP')
@@ -372,9 +373,10 @@ POS_LIST_PUNCT = [POS.from_cache(','), POS.from_cache('.'), POS.from_cache(':'),
 class CcgTypeMapper(object):
     """Mapping from CCG types to DRS types."""
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
+    _ToBePredicates = ('.AGENT', '.ATTRIBUTE', '.EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
-    _Lemmatizer = WordNetLemmatizer()
+    _Lemmatizer = wn.WordNetLemmatizer()
     _verbnetDB = VerbnetDB()
 
     def __init__(self, category, word, posTags=None, no_vn=False):
@@ -671,6 +673,7 @@ class CcgTypeMapper(object):
             refs.reverse()
             refs = remove_dups(refs)
             final_atom = template.final_atom.remove_wildcards()
+            final_ref = template.final_ref
 
             # Verbs can also be adjectives so check event
             isverb = self.isverb
@@ -679,6 +682,7 @@ class CcgTypeMapper(object):
                 while not isverb and not result.isatom:
                     isverb = result.can_unify(CAT_TV)
                     result = result.result_category()
+                # TODO: Add predicate for NG or change predarg attachments
 
             if isverb and template.isfinalevent:
                 conds = []
@@ -726,21 +730,27 @@ class CcgTypeMapper(object):
                     conds.append(Rel('.MODAL', [refs[0]]))
                     fn = DrsProduction(DRS([], conds))
 
-                elif self.category == CAT_COPULAR:
+                elif self.category in CAT_COPULAR:
                     assert len(refs) == 3, "copular expects 3 referents"
 
                     # Special handling
-                    conds.append(Rel('.EVENT', [refs[0]]))
-                    #if len(conds) == 0:
-                    #    conds.append(Rel('.COPULAR', [refs[0]]))
-                    conds.append(Rel('.AGENT', [refs[0], refs[2]]))
-                    d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                      dep=Dependency(refs[0], self._word, RT_EVENT))
+                    if self._stem == 'be':
+                        # Discard conditions
+                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
+                                      Rel('.ROLE', [refs[0], refs[2]])])
+                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
+                                          dep=Dependency(refs[0], self._word, 0))
+                    else:
+                        conds.append(Rel('.EVENT', [refs[0]]))
+                        conds.append(Rel('.AGENT', [refs[0], refs[1]]))
+                        conds.append(Rel('.ROLE', [refs[0], refs[2]]))
+                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
+                                          dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
                     fn.push(d)
-                    fn.rename_vars([(refs[1], refs[0])])
+                    #fn.rename_vars([(refs[2], refs[0])])
                     return fn
 
                 elif self.category == CAT_VPdcl:
@@ -759,18 +769,21 @@ class CcgTypeMapper(object):
                     fn.pop()
                     fn.push(d)
                     return fn
-
                 else:
                     # TODO: use verbnet to get semantics
-                    #rrf = [x for x in reversed(refs[1:])]
-                    conds.append(Rel('.EVENT', [refs[0]]))
-                    pred = zip(refs[1:], self._EventPredicates)
-                    for v, e in pred:
-                        conds.append(Rel(e, [refs[0], v]))
-                    if (len(refs)-1) > len(pred):
-                        rx = [refs[0]]
-                        rx.extend(refs[len(pred)+1:])
-                        conds.append(Rel('.EXTRA', rx))
+                    if self._stem == 'be' and self.category.can_unify(CAT_TV):
+                        # Discard conditions
+                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
+                                      Rel('.ROLE', [refs[0], refs[2]]), Rel('.ATTRIBUTE', [refs[2], refs[1]])])
+                    else:
+                        conds.append(Rel('.EVENT', [refs[0]]))
+                        pred = zip(refs[1:], self._EventPredicates)
+                        for v, e in pred:
+                            conds.append(Rel(e, [refs[0], v]))
+                        if (len(refs)-1) > len(pred):
+                            rx = [refs[0]]
+                            rx.extend(refs[len(pred)+1:])
+                            conds.append(Rel('.EXTRA', rx))
                     fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
 
             elif self.isadverb and template.isfinalevent:
@@ -842,7 +855,7 @@ class CcgTypeMapper(object):
                     fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
                                        properNoun=self.isproper_noun, dep=dep)
 
-            fn.set_lambda_refs([template.final_ref])
+            fn.set_lambda_refs([final_ref])
             fn.set_category(final_atom)
             for c, s in zip(compose, signatures):
                 fn = c[0](s, c[1], fn)
