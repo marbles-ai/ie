@@ -8,13 +8,13 @@ from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N,
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, \
     RL_TYPE_RAISE, RL_BA, RL_LPASS, RL_RPASS, \
-    FEATURE_ADJ, FEATURE_PSS, FEATURE_TO
+    FEATURE_ADJ, FEATURE_PSS, FEATURE_TO, FEATURE_DCL
 from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVENT, RT_LOCATION, RT_DATE, RT_WEEKDAY, \
     RT_MONTH, RT_RELATIVE, RT_HUMAN, RT_MALE, RT_FEMALE, RT_PLURAL, RT_NUMBER, RT_1P, RT_2P, RT_3P
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
-    DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY
-from marbles.ie.drt.drs import DRS, DRSRef, Rel
+    DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY, CO_NO_VERBNET
+from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg
 from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
@@ -377,8 +377,8 @@ class CcgTypeMapper(object):
     _Lemmatizer = WordNetLemmatizer()
     _verbnetDB = VerbnetDB()
 
-    def __init__(self, category, word, posTags=None):
-        self._vnclasses = None
+    def __init__(self, category, word, posTags=None, no_vn=False):
+        self._no_vn = no_vn
         if isinstance(category, Category):
             self._ccgcat = category
         else:
@@ -661,19 +661,10 @@ class CcgTypeMapper(object):
             s = self.category.remove_wildcards()
             for c in compose:
                 signatures.append(s)
-                if s.isarg_right:
-                    if isinstance(c[1], tuple):
-                        refs.extend(list(c[1]))
-                    else:
-                        refs.append(c[1])
+                if isinstance(c[1], tuple):
+                    refs.extend(list(c[1]))
                 else:
-                    assert s.isarg_left
-                    if isinstance(c[1], tuple):
-                        r = list(c[1])
-                    else:
-                        r = [c[1]]
-                    r.extend(refs)
-                    refs = r
+                    refs.append(c[1])
                 s = s.result_category()
 
             refs.append(template.final_ref)
@@ -691,23 +682,48 @@ class CcgTypeMapper(object):
 
             if isverb and template.isfinalevent:
                 conds = []
+                vncond = None
                 try:
-                    self._vnclasses = self._verbnetDB.name_index[self._stem]
-                    for vn in self._vnclasses:
-                        conds.append(Rel('.VN.' + vn.ID.encode('utf-8'), [refs[0]]))
+                    vnclasses = [] if self._no_vn else self._verbnetDB.name_index[self._stem]
+                    if len(vnclasses) == 1:
+                        vncond = Rel('.VN.' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
+                    elif len(vnclasses) >= 2:
+                        xconds = [Rel('.VN.' + vnclasses[-1].ID.encode('utf-8'), [refs[0]])] \
+                            if len(vnclasses) & 0x1 else []
+
+                        # TODO: for vn classes A,B,C should really have (A&!B&!C)|(!A&B&!C)|(!A&!B&C)
+                        for vna, vnb in zip(vnclasses[0::2],vnclasses[1::2]):
+                            xconds.append(Or(DRS([], [Rel('.VN.' + vna.ID.encode('utf-8'), [refs[0]])]),
+                                             DRS([], [Rel('.VN.' + vnb.ID.encode('utf-8'), [refs[0]])])))
+                        while len(xconds) != 1:
+                            c2 = xconds.pop()
+                            c1 = xconds.pop()
+                            xconds.append(Or(DRS([], [c1]), DRS([], [c2])))
+                        vncond = xconds[0]
+                        xconds = None
+
+                    if vncond is not None:
+                        # Add implication
+                        conds.append(Imp(DRS([], [Rel(self._stem, [refs[0]])]), DRS([], [vncond])))
+                    else:
+                        conds.append(Rel(self._stem, [refs[0]]))
+
                 except Exception:
+                    conds.append(Rel(self._stem, [refs[0]]))
                     pass
                 if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
                             or self.category.ismodifier:
+
+                    if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
+                        conds.append(Rel('.EVENT', [refs[0]]))
+
                     # passive case
                     if len(refs) > 1:
-                        conds.extend([Rel(self._stem, [refs[0]]), Rel('.MOD', refs)])
-                    else:
-                        conds.append(Rel(self._stem, [refs[0]]))
+                        conds.append(Rel('.MOD', [refs[0], refs[-1]]))
                     fn = DrsProduction(DRS([], conds))
 
                 elif self.category == CAT_MODAL_PAST:
-                    conds.extend([Rel(self._stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
+                    conds.append(Rel('.MODAL', [refs[0]]))
                     fn = DrsProduction(DRS([], conds))
 
                 elif self.category == CAT_COPULAR:
@@ -715,10 +731,9 @@ class CcgTypeMapper(object):
 
                     # Special handling
                     conds.append(Rel('.EVENT', [refs[0]]))
-                    if len(conds) == 0:
-                        conds.append(Rel('.COPULAR', [refs[0]]))
+                    #if len(conds) == 0:
+                    #    conds.append(Rel('.COPULAR', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[2]]))
-                    conds.append(Rel(self._stem, [refs[0]]))
                     d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
                                       dep=Dependency(refs[0], self._word, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
@@ -733,9 +748,8 @@ class CcgTypeMapper(object):
                     assert len(refs) == 2, "maybe_copular expects 2 referents"
 
                     conds.append(Rel('.EVENT', [refs[0]]))
-                    conds.append(Rel('.MAYBE_COPULAR', [refs[0]]))
+                    #conds.append(Rel('.MAYBE_COPULAR', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[1]]))
-                    conds.append(Rel(self._stem, [refs[0]]))
 
                     # Special handling
                     d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
@@ -748,14 +762,14 @@ class CcgTypeMapper(object):
 
                 else:
                     # TODO: use verbnet to get semantics
-                    rrf = [x for x in reversed(refs[1:])]
-                    conds.extend([Rel('.EVENT', [refs[0]]), Rel(self._stem, [refs[0]])])
-                    pred = zip(rrf, self._EventPredicates)
+                    #rrf = [x for x in reversed(refs[1:])]
+                    conds.append(Rel('.EVENT', [refs[0]]))
+                    pred = zip(refs[1:], self._EventPredicates)
                     for v, e in pred:
                         conds.append(Rel(e, [refs[0], v]))
-                    if len(rrf) > len(pred):
+                    if (len(refs)-1) > len(pred):
                         rx = [refs[0]]
-                        rx.extend(rrf[len(pred):])
+                        rx.extend(refs[len(pred)+1:])
                         conds.append(Rel('.EXTRA', rx))
                     fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
 
@@ -1025,7 +1039,6 @@ class Ccg2Drs(object):
                     # TODO: log a warning if we succeed on take 2
                     rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                     if rule is None:
-                        rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                         raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
 
                 if rule == RL_TC_CONJ:
@@ -1085,7 +1098,7 @@ class Ccg2Drs(object):
         if pt[1] in ['for']:
             pass
 
-        ccgt = CcgTypeMapper(category=cat, word=pt[1], posTags=pt[2:-1])
+        ccgt = CcgTypeMapper(category=cat, word=pt[1], posTags=pt[2:-1], no_vn=0 != (self.options & CO_NO_VERBNET))
         if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
             # FIXME: start new parse tree
             return None, cat
