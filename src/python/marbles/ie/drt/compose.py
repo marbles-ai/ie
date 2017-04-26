@@ -28,6 +28,8 @@ CO_DISABLE_UNIFY = 0x0008
 CO_BUILD_STATES = 0x0010
 ## Add state predicates
 CO_ADD_STATE_PREDICATES = 0x0020
+## Disable Verbnet
+CO_NO_VERBNET = 0x0040
 
 ## @}
 
