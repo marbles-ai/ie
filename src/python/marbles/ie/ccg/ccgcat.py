@@ -3,6 +3,7 @@
 import re
 import os
 from marbles.ie.utils.cache import Cache, Freezable
+from datapath import DATA_PATH
 
 ISCONJMASK = 0x00000001
 FEATURE_CONJ = 0x00000002
@@ -874,7 +875,7 @@ class Category(Freezable):
 CAT_EMPTY = Category()
 CAT_EMPTY.freeze()
 try:
-    Category.load_cache(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'categories.dat'))
+    Category.load_cache(os.path.join(DATA_PATH, 'categories.dat'))
     # Need these for finalize_cache()
     CAT_PP = Category.from_cache('PP')
     CAT_NP = Category.from_cache('NP')
