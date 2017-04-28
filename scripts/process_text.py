@@ -15,7 +15,7 @@ sys.path.insert(0, pypath)
 from marbles.ie import grpc
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
 from marbles.ie.drt.common import SHOW_LINEAR
 
 
@@ -105,6 +105,7 @@ if __name__ == '__main__':
     parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default),easyccg]')
     parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
     parser.add_option('-N', '--no-verbnet', action='store_true', dest='no_vn', default=False, help='disable verbnet, default is enabled')
+    parser.add_option('-W', '--word-vars', action='store_true', dest='wordvars', default=False, help='Use word names for variables, default is disabled')
     parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='book mode word separator, defaults to hyphen')
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
 
@@ -166,7 +167,7 @@ if __name__ == '__main__':
                     print('Error: failed to parse ccgbank - %s' % str(e))
                     raise
 
-                ops = CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES
+                ops = CO_BUILD_STATES if options.wordvars else CO_ADD_STATE_PREDICATES
                 ops |= CO_NO_VERBNET if options.no_vn else 0
 
                 try:
