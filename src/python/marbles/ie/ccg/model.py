@@ -9,6 +9,7 @@ from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.drs import DRS, DRSRef
 from marbles.ie.utils.cache import Cache
+from datapath import DATA_PATH
 
 
 class FunctorTemplateGeneration(object):
@@ -518,7 +519,7 @@ class Model(object):
 ## @cond
 # Run scripts/make_functor_templates.py to create templates file
 try:
-    _tcache = Model.load_templates(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'functor_templates.dat'))
+    _tcache = Model.load_templates(os.path.join(DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
@@ -558,9 +559,9 @@ try:
 
     # Add unary rules
     _rcache = Cache()
-    _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', 'S_1024/S[dcl]_1024'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1025\NP_2025)\(S[adj]_1025\NP_2025)', 'S_1025/S[dcl]_1025'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1026\NP_2026)\(S[X]_1026\NP_2026)', 'S_1026/S[dcl]_1026'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', r'S_1024/S[dcl]_1024'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1025\NP_2025)\(S[adj]_1025\NP_2025)', r'S_1025/S[dcl]_1025'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1026\NP_2026)\(S[X]_1026\NP_2026)', r'S_1026/S[dcl]_1026'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1027', r'N_1027'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_1028'))
     # Wildcards incur more string processing so cover main rules
@@ -579,21 +580,21 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'PP_1042/PP_1042', r'PP_1042'))
     _rcache.addinit(Model.build_unary_rule(r'PP_1043\PP_1043', r'PP_1043'))
     _rcache.addinit(Model.build_unary_rule(r'(N_1044\N_1044)\(N_1044\N_1044)', r'(N_1044\N_1044)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', 'S[X]_1045\NP_2045'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', '(S[X]_1046\NP_2046)/NP_3046'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', r'S[X]_1045\NP_2045'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_3047\NP_2047)_3047/((S_3047\NP_2047)_3047\(S_3047\NP_2047)_3047)_1047)_3047', r'(S[dcl]_3047\NP_2047)_3047'))
     _rcache.addinit(Model.build_unary_rule(r'((S[pss]_3048\NP_2048)_3048/((S_3048\NP_2048)_3048\(S_3048\NP_2048)_3048)_1048)_3048', r'(S[pss]_3048\NP_2048)_3048'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_3049\NP_2049)_3049/((S_3049\NP_2049)_3049\(S_3049\NP_2049)_3049)_1049)_3049', r'(S[b]_3049\NP_2049)_3049'))
     _rcache.addinit(Model.build_unary_rule(r'((S[ng]_3050\NP_2050)_3050/((S_3050\NP_2050)_3050\(S_3050\NP_2050)_3050)_1050)_3050', r'(S[ng]_3050\NP_2050)_3050'))
-    _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', '(S_1051\NP_2051)\(S_1051\NP_1051)'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', '(S_1052\NP_2052)/(S_1052\NP_2052)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', 'S_1053\NP_2053'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1054\NP_2054)\(S[dcl]_1054\NP_2054)', 'S_1054\NP_2054'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[em]_1055\NP_2055)\(S[em]_1055\NP_2055)', 'S_1055\NP_2055'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1056\NP_2056)\(S_1056\NP_2056)', 'S[ng]_1056\NP_2056'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1057\NP_2057)\(S[X]_1057\NP_2057)', 'S_1057\NP_2057'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1058\NP_1058)\(S_1058\NP_1058)', 'S_1058\NP_1058'))
-    _rcache.addinit(Model.build_unary_rule(r'(N_1059/N_1059)\(N_1059/N_1059)', 'N_1059/N_1059'))
+    _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_1051)'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', r'(S_1052\NP_2052)/(S_1052\NP_2052)'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', r'S_1053\NP_2053'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1054\NP_2054)\(S[dcl]_1054\NP_2054)', r'S_1054\NP_2054'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[em]_1055\NP_2055)\(S[em]_1055\NP_2055)', r'S_1055\NP_2055'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1056\NP_2056)\(S_1056\NP_2056)', r'S[ng]_1056\NP_2056'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1057\NP_2057)\(S[X]_1057\NP_2057)', r'S_1057\NP_2057'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1058\NP_1058)\(S_1058\NP_1058)', r'S_1058\NP_1058'))
+    _rcache.addinit(Model.build_unary_rule(r'(N_1059/N_1059)\(N_1059/N_1059)', r'N_1059/N_1059'))
     _rcache.addinit(Model.build_unary_rule(r'S[X]_1060\S[X]_1060', r'S[X]_1060'))
     _rcache.addinit(Model.build_unary_rule(r'S[dcl]_1061\S[dcl]_1061', r'S_1061'))
     _rcache.addinit(Model.build_unary_rule(r'S[X]_1062\S[X]_1062', r'S_1062'))
@@ -614,10 +615,10 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'NP_1077\NP_1077', r'S_2077\NP_1077'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1078\NP_1078', r'S_2078/NP_1078'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1079\NP_1079', r'S[X]_2079\NP_1079'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1080\NP_2080)/(S_1080\NP_2080)', 'S[ng]_1080\NP_2080'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1081\NP_2081)\(S_1081\NP_2081)', 'S[to]_1081\NP_2081'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1082\NP_2082)\(S_1082\NP_2082)', 'S[X]_1082\NP_2082'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1083\NP_2083)\(S_1083\NP_2083)', 'NP_2083'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1080\NP_2080)/(S_1080\NP_2080)', r'S[ng]_1080\NP_2080'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1081\NP_2081)\(S_1081\NP_2081)', r'S[to]_1081\NP_2081'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1082\NP_2082)\(S_1082\NP_2082)', r'S[X]_1082\NP_2082'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1083\NP_2083)\(S_1083\NP_2083)', r'NP_2083'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1084\NP_1084', 'S[dcl]_1084'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1085\NP_3085)/S[em]_2085)\((S[dcl]_1085\NP_3085)/S[em]_2085)', r'(S_1085\NP_3085)/S[em]_2085'))
     _rcache.addinit(Model.build_unary_rule(r'((S[X]_1086\NP_3086)/S[X]_2086)\((S[X]_1086\NP_3086)/S[X]_2086)', r'(S_1086\NP_3086)/S[X]_2086'))
@@ -629,8 +630,8 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
     _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', 'S[dcl]_1095/S[dcl]_1095'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', 'S[X]_1096/S[X]_1096'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', r'S[dcl]_1095/S[dcl]_1095'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', r'S[X]_1096/S[X]_1096'))
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
 except Exception as e:
     print(e)
