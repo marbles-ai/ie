@@ -14,7 +14,7 @@ from marbles.ie.drt.compose import RT_ANAPHORA, RT_PROPERNAME, RT_ENTITY, RT_EVE
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
     DrsComposeError, Dependency, identity_functor, CO_DISABLE_UNIFY, CO_NO_VERBNET
-from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg
+from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg, DRSRelation
 from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
@@ -381,6 +381,7 @@ class CcgTypeMapper(object):
 
     def __init__(self, category, word, posTags=None, no_vn=False):
         self._no_vn = no_vn
+        self._templ = None
         if isinstance(category, Category):
             self._ccgcat = category
         else:
@@ -426,7 +427,7 @@ class CcgTypeMapper(object):
         return '<' + self._word + ' ' + str(self.partofspeech) + ' ' + self.signature + '>'
 
     @property
-    def word_predicate(self):
+    def word(self):
         return self._stem
 
     @property
@@ -453,7 +454,8 @@ class CcgTypeMapper(object):
     def isverb(self):
         """Test if the word attached to this category is a verb."""
         # Verbs can behave as adjectives
-        return self.partofspeech in POS_LIST_VERB and self.category != CAT_ADJECTIVE
+        return (self.partofspeech in POS_LIST_VERB and self.category != CAT_ADJECTIVE) or \
+               (self.category.result_category() == CAT_VPdcl and not self.category.ismodifier)
 
     @property
     def isgerund(self):
@@ -489,6 +491,10 @@ class CcgTypeMapper(object):
     def category(self):
         """Get the CCG category."""
         return self._ccgcat
+
+    @property
+    def template(self):
+        return self._templ
 
     def empty_production(self, ref=None):
         """Return the empty production `λx.[|]`.
@@ -573,6 +579,7 @@ class CcgTypeMapper(object):
             template = None
             compose = None
 
+        self._templ = template
         if compose is None:
             # Simple type
             # Handle prepositions
@@ -624,7 +631,7 @@ class CcgTypeMapper(object):
                 d.set_lambda_refs(d.drs.universe)
                 return d
             else:
-                d = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x')])]))
+                d = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x')])]))
                 d.set_category(self.category)
                 d.set_lambda_refs([DRSRef('x')])
                 return d
@@ -649,11 +656,11 @@ class CcgTypeMapper(object):
                     elif self._word in ['the', 'thy']:
                         fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x1')])]), category=CAT_NP)
+                        fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
                 elif self.partofspeech == POS_DETERMINER and self._word in ['the', 'thy', 'a', 'an']:
                     fn = DrsProduction(DRS([], []), category=CAT_NP)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._stem, [DRSRef('x1')])]), category=CAT_NP)
+                    fn = DrsProduction(DRS([], [Rel(self._word, [DRSRef('x1')])]), category=CAT_NP)
                 fn.set_lambda_refs([DRSRef('x1')])
             return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
 
@@ -718,13 +725,15 @@ class CcgTypeMapper(object):
                 if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
                             or self.category.ismodifier:
 
+                    dep = None
                     if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
                         conds.append(Rel('.EVENT', [refs[0]]))
+                        dep=Dependency(refs[0], self._stem, RT_EVENT)
 
                     # passive case
                     if len(refs) > 1:
                         conds.append(Rel('.MOD', [refs[0], refs[-1]]))
-                    fn = DrsProduction(DRS([], conds))
+                    fn = DrsProduction(DRS([], conds), dep=dep)
 
                 elif self.category == CAT_MODAL_PAST:
                     conds.append(Rel('.MODAL', [refs[0]]))
@@ -739,13 +748,13 @@ class CcgTypeMapper(object):
                         conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
                                       Rel('.ROLE', [refs[0], refs[2]])])
                         d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                          dep=Dependency(refs[0], self._word, 0))
+                                          dep=Dependency(refs[0], self._stem, RT_EVENT))
                     else:
                         conds.append(Rel('.EVENT', [refs[0]]))
                         conds.append(Rel('.AGENT', [refs[0], refs[1]]))
                         conds.append(Rel('.ROLE', [refs[0], refs[2]]))
                         d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                          dep=Dependency(refs[0], self._word, RT_EVENT))
+                                          dep=Dependency(refs[0], self._stem, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
@@ -763,7 +772,7 @@ class CcgTypeMapper(object):
 
                     # Special handling
                     d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                      dep=Dependency(refs[0], self._word, RT_EVENT))
+                                      dep=Dependency(refs[0], self._stem, RT_EVENT))
                     d.set_lambda_refs([refs[0]])
                     fn = template.create_empty_functor()
                     fn.pop()
@@ -784,7 +793,7 @@ class CcgTypeMapper(object):
                             rx = [refs[0]]
                             rx.extend(refs[len(pred)+1:])
                             conds.append(Rel('.EXTRA', rx))
-                    fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._word, RT_EVENT))
+                    fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._stem, RT_EVENT))
 
             elif self.isadverb and template.isfinalevent:
                 if self._word in _ADV:
@@ -793,7 +802,7 @@ class CcgTypeMapper(object):
                     rs = zip(adv[1], refs)
                     fn.rename_vars(rs)
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self._stem, refs[0])]))
+                    fn = DrsProduction(DRS([], [Rel(self._word, refs[0])]))
 
             #elif self.partofspeech == POS_DETERMINER and self._word == 'a':
 
@@ -1009,7 +1018,6 @@ class Ccg2Drs(object):
             cl2 = ProductionList(tmp, dep=hd)
             cl2.set_options(self.options | extra_options)
             cl2.set_category(result)
-            #cats = [x.category for x in cl2.iterator()]
 
             if len(cats) == 1:
                 rule = get_rule(cats[0], CAT_EMPTY, result)
@@ -1278,14 +1286,14 @@ def _pt_to_ccgbank_helper(pt, lst, pretty):
 
 
 ## @ingroup gfn
-def pt_to_ccgbank(pt, fmt=True):
-    """Process the CCG parse tree, add predicate argument tags, and return the ccgbank string.
+def pt_to_utf8(pt):
+    """Convert a parse tree to utf-8.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-        fmt: If True format for pretty print.
+
     Returns:
-        A string
+        A utf-8 parse tree
     """
     if isinstance(pt[-1], unicode):
         # Convert to utf-8
@@ -1298,6 +1306,20 @@ def pt_to_ccgbank(pt, fmt=True):
                     stk.append(x)
                 elif isinstance(x, unicode):
                     lst[i] = x.encode('utf-8')
+    return pt
+
+
+## @ingroup gfn
+def pt_to_ccgbank(pt, fmt=True):
+    """Process the CCG parse tree, add predicate argument tags, and return the ccgbank string.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+        fmt: If True format for pretty print.
+    Returns:
+        A string
+    """
+    pt = pt_to_utf8(pt)
     lst = []
     _pt_to_ccgbank_helper(pt, lst, 0 if fmt else -1000000)
     if fmt:
@@ -1363,8 +1385,72 @@ def extract_predarg_categories_from_pt(pt, lst=None):
     Returns:
         A list of Category instances.
     """
+    pt = pt_to_utf8(pt)
     if lst is None:
         lst = []
     _extract_predarg_categories_node(pt, lst)
     return lst
+
+
+## @cond
+def _extract_lexicon_helper(pt, dictionary):
+    if pt[-1] == 'T':
+        for nd in pt[1:-1]:
+            # FIXME: prefer tail end recursion
+            _extract_lexicon_helper(nd, dictionary)
+    else:
+        # CcgTypeMapper will infer template if it does not exist in MODEL
+        ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:4])
+        if len(ccgt.word) == 0 or ccgt.category.isatom or ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+            return
+
+        if ccgt.category.ismodifier and len(set(ccgt.category.extract_unify_atoms(False))) == 1:
+            return
+
+        N = ccgt.word[0].upper()
+        if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+            return
+
+        idx = ord(N) - 0x41
+        fn = ccgt.get_composer()
+        template = ccgt.template
+        if template is None:
+            return
+
+        if len(fn.lambda_refs) == 1:
+            return
+
+        atoms = template.predarg_category.extract_unify_atoms(False)
+        refs = fn.get_unify_scopes(False)
+        d = fn.pop()
+        d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
+        rel = DRSRelation(ccgt.word)
+        c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
+        if len(c) == 1:
+            c = repr(c[0]) + ': ' + template.predarg_category.signature
+            if ccgt.word in dictionary:
+                dictionary[idx][ccgt.word].add(c)
+            else:
+                dictionary[idx][ccgt.word] = {c}
+## @endcond
+
+
+## @ingroup gfn
+def extract_lexicon_from_pt(pt, dictionary=None):
+    """Extract the lexicon and templates from a CCG parse tree.
+
+    Args:
+        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+        dictionary: An optional dictionary of a existing lexicon.
+    Returns:
+        A dictionary of functor instances.
+    """
+    pt = pt_to_utf8(pt)
+    if dictionary is None:
+        dictionary = map(lambda x: {}, [None]*26)
+    _extract_lexicon_helper(pt, dictionary)
+    return dictionary
+
+
+
 
