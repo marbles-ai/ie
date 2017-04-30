@@ -8,3 +8,7 @@ statistics
 protobuf==3.2.0
 grpcio==1.1.2
 grpcio-tools==1.1.2
+selenium
+beautifulsoup4
+feedparser
+html2text
