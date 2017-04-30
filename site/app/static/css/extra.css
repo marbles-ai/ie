@@ -1,0 +1,33 @@
+/* Wrapper to place glyphicons on an image */
+.iconwrapper {
+  position: relative;
+  margin: 0 auto;
+}
+
+.iconwrapper .glyphicon {
+  position: absolute;
+  margin-left: -85px;
+  top: 55px;
+  font-size: 2.5em;
+}
+
+/* Use jQuery and iconhover class so opacity is applied to siblings
+.iconwrapper img:hover {
+  opacity: 0.75;
+  filter: alpha(opacity=75); 
+}
+
+.iconwrapper img {
+  opacity: 1.0;
+  filter: alpha(opacity=100);   
+}
+*/
+
+.iconshade {
+  color: #e0e0e0;
+}
+
+.iconhover {
+  opacity: 0.75;
+  filter: alpha(opacity=75); /* For IE8 and earlier */
+}
