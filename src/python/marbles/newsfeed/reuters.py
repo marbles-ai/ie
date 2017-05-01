@@ -3,46 +3,46 @@ from .scraper import AbsractScraper, RssFeed
 
 
 # Reuters News RSS Feeds
-REUTERS_RSS_Arts = 'http://feeds.reuters.com/news/artsculture'
-REUTERS_RSS_Business = 'http://feeds.reuters.com/reuters/businessNews'
-REUTERS_RSS_Company_News = 'http://feeds.reuters.com/reuters/companyNews'
-REUTERS_RSS_Entertainment = 'http://feeds.reuters.com/reuters/entertainment'
-REUTERS_RSS_Environment = 'http://feeds.reuters.com/reuters/environment'
-REUTERS_RSS_Health_News = 'http://feeds.reuters.com/reuters/healthNews'
-REUTERS_RSS_Lifestyle = 'http://feeds.reuters.com/reuters/lifestyle'
-REUTERS_RSS_Money = 'http://feeds.reuters.com/news/wealth'
-REUTERS_RSS_Most_Read_Articles = 'http://feeds.reuters.com/reuters/MostRead'
-REUTERS_RSS_Oddly_Enough = 'http://feeds.reuters.com/reuters/oddlyEnoughNews'
-REUTERS_RSS_Pictures = 'http://feeds.reuters.com/ReutersPictures'
-REUTERS_RSS_People = 'http://feeds.reuters.com/reuters/peopleNews'
-REUTERS_RSS_Politics = 'http://feeds.reuters.com/Reuters/PoliticsNews'
-REUTERS_RSS_Science = 'http://feeds.reuters.com/reuters/scienceNews'
-REUTERS_RSS_Sports = 'http://feeds.reuters.com/reuters/sportsNews'
-REUTERS_RSS_Technology = 'http://feeds.reuters.com/reuters/technologyNews'
-REUTERS_RSS_Top_News = 'http://feeds.reuters.com/reuters/topNews'
-REUTERS_RSS_US_News = 'http://feeds.reuters.com/Reuters/domesticNews'
-REUTERS_RSS_World = 'http://feeds.reuters.com/Reuters/worldNews'
+REUTERS_Arts = 'http://feeds.reuters.com/news/artsculture'
+REUTERS_Business = 'http://feeds.reuters.com/reuters/businessNews'
+REUTERS_Company_News = 'http://feeds.reuters.com/reuters/companyNews'
+REUTERS_Entertainment = 'http://feeds.reuters.com/reuters/entertainment'
+REUTERS_Environment = 'http://feeds.reuters.com/reuters/environment'
+REUTERS_Health_News = 'http://feeds.reuters.com/reuters/healthNews'
+REUTERS_Lifestyle = 'http://feeds.reuters.com/reuters/lifestyle'
+REUTERS_Money = 'http://feeds.reuters.com/news/wealth'
+REUTERS_Most_Read_Articles = 'http://feeds.reuters.com/reuters/MostRead'
+REUTERS_Oddly_Enough = 'http://feeds.reuters.com/reuters/oddlyEnoughNews'
+REUTERS_Pictures = 'http://feeds.reuters.com/ReutersPictures'
+REUTERS_People = 'http://feeds.reuters.com/reuters/peopleNews'
+REUTERS_Politics = 'http://feeds.reuters.com/Reuters/PoliticsNews'
+REUTERS_Science = 'http://feeds.reuters.com/reuters/scienceNews'
+REUTERS_Sports = 'http://feeds.reuters.com/reuters/sportsNews'
+REUTERS_Technology = 'http://feeds.reuters.com/reuters/technologyNews'
+REUTERS_Top_News = 'http://feeds.reuters.com/reuters/topNews'
+REUTERS_US_News = 'http://feeds.reuters.com/Reuters/domesticNews'
+REUTERS_World = 'http://feeds.reuters.com/Reuters/worldNews'
 
 _ALLFEEDS = [
-    REUTERS_RSS_Arts,
-    REUTERS_RSS_Business,
-    REUTERS_RSS_Company_News,
-    REUTERS_RSS_Entertainment,
-    REUTERS_RSS_Environment,
-    REUTERS_RSS_Health_News,
-    REUTERS_RSS_Lifestyle,
-    REUTERS_RSS_Money,
-    REUTERS_RSS_Most_Read_Articles,
-    REUTERS_RSS_Oddly_Enough,
-    REUTERS_RSS_Pictures,
-    REUTERS_RSS_People,
-    REUTERS_RSS_Politics,
-    REUTERS_RSS_Science,
-    REUTERS_RSS_Sports,
-    REUTERS_RSS_Technology,
-    REUTERS_RSS_Top_News,
-    REUTERS_RSS_US_News,
-    REUTERS_RSS_World
+    REUTERS_Arts,
+    REUTERS_Business,
+    REUTERS_Company_News,
+    REUTERS_Entertainment,
+    REUTERS_Environment,
+    REUTERS_Health_News,
+    REUTERS_Lifestyle,
+    REUTERS_Money,
+    REUTERS_Most_Read_Articles,
+    REUTERS_Oddly_Enough,
+    REUTERS_Pictures,
+    REUTERS_People,
+    REUTERS_Politics,
+    REUTERS_Science,
+    REUTERS_Sports,
+    REUTERS_Technology,
+    REUTERS_Top_News,
+    REUTERS_US_News,
+    REUTERS_World
 ]
 
 
@@ -77,7 +77,7 @@ class ReutersScraper(AbsractScraper):
 
 
 if __name__ == '__main__':
-    rss = RssFeed(REUTERS_RSS_Politics)
+    rss = RssFeed(REUTERS_Politics)
     scraper = ReutersScraper()
     print(rss.feed.title)
     articles = rss.get_articles()
