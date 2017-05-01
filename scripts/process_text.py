@@ -13,10 +13,6 @@ datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 
 from marbles.ie import grpc
-from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
-from marbles.ie.drt.common import SHOW_LINEAR
 
 
 def die(s):
@@ -110,6 +106,13 @@ if __name__ == '__main__':
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
 
     (options, args) = parser.parse_args()
+
+    # Delay imports so help text can be dislayed without loading model
+    from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
+    from marbles.ie.drt.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
+    from marbles.ie.parse import parse_ccg_derivation
+    from marbles.ie.drt.common import SHOW_LINEAR
+
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
     wordsep = options.wordsep or '-'
     outfile = options.outfile or None
