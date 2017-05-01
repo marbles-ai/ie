@@ -171,7 +171,7 @@ class NYTimesScraper(AbsractScraper):
 
     @classmethod
     def get_rss_feed_list(cls):
-        """Returns a list of tuples of (feed-name, feed-url)."""
+        """Returns a list of tuples of feed urls."""
         return _ALLFEEDS
 
 
