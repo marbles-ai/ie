@@ -113,21 +113,15 @@
     <!-- Wrap the rest of the page in another container to center all the content. -->
   <nav class="navbar navbar-default"></nav> <!-- Dummy nav bar -->
 
-    <div class="container marketing">
+    <div class="container example">
       <div class="container">
-        <div class="row">
-
-          <div id="tester" style="width:600px;height:250px;"></div>
-
-          <script src="../static/js/plotlyTest.js"></script>
-        </div>
-      </div>
-      <div class="container">
-        <p>
-          <form onsubmit="draw(); return false;">
-            <input type="button" value="Redraw" onclick="draw()">
-           </form>
-        </p>
+          <form action="#" method="post">
+          <div class="form-group">
+            <label for="textarea">Example Text</label>
+            <textarea class="form-control" name="textarea" id="textarea" rows="2">Jim jumped over the lazy dog.</textarea>
+              <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+          </form>
         <span id="message" style="max-width:800px;font-size:12px;cursor:pointer;"></span>
         <div id="mynetwork" style="width:800px;height:800px;"></div>
         <script src="../static/js/visjsTest.js"></script>
