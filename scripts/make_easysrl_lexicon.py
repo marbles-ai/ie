@@ -92,8 +92,9 @@ if __name__ == '__main__':
                 failed_parse += 1
                 continue
 
+            uid = '%s-%04d' % (idx, i)
             try:
-                dictionary = extract_lexicon_from_pt(pt, dictionary)
+                dictionary = extract_lexicon_from_pt(pt, dictionary, uid=uid)
             except Exception as e:
                 print(e)
                 continue
@@ -106,7 +107,7 @@ if __name__ == '__main__':
             d = dictionary[idx]
             for k, v in d.iteritems():
                 fd.write('<predicate name=\'%s\'>\n' % k)
-                for x in v:
+                for x in v[0]:
                     fd.write(x)
                     fd.write('\n')
                     nc = x.split(':')
@@ -117,11 +118,14 @@ if __name__ == '__main__':
                         if rt in rtdict:
                             cdict = rtdict[rt]
                             if c in cdict:
-                                cdict[c].append(x)
+                                cdict[c].append(nc[0])
                             else:
-                                cdict[c] = [x]
+                                cdict[c] = [nc[0]]
                         else:
-                            rtdict[rt] = {c: [x]}
+                            rtdict[rt] = {c: [nc[0]]}
+                for x in v[1]:
+                    fd.write('sentence id: ' + x)
+                    fd.write('\n')
                 fd.write('</predicate>\n')
             # Free up memory
             dictionary[idx] = None

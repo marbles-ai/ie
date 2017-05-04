@@ -1393,62 +1393,71 @@ def extract_predarg_categories_from_pt(pt, lst=None):
 
 
 ## @cond
-def _extract_lexicon_helper(pt, dictionary):
-    if pt[-1] == 'T':
-        for nd in pt[1:-1]:
-            # FIXME: prefer tail end recursion
-            _extract_lexicon_helper(nd, dictionary)
-    else:
-        # CcgTypeMapper will infer template if it does not exist in MODEL
-        ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:4])
-        if len(ccgt.word) == 0 or ccgt.category.isatom or ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-            return
+class LexiconExtractor(object):
+    def __init__(self, dictionary, uid):
+        self.dictionary = dictionary
+        self.uid = uid
 
-        if ccgt.category.ismodifier and len(set(ccgt.category.extract_unify_atoms(False))) == 1:
-            return
-
-        N = ccgt.word[0].upper()
-        if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-            return
-
-        idx = ord(N) - 0x41
-        fn = ccgt.get_composer()
-        template = ccgt.template
-        if template is None:
-            return
-
-        if len(fn.lambda_refs) == 1:
-            return
-
-        atoms = template.predarg_category.extract_unify_atoms(False)
-        refs = fn.get_unify_scopes(False)
-        d = fn.pop()
-        d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
-        rel = DRSRelation(ccgt.word)
-        c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
-        if len(c) == 1:
-            c = repr(c[0]) + ': ' + template.predarg_category.signature
-            if ccgt.word in dictionary:
-                dictionary[idx][ccgt.word].add(c)
-            else:
-                dictionary[idx][ccgt.word] = {c}
+    def run(self, pt):
+        if pt[-1] == 'T':
+            for nd in pt[1:-1]:
+                # FIXME: prefer tail end recursion
+                self.run(nd)
+        else:
+            # CcgTypeMapper will infer template if it does not exist in MODEL
+            ccgt = CcgTypeMapper(category=Category.from_cache(pt[0]), word=pt[1], posTags=pt[2:4])
+            if len(ccgt.word) == 0 or ccgt.category.isatom or ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+                return
+    
+            if ccgt.category.ismodifier and len(set(ccgt.category.extract_unify_atoms(False))) == 1:
+                return
+    
+            N = ccgt.word[0].upper()
+            if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                return
+    
+            idx = ord(N) - 0x41
+            fn = ccgt.get_composer()
+            template = ccgt.template
+            if template is None:
+                return
+    
+            if len(fn.lambda_refs) == 1:
+                return
+    
+            atoms = template.predarg_category.extract_unify_atoms(False)
+            refs = fn.get_unify_scopes(False)
+            d = fn.pop()
+            d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
+            rel = DRSRelation(ccgt.word)
+            c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
+            if len(c) == 1:
+                c = repr(c[0]) + ': ' + template.predarg_category.signature
+                if ccgt.word in self.dictionary:
+                    lst = self.dictionary[idx][ccgt.word]
+                    lst[0].add(c)
+                    lst[1].add(self.uid)
+                else:
+                    self.dictionary[idx][ccgt.word] = [{c}, {self.uid}]
 ## @endcond
 
 
 ## @ingroup gfn
-def extract_lexicon_from_pt(pt, dictionary=None):
+def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
     """Extract the lexicon and templates from a CCG parse tree.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
         dictionary: An optional dictionary of a existing lexicon.
+        uid: A unique identifier string for the sentence.
     Returns:
         A dictionary of functor instances.
     """
     pt = pt_to_utf8(pt)
     if dictionary is None:
         dictionary = map(lambda x: {}, [None]*26)
-    _extract_lexicon_helper(pt, dictionary)
+    extractor = LexiconExtractor(dictionary, uid or '')
+    extractor.run(pt)
     return dictionary
 
 
