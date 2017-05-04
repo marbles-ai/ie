@@ -587,7 +587,9 @@ class DrsProduction(AbstractProduction):
             p2 = []
 
             root = self.dep.root
-            for nd in root.descendants:
+            alldeps = [root]
+            alldeps.extend(root.descendants)
+            for nd in alldeps:
                 r, w, t = nd.get()
                 if (t & (RT_ANAPHORA | RT_HUMAN)) == (RT_ANAPHORA | RT_HUMAN):
                     # he, she
@@ -638,17 +640,22 @@ class DrsProduction(AbstractProduction):
             todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
                     ('.LOC', locations)]
             if 0 != (self.compose_options & CO_BUILD_STATES):
+                rs = []
                 for rel, lst in todo:
                     for nd, r, w, t in lst:
+                        # Find word unary predicate
                         fc = self._drs.find_condition(Rel(w, [r]))
+                        nr = r
                         if fc is not None:
                             self._drs.remove_condition(fc)
-                            nr = DRSRef(DRSVar('y', r.var.idx))
-                            conds.append(Prop(r, DRS([nr], [Rel(rel, nr), Rel(w, nr)])))
-                for nd, r, w, t in events:
-                    fc = self._drs.find_condition(Rel('.EVENT', [r]))
-                    if fc is not None:
-                        self._drs.remove_condition(fc)
+                            if 0 != (t & RT_PROPERNAME):
+                                nr = DRSRef(DRSConst(w))
+                            else:
+                                nr = DRSRef(DRSVar(w + '_', r.var.idx))
+                            rs.append((r, nr))
+                        if rel != '.EVENT':
+                            conds.append(Rel(rel, nr))
+                self.rename_vars(rs)
             elif 0 != (self.compose_options & CO_ADD_STATE_PREDICATES):
                 for rel, lst in todo:
                     if rel == '.EVENT':
