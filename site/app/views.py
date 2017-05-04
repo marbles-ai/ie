@@ -8,12 +8,13 @@ def index():
     return render_template('index.html',
                            title='Home')
 
-@app.route('/examples')
+@app.route('/examples', methods=['GET', 'POST'])
 def examples():
     return render_template('examples.html',
                            title='Examples')
 
-@app.route('/examples', methods=['POST'])
-def submit_post():
-    text = request.form['textarea']
-    return "Apple"
+@app.route('/submit', methods=['GET', 'OPTIONS'])
+def submit():
+    sent = request.args.get('textarea')
+    print "Got: ", sent
+    return sent + " returned!!"
