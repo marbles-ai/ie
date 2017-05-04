@@ -63,9 +63,12 @@ class RssFeed(object):
         self.rss = feedparser.parse(link)
         self.ids_read = set()
 
-    def get_articles(self, mark_as_read=True):
+    def get_articles(self, mark_as_read=True, ignore_read=True):
         articles = []
         for entry in self.rss.entries:
+            if ignore_read and entry.id in self.ids_read:
+                # Ignore read articles
+                continue
             articles.append(Article(entry))
             if mark_as_read:
                 self.ids_read.add(entry.id)
