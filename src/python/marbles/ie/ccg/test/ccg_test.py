@@ -4,6 +4,7 @@ import os
 import unittest
 
 from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS
+from marbles.ie.ccg.ccg2drs import Ccg2Drs
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.utils.cache import Cache
 
@@ -139,7 +140,91 @@ class CcgTest(unittest.TestCase):
                 self.assertEquals(k, v.signature)
                 self.assertEquals(Category._cache[k], v)
 
-    def test6_RuleUniquenessLDC(self):
+    def test6_Wsj0001_2(self):
+        txt = '''
+(<T S[dcl] 0 2>
+  (<T S[dcl] 1 2>
+    (<T NP 0 1>
+      (<T N 1 2>
+        (<L N/N NNP NNP Mr. N_107/N_107>)
+        (<L N NNP NNP Vinken N>)
+      )
+    )
+    (<T S[dcl]\NP 0 2>
+      (<L (S[dcl]\NP)/NP VBZ VBZ is (S[dcl]\NP_112)/NP_113>)
+      (<T NP 0 2>
+        (<T NP 0 1>
+          (<L N NN NN chairman N>)
+        )
+        (<T NP\NP 0 2>
+          (<L (NP\NP)/NP IN IN of (NP_109\NP_109)/NP_110>)
+          (<T NP 0 2>
+            (<T NP 0 1>
+              (<T N 1 2>
+                (<L N/N NNP NNP Elsevier N_107/N_107>)
+                (<L N NNP NNP N.V. N>)
+              )
+            )
+            (<T NP[conj] 1 2>
+              (<L , , , , ,>)
+              (<T NP 1 2>
+                (<L NP[nb]/N DT DT the NP[nb]_29/N_29>)
+                (<T N 1 2>
+                  (<L N/N NNP NNP Dutch N_107/N_107>)
+                  (<T N 1 2>
+                    (<L N/N VBG VBG publishing N_107/N_107>)
+                    (<L N NN NN group N>)
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (<L . . . . .>)
+)'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(Mr, N/N, NNP)',
+            '<PushOp>:(Vinken, N, NNP)',
+            '<ExecOp>:(2, N)',
+            '<ExecOp>:(1, NP)',
+            '<PushOp>:(be, (S[dcl]\NP)/NP, VBZ)',
+            '<PushOp>:(chairman, N, NN)',
+            '<ExecOp>:(1, NP)',
+            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(Elsevier, N/N, NNP)',
+            '<PushOp>:(N.V, N, NNP)',
+            '<ExecOp>:(2, N)',
+            '<ExecOp>:(1, NP)',
+            '<PushOp>:(,, ,, ,)',
+            '<PushOp>:(the, NP[nb]/N, DT)',
+            '<PushOp>:(Dutch, N/N, NNP)',
+            '<PushOp>:(publish, N/N, VBG)',
+            '<PushOp>:(group, N, NN)',
+            '<ExecOp>:(2, N)',
+            '<ExecOp>:(2, N)',
+            '<ExecOp>:(2, NP)',
+            '<ExecOp>:(2, NP[conj])',
+            '<ExecOp>:(2, NP)',
+            '<ExecOp>:(2, NP\NP)',
+            '<ExecOp>:(2, NP)',
+            '<ExecOp>:(2, S[dcl]\NP)',
+            '<ExecOp>:(2, S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
+        txt2 = '\n' + ccg.get_predarg_ccgbank(pretty=True)
+        self.assertEquals(txt, txt2)
+
+    def test7_RuleUniquenessLDC(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -199,7 +284,7 @@ class CcgTest(unittest.TestCase):
             print('ambiguous rule: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
-    def test7_RuleUniquenessEasySRL(self):
+    def test8_RuleUniquenessEasySRL(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
@@ -258,7 +343,7 @@ class CcgTest(unittest.TestCase):
             print('ambiguous rule in %s-%04d: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
-    def test8_RuleExecutionEasySRL(self):
+    def test9_RuleExecutionEasySRL(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))

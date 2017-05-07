@@ -1,5 +1,122 @@
 import weakref
+
 from marbles.ie.drt.drs import DRSRef
+
+
+class IndexSpan(object):
+    '''View of a document.'''
+    def __init__(self, doc, indexes=None):
+        self._doc = doc
+        if indexes is None:
+            self._indexes = []
+        else:
+            self._indexes = indexes
+
+    def __len__(self):
+        return len(self._indexes)
+
+    def __getitem__(self, i):
+        return self._doc[i]
+
+    def __iter__(self):
+        for k in self._indexes:
+            yield self._doc[k]
+
+    def __repr__(self):
+        return self.text
+
+    def __eq__(self, other):
+        return (len(other._indexes) == 0 and len(self._indexes) == 0) or \
+               (len(self._indexes) != 0 and len(other._indexes) != 0 and \
+                other._doc._hash == self._doc._hash and other._indexes[0] == self._indexes[0])
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self._doc._hash < other._doc._hash or (self._doc._hash == other._doc._hash and \
+                                                      ((len(self._indexes) == 0 and len(other._indexes) != 0) or \
+                                                       (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] < other._indexes[0])))
+
+    def __gt__(self, other):
+        return self._doc._hash > other._doc._hash or (self._doc._hash == other._doc._hash and \
+                                                      ((len(self._indexes) != 0 and len(other._indexes) == 0) or \
+                                                       (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] > other._indexes[0])))
+
+    def __le__(self, other):
+        return other.__gt__(self)
+
+    def __ge__(self, other):
+        return other.__lt__(self)
+
+    def __hash__(self):
+        return (self._idx << 5) ^ (self.idx >> 27) ^ self._doc._hash
+
+    def union(self, other):
+        '''Union two spans.'''
+        if other is None or len(other) == 0: return
+        self._indexes.extend(filter(lambda x: x not in self._indexes, other._indexes))
+        self._indexes.sort()
+
+    def complement(self, other):
+        '''Remove other from this span.'''
+        if other is None or len(other) == 0: return
+        self._indexes = filter(lambda x: x not in other._indexes, self._indexes)
+
+    def intersect(self, other):
+        '''Find common span.'''
+        if other is None or len(other) == 0:
+            self._indexes = []
+            return
+        self._indexes = filter(lambda x: x in other._indexes, self._indexes)
+
+    @property
+    def text(self):
+        if len(self._indexes) == 0:
+            return ''
+        txt = self._doc[self._indexes[0]].text
+        for i in self._indexes[1:]:
+            tok = self._doc[i]
+            if tok.is_punct:
+                txt += tok.text
+            else:
+                txt += ' ' + tok.text
+        return txt
+
+    @property
+    def text_with_ws(self):
+        return self.text
+
+
+class Token(object):
+    def __init__(self, doc, idx):
+        self.idx = idx
+        self.doc = doc
+
+    def lexeme(self):
+        return self.doc[self.idx]
+
+
+class Document(object):
+    def __init__(self, Lexemes):
+        self.lexemes = Lexemes
+
+    def __getitem__(self, slice_i_j):
+        if isinstance(slice_i_j, slice):
+            return IndexSpan(self, range(slice_i_j))
+        return Token(self, slice_i_j)
+
+    def __iter__(self):
+        for i in range(len(self._tokens)):
+            yield Token(self, i)
+
+    def __len__(self):
+        return len(self._tokens)
+
+
+class DepencencyManager(object):
+    def __init__(self):
+        pass
 
 
 class Dependency(object):
