@@ -677,7 +677,7 @@ class ProductionList(AbstractProduction):
         if isinstance(other, AbstractDRS):
             other = DrsProduction(other)
         if merge and isinstance(other, ProductionList):
-            self._compList.extendleft(other._compList)
+            self._compList.extendleft(reversed(other._compList))
         else:
             other.set_options(self.compose_options)
             self._compList.appendleft(other)
