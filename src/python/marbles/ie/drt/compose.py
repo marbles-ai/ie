@@ -762,8 +762,10 @@ class ProductionList(AbstractProduction):
                         conds.extend(pconds)
                     else:
                         name = '-'.join([c.relation.to_string() for c in pconds])
+                        '''
                         if self.dep is None:
                             pass
+                        '''
                         self.dep.update_mapping(lastr, name)
                         for dep in self.dep.root.descendants:
                             ref, word, _ = dep.get()
@@ -784,8 +786,10 @@ class ProductionList(AbstractProduction):
                 conds.extend(pconds)
             else:
                 name = '-'.join([c.relation.to_string() for c in pconds])
+                '''
                 if self.dep is None:
                     pass
+                '''
                 self.dep.update_mapping(lastr, name)
                 for dep in self.dep.root.descendants:
                     ref, word, _ = dep.get()
@@ -815,21 +819,20 @@ class ProductionList(AbstractProduction):
         """
         if len(self._compList) == 0:
             return self
-        fn = self._compList.popleft()
-        if not fn.isfunctor:
-            pass
+        d = self._compList.pop()
         if len(self._compList) == 0:
             # This can happen with punctuation etc. Empty productions are removed
             # after a unify so we must simulate application with empty.
+            fn = d
             d = fn.pop()
             g = fn.pop()
             if g is not None:
                 g.push(d)
                 d = g
         else:
-            arg = self._compList.popleft()
-            d = fn.apply(arg)
-        self._compList.appendleft(d)
+            fn = self._compList.pop()
+            d = fn.apply(d)
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -843,8 +846,10 @@ class ProductionList(AbstractProduction):
         if len(self._compList) == 0:
             return self
         fn = self._compList.pop()
+        '''
         if not fn.isfunctor:
             pass
+        '''
         if len(self._compList) == 0:
             # This can happen with punctuation etc. Empty productions are removed
             # after a unify so we must simulate application with empty.
@@ -872,8 +877,8 @@ class ProductionList(AbstractProduction):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList.popleft()
-        arg = self._compList.popleft()
+        arg = self._compList.pop()
+        fn = self._compList.pop()
         if generalized:
             # CALL[X/Y](Y|Z)$
             # Generalized Forward Composition           X/Y:f (Y/Z)/$ => (X/Z)/$
@@ -884,7 +889,7 @@ class ProductionList(AbstractProduction):
             # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
             # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
             d = fn.compose(arg)
-        self._compList.appendleft(d)
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -923,13 +928,13 @@ class ProductionList(AbstractProduction):
             Executes a single production rule.
         """
         assert len(self._compList) >= 2
-        fn = self._compList.popleft()
-        arg = self._compList.popleft()
+        arg = self._compList.pop()
+        fn = self._compList.pop()
         # CALL[(X/Y)|Z](Y|Z)
         # Forward Substitution          (X/Y)/Z:f Y/Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         # Forward Crossing Substitution (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         d = fn.substitute(arg)
-        self._compList.appendleft(d)
+        self._compList.append(d)
         self.set_lambda_refs(d.lambda_refs)
         self.set_category(d.category)
         return self
@@ -956,16 +961,16 @@ class ProductionList(AbstractProduction):
         """Forward conjoin of like types."""
         if len(self._compList) <= 1:
             return
-        f = self._compList.popleft()
-        g = self._compList.popleft()
+        g = self._compList.pop()
+        f = self._compList.pop()
         if f.isfunctor:
             d = f.conjoin(g, False)
-            self._compList.appendleft(d)
+            self._compList.append(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         elif g.isfunctor:
             d = g.conjoin(f, True)
-            self._compList.appendleft(d)
+            self._compList.append(d)
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
@@ -973,7 +978,7 @@ class ProductionList(AbstractProduction):
             d.push_right(g)
             d.flatten()
             d = d.unify()
-            self._compList.appendleft(d)
+            self._compList.append(d)
             self.set_category(f.category)
         return self
 
@@ -1039,7 +1044,7 @@ class ProductionList(AbstractProduction):
         self.set_category(d.category)
         return self
 
-    def apply(self, rule):
+    def apply(self, rule, old_mode=True):
         """Applications based on rule.
 
         Args:
@@ -1050,7 +1055,8 @@ class ProductionList(AbstractProduction):
         """
 
         # alpha convert variables
-        self.flatten()
+        if old_mode:
+            self.flatten()
 
         if rule in [RL_RPASS, RL_LPASS, RL_RNUM]:
             # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
@@ -1088,17 +1094,21 @@ class ProductionList(AbstractProduction):
         if len(self._compList) == 0:
             return self
 
-        if len(self._compList) == 1:
-            d = self._compList.popleft()
+        if old_mode and len(self._compList) == 1:
+            d = self._compList.pop()
             if d.isfunctor:
+                '''
                 if d.get_scope_count() != d.category.get_scope_count():
                     pass
                 if d.get_scope_count() != self.category.get_scope_count():
                     pass
+                '''
                 d.set_category(self.category)
             else:
+                '''
                 if d.get_scope_count() != self.category.get_scope_count():
                     pass
+                '''
                 d.set_category(self.category)
             return d
         return self
@@ -1408,8 +1418,10 @@ class FunctorProduction(AbstractProduction):
                 c = c._comp
             atoms.reverse()
             if c is not None:
+                '''
                 if len(c.lambda_refs) > 1:
                     pass
+                '''
                 assert(len(c.lambda_refs) <= 1)     # final result must be a atom
                 atoms.append(c.lambda_refs)
             return atoms
@@ -1592,8 +1604,10 @@ class FunctorProduction(AbstractProduction):
         """
         self.make_vars_disjoint(np)
         slr = self.inner_scope._comp.lambda_refs
+        '''
         if not isinstance(np, DrsProduction):
             pass
+        '''
         assert isinstance(np, DrsProduction)
         lr = np.lambda_refs
         if len(lr) == 0:
@@ -1700,9 +1714,10 @@ class FunctorProduction(AbstractProduction):
             g.pop()
             assert gc is not None
         zg._category = cat
-
+        '''
         if len(yflr) != len(glr):
             pass
+        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -1792,9 +1807,10 @@ class FunctorProduction(AbstractProduction):
         fc = self.pop()
         assert fc is not None
         yflr = self.inner_scope.get_unify_scopes(False)
-
+        '''
         if len(yflr) != len(glr):
             pass
+        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -1884,8 +1900,10 @@ class FunctorProduction(AbstractProduction):
         assert zf is not None
         self.push(fc)
         yflr = self.inner_scope.get_unify_scopes(False)
+        '''
         if len(yflr) != len(glr):
             pass
+        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -2025,8 +2043,10 @@ class FunctorProduction(AbstractProduction):
             flr = self.get_unify_scopes(False)
             fs = self.category.argument_category().extract_unify_atoms(False)
             gs = g.category.extract_unify_atoms(False)
+            '''
             if gs is None or fs is None:
                 pass
+            '''
             assert fs is not None
             assert gs is not None and len(gs) == len(fs)
 
@@ -2144,8 +2164,10 @@ class PropProduction(FunctorProduction):
             print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(d)))
         if isinstance(d, ProductionList):
             d = d.unify()
+        '''
         if not isinstance(d, DrsProduction):
             pass
+        '''
         assert isinstance(d, DrsProduction)
         # FIXME: removing proposition from a proper noun causes an exception during ProductionList.apply()
         if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.drs.referents) == 1 and not d.isproper_noun:

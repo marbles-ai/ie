@@ -3,7 +3,7 @@
 import os
 import unittest
 
-from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt
+from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt, Ccg2Drs
 from marbles.ie.ccg.ccgcat import Category
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET
 from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
@@ -163,8 +163,11 @@ class ComposeTest(unittest.TestCase):
             (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        #d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        #self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0001_1(self):
@@ -241,11 +244,9 @@ class ComposeTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0001_2(self):
@@ -308,11 +309,9 @@ class ComposeTest(unittest.TestCase):
 )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0003_1(self):
@@ -467,15 +466,10 @@ class ComposeTest(unittest.TestCase):
         (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
-        print('\n')
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
-        pass
 
     def test2_Wsj0004_1(self):
         # Yields on money-market mutual funds continued to slide, amid signs that portfolio managers expect further
@@ -496,13 +490,9 @@ class ComposeTest(unittest.TestCase):
         (<L N NNS NNS rates N>) ) ) ) ) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
-        print('\n')
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0004_1_EasySRL(self):
@@ -520,13 +510,9 @@ class ComposeTest(unittest.TestCase):
         ) ) ) ) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
-        print('\n')
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test2_Wsj0012_1(self):
@@ -633,13 +619,9 @@ class ComposeTest(unittest.TestCase):
 '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
-        d = d.unify()
-        self.assertIsNotNone(d)
-        self.assertIsInstance(d, DrsProduction)
-        print('\n')
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
         print(d.drs.show(SHOW_LINEAR))
 
     def test3_ParseEasySrl(self):
@@ -648,8 +630,10 @@ class ComposeTest(unittest.TestCase):
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
+        d = ccg.final_rename(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
         self.assertEquals(x, s)
@@ -680,8 +664,11 @@ class ComposeTest(unittest.TestCase):
             (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
+        d = ccg.final_rename(d)
+        d.resolve_anaphora()
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
         x = u'[x3,e2,e1,x4| door(x3),open(e2),.EVENT(e2),.AGENT(e2,x3),i(x4),step(e1),.EVENT(e1),.AGENT(e1,x4),up(e1),direction(e1)]'
@@ -694,8 +681,11 @@ class ComposeTest(unittest.TestCase):
             (<L N NN NN corner. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
+        d = ccg.final_rename(d)
+        d.resolve_anaphora()
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x3,e1,x2,x4| school(x3),bus(x3),wheeze(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),i(x4),.POSS(x4,x2),corner(x2)]'
         self.assertEquals(x, s)
@@ -725,8 +715,11 @@ class ComposeTest(unittest.TestCase):
         (<L . . . . .>) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES)
-        self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
+        s = d.drs.show(SHOW_LINEAR)
+        print(s)
 
     def test5_ProperNouns1(self):
         #txt = '''(<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP J.P. N/N>) (<L N NNP NNP Bolduc N>) ) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN vice N/N>) (<T N 0 2> (<L N/PP NN NN chairman N/PP>) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NNP NNP W.R. (N/N)/(N/N)>) (<L N/N NNP NNP Grace N/N>) ) (<T N 1 2> (<L N/N CC CC & N/N>) (<T N 0 2> (<L N NNP NNP Co. N>) (<L , , , , ,>) ) ) ) ) (<T NP\NP 0 2> (<L (NP\NP)/(S[dcl]\NP) WDT WDT which (NP\NP)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBZ VBZ holds (S[dcl]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) CD CD 83.4 (N/N)/(N/N)>) (<L N/N NN NN % N/N>) ) (<T N 0 2> (<L N/PP NN NN interest N/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<T N 1 2> (<L N/N JJ JJ energy-services N/N>) (<L N NN NN company N>) ) ) ) ) ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2> (<L , , , , ,>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>) (<T S[pss]\NP 0 2> (<L (S[pss]\NP)/NP VBN VBN elected (S[pss]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN director N>) ) ) ) ) ) ) ) ) (<L . . . . .>) ) ) ) ) ) ) '''
@@ -818,8 +811,13 @@ class ComposeTest(unittest.TestCase):
 ) '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg.build_execution_sequence(pt)
+        d = ccg.create_drs()
+        d = ccg.final_rename(d)
+        d.resolve_anaphora()
+        s = d.drs.show(SHOW_LINEAR)
+        print(s)
 
     def test5_ProperNouns2(self):
         txt='''
