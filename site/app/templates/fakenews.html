@@ -9,7 +9,7 @@
     <meta name="author" content="">
     <link rel="icon" href="favicon.ico">
 
-    <title>Marbles.AI: Solving Fake News</title>
+    <title>Fake News</title>
 
     <style type="text/css">
     body {
@@ -53,18 +53,12 @@
       <script src="../static/js/plotly-latest.min.js"></script>
       <script src="../static/js/vis.js"></script>
       <script src="../static/js/exampleUtil.js"></script>
-      <script src="../static/js/jquery-3.2.1.min.js"></script>
-
-      <script src="https://d3js.org/d3-array.v1.min.js"></script>
-      <script src="https://d3js.org/d3-path.v1.min.js"></script>
-      <script src="https://d3js.org/d3-chord.v1.min.js"></script>
-
+        <script src="../static/js/jquery-3.2.1.min.js"></script>
             <!-- Custom styles for this template -->
+    <link href="justified-nav.css" rel="stylesheet">
     <link href="../static/css/sticky-footer-navbar.css" rel="stylesheet">
-
     </head>
 
-  </head>
 <!-- NAVBAR
 ================================================== -->
   <body onload="draw();">
@@ -124,54 +118,36 @@
     <!-- Wrap the rest of the page in another container to center all the content. -->
   <nav class="navbar navbar-default"></nav> <!-- Dummy nav bar -->
 
-    <div class="container example">
-      <div class="container">
-
-          <form class="submitText" id="submitForm" method="POST">
-          <div class="form-group">
-            <label for="textarea">Example Text</label>
-            <textarea class="form-control" name="textarea" id="textarea" rows="2">Jim jumped over the lazy dog.</textarea>
-              <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
-          </div>
-          </form>
-
-        <span id="message" style="max-width:800px;font-size:12px;cursor:pointer;"></span>
-        <div id="mynetwork" style="width:800px;height:800px;"></div>
-        <script src="../static/js/visjsTest.js"></script>
+        <!-- Jumbotron -->
+      <div class="jumbotron">
+        <h1>Fake News!</h1>
+        <p class="lead">Fake news is having a significant impact on society; it has not only effected our last election (political; should we add?) but it is having a high-profile impact on large social media companies</p>
       </div>
-    </div><!-- /.container -->
 
-    <script>
-        $(function() {
-            $('#submitButton').on('click', function(e){
-                console.log("Gonna send to: " + url_for('submit'));
-
-                $.ajax({
-                    url: "http://127.0.0.1:5000/submit",
-                    data: $('form.submitText'),
-                    success: function(msg){
-                        alert("Got: "+msg)
-                        $("#textarea").html(msg+"apple")
-                        return msg+"apple";
-                    },
-                    error: function(){
-                        alert("failure");
-                        return "failure;"
-                    }
-                });
-            });
-        });
-    </script>
-
-    <div id="chart">
-
-    </div>
+    <!-- Example row of columns -->
+      <div class="row">
+        <div class="col-lg-4">
+          <h2>The Election</h2>
+          <p>Fake news is having a significant impact on society; it has not only effected our last election (political; should we add?) but it is having a high-profile impact on large social media companies like <a href="https://www.usatoday.com/story/tech/news/2017/05/03/facebook-first-quarter-2-billion-users-topped-revenue-estimates/101254122/">Facebook</a></p>
+          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+        </div>
+        <div class="col-lg-4">
+          <h2>Social Media</h2>
+          <p>.. Facebook ...</p>
+          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+       </div>
+        <div class="col-lg-4">
+          <h2>Fake News</h2>
+          <p>.. Bad News sources ....</p>
+          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+        </div>
+      </div>
 
       <!-- FOOTER -->
-    <footer>
-      <p class="pull-right"><a href="#">Back to top</a></p>
-      <p>&copy; 2016 Marbles AI, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
-    </footer>
+      <footer>
+        <p class="pull-right"><a href="#">Back to top</a></p>
+        <p>&copy; 2016 Marbles AI, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
+      </footer>
 
     <!-- Bootstrap core JavaScript
     ================================================== -->
@@ -183,7 +159,5 @@
     <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
     <script src="../static/js/ie10-viewport-bug-workaround.js"></script>
     <script src="../static/js/extra.js"></script>
-
-    <script src="diagram.js"></script>
   </body>
 </html>
