@@ -151,6 +151,7 @@ class CcgTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
+        # Check execution queue
         actual = [repr(x) for x in ccg.exeque]
         expected = [
             '<PushOp>:(Mr, N/N, NNP)',
@@ -183,8 +184,30 @@ class CcgTest(unittest.TestCase):
             '<ExecOp>:(2, LP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
+        # Check ccgbank generation
         txt2 = '\n' + ccg.get_predarg_ccgbank(pretty=True)
         self.assertEquals(txt, txt2)
+        # Check lexicon
+        expected = [
+            'Mr.',      'Vinken',       'is',
+            'chairman', 'of',           'Elsevier',
+            'N.V.',     ',',            'the',
+            'Dutch',    'publishing',   'group',        '.'
+        ]
+        actual = [x.word for x in ccg.lexque]
+        self.assertListEqual(expected, actual)
+        # Check dependencies
+        self.assertEquals(ccg.lexque[0].head, 1)    # Mr. -> Vinken
+        self.assertEquals(ccg.lexque[1].head, 2)    # Vinken -> is
+        self.assertEquals(ccg.lexque[2].head, 2)    # root
+        self.assertEquals(ccg.lexque[3].head, 2)    # chairman -> is
+        self.assertEquals(ccg.lexque[4].head, 3)    # of -> chairman
+        self.assertEquals(ccg.lexque[5].head, 6)    # Elsevier -> N.V.
+        self.assertEquals(ccg.lexque[6].head, 4)    # N.V. -> of
+        self.assertEquals(ccg.lexque[8].head, 11)   # the -> group
+        self.assertEquals(ccg.lexque[9].head, 11)   # Dutch -> group
+        self.assertEquals(ccg.lexque[10].head, 11)  # publishing -> group
+        self.assertEquals(ccg.lexque[11].head, 6)   # group -> N.V
 
     def test6_Wsj0037_37(self):
         txt = '''
