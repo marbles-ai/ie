@@ -486,6 +486,8 @@ class CcgTest(unittest.TestCase):
                         actual = op.rule.apply_rule_to_category(left, right)
                         if not actual.can_unify(result):
                             print('%s <!> %s' % (actual, result))
+                            print('%s <- %s %s %s', actual, left, op.rule, right)
+                            print(ccgbank)
                         self.assertTrue(actual.can_unify(result))
 
         if len(failed_exec) != 0:
