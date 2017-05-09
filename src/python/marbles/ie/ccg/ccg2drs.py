@@ -891,7 +891,7 @@ class Ccg2Drs(object):
                 if x.var.name == 'x':
                     fc = d.drs.find_condition(Rel('.EVENT', [x]))
                     if fc is not None:
-                        d.rename_vars([(x, DRSRef(DRSVar('e',x.var.idx)))])
+                        d.rename_vars([(x, DRSRef(DRSVar('e', x.var.idx)))])
             break
         return d
 
@@ -1084,6 +1084,7 @@ class Ccg2Drs(object):
         Args:
             pt: The parse tree.
         """
+        # FIXME: Remove recursion from this function
         self.depth += 1
         if pt[-1] == 'T':
             head = int(pt[0][1])
@@ -1197,7 +1198,7 @@ class Ccg2Drs(object):
                     template = unary.template
                     nlst = collections.deque()
                     nlst.append(stk.pop())
-                    nlst.append('(%s<T %s %d %d>' % (indent, op.category, 1, 2))
+                    nlst.append('%s(<T %s %d %d>' % (indent, op.category, 1, 2))
                     nlst.append(stk.pop())
                     nlst.append('%s  (<L %s %s %s %s %s>)' % (indent, template.clean_category, 'UNARY', 'UNARY',
                                                               '.UNARY', template.predarg_category.signature))
@@ -1259,7 +1260,7 @@ def process_ccg_pt(pt, options=None):
 
 ## @ingroup gfn
 def pt_to_utf8(pt):
-    """Convert a parse tree to utf-8.
+    """Convert a parse tree to utf-8. The conversion is done in-place.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
@@ -1298,17 +1299,6 @@ def pt_to_ccgbank(pt, fmt=True):
     return s
 
 
-## @cond
-def _process_sentence_node(pt, s):
-    if pt[-1] == 'T':
-        for nd in pt[1:-1]:
-            # FIXME: prefer tail end recursion
-            _process_sentence_node(nd, s)
-    else:
-        s.append(pt[1])
-## @endcond
-
-
 ## @ingroup gfn
 def sentence_from_pt(pt):
     """Get the sentence from a CCG parse tree.
@@ -1320,30 +1310,14 @@ def sentence_from_pt(pt):
         A string
     """
     s = []
-    _process_sentence_node(pt, s)
+    stk = [pt]
+    while len(stk) != 0:
+        pt = stk.pop()
+        if pt[-1] == 'T':
+            stk.extend(reversed(pt[1:-1]))
+        else:
+            s.append(pt[1])
     return ' '.join(s).replace(' ,', ',').replace(' .', '.')
-
-
-## @cond
-def _extract_predarg_categories_node(pt, lst):
-    global _PredArgIdx
-    if pt[-1] == 'T':
-        for nd in pt[1:-1]:
-            _extract_predarg_categories_node(nd, lst)
-    else:
-        # Leaf nodes contains six fields:
-        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-        # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
-        catkey = Category(pt[0])
-
-        # Ignore atoms and conj rules.
-        if not catkey.isfunctor or catkey.result_category() == CAT_CONJ or catkey.argument_category() == CAT_CONJ:
-            return
-
-        predarg = Category(pt[4])
-        assert catkey == predarg.clean(True)
-        lst.append(predarg)
-## @endcond
 
 
 ## @ingroup gfn
@@ -1356,60 +1330,30 @@ def extract_predarg_categories_from_pt(pt, lst=None):
     Returns:
         A list of Category instances.
     """
+    global _PredArgIdx
     pt = pt_to_utf8(pt)
     if lst is None:
         lst = []
-    _extract_predarg_categories_node(pt, lst)
-    return lst
 
-
-## @cond
-class LexiconExtractor(object):
-    def __init__(self, dictionary, uid):
-        self.dictionary = dictionary
-        self.uid = uid
-
-    def run(self, pt):
+    stk = [pt]
+    while len(stk) != 0:
+        pt = stk.pop()
         if pt[-1] == 'T':
-            for nd in pt[1:-1]:
-                # FIXME: prefer tail end recursion
-                self.run(nd)
+            stk.extend(pt[1:-1])
         else:
-            # Lexeme will infer template if it does not exist in MODEL
-            lexeme = Lexeme(category=pt[0], word=pt[1], pos_tags=pt[2:4])
-            if len(lexeme.stem) == 0 or lexeme.category.isatom or lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-                return
-    
-            if lexeme.category.ismodifier and len(set(lexeme.category.extract_unify_atoms(False))) == 1:
-                return
-    
-            N = lexeme.stem[0].upper()
-            if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-                return
-    
-            idx = ord(N) - 0x41
-            template = lexeme.get_template()
-            if template is None:
-                return
-            fn = lexeme.get_production()
-            if len(fn.lambda_refs) == 1:
-                return
-    
-            atoms = template.predarg_category.extract_unify_atoms(False)
-            refs = fn.get_unify_scopes(False)
-            d = fn.pop()
-            d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
-            rel = DRSRelation(lexeme.stem)
-            c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
-            if len(c) == 1:
-                c = repr(c[0]) + ': ' + template.predarg_category.signature
-                if lexeme.stem in self.dictionary:
-                    lst = self.dictionary[idx][lexeme.stem]
-                    lst[0].add(c)
-                    lst[1].add(self.uid)
-                else:
-                    self.dictionary[idx][lexeme.stem] = [{c}, {self.uid}]
-## @endcond
+            # Leaf nodes contains six fields:
+            # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
+            # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
+            catkey = Category(pt[0])
+
+            # Ignore atoms and conj rules.
+            if not catkey.isfunctor or catkey.result_category() == CAT_CONJ or catkey.argument_category() == CAT_CONJ:
+                continue
+
+            predarg = Category(pt[4])
+            assert catkey == predarg.clean(True)
+            lst.append(predarg)
+    return lst
 
 
 ## @ingroup gfn
@@ -1426,8 +1370,50 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
     pt = pt_to_utf8(pt)
     if dictionary is None:
         dictionary = map(lambda x: {}, [None]*26)
-    extractor = LexiconExtractor(dictionary, uid or '')
-    extractor.run(pt)
+    if uid is None:
+        uid = ''
+
+    stk = [pt]
+    while len(stk) != 0:
+        pt = stk.pop()
+        if pt[-1] == 'T':
+            stk.extend(pt[1:-1])
+        else:
+            # Lexeme will infer template if it does not exist in MODEL
+            lexeme = Lexeme(category=pt[0], word=pt[1], pos_tags=pt[2:4])
+            if len(lexeme.stem) == 0 or lexeme.category.isatom or lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+                continue
+
+            if lexeme.category.ismodifier and len(set(lexeme.category.extract_unify_atoms(False))) == 1:
+                continue
+
+            N = lexeme.stem[0].upper()
+            if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                continue
+
+            idx = ord(N) - 0x41
+            template = lexeme.get_template()
+            if template is None:
+                continue
+            fn = lexeme.get_production()
+            if len(fn.lambda_refs) == 1:
+                continue
+
+            atoms = template.predarg_category.extract_unify_atoms(False)
+            refs = fn.get_unify_scopes(False)
+            d = fn.pop()
+            d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
+            rel = DRSRelation(lexeme.stem)
+            c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
+            if len(c) == 1:
+                c = repr(c[0]) + ': ' + template.predarg_category.signature
+                if lexeme.stem in dictionary:
+                    lst = dictionary[idx][lexeme.stem]
+                    lst[0].add(c)
+                    lst[1].add(uid)
+                else:
+                    dictionary[idx][lexeme.stem] = [{c}, {uid}]
+
     return dictionary
 
 
