@@ -195,8 +195,8 @@ class Category(Freezable):
     _Wildtag = re.compile(r'\{_.*\}')
     _cache = Cache()
     _use_cache = 0
-    _OP_REMOVE_UNIFY_FALSE = 0
-    _OP_REMOVE_UNIFY_TRUE = 1
+    _OP_EXTRACT_UNIFY_FALSE = 0 # Must be zero
+    _OP_EXTRACT_UNIFY_TRUE = 1  # Must be one
     _OP_REMOVE_WILDCARDS = 2
     _OP_SIMPLIFY = 3
     _OP_REMOVE_FEATURES = 4
@@ -265,6 +265,8 @@ class Category(Freezable):
         try:
             return cls._cache[signature]
         except KeyError:
+            if signature in ['S[em]', 'S[dcl]']:
+                pass
             cat = Category(signature)
             retcat = cat
             # Add to list to avoid initialize_ops_cache() calling from_cache() and getting another KeyError.
@@ -274,11 +276,15 @@ class Category(Freezable):
                 todo.append(cat.simplify())
                 todo.append(cat.remove_features())
                 todo.append(cat.remove_wildcards())
+                if cat.isconj:
+                    todo.append(cat.remove_conj_feature())
                 cat = cat.result_category()
             todo.append(cat)
             todo.append(cat.simplify())
             todo.append(cat.remove_features())
             todo.append(cat.remove_wildcards())
+            if cat.isconj:
+                todo.append(cat.remove_conj_feature())
             todo = set(todo)
             if cls._use_cache > 0:
                 for c in todo:
@@ -326,40 +332,47 @@ class Category(Freezable):
             sigs = fd.readlines()
 
             # Ensure these are in the read only section
-            sigs.append(r'S[X]')
-            sigs.append(r'S[X]\NP')
-            sigs.append(r'S\NP')
-            sigs.append(r'S/NP')
-            sigs.append(r'S[pt]/NP')
-            sigs.append(r'S\(S/NP)')
-            sigs.append(r'S')
-            sigs.append(r'S[pt]')
-            sigs.append(r'NP/(S[b]/NP)')
-            sigs.append(r'N\N')
-            sigs.append(r'NP\NP')
-            sigs.append(r'NP[expl]')
-            sigs.append(r'(NP/(N/PP))\NP')
-            sigs.append('NP/(N/PP)')
+            sigs.append('conj')
+            sigs.append(r'conj\conj')
+            sigs.append(r'conj/conj')
             sigs.append(',')
             sigs.append('.')
             sigs.append(':')
             sigs.append(';')
             sigs.append('N[conj]')
+            sigs.append('N[num]')
+            sigs.append('NP[expl]')
             sigs.append('NP[conj]')
-            sigs.append('conj')
-            sigs.append(r'conj\conj')
-            sigs.append(r'conj/conj')
+            sigs.append('NP[thr]')
+            sigs.append('PR')
             sigs.append('LQU')
             sigs.append('RQU')
             sigs.append('LRB')
             sigs.append('RRB')
+            sigs.append('S[X]')
+            sigs.append('S')
+
+            sigs.append(r'NP/PR')
+            sigs.append(r'NP/(S[b]/NP)')
+            sigs.append(r'N\N')
+            sigs.append(r'NP\NP')
+            sigs.append(r'(NP/(N/PP))\NP')
+            sigs.append(r'NP/(N/PP)')
+            sigs.append(r'S[X]\NP')
+            sigs.append(r'S\NP')
+            sigs.append(r'S/NP')
+            sigs.append(r'S[pt]/NP')
+            sigs.append(r'S\(S/NP)')
+            sigs.append(r'S[pt]')
+            sigs.append(r'(S\NP)/((S\NP)\PP)')
+            sigs.append(r'(S\NP)\PP')
+            sigs.append(r'(S\NP)\((S\NP)/PP)')
             sigs = set(sigs)
 
-            pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#'
-                                                                and cls._Wildtag.match(s) is None,
+            pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#',
                                                       map(lambda p: p.strip(), sigs))]
-            conj = [y[0]+'[conj]' for y in filter(lambda x: '[conj]' not in x[0], pairs)]
-            pairs.extend(map(lambda x: (x, Category(x)), conj))
+            #conj = [y[0]+'[conj]' for y in filter(lambda x: not x[1].isconj, pairs)]
+            #pairs.extend(map(lambda x: (x, Category(x)), conj))
             cache.initialize(pairs)
         cls._cache = cache
         cls._use_cache = -1
@@ -389,6 +402,11 @@ class Category(Freezable):
 
     @classmethod
     def clear_cache(cls):
+        """Clear the category cache.
+
+        Remarks:
+            Not threadsafe.
+        """
         cls._use_cache = 0
         oldcache = cls._cache
         cls._cache = Cache()
@@ -397,32 +415,47 @@ class Category(Freezable):
             v.clear_ops_cache()
 
     @classmethod
+    def copy_cache(cls):
+        """Copy the category cache.
+
+        Returns:
+            A list of key,value tuples.
+
+        Remarks:
+            Threadsafe.
+        """
+        return [x for x in cls._cache]
+
+    @classmethod
     def initialize_cache(cls, cats):
         """Initialize the cache with categories.
 
         Args:
             cats: A list of categories.
         """
-        pairs = []
+        cls._use_cache = 0
+        pairs = {}
         for cat in cats:
             if isinstance(cat, str):
                 cat = Category(cat)
-            while cat.isfunctor:
-                pairs.append((cat.signature, cat))
+            stk = [cat]
+            while len(stk) != 0:
+                cat = stk.pop()
+                if cat.isfunctor:
+                    stk.append(cat.result_category())
+                    stk.append(cat.argument_category())
+                pairs[cat.signature] = cat
                 # Avoid copying string in key, value
                 c = cat.simplify()
-                pairs.append((c.signature, c))
+                pairs[c.signature] = c
                 c = cat.remove_features()
-                pairs.append((c.signature, c))
+                pairs[c.signature] = c
                 c = cat.remove_wildcards()
-                pairs.append((c.signature, c))
-                cat = cat.result_category()
-            pairs.append((cat.signature, cat))
-            c = cat.remove_features()
-            pairs.append((c.signature, c))
-            c = cat.remove_wildcards()
-            pairs.append((c.signature, c))
-        cls._cache.initialize(pairs)
+                pairs[c.signature] = c
+                if cat.isconj:
+                    c = cat.remove_conj_feature()
+                    pairs[c.signature] = c
+        cls._cache.initialize(pairs.iteritems())
         cls._use_cache = 1
 
     @classmethod
@@ -557,8 +590,8 @@ class Category(Freezable):
         if 0 != self._use_cache and cacheable:
             if self._ops_cache:
                 return self._ops_cache[self._OP_ARG_CAT]
-            return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
-        return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
+            return self.from_cache(self._splitsig[2].replace('[conj]', '')) if self.isfunctor else CAT_EMPTY
+        return Category(self._splitsig[2].replace('[conj]', '')) if self.isfunctor else CAT_EMPTY
 
     def clear_ops_cache(self):
         self._ops_cache = None
@@ -572,14 +605,14 @@ class Category(Freezable):
         ops_cache[self._OP_REMOVE_CONJ_FEATURE] = self.from_cache(self.remove_conj_feature())
         ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
         ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
-        ops_cache[self._OP_REMOVE_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
+        ops_cache[self._OP_EXTRACT_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
         ops_cache[self._OP_RESULT_CAT] = self.result_category()
         ops_cache[self._OP_ARG_CAT] = self.argument_category()
         uatoms = self.extract_unify_atoms(True)
         catoms = []
         for u in uatoms:
             catoms.append([self.from_cache(a) for a in u])
-        ops_cache[self._OP_REMOVE_UNIFY_TRUE] = catoms
+        ops_cache[self._OP_EXTRACT_UNIFY_TRUE] = catoms
         self._ops_cache = ops_cache
         return self
 
@@ -619,16 +652,32 @@ class Category(Freezable):
         Returns:
             A Category instance.
         """
-        atoms = self.extract_unify_atoms(False)
+        atoms = self.extract_unify_atoms(follow=False, cacheable=False)
         chg = []
         orig = tag
-        for a in atoms:
-            ca = a.clean(True)
-            if ca == a:
-                chg.append('%s_%d' % (a.signature, tag))
-                tag += 1
-            else:
-                chg.append(a.signature)
+        if self.ismodifier:
+            seen = {}
+            for a in atoms:
+                ca = a.clean(True)
+                if ca == a:
+                    try:
+                        sig = seen[a]
+                        chg.append(sig)
+                    except Exception:
+                        sig = '%s_%d' % (a.signature, tag)
+                        chg.append(sig)
+                        seen[a] = sig
+                        tag += 1
+                else:
+                    chg.append(a.signature)
+        else:
+            for a in atoms:
+                ca = a.clean(True)
+                if ca == a:
+                    chg.append('%s_%d' % (a.signature, tag))
+                    tag += 1
+                else:
+                    chg.append(a.signature)
         if tag == orig:
             return self
         sig = self._signature
@@ -687,6 +736,7 @@ class Category(Freezable):
         return Category(self._signature.replace('[conj]', ''))
 
     def _extract_atoms_helper(self, atoms, cacheable):
+        # Recursive but only gets called during module load, after which its in the ops cache.
         if self.isfunctor:
             atoms = self.argument_category(cacheable)._extract_atoms_helper(atoms, cacheable)
             return self.result_category(cacheable)._extract_atoms_helper(atoms, cacheable)
@@ -695,6 +745,7 @@ class Category(Freezable):
             return atoms
 
     def _extract_slash_helper(self, slashes):
+        # Recursive but only gets called during module load, after which its in the ops cache.
         if self.isfunctor:
             slashes = self.argument_category()._extract_slash_helper(slashes)
             slashes.append(self.slash)

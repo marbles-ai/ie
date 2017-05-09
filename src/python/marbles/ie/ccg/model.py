@@ -148,7 +148,12 @@ class FunctorTemplate(object):
         predargOrig = predarg
 
         fn = []
+        ntag = 9000
         while predarg.isfunctor:
+            if predarg.ismodifier:
+                # Ensure modifier is preserved
+                predarg = predarg.complete_tags(ntag)
+                ntag += len(predarg.signature)
             atoms = predarg.argument_category(False).extract_unify_atoms(False, cacheable=False)
             predarg = predarg.result_category(False)
             refs = []

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
-import pickle
 import sys
 from optparse import OptionParser
 
@@ -13,8 +12,8 @@ sys.path.insert(0, pypath)
 
 from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt
 from marbles.ie.ccg.model import FunctorTemplate, Model
-from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccgcat import Category
+from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.utils.cache import Cache
 
 
@@ -58,7 +57,8 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
                 pt = parse_ccg_derivation(ccgbank)
                 extract_predarg_categories_from_pt(pt, rules)
             except Exception as e:
-                failed_parse.append((ccgbank, str(e)))
+                failed_parse.append('CCGBANK: ' + ccgbank.strip())
+                failed_parse.append('Error: ' + str(e))
 
     progress = (progress / 10) * 1000
     for predarg in rules:
@@ -74,9 +74,9 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
                 f1 = dict[catkey.signature]
                 t1 = str(f1)
                 t2 = str(template)
-                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.category, predarg)
+                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.predarg_category, predarg)
         except Exception as e:
-            failed_rules.append(str(e))
+            failed_rules.append(str(predarg) + ': ' + str(e))
             # DEBUG ?
             if False:
                 try:
@@ -87,9 +87,9 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
     print_progress(progress, done=True)
 
     if len(failed_parse) != 0:
-        print('Warning: ldc - %d parses failed' % len(failed_parse))
+        print('Warning: ldc - %d parses failed' % (len(failed_parse)/2))
         with open(os.path.join(outdir, 'parse_ccg_derivation_failed.dat'), 'w') as fd:
-            pickle.dump(failed_parse, fd)
+            fd.write('\n'.join(failed_parse))
         if verbose:
             for x, m in failed_parse:
                 print(m)
@@ -97,7 +97,7 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
     if len(failed_rules) != 0:
         print('Warning: ldc - %d rules failed' % len(failed_rules))
         with open(os.path.join(outdir, 'functor_ldc_templates_failed.dat'), 'w') as fd:
-            pickle.dump(failed_rules, fd)
+            fd.write('\n'.join(failed_rules))
         if verbose:
             for m in failed_rules:
                 print(m)
@@ -125,15 +125,16 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
             if template is None:
                 continue
 
-            f = template.create_empty_functor()
-            U1 = f.get_unify_scopes(False)
-            U2 = f.category.extract_unify_atoms(False)
-            if len(U1) != len(U2):
-                assert False
-            C1 = f.category
-            C2 = template.category.clean(True)
-            if not C1.can_unify(C2):
-                assert False
+            if verify:
+                f = template.create_empty_functor()
+                U1 = f.get_unify_scopes(False)
+                U2 = f.category.extract_unify_atoms(False)
+                if len(U1) != len(U2):
+                    assert False
+                C1 = f.category
+                C2 = template.predarg_category.clean(True)
+                if not C1.can_unify(C2):
+                    assert False
 
             if catkey.signature not in dict:
                 dict[catkey.signature] = template
@@ -141,9 +142,9 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
                 f1 = dict[catkey.signature]
                 t1 = str(f1)
                 t2 = str(template)
-                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.category, predarg)
+                assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.predarg_category, predarg)
         except Exception as e:
-            failed_rules.append(str(e))
+            failed_rules.append(str(predarg) + ': ' + str(e))
             # DEBUG ?
             if False:
                 try:
@@ -156,7 +157,7 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
     if len(failed_rules) != 0:
         print('Warning: easysrl - %d rules failed' % len(failed_rules))
         with open(os.path.join(outdir, 'functor_easysrl_templates_failed.dat'), 'w') as fd:
-            pickle.dump(failed_rules, fd)
+            fd.write('\n'.join(failed_rules))
         if verbose:
             for m in failed_rules:
                 print(m)
@@ -170,7 +171,8 @@ if __name__ == "__main__":
     parser.add_option('-o', '--outdir', type='string', action='store', dest='outdir', help='output directory')
     parser.add_option('-m', '--easysrl-model', type='string', action='store', dest='esrl', help='output format')
     parser.add_option('-L', '--ldc', action='store_true', dest='ldc', default=False, help='Use LDC to generate template.')
-    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Use LDC to generate template.')
+    parser.add_option('-M', '--merge', action='store_true', dest='merge', default=False, help='Merge old cached categories.')
+    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
     dict = {}
@@ -185,17 +187,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Clear category cache
+    merge = Category.copy_cache() if options.merge else []
     Category.clear_cache()
 
-    # FIXME: no longer using pickle so merge fails
-    # Merge dictionaries
-    '''
-    for fname in args:
-        with open(fname, 'rb') as fd:
-            d = pickle.load(fd)
-        dict.update(d)
-        d = None
-    '''
     if options.esrl is not None:
         build_from_easysrl(dict, outdir, options.esrl, options.verbose)
 
@@ -209,6 +203,7 @@ if __name__ == "__main__":
 
     if len(dict) != 0:
         Category.initialize_cache([Category(k) for k, v in dict.iteritems()])
+        Category.initialize_cache([v for k, v in merge])
         Category.save_cache(os.path.join(outdir, 'categories.dat'))
 
         cache = Cache()

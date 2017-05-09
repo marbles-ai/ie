@@ -158,7 +158,7 @@ class Cache(MutableMapping):
             Not threadsafe.
         """
         with open(filename, 'rb') as fd:
-            self._rw_dict = pickle.load(fd)
+            self._ro_dict = pickle.load(fd)
 
 
 
