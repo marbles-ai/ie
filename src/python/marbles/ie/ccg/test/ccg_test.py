@@ -259,6 +259,7 @@ class CcgTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
+        # Check execution queue
         actual = [repr(x) for x in ccg.exeque]
         expected = [
             '<PushOp>:(more, N/N, JJR)',
@@ -292,6 +293,27 @@ class CcgTest(unittest.TestCase):
             '<ExecOp>:(2, LP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
+        # Check lexicon
+        expected = [
+            'More',     'and',      'more',     'corners',      'of',
+            'the',      'globe',    'are',      'becoming',     'free',
+            'of',       'tobacco',  'smoke',    '.'
+        ]
+        actual = [x.word for x in ccg.lexque]
+        self.assertListEqual(expected, actual)
+        # Check dependencies
+        self.assertEquals(ccg.lexque[0].head, 3)    # More -> corners
+        self.assertEquals(ccg.lexque[2].head, 0)    # more -> More
+        self.assertEquals(ccg.lexque[3].head, 7)    # corners -> are
+        self.assertEquals(ccg.lexque[4].head, 3)    # of -> corners
+        self.assertEquals(ccg.lexque[5].head, 6)    # the -> globe
+        self.assertEquals(ccg.lexque[6].head, 4)    # globe -> of
+        self.assertEquals(ccg.lexque[7].head, 7)    # root
+        self.assertEquals(ccg.lexque[8].head, 7)    # becoming -> are
+        self.assertEquals(ccg.lexque[9].head, 8)    # free -> becoming
+        self.assertEquals(ccg.lexque[10].head, 9)   # of -> free
+        self.assertEquals(ccg.lexque[11].head, 12)  # tobacco -> smoke
+        self.assertEquals(ccg.lexque[12].head, 10)  # smoke -> of
 
     def test7_RuleUniquenessLDC(self):
         allfiles = []
