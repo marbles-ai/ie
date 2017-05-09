@@ -3,49 +3,11 @@
 import os
 import unittest
 
-from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS
-from marbles.ie.ccg.ccg2drs import Ccg2Drs
+from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
+    RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE
+from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.utils.cache import Cache
-
-
-def rule_unique_helper(pt, lst):
-    if pt[-1] == 'T':
-        result = Category(pt[0][0])
-        cats = [result]
-        for nd in pt[1:-1]:
-            c = rule_unique_helper(nd, lst)
-            cats.append(c)
-        lst.append(cats)
-        return result
-    else:
-        # Leaf nodes contains six fields:
-        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-        return Category(pt[0])
-
-
-def rule_exec_helper(pt, lst):
-    if pt[-1] == 'T':
-        result = Category(pt[0][0])
-        cats = []
-        for nd in pt[1:-1]:
-            c = rule_unique_helper(nd, lst)
-            cats.append(c)
-
-        if len(cats) == 1:
-            cats.append(CAT_EMPTY)
-
-        rule = get_rule(cats[0], cats[1], result)
-        if rule in [RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS]:
-            return result
-        else:
-            actual = rule.apply_rule_to_category(cats[0], cats[1])
-            assert actual.can_unify(result)
-            return actual
-    else:
-        # Leaf nodes contains six fields:
-        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-        return Category(pt[0])
 
 
 class CcgTest(unittest.TestCase):
@@ -193,36 +155,120 @@ class CcgTest(unittest.TestCase):
         expected = [
             '<PushOp>:(Mr, N/N, NNP)',
             '<PushOp>:(Vinken, N, NNP)',
-            '<ExecOp>:(2, N)',
-            '<ExecOp>:(1, NP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
             '<PushOp>:(be, (S[dcl]\NP)/NP, VBZ)',
             '<PushOp>:(chairman, N, NN)',
-            '<ExecOp>:(1, NP)',
+            '<ExecOp>:(1, LP NP)',
             '<PushOp>:(of, (NP\NP)/NP, IN)',
             '<PushOp>:(Elsevier, N/N, NNP)',
             '<PushOp>:(N.V, N, NNP)',
-            '<ExecOp>:(2, N)',
-            '<ExecOp>:(1, NP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
             '<PushOp>:(,, ,, ,)',
             '<PushOp>:(the, NP[nb]/N, DT)',
             '<PushOp>:(Dutch, N/N, NNP)',
             '<PushOp>:(publish, N/N, VBG)',
             '<PushOp>:(group, N, NN)',
-            '<ExecOp>:(2, N)',
-            '<ExecOp>:(2, N)',
-            '<ExecOp>:(2, NP)',
-            '<ExecOp>:(2, NP[conj])',
-            '<ExecOp>:(2, NP)',
-            '<ExecOp>:(2, NP\NP)',
-            '<ExecOp>:(2, NP)',
-            '<ExecOp>:(2, S[dcl]\NP)',
-            '<ExecOp>:(2, S[dcl])',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, RP NP[conj])',
+            '<ExecOp>:(2, RCONJ NP)',
+            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
             '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, S[dcl])',
+            '<ExecOp>:(2, LP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
         txt2 = '\n' + ccg.get_predarg_ccgbank(pretty=True)
         self.assertEquals(txt, txt2)
+
+    def test6_Wsj0037_37(self):
+        txt = '''
+(<T S[dcl] 0 2>
+  (<T S[dcl] 1 2>
+    (<T NP 0 2>
+      (<T NP 0 1>
+        (<T N 1 2>
+          (<T N/N 0 2>
+            (<L N/N JJR JJR More N_134/N_134>)
+            (<T N/N[conj] 1 2>
+              (<L conj CC CC and conj>)
+              (<L N/N JJR JJR more N_141/N_141>)
+            )
+          )
+          (<L N NNS NNS corners N>)
+        )
+      )
+      (<T NP\NP 0 2>
+        (<L (NP\NP)/NP IN IN of (NP_152\NP_152)/NP_153>)
+        (<T NP 1 2>
+          (<L NP[nb]/N DT DT the NP[nb]_160/N_160>)
+          (<L N NN NN globe N>)
+        )
+      )
+    )
+    (<T S[dcl]\NP 0 2>
+      (<L (S[dcl]\NP)/(S[ng]\NP) VBP VBP are (S[dcl]\NP_91)/(S[ng]_92\NP_91:B)_92>)
+      (<T S[ng]\NP 0 2>
+        (<L (S[ng]\NP)/(S[adj]\NP) VBG VBG becoming (S[ng]\NP_101)/(S[adj]_102\NP_101:B)_102>)
+        (<T S[adj]\NP 0 2>
+          (<L (S[adj]\NP)/PP JJ JJ free (S[adj]\NP_109)/PP_110>)
+          (<T PP 0 2>
+            (<L PP/NP IN IN of PP/NP_115>)
+            (<T NP 0 1>
+              (<T N 1 2>
+                (<L N/N NN NN tobacco N_124/N_124>)
+                (<L N NN NN smoke N>)
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (<L . . . . .>)
+)'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(more, N/N, JJR)',
+            '<PushOp>:(and, conj, CC)',
+            '<PushOp>:(more, N/N, JJR)',
+            '<ExecOp>:(2, RP N/N[conj])',
+            '<ExecOp>:(2, RCONJ N/N)',
+            '<PushOp>:(corners, N, NNS)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
+            '<PushOp>:(the, NP[nb]/N, DT)',
+            '<PushOp>:(globe, N, NN)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<PushOp>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBP)',
+            '<PushOp>:(become, (S[ng]\\NP)/(S[adj]\\NP), VBG)',
+            '<PushOp>:(free, (S[adj]\\NP)/PP, JJ)',
+            '<PushOp>:(of, PP/NP, IN)',
+            '<PushOp>:(tobacco, N/N, NN)',
+            '<PushOp>:(smoke, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA PP)',
+            '<ExecOp>:(2, FA S[adj]\\NP)',
+            '<ExecOp>:(2, FA S[ng]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
 
     def test7_RuleUniquenessLDC(self):
         allfiles = []
@@ -246,38 +292,40 @@ class CcgTest(unittest.TestCase):
                 lines = fd.readlines()
             for hdr, ccgbank in zip(lines[0::10], lines[1::10]):
                 print(hdr.strip())
+                ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
+                    ccg.build_execution_sequence(pt)
                 except Exception:
                     failed_parse += 1
                     continue
                 self.assertIsNotNone(pt)
 
-                nodes = []
-                rule_unique_helper(pt, nodes)
-                for cats in nodes:
-                    if len(cats) == 3:
-                        result = cats[0]
-                        left = cats[1]
-                        right = cats[2]
-                    elif len(cats) == 2:
-                        result = cats[0]
-                        left = cats[1]
-                        right = CAT_EMPTY
-                    else:
+                for op in ccg.exeque:
+                    if isinstance(op, PushOp):
                         continue
+                    self.assertIsInstance(op, ExecOp)
+                    left = op.sub_ops[0].category
+                    result = op.category
+                    if len(op.sub_ops) == 2:
+                        right = op.sub_ops[1].category
+                    else:
+                        right = CAT_EMPTY
+
                     exclude = []
                     # Should not have ambiguity
                     rule = get_rule(left, right, result, exclude)
                     limit = 5
+                    rstr = ''
                     while rule is not None:
+                        rstr += repr(rule)+'|'
                         rule = get_rule(left, right, result, exclude)
                         limit -= 1
                         if limit == 0:
                             rule = get_rule(left, right, result, exclude)
                             break
                     if len(exclude) > 1:
-                        ambiguous.append((cats, exclude))
+                        ambiguous.append(('%s <- %s <{%s}> %s' % (result, left, rstr, right), exclude))
                     self.assertGreater(limit, 0)
 
         for x in ambiguous:
@@ -300,45 +348,46 @@ class CcgTest(unittest.TestCase):
         failed_parse = 0
         ambiguous = []
         start = 0
-        for fn in allfiles[0:]:
+        for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(start, len(lines)):
+            for i in range(start, len(lines), 50):
                 start = 0
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
+                ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
+                    ccg.build_execution_sequence(pt)
                 except Exception:
                     failed_parse += 1
                     continue
 
                 self.assertIsNotNone(pt)
-                nodes = []
-                rule_unique_helper(pt, nodes)
-                for cats in nodes:
-                    if len(cats) == 3:
-                        result = cats[0]
-                        left = cats[1]
-                        right = cats[2]
-                    elif len(cats) == 2:
-                        result = cats[0]
-                        left = cats[1]
-                        right = CAT_EMPTY
-                    else:
+                for op in ccg.exeque:
+                    if isinstance(op, PushOp):
                         continue
+                    self.assertIsInstance(op, ExecOp)
+                    left = op.sub_ops[0].category
+                    result = op.category
+                    if len(op.sub_ops) == 2:
+                        right = op.sub_ops[1].category
+                    else:
+                        right = CAT_EMPTY
                     exclude = []
                     # Should not have ambiguity
                     rule = get_rule(left, right, result, exclude)
                     if rule is None and right != CAT_EMPTY:
                         rule = get_rule(left.remove_features(), right.remove_features(), result.remove_features(), exclude)
                     self.assertIsNotNone(rule)
+                    rstr = ''
                     while rule is not None:
+                        rstr += repr(rule)+'|'
                         rule = get_rule(left, right, result, exclude)
                     if len(exclude) > 1:
-                        ambiguous.append((name, i, cats, exclude))
+                        ambiguous.append(('%s <- %s <{%s}> %s' % (result, left, rstr, right), exclude))
         for x in ambiguous:
             print('ambiguous rule in %s-%04d: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
@@ -364,28 +413,40 @@ class CcgTest(unittest.TestCase):
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
-            for i in range(start, len(lines)):
+            for i in range(start, len(lines), 50):
                 start = 0
                 ccgbank = lines[i]
                 print('%s-%04d' % (name, i))
+                ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
+                    ccg.build_execution_sequence(pt)
                 except Exception:
                     failed_parse += 1
                     continue
 
-                self.assertIsNotNone(pt)
-                nodes = []
-                try:
-                    rule_exec_helper(pt, [])
-                except Exception:
-                    failed_exec.append((name, i, pt))
+                for op in ccg.exeque:
+                    if isinstance(op, PushOp):
+                        continue
+                    self.assertIsInstance(op, ExecOp)
+                    left = op.sub_ops[0].category.remove_wildcards()
+                    result = op.category.remove_wildcards()
+                    if len(op.sub_ops) == 2:
+                        right = op.sub_ops[1].category.remove_wildcards()
+                    else:
+                        right = CAT_EMPTY
+
+                    if op.rule is not None and op.rule not in [RL_TCL_UNARY, RL_TCR_UNARY, RL_TC_ATOM, RL_TC_CONJ, \
+                                                               RL_LPASS, RL_RPASS, RL_TYPE_RAISE]:
+                        actual = op.rule.apply_rule_to_category(left, right)
+                        if not actual.can_unify(result):
+                            print('%s <!> %s' % (actual, result))
+                        self.assertTrue(actual.can_unify(result))
+
         if len(failed_exec) != 0:
             print('%d rules failed exec' % len(failed_exec))
             for x in failed_exec:
                 print('%s-%04d: failed exec - {%s}' % x)
 
         self.assertTrue(len(failed_exec) == 0)
-
-
 

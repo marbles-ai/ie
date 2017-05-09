@@ -800,470 +800,9 @@ class Lexeme(object):
             return fn
 
 
-class CcgTypeMapper(object):
-    """Mapping from CCG types to DRS types."""
-    _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
-    _ToBePredicates = ('.AGENT', '.ATTRIBUTE', '.EXTRA')
-    _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
-    _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
-    _Lemmatizer = wn.WordNetLemmatizer()
-    _verbnetDB = VerbnetDB()
-
-    def __init__(self, lexeme, no_vn=False):
-        self._no_vn = no_vn
-        self._templ = None
-        self._lexeme = lexeme
-
-        # Atomic types don't need a template
-        if lexeme.category.isfunctor and not MODEL.issupported(lexeme.category) \
-            and lexeme.category != CAT_CONJ_CONJ and lexeme.category != CAT_CONJCONJ:
-            templ = MODEL.infer_template(lexeme.category)
-            if templ is not None and (lexeme.category.result_category().isfunctor or
-                                      lexeme.category.argument_category().isfunctor):
-                raise DrsComposeError('CCG type "%s" for word "%s" maps to unknown DRS production type' %
-                                      (lexeme.category, lexeme.word))
-
-    def __repr__(self):
-        return '<' + self._lexeme.word + ' ' + str(self.partofspeech) + ' ' + self.signature + '>'
-
-    @property
-    def word(self):
-        return self._lexeme.stem
-
-    @property
-    def ispunct(self):
-        """Test if the word attached to this category is a punctuation mark."""
-        return self.partofspeech in POS_LIST_PUNCT
-
-    @property
-    def ispronoun(self):
-        """Test if the word attached to this category is a pronoun."""
-        return (self.partofspeech in POS_LIST_PRONOUN)  # or self._word in _PRON
-
-    @property
-    def ispreposition(self):
-        """Test if the word attached to this category is a preposition."""
-        return self.category == CAT_PREPOSITION
-
-    @property
-    def isadverb(self):
-        """Test if the word attached to this category is an adverb."""
-        return self.category == CAT_ADVERB
-
-    @property
-    def isverb(self):
-        """Test if the word attached to this category is a verb."""
-        # Verbs can behave as adjectives
-        return (self.partofspeech in POS_LIST_VERB and self.category != CAT_ADJECTIVE) or \
-               (self.category.result_category() == CAT_VPdcl and not self.category.ismodifier)
-
-    @property
-    def isgerund(self):
-        """Test if the word attached to this category is a gerund."""
-        return self.partofspeech == POS_GERUND
-
-    @property
-    def isproper_noun(self):
-        """Test if the word attached to this category is a proper noun."""
-        return self.partofspeech == POS_PROPER_NOUN or self.partofspeech == POS_PROPER_NOUN_S
-
-    @property
-    def isnumber(self):
-        """Test if the word attached to this category is a number."""
-        return self.partofspeech == POS_NUMBER
-
-    @property
-    def isadjective(self):
-        """Test if the word attached to this category is an adjective."""
-        return self.category == CAT_ADJECTIVE
-
-    @property
-    def partofspeech(self):
-        """Get part of speech of the word attached to this category."""
-        return self._lexeme.pos
-
-    @property
-    def signature(self):
-        """Get the CCG category signature."""
-        return self._lexeme.category.signature
-
-    @property
-    def category(self):
-        """Get the CCG category."""
-        return self._lexeme.category
-
-    @property
-    def template(self):
-        return self._templ
-
-    def build_conditions(self, conds, refs, template):
-        """Refs are reversed, refs[0] is the functor return value.
-
-        Args:
-            conds: The existing DRS conditions.
-            refs: The referents, where refs[0] is the functor return value.
-            template: A FunctorTemplate instance.
-
-        Returns:
-            The modified conditions.
-        """
-
-        # Note. Proper noun handling requires any extra predicates appear after the noun.
-        if self.isproper_noun:
-            # If we are a functor and a proper noun then argument type if the
-            # correct referent for the noun
-            if isinstance(template.constructor_rule[0][1], DRSRef):
-                x = [template.constructor_rule[0][1]]
-            else:
-                x = [template.constructor_rule[0][1][0]]
-            x.extend(complement(refs, x))
-            refs = x
-            if self._TypeMonth.match(self._lexeme.stem):
-                if self._lexeme.stem in _MONTHS:
-                    conds.append(Rel(_MONTHS[self._lexeme.stem], [refs[0]]))
-                else:
-                    conds.append(Rel(self._lexeme.stem, [refs[0]]))
-                if template.isfinalevent:
-                    conds.append(Rel('.DATE', refs[0:2]))
-                else:
-                    conds.append(Rel('.DATE', refs))
-            elif self._TypeWeekday.match(self._lexeme.stem):
-                if self._lexeme.stem in _WEEKDAYS:
-                    conds.append(Rel(_WEEKDAYS[self._lexeme.stem], [refs[0]]))
-                else:
-                    conds.append(Rel(self._lexeme.stem, [refs[0]]))
-                if template.isfinalevent:
-                    conds.append(Rel('.DATE', refs[0:2]))
-                else:
-                    conds.append(Rel('.DATE', refs))
-            else:
-                conds.append(Rel(self._lexeme.stem, [refs[0]]))
-        elif self.isnumber:
-            conds.append(Rel(self._lexeme.stem, [refs[0]]))
-            conds.append(Rel('.NUM', refs))
-        elif self.partofspeech == POS_PREPOSITION and not self.ispreposition:
-            conds.append(Rel(self._lexeme.stem, refs))
-        else:
-            conds.append(Rel(self._lexeme.stem, [refs[0]]))
-        return conds
-
-    def get_composer(self):
-        """Get the production model for this category.
-
-        Returns:
-            A Production instance.
-        """
-        try:
-            # Special handling for prepositions
-            if self.ispreposition and self._lexeme.stem in _PREPS:
-                template = _PREPS[self._lexeme.stem]
-            else:
-                template = MODEL.lookup(self.category)
-            compose = None if template is None else template.constructor_rule
-        except Exception:
-            template = None
-            compose = None
-
-        self._templ = template
-        if compose is None:
-            # Simple type
-            # Handle prepositions
-            if self.category in [CAT_CONJ, CAT_NPthr]:
-                if self._lexeme.stem == ['or', 'nor']:
-                    return OrProduction(negate=('n' in self._lexeme.stem))
-                return create_empty_drs_production(self.category)
-            elif self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
-                return identity_functor(self.category)
-            elif self.ispronoun and self._lexeme.stem in _PRON:
-                pron = _PRON[self._lexeme.stem]
-                d = DrsProduction(pron[0], category=self.category,
-                                  dep=Dependency(DRSRef('x1'), self._lexeme.stem, pron[1]))
-                d.set_lambda_refs(pron[2])
-                return d
-            elif self.category == CAT_N:
-                if self.isproper_noun:
-                    dep = Dependency(DRSRef('x1'), self._lexeme.stem, RT_PROPERNAME)
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._lexeme.stem, [DRSRef('x1')])]), properNoun=True, dep=dep)
-                else:
-                    if self.partofspeech == POS_NOUN_S:
-                        dep = Dependency(DRSRef('x1'), self._lexeme.stem, RT_ENTITY | RT_PLURAL)
-                    else:
-                        dep = Dependency(DRSRef('x1'), self._lexeme.stem, RT_ENTITY)
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._lexeme.stem, [DRSRef('x1')])]), dep=dep)
-                d.set_category(self.category)
-                d.set_lambda_refs([DRSRef('x1')])
-                return d
-            elif self.category == CAT_NOUN:
-                if self.isnumber:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._lexeme.stem, [DRSRef('x1')]), Rel('.NUM', [DRSRef('x1')])]),
-                                      dep=Dependency(DRSRef('x1'), self._lexeme.stem, RT_NUMBER))
-                elif self.partofspeech == POS_NOUN_S:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._lexeme.stem, [DRSRef('x1')])]),
-                                      dep=Dependency(DRSRef('x1'), self._lexeme.stem, RT_ENTITY | RT_PLURAL))
-                else:
-                    d = DrsProduction(DRS([DRSRef('x1')], [Rel(self._lexeme.stem, [DRSRef('x1')])]),
-                                      dep=Dependency(DRSRef('x1'), self._lexeme.stem, RT_ENTITY))
-                d.set_category(self.category)
-                d.set_lambda_refs([DRSRef('x1')])
-                return d
-            elif self.category == CAT_CONJ_CONJ or self.category == CAT_CONJCONJ:
-                return ProductionList(category=CAT_CONJ)
-                #return identity_functor(self.category)
-            elif self.isadverb and self._lexeme.stem in _ADV:
-                adv = _ADV[self._lexeme.stem]
-                d = DrsProduction(adv[0], [x for x in adv[1]])
-                d.set_category(self.category)
-                d.set_lambda_refs(d.drs.universe)
-                return d
-            else:
-                d = DrsProduction(DRS([], [Rel(self._lexeme.stem, [DRSRef('x')])]))
-                d.set_category(self.category)
-                d.set_lambda_refs([DRSRef('x')])
-                return d
-
-        # else is functor
-
-        # Production templates use tuples so we don't accidentally modify.
-        if self.category == CAT_NP_N:    # NP*/N class
-            # Ignore template in these cases
-            # FIXME: these relations should be added as part of build_conditions()
-            if self.ispronoun and self._lexeme.stem in _PRON:
-                pron = _PRON[self._lexeme.stem]
-                fn = DrsProduction(pron[0], category=CAT_NP,
-                                   dep=Dependency(DRSRef('x1'), self._lexeme.stem, pron[1]))
-                fn.set_lambda_refs(pron[2])
-                return FunctorProduction(category=self.category, referent=pron[2], production=fn)
-
-            else:
-                if self.category == CAT_DETERMINER:
-                    if self._lexeme.stem in ['a', 'an']:
-                        fn = DrsProduction(DRS([], [Rel('.MAYBE', [DRSRef('x1')])]), category=CAT_NP)
-                    elif self._lexeme.stem in ['the', 'thy']:
-                        fn = DrsProduction(DRS([], [Rel('.EXISTS', [DRSRef('x1')])]), category=CAT_NP)
-                    else:
-                        fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, [DRSRef('x1')])]), category=CAT_NP)
-                elif self.partofspeech == POS_DETERMINER and self._lexeme.stem in ['the', 'thy', 'a', 'an']:
-                    fn = DrsProduction(DRS([], []), category=CAT_NP)
-                else:
-                    fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, [DRSRef('x1')])]), category=CAT_NP)
-                fn.set_lambda_refs([DRSRef('x1')])
-            return FunctorProduction(category=self.category, referent=DRSRef('x1'), production=fn)
-
-        else:
-            refs = []
-            signatures = []
-            s = self.category.remove_wildcards()
-            for c in compose:
-                signatures.append(s)
-                if isinstance(c[1], tuple):
-                    refs.extend(list(c[1]))
-                else:
-                    refs.append(c[1])
-                s = s.result_category()
-
-            refs.append(template.final_ref)
-            refs.reverse()
-            refs = remove_dups(refs)
-            final_atom = template.final_atom.remove_wildcards()
-            final_ref = template.final_ref
-
-            # Verbs can also be adjectives so check event
-            isverb = self.isverb
-            if self.isgerund:
-                result = self.category
-                while not isverb and not result.isatom:
-                    isverb = result.can_unify(CAT_TV)
-                    result = result.result_category()
-                # TODO: Add predicate for NG or change predarg attachments
-
-            if isverb and template.isfinalevent:
-                conds = []
-                vncond = None
-                try:
-                    vnclasses = [] if self._no_vn else self._verbnetDB.name_index[self._lexeme.stem]
-                    if len(vnclasses) == 1:
-                        vncond = Rel('.VN.' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
-                    elif len(vnclasses) >= 2:
-                        xconds = [Rel('.VN.' + vnclasses[-1].ID.encode('utf-8'), [refs[0]])] \
-                            if len(vnclasses) & 0x1 else []
-
-                        # TODO: for vn classes A,B,C should really have (A&!B&!C)|(!A&B&!C)|(!A&!B&C)
-                        for vna, vnb in zip(vnclasses[0::2],vnclasses[1::2]):
-                            xconds.append(Or(DRS([], [Rel('.VN.' + vna.ID.encode('utf-8'), [refs[0]])]),
-                                             DRS([], [Rel('.VN.' + vnb.ID.encode('utf-8'), [refs[0]])])))
-                        while len(xconds) != 1:
-                            c2 = xconds.pop()
-                            c1 = xconds.pop()
-                            xconds.append(Or(DRS([], [c1]), DRS([], [c2])))
-                        vncond = xconds[0]
-                        xconds = None
-
-                    if vncond is not None:
-                        # Add implication
-                        conds.append(Imp(DRS([], [Rel(self._lexeme.stem, [refs[0]])]), DRS([], [vncond])))
-                    else:
-                        conds.append(Rel(self._lexeme.stem, [refs[0]]))
-
-                except Exception:
-                    conds.append(Rel(self._lexeme.stem, [refs[0]]))
-                    pass
-                if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
-                            or self.category.ismodifier:
-
-                    dep = None
-                    if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                        dep=Dependency(refs[0], self._lexeme.stem, RT_EVENT)
-
-                    # passive case
-                    if len(refs) > 1:
-                        conds.append(Rel('.MOD', [refs[0], refs[-1]]))
-                    fn = DrsProduction(DRS([], conds), dep=dep)
-
-                elif self.category == CAT_MODAL_PAST:
-                    conds.append(Rel('.MODAL', [refs[0]]))
-                    fn = DrsProduction(DRS([], conds))
-
-                elif self.category in CAT_COPULAR:
-                    assert len(refs) == 3, "copular expects 3 referents"
-
-                    # Special handling
-                    if self._lexeme.stem == 'be':
-                        # Discard conditions
-                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
-                                      Rel('.ROLE', [refs[0], refs[2]])])
-                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                          dep=Dependency(refs[0], self._lexeme.stem, RT_EVENT))
-                    else:
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                        conds.append(Rel('.AGENT', [refs[0], refs[1]]))
-                        conds.append(Rel('.ROLE', [refs[0], refs[2]]))
-                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                          dep=Dependency(refs[0], self._lexeme.stem, RT_EVENT))
-                    d.set_lambda_refs([refs[0]])
-                    fn = template.create_empty_functor()
-                    fn.pop()
-                    fn.push(d)
-                    #fn.rename_vars([(refs[2], refs[0])])
-                    return fn
-
-                elif self.category == CAT_VPdcl:
-
-                    assert len(refs) == 2, "maybe_copular expects 2 referents"
-
-                    conds.append(Rel('.EVENT', [refs[0]]))
-                    #conds.append(Rel('.MAYBE_COPULAR', [refs[0]]))
-                    conds.append(Rel('.AGENT', [refs[0], refs[1]]))
-
-                    # Special handling
-                    d = DrsProduction(DRS([refs[0]], conds), category=final_atom,
-                                      dep=Dependency(refs[0], self._lexeme.stem, RT_EVENT))
-                    d.set_lambda_refs([refs[0]])
-                    fn = template.create_empty_functor()
-                    fn.pop()
-                    fn.push(d)
-                    return fn
-                else:
-                    # TODO: use verbnet to get semantics
-                    if self._lexeme.stem == 'be' and self.category.can_unify(CAT_TV):
-                        # Discard conditions
-                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
-                                      Rel('.ROLE', [refs[0], refs[2]]), Rel('.ATTRIBUTE', [refs[2], refs[1]])])
-                    else:
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                        pred = zip(refs[1:], self._EventPredicates)
-                        for v, e in pred:
-                            conds.append(Rel(e, [refs[0], v]))
-                        if (len(refs)-1) > len(pred):
-                            rx = [refs[0]]
-                            rx.extend(refs[len(pred)+1:])
-                            conds.append(Rel('.EXTRA', rx))
-                    fn = DrsProduction(DRS([refs[0]], conds), dep=Dependency(refs[0], self._lexeme.stem, RT_EVENT))
-
-            elif self.isadverb and template.isfinalevent:
-                if self._lexeme.stem in _ADV:
-                    adv = _ADV[self._lexeme.stem]
-                    fn = DrsProduction(adv[0])
-                    rs = zip(adv[1], refs)
-                    fn.rename_vars(rs)
-                else:
-                    fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, refs[0])]))
-
-            #elif self.partofspeech == POS_DETERMINER and self._lexeme.stem == 'a':
-
-            elif self.ispronoun and self._lexeme.stem in _PRON:
-                pron = _PRON[self._lexeme.stem]
-                fn = DrsProduction(pron[0], category=self.category,
-                                   dep=Dependency(DRSRef('x1'), self._lexeme.stem, pron[1]))
-                ers = complement(fn.variables, pron[2])
-                ors = intersect(refs, ers)
-                if len(ors) != 0:
-                    # Make disjoint
-                    nrs = get_new_drsrefs(ors, union(ers, refs, pron[2]))
-                    fn.rename_vars(zip(ors, nrs))
-                if len(ers) != 0:
-                    ers = complement(fn.variables, pron[2])
-                    fn.rename_vars(zip([pron[2][0], ers[0]], refs))
-                else:
-                    fn.rename_vars([(pron[2][0], template.final_ref)])
-
-            elif self.ispreposition:
-                if template.construct_empty:
-                    fn = DrsProduction(DRS([], []))
-                else:
-                    fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, refs)]))
-
-            elif self.partofspeech == POS_PREPOSITION and self.category.test_returns_modifier() \
-                    and len(refs) > 1 and not self.category.ismodifier:
-                fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, [refs[0], refs[-1]])]))
-
-            elif final_atom == CAT_Sadj and len(refs) > 1:
-                if self.category == CAT_AP_PP or self.category.ismodifier or \
-                        self.category.test_returns_modifier():
-                    fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, refs[0])]))
-                else:
-                    conds = [Rel(self._lexeme.stem, refs[0])]
-                    for r in refs[1:]:
-                        conds.append(Rel('.ATTRIBUTE', [refs[0], r]))
-                    fn = DrsProduction(DRS([], conds))
-
-            else:
-                if self.isproper_noun:
-                    dep = Dependency(refs[0], self._lexeme.stem, RT_PROPERNAME)
-                elif final_atom == CAT_N and not self.category.ismodifier \
-                        and not self.category.test_returns_modifier():
-                    dep = Dependency(refs[0], self._lexeme.stem, (RT_ENTITY | RT_PLURAL)
-                                     if self.partofspeech == POS_NOUN_S else RT_ENTITY)
-                else:
-                    dep = None
-                if template.isfinalevent:
-                    if self.category == CAT_INFINITIVE:
-                        fn = DrsProduction(DRS([], []))
-                    elif self.partofspeech == POS_MODAL:
-                        fn = DrsProduction(DRS([], [Rel(self._lexeme.stem, [refs[0]]),
-                                                    Rel('.MODAL', [refs[0]])]))
-                    else:
-                        fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
-                                           properNoun=self.isproper_noun, dep=dep)
-                else:
-                    fn = DrsProduction(DRS([], self.build_conditions([], refs, template)),
-                                       properNoun=self.isproper_noun, dep=dep)
-
-            fn.set_lambda_refs([final_ref])
-            fn.set_category(final_atom)
-            for c, s in zip(compose, signatures):
-                fn = c[0](s, c[1], fn)
-            return fn
-
-
-OP_NOP = 0
-OP_PUSH = 1
-OP_EXEC = 2
-
 class AbstractOperand(object):
 
-    def __init__(self, operation, idx, depth):
-        self.op = operation
+    def __init__(self, idx, depth):
         self.idx = idx
         self.depth = depth
 
@@ -1275,7 +814,7 @@ class AbstractOperand(object):
 class PushOp(AbstractOperand):
 
     def __init__(self, lexeme, idx, depth):
-        super(PushOp, self).__init__(OP_PUSH, idx, depth)
+        super(PushOp, self).__init__(idx, depth)
         self.lexeme = lexeme
 
     def __repr__(self):
@@ -1291,7 +830,7 @@ class PushOp(AbstractOperand):
 class ExecOp(AbstractOperand):
 
     def __init__(self, idx, sub_ops, head, result_category, rule, lex_range, op_range, depth):
-        super(ExecOp, self).__init__(OP_EXEC, idx, depth)
+        super(ExecOp, self).__init__(idx, depth)
         self.rule = rule
         self.result_category = result_category
         self.sub_ops = sub_ops
@@ -1396,9 +935,8 @@ class Ccg2Drs(object):
         return d
 
     def create_drs(self):
-
+        """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
         # First create all productions up front
-        prods = []
         for lexeme in self.lexque:
             if lexeme.category.ispunct:
                 lexeme.prod = DrsProduction(DRS([], []), category=lexeme.category)
@@ -1535,221 +1073,17 @@ class Ccg2Drs(object):
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
-
         assert len(stk) == 1
         if stk[0].isfunctor and stk[0].isarg_left:
             return stk[0].apply_null_left().unify()
         return stk[0]
 
-    def _process_ccg_node(self, pt):
-        """Internal helper for recursively processing the CCG parse tree.
-
-        See Also:
-            process_ccg_pt()
-        """
-        dbgorig = self.debugcount
-        if pt[-1] == 'T':
-            head = int(pt[0][1])
-            count = int(pt[0][2])
-            result = Category.from_cache(pt[0][0])
-            if count > 2:
-                raise DrsComposeError('Non-binary node %s in parse tree' % pt[0])
-
-            tmp = []
-            cats = []
-            for nd in pt[1:-1]:
-                d, c = self._process_ccg_node(nd)
-                if d is None:
-                    head = 0
-                    continue
-                cats.append(c)
-                tmp.append(d)
-
-            hd = None
-            extra_options = 0
-            if len(tmp) == 2:
-                # Special handling for proper nouns
-                if tmp[0].isunify_disabled:
-                    if not tmp[1].isproper_noun:
-                        tmp[0].set_options(tmp[1].compose_options ^ CO_DISABLE_UNIFY)
-                        tmp[1].set_options(tmp[1].compose_options & ~CO_DISABLE_UNIFY)
-                    else:
-                        extra_options = CO_DISABLE_UNIFY
-                        tmp[1].set_options(tmp[1].compose_options | CO_DISABLE_UNIFY)
-                elif tmp[1].isunify_disabled:
-                    if tmp[0].category == CAT_ADJECTIVE and tmp[0].isproper_noun:
-                        tmp[1].proper_noun_promote()
-                    tmp[1].set_options(tmp[1].compose_options ^ CO_DISABLE_UNIFY)
-
-                hd = tmp[head].dep
-                nd = tmp[1-head].dep
-                if hd is not None:
-                    assert hd.head is None
-                    if nd is not None:
-                        assert nd.head is None
-                        nd.set_head(hd)
-                elif nd is not None:
-                    assert nd.head is None
-                    hd = nd
-            elif len(tmp) == 1:
-                hd = tmp[0].dep
-                if tmp[0].isunify_disabled:
-                    tmp[0].set_options(tmp[0].compose_options ^ CO_DISABLE_UNIFY)
-            else:
-                return None, result
-
-            for nd in tmp:
-                nd.set_dependency(hd)
-
-            cl2 = ProductionList(tmp, dep=hd)
-            cl2.set_options(self.options | extra_options)
-            cl2.set_category(result)
-
-            if len(cats) == 1:
-                rule = get_rule(cats[0], CAT_EMPTY, result)
-                if rule is None:
-                    # TODO: log a warning if we succeed on take 2
-                    rule = get_rule(cats[0].simplify(), CAT_EMPTY, result)
-                    if rule is None:
-                        raise DrsComposeError('cannot discover production rule %s <- Rule?(%s)' % (result, cats[0]))
-
-                if rule == RL_TYPE_RAISE:
-                    d = self.rename_vars(safe_create_empty_functor(result))
-                    d.set_dependency(hd)
-                    cl2.push_right(d)
-                elif rule == RL_TCL_UNARY:
-                    rule = RL_BA
-                    unary = MODEL.lookup_unary(result, cats[0])
-                    if unary is None and result.ismodifier and result.result_category() == cats[0]:
-                        unary = MODEL.infer_unary(result)
-                    if unary is None:
-                        unary = MODEL.lookup_unary(result, cats[0])
-                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
-                    d = self.rename_vars(unary.get())
-                    d.set_options(cl2.compose_options)
-                    d.set_dependency(hd)
-                    cl2.push_right(d)
-                elif rule == RL_TC_ATOM:
-                    rule = RL_BA
-                    d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
-                    d.set_dependency(hd)
-                    d.set_options(cl2.compose_options)
-                    cl2.push_right(d)
-
-                cl2 = cl2.apply(rule).unify()
-                assert cl2.verify() and cl2.category.can_unify(result)
-                assert result.get_scope_count() == cl2.get_scope_count()
-            elif len(cats) == 2:
-                # Get the production rule
-                rule = get_rule(cats[0], cats[1], result)
-                if rule is None:
-                    # TODO: log a warning if we succeed on take 2
-                    rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                    if rule is None:
-                        raise DrsComposeError('cannot discover production rule %s <- Rule?(%s,%s)' % (result, cats[0], cats[1]))
-
-                if rule == RL_TC_CONJ:
-                    d = self.rename_vars(safe_create_empty_functor(result))
-                    d.set_dependency(hd)
-                    d.set_options(cl2.compose_options)
-                    cl2.push_right(d)
-                elif rule == RL_TCL_UNARY:
-                    rule = RL_BA
-                    unary = MODEL.lookup_unary(result, cats[0])
-                    if unary is None and result.ismodifier and result.result_category() == cats[0]:
-                        unary = MODEL.infer_unary(result)
-                    if unary is None:
-                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[0]))
-                    d = self.rename_vars(unary.get())
-                    d.set_dependency(hd)
-                    d.set_options(cl2.compose_options)
-                    cl2.push_right(d)
-                elif rule == RL_TCR_UNARY:
-                    rule = RL_BA
-                    unary = MODEL.lookup_unary(result, cats[1])
-                    if unary is None and result.ismodifier and result.result_category() == cats[1]:
-                        unary = MODEL.infer_unary(result)
-                    if unary is None:
-                        raise DrsComposeError('cannot find unary rule (%s)\\(%s)' % (result, cats[1]))
-                    d = self.rename_vars(unary.get())
-                    d.set_dependency(hd)
-                    d.set_options(cl2.compose_options)
-                    cl2.push_right(d)
-                elif rule == RL_TC_ATOM:
-                    # Special rule to change atomic type
-                    rule = RL_BA
-                    d = self.rename_vars(identity_functor(Category.combine(result, '\\', cats[0])))
-                    d.set_dependency(hd)
-                    d.set_options(cl2.compose_options)
-                    cl2.push_right(d)
-
-                cl2 = cl2.apply(rule)
-                if not cl2.verify() or not cl2.category.can_unify(result):
-                    U = cl2.verify()
-                    V = cl2.category.can_unify(result)
-                    pass
-                assert cl2.verify() and cl2.category.can_unify(result), 'cl2.category=%s, result=%s' % (cl2.category, result)
-                assert result.get_scope_count() == cl2.get_scope_count()
-
-            cl2.set_dependency(hd)
-            if (cl2.compose_options & self.options) != self.options:
-                cl2.set_options(self.options)
-            return cl2, result
-
-        # L Node in parse tree
-        assert pt[-1] == 'L'
-        cat = Category.from_cache(pt[0])
-        if pt[0] in [',', '.', ':', ';']:
-            return DrsProduction(DRS([], []), category=cat), cat
-
-        if pt[1] in ['for']:
-            pass
-
-        lexeme = Lexeme(category=cat, word=pt[1], pos_tags=pt[2:4])
-        ccgt = CcgTypeMapper(lexeme, no_vn=0 != (self.options & CO_NO_VERBNET))
-        if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-            # FIXME: start new parse tree
-            return None, cat
-        fn = ccgt.get_composer()
-        # Rename vars so they are disjoint on creation. This help dependency manager.
-        self.rename_vars(fn)
-
-        # Special handling for proper nouns
-        if fn.category == CAT_ADJECTIVE and pt[1] == '&':
-            fn.set_options(self.options | CO_DISABLE_UNIFY)
-        else:
-            fn.set_options(self.options)
-
-        return fn, cat
-
-    def process_ccg_pt(self, pt):
-        """Process the CCG parse tree.
+    def build_execution_sequence(self, pt):
+        """Build the execution sequence from a ccgbank parse tree.
 
         Args:
-            pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-            options: None or marbles.ie.drt.compose.CO_REMOVE_UNARY_PROPS to simplify propositions.
-
-        Returns:
-            A DrsProduction instance.
-
-        See Also:
-            marbles.ie.drt.parse.parse_ccg_derivation()
+            pt: The parse tree.
         """
-        if pt is None or len(pt) == 0:
-            return None
-        d, _ = self._process_ccg_node(pt)
-        # Handle verbs with null left arg
-        if d.isfunctor and d.isarg_left:
-            d = d.apply_null_left().unify()
-        if not isinstance(d, DrsProduction):
-            raise DrsComposeError('failed to produce a DRS - %s' % repr(d))
-        d = self.final_rename(d)
-        d = d.resolve_anaphora()
-        if not d.ispure:
-            raise DrsComposeError('failed to produce pure DRS - %s' % repr(d))
-        return d
-
-    def build_execution_sequence(self, pt):
         self.depth += 1
         if pt[-1] == 'T':
             head = int(pt[0][1])
@@ -1808,12 +1142,19 @@ class Ccg2Drs(object):
             return lexeme.idx
 
     def get_predarg_ccgbank(self, pretty):
+        """Return a ccgbank representation with predicate-argument tagged categories. See LDC 2005T13 for details.
+
+        Args:
+            pretty: Pretty format, else one line string.
+
+        Returns:
+            A ccgbank string.
+        """
         assert len(self.exeque) != 0 and len(self.lexque) != 0
         assert isinstance(self.exeque[0], PushOp)
 
         # Process exec queue
         stk = collections.deque()
-        indent = '  ' if pretty else ''
         sep = '\n' if pretty else ' '
         for op in self.exeque:
             indent = '  ' * op.depth if pretty else ''
@@ -1894,7 +1235,6 @@ class Ccg2Drs(object):
         return stk[0]
 
 
-
 ## @ingroup gfn
 def process_ccg_pt(pt, options=None):
     """Process the CCG parse tree.
@@ -1915,102 +1255,6 @@ def process_ccg_pt(pt, options=None):
     d = ccg.create_drs()
     d = ccg.final_rename(d)
     return d.resolve_anaphora()
-
-
-## @cond
-
-
-def _pt_to_ccgbank_helper(pt, lst, pretty):
-    if pretty > 0:
-        indent = '  ' * pretty
-        indent2 = '  ' * (pretty+1)
-    else:
-        indent = ''
-        indent2 = indent
-
-    if pt[-1] == 'T':
-        pretty += 1
-        head = int(pt[0][1])
-        count = int(pt[0][2])
-        result = Category.from_cache(pt[0][0])
-
-        lst.append('%s(<T %s %d %d>' % (indent, pt[0][0], head, count))
-
-        if count == 2:
-            # For binary nodes we need to check if a unary rule before recursion
-            cats = []
-            for nd in pt[1:-1]:
-                if nd[-1] == 'T':
-                    cats.append(Category.from_cache(nd[0][0]))
-                else:
-                    cats.append(Category.from_cache(nd[0]))
-            rule = get_rule(cats[0], cats[1], result)
-            if rule is None:
-                rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                assert rule is not None
-
-            if rule == RL_TCL_UNARY:
-                unary = MODEL.lookup_unary(result, cats[0])
-                if unary is None and result.ismodifier and result.result_category() == cats[0]:
-                    unary = MODEL.infer_unary(result)
-                assert unary is not None
-                template = unary.template
-                lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
-                _pt_to_ccgbank_helper(pt[1], lst, pretty+1)
-                lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.predarg_category.signature))
-                lst.append('%s)' % indent2)
-                _pt_to_ccgbank_helper(pt[2], lst, pretty)
-            elif rule == RL_TCR_UNARY:
-                unary = MODEL.lookup_unary(result, cats[1])
-                if unary is None and result.ismodifier and result.result_category() == cats[1]:
-                    unary = MODEL.infer_unary(result)
-                assert unary is not None
-                template = unary.template
-                _pt_to_ccgbank_helper(pt[1], lst, pretty)
-                lst.append('%s(<T %s %d %d>' % (indent2, result.signature, 1, 2))
-                _pt_to_ccgbank_helper(pt[2], lst, pretty+1)
-                lst.append('%s(<L %s %s %s %s %s>)' % (indent2+'  ', template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.predarg_category.signature))
-                lst.append('%s)' % indent2)
-            else:
-                _pt_to_ccgbank_helper(pt[1], lst, pretty)
-                _pt_to_ccgbank_helper(pt[2], lst, pretty)
-        else:
-            assert count == 1
-            cat = _pt_to_ccgbank_helper(pt[1], lst, pretty)
-            rule = get_rule(cat, CAT_EMPTY, result)
-            if rule is None:
-                rule = get_rule(cat.simplify(), CAT_EMPTY, result)
-                assert rule is not None
-
-            if rule == RL_TCL_UNARY:
-                unary = MODEL.lookup_unary(result, cat)
-                if unary is None and result.ismodifier and result.result_category() == cat:
-                    unary = MODEL.infer_unary(result)
-                assert unary is not None
-                template = unary.template
-                lst.append('%s(<L %s %s %s %s %s>)' % (indent2, template.clean_category, 'UNARY', 'UNARY',
-                                                       '.UNARY', template.predarg_category.signature))
-        lst.append('%s)' % indent)
-        return result
-
-    else:
-        # CcgTypeMapper will infer template if it does not exist in MODEL
-        lexeme = Lexeme(category=pt[0], word=pt[1], pos_tags=pt[2:4])
-        ccgt = CcgTypeMapper(lexeme)
-        if ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-            lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], pt[4]))
-            return ccgt.category
-        template = MODEL.lookup(ccgt.category)
-        if template is None:
-            lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], pt[4]))
-            return ccgt.category
-        # Leaf nodes contains six fields:
-        # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-        lst.append('%s(<L %s %s %s %s %s>)' % (indent, pt[0], pt[2], pt[3], pt[1], template.predarg_category.signature))
-        return template.clean_category
-## @endcond
 
 
 ## @ingroup gfn
@@ -2052,13 +1296,6 @@ def pt_to_ccgbank(pt, fmt=True):
     ccg.build_execution_sequence(pt)
     s = ccg.get_predarg_ccgbank(fmt)
     return s
-    '''
-    lst = []
-    _pt_to_ccgbank_helper(pt, lst, 0 if fmt else -1000000)
-    if fmt:
-        return '\n'.join(lst)
-    return ''.join(lst)
-    '''
 
 
 ## @cond
@@ -2099,7 +1336,7 @@ def _extract_predarg_categories_node(pt, lst):
         # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
         catkey = Category(pt[0])
 
-        # Ignore atoms and conj rules. Conj rules are handled by CcgTypeMapper
+        # Ignore atoms and conj rules.
         if not catkey.isfunctor or catkey.result_category() == CAT_CONJ or catkey.argument_category() == CAT_CONJ:
             return
 
@@ -2138,25 +1375,23 @@ class LexiconExtractor(object):
                 # FIXME: prefer tail end recursion
                 self.run(nd)
         else:
-            # CcgTypeMapper will infer template if it does not exist in MODEL
+            # Lexeme will infer template if it does not exist in MODEL
             lexeme = Lexeme(category=pt[0], word=pt[1], pos_tags=pt[2:4])
-            ccgt = CcgTypeMapper(lexeme)
-            if len(ccgt.word) == 0 or ccgt.category.isatom or ccgt.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+            if len(lexeme.stem) == 0 or lexeme.category.isatom or lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
                 return
     
-            if ccgt.category.ismodifier and len(set(ccgt.category.extract_unify_atoms(False))) == 1:
+            if lexeme.category.ismodifier and len(set(lexeme.category.extract_unify_atoms(False))) == 1:
                 return
     
-            N = ccgt.word[0].upper()
+            N = lexeme.stem[0].upper()
             if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
                 return
     
             idx = ord(N) - 0x41
-            fn = ccgt.get_composer()
-            template = ccgt.template
+            template = lexeme.get_template()
             if template is None:
                 return
-    
+            fn = lexeme.get_production()
             if len(fn.lambda_refs) == 1:
                 return
     
@@ -2164,16 +1399,16 @@ class LexiconExtractor(object):
             refs = fn.get_unify_scopes(False)
             d = fn.pop()
             d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
-            rel = DRSRelation(ccgt.word)
+            rel = DRSRelation(lexeme.stem)
             c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
             if len(c) == 1:
                 c = repr(c[0]) + ': ' + template.predarg_category.signature
-                if ccgt.word in self.dictionary:
-                    lst = self.dictionary[idx][ccgt.word]
+                if lexeme.stem in self.dictionary:
+                    lst = self.dictionary[idx][lexeme.stem]
                     lst[0].add(c)
                     lst[1].add(self.uid)
                 else:
-                    self.dictionary[idx][ccgt.word] = [{c}, {self.uid}]
+                    self.dictionary[idx][lexeme.stem] = [{c}, {self.uid}]
 ## @endcond
 
 

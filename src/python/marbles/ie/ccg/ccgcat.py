@@ -203,7 +203,8 @@ class Category(Freezable):
     _OP_SLASH = 5
     _OP_RESULT_CAT = 6
     _OP_ARG_CAT = 7
-    _OP_COUNT = 8
+    _OP_REMOVE_CONJ_FEATURE = 8
+    _OP_COUNT = 9
     ## @endcond
 
     def __init__(self, signature=None, features=0):
@@ -236,8 +237,6 @@ class Category(Freezable):
         return self._signature
 
     def __repr__(self):
-        if (self._features & FEATURE_CONJ) != 0:
-            return self._signature + '[conj]'
         return self._signature
 
     def __eq__(self, other):
@@ -359,8 +358,8 @@ class Category(Freezable):
             pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#'
                                                                 and cls._Wildtag.match(s) is None,
                                                       map(lambda p: p.strip(), sigs))]
-            conjpairs = [(y[0]+'[conj]', Category(y[1], 0x2)) for y in filter(lambda x: '[conj]' not in x[0], pairs)]
-            pairs.extend(conjpairs)
+            conj = [y[0]+'[conj]' for y in filter(lambda x: '[conj]' not in x[0], pairs)]
+            pairs.extend(map(lambda x: (x, Category(x)), conj))
             cache.initialize(pairs)
         cls._cache = cache
         cls._use_cache = -1
@@ -570,6 +569,7 @@ class Category(Freezable):
         ops_cache = [None] * self._OP_COUNT
         ops_cache[self._OP_SLASH] = ''.join(self._extract_slash_helper([]))
         ops_cache[self._OP_REMOVE_FEATURES] = self.from_cache(self.remove_features())
+        ops_cache[self._OP_REMOVE_CONJ_FEATURE] = self.from_cache(self.remove_conj_feature())
         ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
         ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
         ops_cache[self._OP_REMOVE_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
@@ -675,6 +675,16 @@ class Category(Freezable):
         if self._ops_cache is not None:
             return self._ops_cache[self._OP_REMOVE_FEATURES]
         return Category(self._Feature.sub('', self._signature))
+
+    def remove_conj_feature(self):
+        """Remove conj feature from the category.
+
+        Returns:
+            A Category instance.
+        """
+        if self._ops_cache is not None:
+            return self._ops_cache[self._OP_REMOVE_CONJ_FEATURE]
+        return Category(self._signature.replace('[conj]', ''))
 
     def _extract_atoms_helper(self, atoms, cacheable):
         if self.isfunctor:
@@ -1307,8 +1317,7 @@ def get_rule(left, right, result, exclude=None):
             Category.combine(left.result_category(), right.slash, right.argument_category()).can_unify(result) \
             and notexcluded(exclude, 6):
         if exclude is not None:
-            if left == right and left.argument_category() == right.argument_category() \
-                    and (left.isconj or right.isconj):
+            if left.remove_features() == right.remove_features() and (left.isconj or right.isconj):
                 return None # don't count as ambiguous rule N/N[conj] N/N => N/N
             exclude.append(6)
         if right.isarg_right:
@@ -1330,8 +1339,7 @@ def get_rule(left, right, result, exclude=None):
             and Category.combine(right.result_category(), left.slash, left.argument_category()).can_unify(result) \
             and notexcluded(exclude, 8):
         if exclude is not None:
-            if left == right and left.argument_category() == right.argument_category() \
-                    and (left.isconj or right.isconj):
+            if left.remove_features() == right.remove_features() and (left.isconj or right.isconj):
                 return None
             exclude.append(8)
         if left.isarg_left:

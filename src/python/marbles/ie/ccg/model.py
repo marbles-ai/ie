@@ -440,6 +440,7 @@ class Model(object):
         return None
 
     def infer_template(self, category):
+        category = category.remove_conj_feature()
         """Attempt to build a template from existing templates if possible."""
         if category.isfunctor and not self.issupported(category):
             catArg = category.argument_category()
@@ -494,6 +495,7 @@ class Model(object):
 
     def lookup(self, category):
         """Lookup a FunctorTemplate with key=category."""
+        category = category.remove_conj_feature()
         if category in self._TEMPLATES:
             return self._TEMPLATES[category]
         # Perform wildcard replacements
@@ -507,6 +509,7 @@ class Model(object):
 
     def issupported(self, category):
         """Test a FunctorTemplate is in TEMPLATES with key=category."""
+        category = category.remove_conj_features()
         if category in self._TEMPLATES:
             return True
         # Perform wildcard replacements
