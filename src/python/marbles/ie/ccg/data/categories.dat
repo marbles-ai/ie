@@ -129,7 +129,6 @@ S[em]\NP
 (((NP/N)/(N/N))/((N/N)/(N/N)))\NP
 ((S[dcl]\NP)/(S[ng]\NP))/PR
 ((S[dcl]\NP)/(S[ng]\NP))/PP
-A
 (((S[pt]\NP)/(S[to]\NP))/PP)/NP
 ((S[X]\NP)/NP)\((S[X]\NP)/NP)
 (((S\NP)/(S\NP))/((S\NP)/(S\NP)))/(S\NP)
@@ -269,7 +268,6 @@ S\NP[expl]
 (N/N)/S
 NP/(S/NP)
 ((S[dcl]\NP[expl])/S[dcl])/(S[adj]\NP)
-B
 S[q]/(S[b]\NP)
 (((S[adj]\NP)\(S[adj]\NP))/(S[to]\NP))/NP
 (((NP\NP)\(NP\NP))/(S[b]\NP))/NP
@@ -386,7 +384,6 @@ S[wq]/(S[q]/NP)
 (PP/PP)\(PP/PP)
 (((S[dcl]\NP)/S[em])/PP)/(S[adj]\NP)
 (N/(S[to]\NP))/N[num]
-S/A
 PP/S[intj]
 (((S\NP)/(S\NP))\((S\NP)/(S\NP)))/NP
 ((S[adj]\NP)/S[for])/(S[adj]\NP)
@@ -413,12 +410,10 @@ S[q]
 ((S/S)\(S/S))/S[dcl]
 (((S[dcl]\NP)/(S[ng]\NP))/PP)/PP
 (S/PP)/(S[asup]\NP)
-C/D
 ((S\NP)/(S\NP))/S
 PP/(S[pss]\NP)
 (((S[adj]\NP)/(S[adj]\NP))/((S[adj]\NP)/(S[adj]\NP)))\(((S[adj]\NP)/(S[adj]\NP))/((S[adj]\NP)/(S[adj]\NP)))
 (((NP/PP)\(NP/PP))/S)\((NP\NP)/NP)
-C
 S[frg]
 (((S\NP)\(S\NP))/((S\NP)\(S\NP)))/PP
 ((((N/PP)\(N/PP))\((N/PP)\(N/PP)))/S)\((N\N)/NP)
@@ -537,7 +532,6 @@ S[asup]
 (S[dcl]\(S[adj]\NP))\NP[expl]
 (NP\NP)/(S[q]/NP)
 (((S\NP)\(S\NP))/(S[pss]\NP))/NP
-D
 ((S[adj]\NP)\(S[adj]\NP))/NP
 ((S/S)\((NP\NP)/NP))/N
 ((S[b]\NP)/S[for])/(S[adj]\NP)
@@ -1283,7 +1277,6 @@ NP[conj]
 (S[dcl]\NP)/(S[to]\NP)
 ((N\N)/(S[dcl]\NP))/N
 (S/PP)\NP[thr]
-RRB
 ((S\NP)/((S\NP)/NP))/PR
 ((S[dcl]\NP)/NP)/(S[dcl]\NP)
 ((S[dcl]\NP[expl])/(S[to]\NP))/PP
@@ -2008,7 +2001,6 @@ N/((S\NP)/NP)
 ((NP\NP)/NP)/(S[adj]\NP)
 S[pt]\(S[dcl]\NP)
 (((NP\NP)\(NP\NP))\((NP\NP)\(NP\NP)))/(S[asup]\NP)
-S\A
 ((N\N)/(N\N))/N
 ((N\N)/(N\N))/S
 ((S[pss]\NP)/S[qem])/(S[to]\NP)
@@ -2491,7 +2483,6 @@ NP/((S\NP)/NP)
 (S[pt]\NP)\NP
 ((((S\NP)\(S\NP))/((S\NP)\(S\NP)))\(((S\NP)\(S\NP))/((S\NP)\(S\NP))))/NP
 (((S\NP)\(S\NP))\((S\NP)\(S\NP)))/(S[pss]\NP)
-A\B
 (S/S)\(S[to]\NP)
 S
 ((S[b]\NP)/PP)/S[intj]
@@ -2526,7 +2517,6 @@ S[em]
 (S[em]\NP)/S[dcl]
 (N\N)\(S[dcl]/NP)
 (S\NP)\NP
-A/B
 ((N\N)/((S[to]\NP)/NP))/NP
 ((S[b]\NP)/S[qem])/PP
 ((((S\NP)\(S\NP))/((S\NP)\(S\NP)))/(((S\NP)\(S\NP))/((S\NP)\(S\NP))))\(S[adj]\NP)
@@ -2617,7 +2607,6 @@ S/NP[expl]
 (S\S)\(S[X]\NP)
 ((S\NP[expl])/S)/NP
 (((NP/S)/PP)\((NP/S)/PP))\NP
-LRB
 (((S\NP)\(S\NP))\((S\NP)\(S\NP)))/S[inv]
 ((S/PP)/(S/NP))/N
 (((S[adj]\NP)\(S[adj]\NP))/((S[adj]\NP)\(S[adj]\NP)))\(((S[adj]\NP)\(S[adj]\NP))/((S[adj]\NP)\(S[adj]\NP)))
