@@ -5,9 +5,8 @@ import unittest
 
 from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
     RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
-from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp
-from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.utils.cache import Cache
+from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp, pt_to_utf8
+from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 
 
 class CcgTest(unittest.TestCase):
@@ -148,7 +147,84 @@ class CcgTest(unittest.TestCase):
   (<L . . . . .>)
 )'''
         pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
+        expected_pt = [
+            ['S[dcl]', 0, 2],
+            [
+                ['S[dcl]', 1, 2],
+                [
+                    ['NP', 0, 1],
+                    [
+                        ['N', 1, 2],
+                        ['N/N', 'Mr.', 'NNP', 'NNP', 'N_107/N_107', 'L'],
+                        ['N', 'Vinken', 'NNP', 'NNP', 'N', 'L'],
+                        'T'
+                    ],
+                    'T'
+                ],
+                [
+                    ['S[dcl]\\NP', 0, 2],
+                    ['(S[dcl]\\NP)/NP', 'is', 'VBZ', 'VBZ', '(S[dcl]\\NP_112)/NP_113', 'L'],
+                    [
+                        ['NP', 0, 2],
+                        [
+                            ['NP', 0, 1],
+                            ['N', 'chairman', 'NN', 'NN', 'N', 'L'],
+                            'T'
+                        ],
+                        [
+                            ['NP\\NP', 0, 2],
+                            ['(NP\\NP)/NP', 'of', 'IN', 'IN', '(NP_109\\NP_109)/NP_110', 'L'],
+                            [
+                                ['NP', 0, 2],
+                                [
+                                    ['NP', 0, 1],
+                                    [
+                                        ['N', 1, 2],
+                                        ['N/N', 'Elsevier', 'NNP', 'NNP', 'N_107/N_107', 'L'],
+                                        ['N', 'N.V.', 'NNP', 'NNP', 'N', 'L'],
+                                        'T'
+                                    ],
+                                    'T'
+                                ],
+                                [
+                                    ['NP[conj]', 1, 2],
+                                    [',', ',', ',', ',', ',', 'L'],
+                                    [
+                                        ['NP', 1, 2],
+                                        ['NP[nb]/N', 'the', 'DT', 'DT', 'NP[nb]_48/N_48', 'L'],
+                                        [
+                                            ['N', 1, 2],
+                                            ['N/N', 'Dutch', 'NNP', 'NNP', 'N_107/N_107', 'L'],
+                                            [
+                                                ['N', 1, 2],
+                                                ['N/N', 'publishing', 'VBG', 'VBG', 'N_107/N_107', 'L'],
+                                                ['N', 'group', 'NN', 'NN', 'N', 'L'],
+                                                'T'
+                                            ],
+                                            'T'
+                                        ],
+                                        'T'
+                                    ],
+                                    'T'
+                                ],
+                                'T'
+                            ],
+                            'T'
+                        ],
+                        'T'
+                    ],
+                    'T'
+                ],
+                'T'
+            ],
+            ['.', '.', '.', '.', '.', 'L'],
+            'T'
+        ]
+        # Use strings since it returns a diff on failure
+        #self.assertListEqual(expected_pt, pt)
+        x = repr(expected_pt)
+        a = repr(pt)
+        self.assertEquals(x, a)
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
