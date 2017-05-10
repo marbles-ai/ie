@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
+import datetime
 from optparse import OptionParser
 
 # Modify python path
@@ -13,8 +14,9 @@ sys.path.insert(0, pypath)
 from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt
 from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.ccg.ccgcat import Category
-from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.utils.cache import Cache
+from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+#from marbles.ie.parse import parse_ccg_derivation
 
 
 def print_progress(progress, tick=1, done=False):
@@ -186,6 +188,7 @@ if __name__ == "__main__":
         print('path is not a directory - %s' % outdir)
         sys.exit(1)
 
+    tstart = datetime.datetime.now()
     # Clear category cache
     merge = Category.copy_cache() if options.merge else []
     Category.clear_cache()
@@ -195,6 +198,9 @@ if __name__ == "__main__":
 
     if options.ldc:
         build_from_ldc_ccgbank(dict, outdir, options.verbose)
+
+    elapsed = datetime.datetime.now() - tstart
+    print('Processing time = %d seconds' % elapsed.total_seconds())
 
     if options.verbose:
         print('The following %d categories were processed correctly...' % len(dict))

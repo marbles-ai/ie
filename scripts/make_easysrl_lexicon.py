@@ -11,7 +11,8 @@ datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 
 
-from marbles.ie.parse import parse_ccg_derivation
+#from marbles.ie.parse import parse_ccg_derivation
+from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import sentence_from_pt, extract_lexicon_from_pt
 from marbles.ie.ccg.ccgcat import Category
 
@@ -86,7 +87,7 @@ if __name__ == '__main__':
 
             try:
                 # CCG parser is Java so output is UTF-8.
-                pt = parse_ccg_derivation(ccgbank.decode('utf-8'))
+                pt = parse_ccg_derivation(ccgbank)
                 s = sentence_from_pt(pt).strip()
             except Exception:
                 failed_parse += 1

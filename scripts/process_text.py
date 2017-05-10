@@ -110,7 +110,8 @@ if __name__ == '__main__':
     # Delay imports so help text can be dislayed without loading model
     from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
     from marbles.ie.drt.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
-    from marbles.ie.parse import parse_ccg_derivation
+    from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+    #from marbles.ie.parse import parse_ccg_derivation
     from marbles.ie.drt.common import SHOW_LINEAR
 
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
@@ -206,11 +207,11 @@ if __name__ == '__main__':
             else:
                 with open(outfile, 'w') as fd:
                     if html:
-                        fd.write(html.encode('utf-8'))
+                        fd.write(html)
                         fd.write('\n')
                     if ccg:
                         fd.write('<ccg>\n')
-                        fd.write(ccg.strip().encode('utf-8'))
+                        fd.write(ccg.strip())
                         fd.write('\n</ccg>\n')
                     if pccg:
                         fd.write('<predarg>\n')

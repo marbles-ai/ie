@@ -11,7 +11,8 @@ datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 
 
-from marbles.ie.parse import parse_ccg_derivation
+#from marbles.ie.parse import parse_ccg_derivation
+from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt, pt_to_ccgbank
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, DrsProduction
 from marbles.ie.drt.common import SHOW_LINEAR
@@ -85,7 +86,7 @@ if __name__ == '__main__':
 
             try:
                 # CCG parser is Java so output is UTF-8.
-                pt = parse_ccg_derivation(ccgbank.decode('utf-8'))
+                pt = parse_ccg_derivation(ccgbank)
                 s = sentence_from_pt(pt).strip()
                 pccg = pt_to_ccgbank(pt)
             except Exception:
