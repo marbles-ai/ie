@@ -846,6 +846,55 @@ class ExecOp(AbstractOperand):
         return self.result_category
 
 
+CcgArgSep = re.compile(r'/|\\')
+TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+\$?|-[A-Z]+-)*)')
+LPosType = re.compile(r'([A-Z$:-]+|[.,:;])(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
+LWord = re.compile(r'[^>\s]+(?=\s)')
+CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+|[.,:;])+(?=\s)')
+CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+|[.,:;]|_\d+)+(?=[>])')
+PosInt = re.compile(r'\d+')
+
+WS = re.compile(r'\s*')
+NDS = re.compile(r'(?:\s*\(<)|(?:\s*>\s*\)\s*)', re.MULTILINE)
+
+def parse_ccg_derivation2(ccgbank):
+    nodes = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), NDS.split(ccgbank)))
+    root = []
+    stk = [root]
+    level = 0
+    for nd in nodes:
+        pt = stk[-1]
+        if nd[0] == 'T':
+            assert nd[-1] == '>'
+            level += 1
+            pt.append([])
+            pt = pt[-1]
+            stk.append(pt)
+            toks = WS.split(nd[0:-1])
+            # Nodes contain 3 fields + T
+            # <T CCGcat head count>
+            assert len(toks) == 4
+            pt.append([toks[1], int(toks[2]), int(toks[3])])
+        elif nd[0] == 'L':
+            toks = WS.split(nd)
+            # Leaf nodes contain five fields + L
+            # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
+            assert len(toks) == 6
+            pt.append([toks[1], toks[4], toks[2], toks[3], toks[5], 'L'])
+        else:
+            assert nd[0] == ')'
+            toks = WS.split(nd)
+            level -= len(toks)
+            assert level >= 0
+            for i in range(len(toks)):
+                pt.append('T')
+                stk.pop()
+                pt = stk[-1]
+    assert level == 0
+    assert len(root) == 1
+    return root[0]
+
+
 class Ccg2Drs(object):
     """CCG to DRS Converter"""
     debugcount = 0
@@ -1415,5 +1464,4 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
                     dictionary[idx][lexeme.stem] = [{c}, {uid}]
 
     return dictionary
-
 
