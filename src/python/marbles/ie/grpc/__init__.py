@@ -81,7 +81,7 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
 
     Args:
         client: The client end-point stub returned from get_client_transport()
-        sentence: The utf-8 sentence. Do not pass unicode.
+        sentence: The sentence. Can be unicode, utf-8, or ascii.
         session_id: Optional session id.
         timeout: If non-zero make the call asynchronously with timeout equal to this value.
             Typically not needed unless the call may timeout when run synchronously.
@@ -89,6 +89,10 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
     Returns:
         The response message string .
     """
+    isUnicode = isinstance(sentence, unicode)
+    if isUnicode:
+        # CCG Parser is Java so input must be utf-8 or ascii
+        sentence = sentence.encode('utf-8')
     query_input = create_query_input('text', sentence)
     request = Request()
     request.LUCID = session_id
@@ -96,9 +100,10 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
     request.spec.content.extend([query_input])
     if timeout <= 0:
         response = client.infer(request)
-        return response.msg
     else:
         infer_future = client.infer.future(request, timeout)
         # FIXME: Need to add error reporting to Response structure.
         response = infer_future.result()
-        return response.msg
+    if isinstance(response.msg, unicode):
+        return response.msg if isUnicode else response.msg.encode('utf-8')
+    return response.msg if not isUnicode else response.msg.decode('utf-8')
