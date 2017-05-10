@@ -4,7 +4,7 @@ import os
 import unittest
 
 from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
-    RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE
+    RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
 from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp
 from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.utils.cache import Cache
@@ -94,13 +94,13 @@ class CcgTest(unittest.TestCase):
 
     def test5_Cache(self):
         if Category._use_cache:
-            cats = [v for k, v in Category._cache]
-            Category._use_cache = False
-            Category._cache = Cache()
+            cats = [v for k, v in Category.copy_cache()]
+            Category.clear_cache()
             Category.initialize_cache(cats)
-            for k, v in Category._cache:
+            for k, v in Category.copy_cache():
                 self.assertEquals(k, v.signature)
                 self.assertEquals(Category._cache[k], v)
+        self.assertTrue(CAT_Sem == Category.from_cache('S[em]'))
 
     def test6_Wsj0001_2(self):
         txt = '''
@@ -130,7 +130,7 @@ class CcgTest(unittest.TestCase):
             (<T NP[conj] 1 2>
               (<L , , , , ,>)
               (<T NP 1 2>
-                (<L NP[nb]/N DT DT the NP[nb]_29/N_29>)
+                (<L NP[nb]/N DT DT the NP[nb]_48/N_48>)
                 (<T N 1 2>
                   (<L N/N NNP NNP Dutch N_107/N_107>)
                   (<T N 1 2>
