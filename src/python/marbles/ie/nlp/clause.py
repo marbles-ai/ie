@@ -4,7 +4,7 @@ import googlenlp
 import sys
 # Delay import because it takes time
 from common import DELAY_SPACY_IMPORT
-from common import ClauseFinderMap
+from marbles.ie.utils.vmap import VectorMap
 from common import SyntheticSpan
 from common import IndexSpan
 from common import SubtreeSpan
@@ -283,12 +283,12 @@ class ClauseFinder(object):
             else:
                 raise TypeError
         self._doc = doc
-        self._map = ClauseFinderMap(len(doc))
-        self._advMap = ClauseFinderMap(len(doc))
-        self._conjAMap = ClauseFinderMap(len(doc))
-        self._conjOMap = ClauseFinderMap(len(doc))
-        self._conjVMap = ClauseFinderMap(len(doc))
-        self._conjVAMap = ClauseFinderMap(len(doc))
+        self._map = VectorMap(len(doc))
+        self._advMap = VectorMap(len(doc))
+        self._conjAMap = VectorMap(len(doc))
+        self._conjOMap = VectorMap(len(doc))
+        self._conjVMap = VectorMap(len(doc))
+        self._conjVAMap = VectorMap(len(doc))
         self._dispatcher = None
         self._excludeList = None
         self._stk = None
@@ -672,7 +672,7 @@ class ClauseFinder(object):
         self._dispatcher = [None] * states.STATE_LIMIT
 
         # default dispatcher
-        self._dispatcher[states.ROOT_FIND.i] = ClauseFinderMap(max(self._nlp.dep.DEP_UPPER_BOUND,self._nlp.pos.POS_UPPER_BOUND)+1)
+        self._dispatcher[states.ROOT_FIND.i] = VectorMap(max(self._nlp.dep.DEP_UPPER_BOUND, self._nlp.pos.POS_UPPER_BOUND) + 1)
         self._dispatcher[states.ROOT_FIND.i].insert_new(self._nlp.dep.NSUBJ, self._dispatch_case_nsubj)
         self._dispatcher[states.ROOT_FIND.i].insert_new(self._nlp.dep.NSUBJPASS, self._dispatch_case_nsubjpass)
         self._dispatcher[states.ROOT_FIND.i].insert_new(self._nlp.dep.DOBJ, self._dispatch_case_obj)
@@ -694,7 +694,7 @@ class ClauseFinder(object):
         self._dispatcher[states.NSUBJ_FIND.i] = self._dispatcher[states.ROOT_FIND.i]
 
         # isa dispatcher
-        self._dispatcher[states.ISA_FIND.i] = ClauseFinderMap(self._nlp.dep.DEP_UPPER_BOUND+1)
+        self._dispatcher[states.ISA_FIND.i] = VectorMap(self._nlp.dep.DEP_UPPER_BOUND + 1)
         self._dispatcher[states.ISA_FIND.i].insert_new(self._nlp.dep.CONJ, self._dispatch_isa_case_conj)
         self._dispatcher[states.ISA_FIND.i].insert_new(self._nlp.dep.CC, self._dispatch_isa_case_cc)
         self._dispatcher[states.ISA_FIND.i].insert_new(self._nlp.dep.P, self._dispatch_isa_case_punct)
