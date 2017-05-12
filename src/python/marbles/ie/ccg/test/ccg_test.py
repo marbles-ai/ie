@@ -7,6 +7,7 @@ from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, R
     RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
 from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp, pt_to_utf8
 from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 
 
 class CcgTest(unittest.TestCase):
@@ -332,7 +333,6 @@ class CcgTest(unittest.TestCase):
   (<L . . . . .>)
 )'''
         pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
@@ -390,6 +390,164 @@ class CcgTest(unittest.TestCase):
         self.assertEquals(ccg.lexque[10].head, 9)   # of -> free
         self.assertEquals(ccg.lexque[11].head, 12)  # tobacco -> smoke
         self.assertEquals(ccg.lexque[12].head, 10)  # smoke -> of
+
+    def test6_Wsj0002_1(self):
+        # Rudolph Agnew, 55 years old and former chairman of Consolidated Gold Fields PLC, was named a nonexecutive
+        # director of this British industrial conglomerate.
+        txt = '''
+(<T S[dcl] 0 2>
+  (<T S[dcl] 1 2>
+    (<T NP 0 2>
+      (<T NP 0 2>
+        (<T NP 0 2>
+          (<T NP 0 1>
+            (<T N 1 2>
+              (<L N/N NNP NNP Rudolph N_72/N_72>)
+              (<L N NNP NNP Agnew N>)
+            )
+          )
+          (<L , , , , ,>)
+        )
+        (<T NP\NP 0 1>
+          (<T S[adj]\NP 0 2>
+            (<T S[adj]\NP 1 2>
+              (<T NP 0 1>
+                (<T N 1 2>
+                  (<L N/N CD CD 55 N_92/N_92>)
+                  (<L N NNS NNS years N>)
+                )
+              )
+              (<L (S[adj]\NP)\NP JJ JJ old (S[adj]\NP_82)\NP_83>)
+            )
+            (<T S[adj]\NP[conj] 1 2>
+              (<L conj CC CC and conj>)
+              (<T NP 0 2>
+                (<T NP 0 1>
+                  (<T N 1 2>
+                    (<L N/N JJ JJ former N_102/N_102>)
+                    (<L N NN NN chairman N>)
+                  )
+                )
+                (<T NP\NP 0 2>
+                  (<L (NP\NP)/NP IN IN of (NP_111\NP_111)/NP_112>)
+                  (<T NP 0 1>
+                    (<T N 1 2>
+                      (<L N/N NNP NNP Consolidated N_135/N_135>)
+                      (<T N 1 2>
+                        (<L N/N NNP NNP Gold N_128/N_128>)
+                        (<T N 1 2>
+                          (<L N/N NNP NNP Fields N_121/N_121>)
+                          (<L N NNP NNP PLC N>)
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+      (<L , , , , ,>)
+    )
+    (<T S[dcl]\NP 0 2>
+      (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP_10)/(S[pss]_11\NP_10:B)_11>)
+      (<T S[pss]\NP 0 2>
+        (<L (S[pss]\NP)/NP VBN VBN named (S[pss]\NP_18)/NP_19>)
+          (<T NP 0 2> (<T NP 1 2>
+            (<L NP[nb]/N DT DT a NP[nb]_33/N_33>)
+            (<T N 1 2>
+              (<L N/N JJ JJ nonexecutive N_28/N_28>)
+              (<L N NN NN director N>)
+            )
+          )
+          (<T NP\NP 0 2>
+            (<L (NP\NP)/NP IN IN of (NP_41\NP_41)/NP_42>)
+            (<T NP 1 2>
+              (<L NP[nb]/N DT DT this NP[nb]_63/N_63>)
+              (<T N 1 2>
+                (<L N/N JJ JJ British N_58/N_58>)
+                (<T N 1 2>
+                  (<L N/N JJ JJ industrial N_51/N_51>)
+                  (<L N NN NN conglomerate N>)
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (<L . . . . .>)
+)'''
+        pt = parse_ccg_derivation(txt)
+        pt_old = pt_to_utf8(parse_ccg_derivation_old(txt), True)
+        actual = repr(pt)
+        expected = repr(pt_old)
+        self.assertEquals(expected, actual)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(Rudolph, N/N, NNP)',
+            '<PushOp>:(Agnew, N, NNP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(,, ,, ,)',
+            '<ExecOp>:(2, LP NP)',
+            '<PushOp>:(55, N/N, CD)',
+            '<PushOp>:(years, N, NNS)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(old, (S[adj]\NP)\NP, JJ)',
+            '<ExecOp>:(2, BA S[adj]\NP)',
+            '<PushOp>:(and, conj, CC)',
+            '<PushOp>:(former, N/N, JJ)',
+            '<PushOp>:(chairman, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(Consolidated, N/N, NNP)',
+            '<PushOp>:(Gold, N/N, NNP)',
+            '<PushOp>:(Fields, N/N, NNP)',
+            '<PushOp>:(PLC, N, NNP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, CONJ_TC S[adj]\NP[conj])',
+            '<ExecOp>:(2, RCONJ S[adj]\NP)',
+            '<ExecOp>:(1, L_UNARY_TC NP\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<PushOp>:(,, ,, ,)',
+            '<ExecOp>:(2, LP NP)',
+            '<PushOp>:(be, (S[dcl]\NP)/(S[pss]\NP), VBD)',
+            '<PushOp>:(name, (S[pss]\NP)/NP, VBN)',
+            '<PushOp>:(a, NP[nb]/N, DT)',
+            '<PushOp>:(nonexecutive, N/N, JJ)',
+            '<PushOp>:(director, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(this, NP[nb]/N, DT)',
+            '<PushOp>:(british, N/N, JJ)',
+            '<PushOp>:(industrial, N/N, JJ)',
+            '<PushOp>:(conglomerate, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, FA S[pss]\NP)',
+            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
 
     def test7_RuleUniquenessLDC(self):
         allfiles = []

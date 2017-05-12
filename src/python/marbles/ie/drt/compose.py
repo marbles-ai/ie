@@ -23,8 +23,6 @@ CO_REMOVE_UNARY_PROPS = 0x0001
 CO_PRINT_DERIVATION = 0x0002
 ## Compose option: verify signature during production
 CO_VERIFY_SIGNATURES = 0x0004
-## Disable unification by ProductionList's.
-CO_DISABLE_UNIFY = 0x0008
 ## Build state slots
 CO_BUILD_STATES = 0x0010
 ## Add state predicates
@@ -35,44 +33,17 @@ CO_NO_VERBNET = 0x0040
 ## @}
 
 
-## @{
-## @ingroup gconst
-## @defgroup reftypes DRS Referent Types
-
-RT_PROPERNAME    = 0x0000000000000001
-RT_ENTITY        = 0x0000000000000002
-RT_EVENT         = 0x0000000000000004
-RT_LOCATION      = 0x0000000000000008
-RT_DATE          = 0x0000000000000010
-RT_WEEKDAY       = 0x0000000000000020
-RT_MONTH         = 0x0000000000000040
-RT_HUMAN         = 0x0000000000000080
-RT_ANAPHORA      = 0x0000000000000100
-RT_NUMBER        = 0x0000000000000200
-
-RT_RELATIVE      = 0x8000000000000000
-RT_PLURAL        = 0x4000000000000000
-RT_MALE          = 0x2000000000000000
-RT_FEMALE        = 0x1000000000000000
-RT_1P            = 0x0800000000000000
-RT_2P            = 0x0400000000000000
-RT_3P            = 0x0200000000000000
-
-
-## @}
-
 class DrsComposeError(Exception):
     """AbstractProduction Error."""
     pass
 
 
-def identity_functor(category, ref=None, dep=None):
+def identity_functor(category, ref=None):
     """Return the identity functor `λx.P(x)`.
 
     Args:
         category: A functor category where the result and argument are atoms.
         ref: optional DRSRef to use as identity referent.
-        dep: optional dependency tree.
 
     Returns:
         A FunctorProduction instance.
@@ -86,12 +57,12 @@ def identity_functor(category, ref=None, dep=None):
     if ref is None:
         ref = DRSRef('x1')
     d.set_lambda_refs([ref])
-    return FunctorProduction(category, ref, d, dep=dep)
+    return FunctorProduction(category, ref, d)
 
 
 class AbstractProduction(object):
     """An abstract production."""
-    def __init__(self, category=None, dep=None):
+    def __init__(self, category=None):
         self._lambda_refs = None
         self._options = 0
         if category is None:
@@ -100,31 +71,14 @@ class AbstractProduction(object):
             self._category = category
         else:
             raise TypeError('category must be instance of Category')
-        if dep is None or isinstance(dep, Dependency):
-            self._dep = dep
-        else:
-            raise TypeError('dep must be instance of DepManager')
 
     def __eq__(self, other):
         return id(self) == id(other)
-
-    @staticmethod
-    def nodups(rs):
-        return filter(lambda x: x[0] != x[1], rs)
-
-    @property
-    def isunify_disabled(self):
-        return 0 != (self._options & CO_DISABLE_UNIFY)
 
     @property
     def category(self):
         """The CCG category"""
         return self._category
-
-    @property
-    def dep(self):
-        """The dependency node."""
-        return self._dep
 
     @property
     def isempty(self):
@@ -150,6 +104,11 @@ class AbstractProduction(object):
     def universe(self):
         """Get the universe of the referents."""
         raise NotImplementedError
+
+    @property
+    def referents(self):
+        """Get the universe of the referents."""
+        return self.universe
 
     @property
     def variables(self):
@@ -182,11 +141,6 @@ class AbstractProduction(object):
         return self._options
 
     @property
-    def isproper_noun(self):
-        """Test if the production resolved to a proper noun"""
-        return False
-
-    @property
     def iterator(self):
         """If a list then iterate the productions in the list else return self."""
         yield self
@@ -205,19 +159,13 @@ class AbstractProduction(object):
         """
         return False
 
+    @staticmethod
+    def make_new_drsrefs(ors, ers):
+        return get_new_drsrefs(ors, ers)
+
     def size(self):
         """If a list then get the number of elements in the production list else return 1."""
         return 1
-
-    def proper_noun_promote(self):
-        """Promote to a proper noun."""
-        pass
-
-    def set_dependency(self, dep):
-        """Set the dependency"""
-        oldep = self._dep
-        self._dep = dep
-        return oldep
 
     def get_scope_count(self):
         """Get the number of scopes in a functor. Zero for non functor types"""
@@ -261,10 +209,6 @@ class AbstractProduction(object):
         """
         if self._lambda_refs is not None:
             self._lambda_refs = self._lambda_refs.alpha_convert(rs)
-            #self._lambda_refs = self._lambda_refs.substitute(rs)
-        if self._dep:
-            for o, n in rs:
-               self._dep.update_referent(o, n)
 
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
@@ -282,14 +226,6 @@ class AbstractProduction(object):
         """
         return self
 
-    def resolve_anaphora(self):
-        """Purify the underlying DRS instance.
-
-        Returns:
-            A AbstractProduction instance representing purified result.
-        """
-        return self
-
     def verify(self):
         """Test helper."""
         return True
@@ -304,25 +240,25 @@ class AbstractProduction(object):
         ers2 = self.variables
         ors = intersect(ers, ers2)
         if len(ors) != 0:
-            nrs = get_new_drsrefs(ors, union(ers, ers2))
-            xrs = self.nodups(zip(ors, nrs))
+            # Get new variables from document manager
+            nrs = self.make_new_drsrefs(ors, union(ers, ers2))
+            xrs = zip(ors, nrs)
+            # Delegate rename to the document manager
             self.rename_vars(xrs)
 
 
 class DrsProduction(AbstractProduction):
     """A DRS production."""
-    def __init__(self, drs, properNoun=False, category=None, dep=None):
+    def __init__(self, drs, category=None):
         """Constructor.
 
         Args:
             drs: A marbles.ie.drt.DRS instance.
-            properNoun: True is a proper noun.
         """
-        super(DrsProduction, self).__init__(category, dep)
+        super(DrsProduction, self).__init__(category)
         if not isinstance(drs, AbstractDRS):
             raise TypeError('DrsProduction expects DRS')
         self._drs = drs
-        self._nnp = properNoun
 
     def __repr__(self):
         lr = [r.var.to_string() for r in self.lambda_refs]
@@ -331,14 +267,14 @@ class DrsProduction(AbstractProduction):
         return 'λ' + 'λ'.join(lr) + '.' + self.drs.show(SHOW_LINEAR).encode('utf-8')
 
     @property
-    def isproper_noun(self):
-        """Test if the production resolved to a proper noun"""
-        return self._nnp
-
-    @property
     def universe(self):
         """Get the universe of the referents."""
         return self._drs.universe
+
+    @property
+    def referents(self):
+        """Get the universe of the referents."""
+        return self._drs.referents
 
     @property
     def variables(self):
@@ -374,18 +310,11 @@ class DrsProduction(AbstractProduction):
         """
         return self._drs.ispure
 
-    def proper_noun_promote(self):
-        """Promote to a proper noun."""
-        self._nnp = True
-
     def verify(self):
         """Test helper."""
         if len(self.lambda_refs) != 1 or not self.category.isatom:
             pass
         return len(self.lambda_refs) == 1 and self.category.isatom
-
-    def remove_proper_noun(self):
-        self._nnp = False
 
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
@@ -399,133 +328,11 @@ class DrsProduction(AbstractProduction):
         self._drs = self._drs.substitute(rs)
         self.rename_lambda_refs(rs)
 
-    def resolve_anaphora(self):
-        """Resolve anaphora and purify the underlying DRS instance.
-
-        Returns:
-            A AbstractProduction instance representing purified result.
-        """
-        if self.dep is not None:
-            # Find anaphora
-            anap_h = []
-            anap_nh = []
-            pn = []
-            events = []
-            entities = []
-            dates = []
-            numbers = []
-            locations = []
-            p1 = []
-            p2 = []
-
-            root = self.dep.root
-            alldeps = [root]
-            alldeps.extend(root.descendants)
-            for nd in alldeps:
-                r, w, t = nd.get()
-                if (t & (RT_ANAPHORA | RT_HUMAN)) == (RT_ANAPHORA | RT_HUMAN):
-                    # he, she
-                    anap_h.append((nd, r, w, t))
-                elif (t & RT_PROPERNAME) != 0:
-                    pn.append((nd, r, w, t))
-                elif (t & RT_ANAPHORA) != 0:
-                    # it
-                    anap_nh.append((nd, r, w, t))
-                elif (t & RT_ENTITY) != 0:
-                    entities.append((nd, r, w, t))
-                elif (t & RT_EVENT) != 0:
-                    events.append((nd, r, w, t))
-                elif (t & (RT_DATE | RT_WEEKDAY | RT_MONTH)) != 0:
-                    dates.append((nd, r, w, t))
-                elif (t & RT_NUMBER) != 0:
-                    numbers.append((nd, r, w, t))
-                elif (t & RT_LOCATION) != 0:
-                    locations.append((nd, r, w, t))
-                elif (t & (RT_1P|RT_PLURAL)) == RT_1P:
-                    p1.append((nd, r, w, t))
-                elif (t & (RT_2P|RT_PLURAL)) == RT_2P:
-                    p2.append((nd, r, w, t))
-
-            # Simple resolutions i(x2)
-            #    i(x3) => i(x2), i(x2)
-            #    you(x2), you(x3) => you(x2), you(x2)
-            if len(p1) > 1:
-                rs = [(p1[0][1], r) for dep, r, w, t in p1[1:]]
-                self.rename_vars(rs)
-            if len(p2) > 1:
-                rs = [(p2[0][1], r) for dep, r, w, t in p2[1:]]
-                self.rename_vars(rs)
-
-            # Resolve it
-            rs = []
-            for dep, r, w, t in anap_nh:
-                for nd in dep.descendants:
-                    rr, ww, tt = nd.get()
-                    if (t & (RT_ENTITY | RT_PLURAL)) == RT_ENTITY:
-                        rs.append((r, rr))
-                        break
-            if len(rs) != 0:
-                self.rename_vars(rs)
-
-            conds = []
-
-            todo = [('.NAME', pn), ('.EVENT', events), ('.ENTITY', entities), ('.DATE', dates), ('.NUM', numbers),
-                    ('.LOC', locations)]
-            if 0 != (self.compose_options & CO_BUILD_STATES):
-                rs = []
-                for rel, lst in todo:
-                    for nd, r, w, t in lst:
-                        # Find word unary predicate
-                        fc = self._drs.find_condition(Rel(w, [r]))
-                        nr = r
-                        if fc is not None:
-                            self._drs.remove_condition(fc)
-                            if 0 != (t & RT_PROPERNAME):
-                                nr = DRSRef(DRSConst(w))
-                            else:
-                                nr = DRSRef(DRSVar(w + '_', r.var.idx))
-                            rs.append((r, nr))
-                        if rel != '.EVENT':
-                            conds.append(Rel(rel, nr))
-                self.rename_vars(rs)
-            elif 0 != (self.compose_options & CO_ADD_STATE_PREDICATES):
-                for rel, lst in todo:
-                    if rel == '.EVENT':
-                        continue
-                    for nd, r, w, t in lst:
-                        conds.append(Rel(rel, r))
-
-            # Make proper names constants
-            '''
-            rs = []
-            for dep, r, w, t in pn:
-                fc = self._drs.find_condition(Rel(w, [r]))
-                if fc is not None:
-                    self._drs.remove_condition(fc)
-                    rs.append((r, DRSRef(DRSConst(w))))
-                    dep.remove_ref(r)
-            if len(rs) != 0:
-                self.rename_vars(rs)
-            '''
-            conds.extend(self._drs.conditions)
-        else:
-            conds = self._drs.conditions
-
-        # Remainder are unresolved
-        fr = self._drs.freerefs
-        if len(fr) != 0:
-            self._drs = DRS(remove_dups(union(self._drs.universe, fr)), conds)
-        else:
-            self._drs = DRS(remove_dups(self._drs.referents), conds)
-        self._drs = self._drs.purify()
-        return self
-
-
 class ProductionList(AbstractProduction):
     """A list of productions."""
 
-    def __init__(self, compList=None, category=None, dep=None):
-        super(ProductionList, self).__init__(category, dep)
+    def __init__(self, compList=None, category=None):
+        super(ProductionList, self).__init__(category)
         if compList is None:
             compList = collections.deque()
         if isinstance(compList, AbstractDRS):
@@ -545,11 +352,6 @@ class ProductionList(AbstractProduction):
         if len(lr) == 0:
             return '<' + '##'.join([repr(x) for x in self._compList]) + '>'
         return 'λ' + 'λ'.join(lr) + '.<' + '##'.join([repr(x) for x in self._compList]) + '>'
-
-    @property
-    def isproper_noun(self):
-        """Test if the production resolved to a proper noun"""
-        return all([x.isproper_noun for x in self._compList])
 
     @property
     def universe(self):
@@ -587,11 +389,6 @@ class ProductionList(AbstractProduction):
                 return True
         return False
 
-    def proper_noun_promote(self):
-        """Promote to a proper noun."""
-        for c in self._compList:
-            c.proper_noun_promote()
-
     def size(self):
         """Get the number of elements in this production list."""
         return len(self._compList)
@@ -607,16 +404,13 @@ class ProductionList(AbstractProduction):
             yield c
 
     def clone(self):
-        cl = ProductionList(collections.deque(self._compList), dep=self.dep)
+        cl = ProductionList(collections.deque(self._compList))
         cl.set_options(self.compose_options)
         cl.set_lambda_refs(self.lambda_refs)
         return cl
 
     def flatten(self):
         """Unify subordinate ProductionList's into the current list."""
-        if self.isunify_disabled:
-            return
-
         compList = collections.deque()
         for d in self._compList:
             if d.isempty:
@@ -630,6 +424,7 @@ class ProductionList(AbstractProduction):
             else:
                 compList.append(d)
         self._compList = compList
+        return self
 
     def rename_vars(self, rs):
         """Perform alpha conversion on the production data.
@@ -654,8 +449,8 @@ class ProductionList(AbstractProduction):
         Returns:
             The self instance.
         """
-        if isinstance(other, AbstractDRS):
-            other = DrsProduction(other, )
+        if not isinstance(other, AbstractProduction):
+            raise TypeError('production list entries must be productions')
         if merge and isinstance(other, ProductionList):
             self._compList.extend(other._compList)
         else:
@@ -674,8 +469,8 @@ class ProductionList(AbstractProduction):
         Returns:
             The self instance.
         """
-        if isinstance(other, AbstractDRS):
-            other = DrsProduction(other)
+        if not isinstance(other, AbstractProduction):
+            raise TypeError('production list entries must be productions')
         if merge and isinstance(other, ProductionList):
             self._compList.extendleft(reversed(other._compList))
         else:
@@ -689,9 +484,6 @@ class ProductionList(AbstractProduction):
         Returns:
             A AbstractProduction instance.
         """
-        if self.isunify_disabled:
-            return self
-
         ml = [x.unify() for x in self._compList]
         self._compList = collections.deque()
         if len(ml) == 1:
@@ -714,95 +506,25 @@ class ProductionList(AbstractProduction):
             if len(rn) != 0:
                 # FIXME: should this be allowed?
                 # Alpha convert bound vars in both self and arg
-                xrs = self.nodups(zip(rn, get_new_drsrefs(rn, universe)))
+                xrs = zip(rn, d.docvw.make_new_drsrefs(rn, universe))
                 # Rename so variable subscripts increase left to right
                 for m in ml[i+1:]:
-                    m.rename_vars(xrs)
+                    # Delegate renaming to document manager
+                    m.docvw.rename_vars(xrs, m)
             universe = union(universe, d.universe)
 
+        # Merge conditions and referents
         refs = []
         conds = []
-        pconds = []     # proper nouns
-        oconds = []     # other predicates
-        lastr = DRSRef('$$$$')
-        proper = 0
         for d in ml:
-            if d.isproper_noun:
-                # FIXME: may not be true if we promote to a proposition
-                ctmp = d.drs.conditions
-                if isinstance(d.drs.conditions[0], Rel):
-                    nextr = ctmp[0].referents[0]
-                else:
-                    nextr = DRSRef('$$$$')
-                if nextr != lastr:
-                    # Hyphenate name
-                    lastr = nextr
-                    proper += 1
-                    if len(pconds) != 0:
-                        if len(pconds) == 1:
-                            conds.extend(pconds)
-                        else:
-                            name = '-'.join([c.relation.to_string() for c in pconds])
-                            self.dep.update_mapping(lastr, name)
-                            for dep in self.dep.root.descendants:
-                                ref, word, _ = dep.get()
-                                if ref == lastr and word != name:
-                                    dep.remove_ref(lastr)
-                            conds.append(Rel(name, [lastr]))
-                        conds.extend(oconds)
-                    pconds = [ctmp[0]]
-                    oconds = ctmp[1:]
-                else:
-                    pconds.append(ctmp[0])
-                    oconds.extend(ctmp[1:])
-            else:
-                # FIXME: proper-noun followed by noun, for example Time magazine, should we collate?
-                if len(pconds) != 0:
-                    if len(pconds) == 1:
-                        conds.extend(pconds)
-                    else:
-                        name = '-'.join([c.relation.to_string() for c in pconds])
-                        '''
-                        if self.dep is None:
-                            pass
-                        '''
-                        self.dep.update_mapping(lastr, name)
-                        for dep in self.dep.root.descendants:
-                            ref, word, _ = dep.get()
-                            if ref == lastr and word != name:
-                                dep.remove_ref(lastr)
-                        conds.append(Rel(name, [lastr]))
-                    conds.extend(oconds)
-                lastr = DRSRef('$$$$')
-                pconds = []
-                oconds = []
-                conds.extend(d.drs.conditions)
-                proper += 1
-            refs.extend(d.drs.referents)
-        # FIXME: Boc Raton and Hot Springs => Boca-Raton(x) Hot-Springs(x1)
-        # Hyphenate name
-        if len(pconds) != 0:
-            if len(pconds) == 1:
-                conds.extend(pconds)
-            else:
-                name = '-'.join([c.relation.to_string() for c in pconds])
-                '''
-                if self.dep is None:
-                    pass
-                '''
-                self.dep.update_mapping(lastr, name)
-                for dep in self.dep.root.descendants:
-                    ref, word, _ = dep.get()
-                    if ref == lastr and word != name:
-                        dep.remove_ref(lastr)
-                conds.append(Rel(name, [lastr]))
-            conds.extend(oconds)
+            conds.extend(d.conditions)
+            refs.extend(d.referents)
 
         if len(refs) == 0 and len(conds) == 0:
             return self
 
         drs = DRS(refs, conds).purify()
-        d = DrsProduction(drs, proper == 1, dep=self.dep)
+        d = DrsProduction(drs)
         if not self.islambda_inferred:
             d.set_lambda_refs(self.lambda_refs)
         elif not ml[0].islambda_inferred:
@@ -846,10 +568,6 @@ class ProductionList(AbstractProduction):
         if len(self._compList) == 0:
             return self
         fn = self._compList.pop()
-        '''
-        if not fn.isfunctor:
-            pass
-        '''
         if len(self._compList) == 0:
             # This can happen with punctuation etc. Empty productions are removed
             # after a unify so we must simulate application with empty.
@@ -974,7 +692,7 @@ class ProductionList(AbstractProduction):
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
-            d = ProductionList(f, dep=self.dep)
+            d = ProductionList(f)
             d.push_right(g)
             d.flatten()
             d = d.unify()
@@ -999,7 +717,7 @@ class ProductionList(AbstractProduction):
             self.set_lambda_refs(d.lambda_refs)
             self.set_category(d.category)
         else:
-            d = ProductionList(f, dep=self.dep)
+            d = ProductionList(f)
             d.push_right(g)
             d.flatten()
             self._compList.append(d.unify())
@@ -1044,7 +762,7 @@ class ProductionList(AbstractProduction):
         self.set_category(d.category)
         return self
 
-    def apply(self, rule, old_mode=True):
+    def apply(self, rule):
         """Applications based on rule.
 
         Args:
@@ -1053,10 +771,7 @@ class ProductionList(AbstractProduction):
         Returns:
             A AbstractProduction instance.
         """
-
-        # alpha convert variables
-        if old_mode:
-            self.flatten()
+        self.flatten()
 
         if rule in [RL_RPASS, RL_LPASS, RL_RNUM]:
             # TODO; add extra RL_RNUM predicate number.value(37), number.units(million)
@@ -1094,21 +809,11 @@ class ProductionList(AbstractProduction):
         if len(self._compList) == 0:
             return self
 
-        if old_mode and len(self._compList) == 1:
+        if len(self._compList) == 1:
             d = self._compList.pop()
             if d.isfunctor:
-                '''
-                if d.get_scope_count() != d.category.get_scope_count():
-                    pass
-                if d.get_scope_count() != self.category.get_scope_count():
-                    pass
-                '''
                 d.set_category(self.category)
             else:
-                '''
-                if d.get_scope_count() != self.category.get_scope_count():
-                    pass
-                '''
                 d.set_category(self.category)
             return d
         return self
@@ -1116,7 +821,7 @@ class ProductionList(AbstractProduction):
 
 class FunctorProduction(AbstractProduction):
     """A functor production. Functors are curried where the inner most functor is the inner scope."""
-    def __init__(self, category, referent, production=None, dep=None):
+    def __init__(self, category, referent, production=None):
         """Constructor.
 
         Args:
@@ -1127,14 +832,12 @@ class FunctorProduction(AbstractProduction):
         """
         if production is not None:
             if isinstance(production, AbstractDRS):
-                production = DrsProduction(production, )
+                production = DrsProduction(production)
             elif not isinstance(production, AbstractProduction):
                 raise TypeError('production argument must be a AbstractProduction type')
         if category is None :
             raise TypeError('category cannot be None for functors')
-        if dep is None and production is not None:
-            dep = production.dep
-        super(FunctorProduction, self).__init__(category, dep)
+        super(FunctorProduction, self).__init__(category)
         self._comp = production
         # Store lambda vars as a DRS with no conditions so we inherit alpha conversion methods.
         if isinstance(referent, list):
@@ -1347,12 +1050,6 @@ class FunctorProduction(AbstractProduction):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
 
-    @property
-    def isproper_noun(self):
-        """Test if the production resolves to a proper noun"""
-        c =  self.inner_scope._comp
-        return False if c is None else c.isproper_noun
-
     def unify_atoms(self, a, b):
         """Unify two atoms: a and b.
 
@@ -1381,17 +1078,6 @@ class FunctorProduction(AbstractProduction):
             pl.flatten()
             return pl.unify()
 
-    def proper_noun_promote(self):
-        """Promote to a proper noun."""
-        if self._comp is not None:
-            self._comp.proper_noun_promote()
-
-    def set_dependency(self, dep):
-        """Set the dependency"""
-        if self._comp is not None:
-            self._dep = dep
-            return self._comp.set_dependency(dep)
-
     def get_scope_count(self):
         """Get the number of scopes in a functor. Zero for non functor types"""
         return self.inner_scope._get_position() + 1
@@ -1418,10 +1104,6 @@ class FunctorProduction(AbstractProduction):
                 c = c._comp
             atoms.reverse()
             if c is not None:
-                '''
-                if len(c.lambda_refs) > 1:
-                    pass
-                '''
                 assert(len(c.lambda_refs) <= 1)     # final result must be a atom
                 atoms.append(c.lambda_refs)
             return atoms
@@ -1589,8 +1271,9 @@ class FunctorProduction(AbstractProduction):
         ers2 = self.variables
         ors = intersect(ers, ers2)
         if len(ors) != 0:
-            nrs = get_new_drsrefs(ors, union(ers, ers2))
-            xrs = self.nodups(zip(ors, nrs))
+            nrs = self.make_new_drsrefs(ors, union(ers, ers2))
+            xrs = zip(ors, nrs)
+            # Delegate rename to document manager
             self.rename_vars(xrs)
 
     def type_change_np_snp(self, np):
@@ -1611,7 +1294,7 @@ class FunctorProduction(AbstractProduction):
         assert isinstance(np, DrsProduction)
         lr = np.lambda_refs
         if len(lr) == 0:
-            lr = np.drs.universe
+            lr = np.universe
             np.set_lambda_refs(lr)
         if len(lr) != len(slr):
             if len(slr) != 1:
@@ -1728,13 +1411,13 @@ class FunctorProduction(AbstractProduction):
         assert len(uy) != 0
 
         # Build
-        pl = ProductionList(dep=self.dep)
+        pl = ProductionList()
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify()
+        pl = pl.unify() # merges doc views
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
@@ -1807,10 +1490,6 @@ class FunctorProduction(AbstractProduction):
         fc = self.pop()
         assert fc is not None
         yflr = self.inner_scope.get_unify_scopes(False)
-        '''
-        if len(yflr) != len(glr):
-            pass
-        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -1821,13 +1500,13 @@ class FunctorProduction(AbstractProduction):
         assert len(uy) != 0
 
         # Build
-        pl = ProductionList(dep=self.dep)
+        pl = ProductionList()
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first entry sets lambdas
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify()
+        pl = pl.unify()     # merges doc views
         assert isinstance(pl, DrsProduction)
         dollar.push(pl)
         zg.push(dollar)
@@ -1915,13 +1594,13 @@ class FunctorProduction(AbstractProduction):
         self.pop()
 
         # Build
-        pl = ProductionList(dep=self.dep)
+        pl = ProductionList()
         pl.set_category(fc.category)
         pl.set_lambda_refs(fc.lambda_refs)
         pl.push_right(fc)   # first in list sets lambdas
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify()
+        pl = pl.unify()     # merges doc views
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
@@ -1972,7 +1651,7 @@ class FunctorProduction(AbstractProduction):
             flr = fc.lambda_refs
             fc.set_lambda_refs([])
 
-            c = ProductionList(fc, dep=self.dep)
+            c = ProductionList(fc)
             c.push_right(gc)
             c.set_lambda_refs(glr if glambdas else flr)
             c.set_category(gc.category if glambdas else fc.category)
@@ -1985,7 +1664,7 @@ class FunctorProduction(AbstractProduction):
             g.set_lambda_refs([])
             fc = self.pop()
             flr = fc.lambda_refs
-            c = ProductionList(fc, dep=self.dep)
+            c = ProductionList(fc)
             c.push_right(g)
             if glambdas and len(glr) != len(flr):
                 # FIXME: A AbstractProduction should always have lambda_refs set.
@@ -2043,17 +1722,13 @@ class FunctorProduction(AbstractProduction):
             flr = self.get_unify_scopes(False)
             fs = self.category.argument_category().extract_unify_atoms(False)
             gs = g.category.extract_unify_atoms(False)
-            '''
-            if gs is None or fs is None:
-                pass
-            '''
             assert fs is not None
             assert gs is not None and len(gs) == len(fs)
 
             rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                     zip(fs, gs, glr, flr)))
             # Unify
-            g.rename_vars(self.nodups(rs))
+            g.rename_vars(rs)
 
         ors = intersect(g.universe, self.universe)
         if len(ors) != 0:
@@ -2061,13 +1736,13 @@ class FunctorProduction(AbstractProduction):
             #if len(rs) == len(ors):
             #    raise DrsComposeError('unification not possible')
             ers = union(g.variables, self.outer_scope.variables)
-            nrs = get_new_drsrefs(ors, ers)
+            nrs = g.make_new_drsrefs(ors, ers)
             g.rename_vars(zip(ors, nrs))
 
         if g.isfunctor:
             assert g.inner_scope._comp is not None
             # functor production
-            cl = ProductionList(dep=self.dep)
+            cl = ProductionList()
             cl.set_options(self.compose_options)
 
             # Apply the combinator
@@ -2088,11 +1763,10 @@ class FunctorProduction(AbstractProduction):
 
         # Remove resolved referents from lambda refs list
         assert len(self._lambda_refs.referents) != 0
-        self_isproper_noun = self._comp.isproper_noun
         if isinstance(self._comp, ProductionList):
             c = self._comp
         else:
-            c = ProductionList(self._comp, dep=self.dep)
+            c = ProductionList(self._comp)
 
         if self.isarg_right:
             c.push_right(g)
@@ -2116,8 +1790,8 @@ class FunctorProduction(AbstractProduction):
 
 class PropProduction(FunctorProduction):
     """A proposition functor."""
-    def __init__(self, category, referent, production=None, dep=None):
-        super(PropProduction, self).__init__(category, referent, production, dep)
+    def __init__(self, category, referent, production=None):
+        super(PropProduction, self).__init__(category, referent, production)
 
     def _repr_helper2(self, i):
         v = chr(i)
@@ -2169,10 +1843,9 @@ class PropProduction(FunctorProduction):
             pass
         '''
         assert isinstance(d, DrsProduction)
-        # FIXME: removing proposition from a proper noun causes an exception during ProductionList.apply()
-        if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.drs.referents) == 1 and not d.isproper_noun:
-            rs = zip(d.drs.referents, self._lambda_refs.referents)
-            d.rename_vars(self.nodups(rs))
+        if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.referents) == 1:
+            rs = zip(d.referents, self._lambda_refs.referents)
+            d.rename_vars(rs)
             d.set_options(self.compose_options)
             lr = self._lambda_refs.referents
             self.clear()
@@ -2181,11 +1854,11 @@ class PropProduction(FunctorProduction):
                 print('          := %s' % repr(d))
             return d
         lr = self._lambda_refs.referents
-        dd = DrsProduction(DRS(lr, [Prop(self._lambda_refs.referents[0], d.drs)]), )
+        dd = DrsProduction(DRS(lr, [Prop(self._lambda_refs.referents[0], d.drs)]),
+                           category=self.category.result_category())
         dd.set_options(self.compose_options)
         self.clear()
         dd.set_lambda_refs(lr)
-        dd.set_category(self.category.result_category())
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
             print('          := %s' % repr(dd))
         return dd
@@ -2193,8 +1866,8 @@ class PropProduction(FunctorProduction):
 
 class OrProduction(FunctorProduction):
     """An Or functor."""
-    def __init__(self, negate=False, dep=None):
-        super(OrProduction, self).__init__(CAT_CONJ, [], dep=dep)
+    def __init__(self, negate=False):
+        super(OrProduction, self).__init__(CAT_CONJ, [])
         self._negate = negate
 
     ## @cond
@@ -2252,7 +1925,7 @@ class OrProduction(FunctorProduction):
                 raise DrsComposeError('Or functor requires lamba refs to be same size')
 
         if self._comp is None:
-            c = ProductionList(arg, dep=self.dep)
+            c = ProductionList(arg)
             c.set_lambda_refs(arg.lambda_refs)
             self._comp = c
             return self
@@ -2267,7 +1940,7 @@ class OrProduction(FunctorProduction):
         p = [x for x in self._comp.iterator()]
         assert len(p) == 1
         p = p[0]
-        cl = ProductionList(dep=self.dep)
+        cl = ProductionList()
         if p.isfunctor:
             # unify inner production
             assert arg.isfunctor
@@ -2275,13 +1948,13 @@ class OrProduction(FunctorProduction):
             p_inner = p.inner_scope
             if self.isarg_left:
                 rs = zip(p.lambda_refs, arg.lambda_refs)
-                p.rename_vars(self.nodups(rs))
+                p.rename_vars(rs)
                 lr = arg_inner._comp.lambda_refs
                 cl.push_right(arg_inner._comp)
                 cl.push_right(p_inner._comp)
             else:
                 rs = zip(arg.lambda_refs, p.lambda_refs)
-                arg.rename_vars(self.nodups(rs))
+                arg.rename_vars(rs)
                 lr = p_inner._comp.lambda_refs
                 cl.push_right(p_inner._comp)
                 cl.push_right(arg_inner._comp)
@@ -2296,12 +1969,12 @@ class OrProduction(FunctorProduction):
             assert not arg.isfunctor
             if self.isarg_left:
                 rs = zip(p.lambda_refs, arg.lambda_refs)
-                p.rename_vars(self.nodups(rs))
+                p.rename_vars(rs)
                 cl.push_right(arg)
                 cl.push_right(p)
             else:
                 rs = zip(arg.lambda_refs, p.lambda_refs)
-                arg.rename_vars(self.nodups(rs))
+                arg.rename_vars(rs)
                 cl.push_right(p)
                 cl.push_right(arg)
             cl.set_lambda_refs(arg.lambda_refs)

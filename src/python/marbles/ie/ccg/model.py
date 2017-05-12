@@ -203,16 +203,13 @@ class FunctorTemplate(object):
         return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom,
                                construct_empty=construct_empty)
 
-    def create_empty_functor(self, dep=None):
+    def create_empty_functor(self):
         """Create a FunctorProduction with an empty inner DrsProduction
-
-        Args:
-            dep: Optional marbles.ie.drt.compose.Dependency instance.
 
         Returns:
             A FunctorProduction.
         """
-        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards(), dep=dep)
+        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards())
         fn.set_lambda_refs([self.final_ref])
         category = self.clean_category.remove_wildcards()
         for c in self._constructor_rule:
@@ -277,16 +274,13 @@ class UnaryRule(object):
         """
         return self._template.clean_category
 
-    def get(self, dep=None):
+    def get(self):
         """Get a unary functor that can be applied using function application.
-
-        Args:
-            dep: Optional marbles.ie.drt.compose.Dependency instance.
 
         Returns:
             A FunctorProduction instance.
         """
-        return self._template.create_empty_functor(dep=dep)
+        return self._template.create_empty_functor()
 
 
 class Model(object):

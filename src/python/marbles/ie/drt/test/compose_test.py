@@ -635,7 +635,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.create_drs()
         d = ccg.final_rename(d)
         s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
+        x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather(x2),High(x2)]'
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -668,7 +668,6 @@ class ComposeTest(unittest.TestCase):
         ccg.build_execution_sequence(pt)
         d = ccg.create_drs()
         d = ccg.final_rename(d)
-        d.resolve_anaphora()
         d = d.drs.simplify_props()
         s = d.show(SHOW_LINEAR)
         x = u'[x3,e2,e1,x4| door(x3),open(e2),.EVENT(e2),.AGENT(e2,x3),i(x4),step(e1),.EVENT(e1),.AGENT(e1,x4),up(e1),direction(e1)]'
@@ -815,7 +814,6 @@ class ComposeTest(unittest.TestCase):
         ccg.build_execution_sequence(pt)
         d = ccg.create_drs()
         d = ccg.final_rename(d)
-        d.resolve_anaphora()
         s = d.drs.show(SHOW_LINEAR)
         print(s)
 
