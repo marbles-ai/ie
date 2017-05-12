@@ -994,6 +994,7 @@ class Rule(object):
     See Also:
         \ref ccgrule
     """
+    _counter = 0
     def __init__(self, ruleName, ruleClass=None):
         """Rule constructor.
 
@@ -1006,15 +1007,18 @@ class Rule(object):
                 - 'S': substitution
                 - 'PASS': unary pass through
         """
-        self._ruleName = ruleName
-        self._ruleClass = ruleClass if not None else ruleName
+        super(Rule, self).__init__(ruleName, Rule._counter)
+        self._name = ruleName
+        self._rclass = ruleClass if not None else ruleName
+        self._idx = Rule._counter
+        Rule._counter += 1
 
     ## @cond
     def __repr__(self):
-        return self._ruleName
+        return self._name
 
     def __str__(self):
-        return self._ruleName
+        return self._name
 
     def __eq__(self, other):
         return isinstance(other, Rule) and str(self) == str(other)
@@ -1038,13 +1042,21 @@ class Rule(object):
         return hash(str(self))
     ## @endcond
 
+    @classmethod
+    def rule_count(cls):
+        return cls._counter
+
+    @property
+    def i(self):
+        return self._idx
+
     @property
     def ruleclass(self):
-        return self._ruleClass
+        return self._rclass
 
     @property
     def rulename(self):
-        return self._ruleName
+        return self._name
 
     def apply_rule_to_category(self, left, right):
         """Apply the rule to left and right categories and return a new result category
