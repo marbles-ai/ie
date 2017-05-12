@@ -17,8 +17,8 @@ def union(a, *args):
     y = []
     y.extend(a)
     for b in args:
-        y.extend(filter(lambda x: x not in a, b))
-    return y
+        y.extend(b)
+    return remove_dups(y)
 
 
 def union_inplace(a, *args):
