@@ -164,13 +164,39 @@ class VectorMap(object):
 
 
 class Dispatchable(object):
-
+    """Dispatch key. This is the key used by the @dispatchmethod decorator."""
     def __init__(self, idx):
         self._idx = idx
 
     @property
     def i(self):
         return self._idx
+
+
+class dispatchmethod(object):
+    """Decorator class for rule dispatcher."""
+
+    def __init__(self, dispatch_table, *args):
+        self.keys = [k for k in args]
+        self.dispatch_table = dispatch_table
+
+    def __call__(self, f):
+        # Add keys to the dispatch table
+        for k in self.keys:
+            self.dispatch_table.insert_new(k, f)
+        # Our work is done, no need to wrap function
+        return f
+
+
+class default_dispatchmethod(object):
+    """Decorator class for rule dispatcher."""
+
+    def __init__(self, dispatch_table):
+        self.dispatch_table = dispatch_table
+
+    def __call__(self, f):
+        self.dispatch_table.set_default_lookup(f)
+        return f
 
 
 
