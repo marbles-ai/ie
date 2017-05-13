@@ -20,7 +20,7 @@ from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
 from marbles.ie.drt.drs import get_new_drsrefs
-from marbles.ie.utils.vmap import VectorMap
+from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from marbles.ie.kb.verbnet import VerbnetDB
 # Useful tags
 from pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
@@ -935,30 +935,6 @@ def parse_ccg_derivation2(ccgbank):
     return root[0]
 
 
-class dispatchmethod(object):
-    """Decorator class for rule dispatcher."""
-
-    def __init__(self, dispatch_table, *args):
-        self.keys = [k for k in args]
-        self.dispatch_table = dispatch_table
-
-    def __call__(self, f):
-        for k in self.keys:
-            self.dispatch_table.insert_new(k, f)
-        return f
-
-
-class default_dispatchmethod(object):
-    """Decorator class for rule dispatcher."""
-
-    def __init__(self, dispatch_table):
-        self.dispatch_table = dispatch_table
-
-    def __call__(self, f):
-        self.dispatch_table.set_default_lookup(f)
-        return f
-
-
 class Ccg2Drs(object):
     """CCG to DRS Converter"""
     dispatchmap = VectorMap(Rule.rule_count())
@@ -973,80 +949,6 @@ class Ccg2Drs(object):
         self.exeque = []
         self.lexque = []
         self.depth = -1
-
-    def final_rename(self, d):
-        """Rename to ensure:
-            - indexes progress is 1,2,...
-            - events are tagged e, others x
-
-        Args:
-            d: A DrsProduction instance.
-
-        Returns:
-            A renamed DrsProduction instance.
-        """
-        # Move names to 1:...
-        v = set(filter(lambda x: not x.isconst, d.variables))
-        ors = filter(lambda x: x.var.idx < len(v), v)
-        if len(ors) != 0:
-            mx = 1 + max([x.var.idx for x in v])
-            idx = [i+mx for i in range(len(ors))]
-            rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
-            d.rename_vars(rs)
-            v = set(filter(lambda x: not x.isconst, d.variables))
-            ors = filter(lambda x: x.var.idx < len(v), v)
-        idx = [i+1 for i in range(len(v))]
-        rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
-        d.rename_vars(rs)
-        # Ensure events are e? refs
-        while True:
-            v = set(filter(lambda x: not x.isconst, d.variables))
-            for x in v:
-                if x.var.name == 'x':
-                    fc = d.drs.find_condition(Rel('.EVENT', [x]))
-                    if fc is not None:
-                        d.rename_vars([(x, DRSRef(DRSVar('e', x.var.idx)))])
-            break
-        return d
-
-    def rename_vars(self, d):
-        """Rename to ensure variable names are disjoint.
-
-        Args:
-            d: A DrsProduction instance.
-
-        Returns:
-            A renamed DrsProduction instance.
-        """
-        v = set(filter(lambda x: not x.isconst, d.variables))
-        xlimit = 0
-        elimit = 0
-        for i in range(10):
-            if DRSRef(DRSVar('x', 1+i)) in v:
-                xlimit = 1 + i
-                if DRSRef(DRSVar('e', 1+i)) in v:
-                    elimit = 1 + i
-            elif DRSRef(DRSVar('e', 1+i)) in v:
-                elimit = 1 + i
-            else:
-                break
-        rs = []
-        if self.xid == 0:
-            self.xid = xlimit
-        else:
-            for i in range(xlimit):
-                rs.append((DRSRef(DRSVar('x', 1+i)), DRSRef(DRSVar('x', 1+i+self.xid))))
-            self.xid += xlimit
-        if self.eid == 0:
-            self.eid = elimit
-        else:
-            for i in range(elimit):
-                rs.append((DRSRef(DRSVar('e', 1+i)), DRSRef(DRSVar('e', 1+i+self.eid))))
-            self.eid += elimit
-        if len(rs) != 0:
-            rs.reverse()
-            d.rename_vars(rs)
-        return d
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
@@ -1241,9 +1143,89 @@ class Ccg2Drs(object):
         # All rules must have a handler
         assert False
 
+    def final_rename(self, d):
+        """Rename to ensure:
+            - indexes progress is 1,2,...
+            - events are tagged e, others x
+
+        Args:
+            d: A DrsProduction instance.
+
+        Returns:
+            A renamed DrsProduction instance.
+        """
+        # Move names to 1:...
+        v = set(filter(lambda x: not x.isconst, d.variables))
+        ors = filter(lambda x: x.var.idx < len(v), v)
+        if len(ors) != 0:
+            mx = 1 + max([x.var.idx for x in v])
+            idx = [i+mx for i in range(len(ors))]
+            rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
+            d.rename_vars(rs)
+            v = set(filter(lambda x: not x.isconst, d.variables))
+            ors = filter(lambda x: x.var.idx < len(v), v)
+        idx = [i+1 for i in range(len(v))]
+        rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
+        d.rename_vars(rs)
+        # Ensure events are e? refs
+        while True:
+            v = set(filter(lambda x: not x.isconst, d.variables))
+            for x in v:
+                if x.var.name == 'x':
+                    fc = d.drs.find_condition(Rel('.EVENT', [x]))
+                    if fc is not None:
+                        d.rename_vars([(x, DRSRef(DRSVar('e', x.var.idx)))])
+            break
+        return d
+
+    def rename_vars(self, d):
+        """Rename to ensure variable names are disjoint.
+
+        Args:
+            d: A DrsProduction instance.
+
+        Returns:
+            A renamed DrsProduction instance.
+        """
+        v = set(filter(lambda x: not x.isconst, d.variables))
+        xlimit = 0
+        elimit = 0
+        for i in range(10):
+            if DRSRef(DRSVar('x', 1+i)) in v:
+                xlimit = 1 + i
+                if DRSRef(DRSVar('e', 1+i)) in v:
+                    elimit = 1 + i
+            elif DRSRef(DRSVar('e', 1+i)) in v:
+                elimit = 1 + i
+            else:
+                break
+        rs = []
+        if self.xid == 0:
+            self.xid = xlimit
+        else:
+            for i in range(xlimit):
+                rs.append((DRSRef(DRSVar('x', 1+i)), DRSRef(DRSVar('x', 1+i+self.xid))))
+            self.xid += xlimit
+        if self.eid == 0:
+            self.eid = elimit
+        else:
+            for i in range(elimit):
+                rs.append((DRSRef(DRSVar('e', 1+i)), DRSRef(DRSVar('e', 1+i+self.eid))))
+            self.eid += elimit
+        if len(rs) != 0:
+            rs.reverse()
+            d.rename_vars(rs)
+        return d
+
     def dispatch(self, op, stk):
+        """Dispatch a rule.
+
+        Args:
+            op: The ExecOp. The dispatch is based on op.rule.
+            stk. The execution stack.
+        """
         method = self.dispatchmap.lookup(op.rule)
-        return method(self, op, stk)
+        method(self, op, stk)
 
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
@@ -1271,6 +1253,7 @@ class Ccg2Drs(object):
             if isinstance(op, PushOp):
                 stk.append(op.lexeme.prod)
             else:
+                # ExecOp dispatch based on rule
                 self.dispatch(op, stk)
 
             # TODO: remove debug code
