@@ -520,7 +520,6 @@ class Model(object):
 
     def issupported(self, category):
         """Test a FunctorTemplate is in TEMPLATES with key=category."""
-        category = category.remove_conj_features()
         if category in self._TEMPLATES:
             return True
         # Perform wildcard replacements
