@@ -1233,7 +1233,7 @@ class ComposeTest(unittest.TestCase):
             if os.path.isfile(ldcpath1):
                 allfiles.append(ldcpath1)
 
-        failed_parse = 0
+        failed_parse = []
         failed_ccg2drs = []
         start = 50
         for fn in allfiles[0:]:
@@ -1244,11 +1244,12 @@ class ComposeTest(unittest.TestCase):
             for i in range(start, len(lines), 200):
                 start = 50
                 ccgbank = lines[i]
-                print('%s-%04d' % (name, i))
+                hdr = '%s-%04d' % (name, i)
+                print(hdr)
                 try:
                     pt = parse_ccg_derivation(ccgbank)
                 except Exception:
-                    failed_parse += 1
+                    failed_parse.append(hdr)
                     continue
                 self.assertIsNotNone(pt)
                 print(sentence_from_pt(pt))
@@ -1263,18 +1264,20 @@ class ComposeTest(unittest.TestCase):
                     print(s)
                 except Exception as e:
                     print(e)
-                    failed_ccg2drs.append((name, i, ccgbank))
+                    failed_ccg2drs.append(hdr)
                     continue
 
         if failed_parse != 0:
-            print('%d derivations failed to parse' % failed_parse)
+            print('%d derivations failed to parse' % len(failed_parse))
+            for x in failed_parse:
+                print('  ' + x)
         if len(failed_ccg2drs) != 0:
             print('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
             for x in failed_ccg2drs:
-                print('%s-%04d failed: {%s}' % x)
+                print('  ' + x)
 
         self.assertEqual(len(failed_ccg2drs), 0)
-        self.assertEqual(failed_parse, 0)
+        self.assertEqual(len(failed_parse), 0)
 
     def testA2_ParseLdc2005T13(self):
         # Mar-2017 PWG
@@ -1300,17 +1303,21 @@ class ComposeTest(unittest.TestCase):
                     if os.path.isfile(ldcpath2):
                         allfiles.append(ldcpath2)
 
-        failed_parse = 0
-        failed_ccg2drs = 0
+        failed_parse = []
+        failed_ccg2drs = []
         for fn in allfiles[0::100]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr,ccgbank in zip(lines[0::20], lines[1::20]):
-                print(hdr.strip())
+                if hdr.split(' ')[0] in ['ID=wsj_1099.21']:
+                    # These rules have an error in the ccgbank
+                    continue
+                hdr = hdr.strip()
+                print(hdr)
                 try:
                     pt = parse_ccg_derivation(ccgbank)
                 except Exception:
-                    failed_parse += 1
+                    failed_parse.append(hdr)
                     continue
                 self.assertIsNotNone(pt)
                 print(sentence_from_pt(pt))
@@ -1326,13 +1333,20 @@ class ComposeTest(unittest.TestCase):
                 except Exception as e:
                     raise
                     print(e)
-                    failed_ccg2drs += 1
+                    failed_ccg2drs.append(hdr)
                     continue
 
-        print('%d derivations failed to parse' % failed_parse)
-        print('%d derivations failed to convert to DRS' % failed_ccg2drs)
+        if len(failed_parse) != 0:
+            print('%d derivations failed to parse' % len(failed_parse))
+            for e in failed_parse:
+                print('  ' + e)
 
-        self.assertEqual(failed_parse, 0)
-        self.assertEqual(failed_ccg2drs, 0)
+        if len(failed_ccg2drs) != 0:
+            print('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
+            for e in failed_parse:
+                print('  ' + e)
+
+        self.assertEqual(len(failed_ccg2drs), 0)
+        self.assertEqual(len(failed_parse), 0)
 
 
