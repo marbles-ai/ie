@@ -209,8 +209,20 @@ class FunctorTemplate(object):
         Returns:
             A FunctorProduction.
         """
-        fn = DrsProduction(drs=DRS([], []), category=self.final_atom.remove_wildcards())
-        fn.set_lambda_refs([self.final_ref])
+        d = DrsProduction(DRS([], []))
+        d.set_category(self.final_atom.remove_wildcards())
+        d.set_lambda_refs([self.final_ref])
+        return self.create_functor(d)
+
+    def create_functor(self, fn=None):
+        """Create a FunctorProduction with the given inner DrsProduction.
+
+        Args:
+            fn: The inner DrsProduction.
+
+        Returns:
+            A FunctorProduction.
+        """
         category = self.clean_category.remove_wildcards()
         for c in self._constructor_rule:
             assert not category.isempty
