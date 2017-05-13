@@ -936,6 +936,7 @@ def parse_ccg_derivation2(ccgbank):
 
 
 class dispatchmethod(object):
+    """Decorator class for rule dispatcher."""
 
     def __init__(self, dispatch_table, *args):
         self.keys = [k for k in args]
@@ -948,6 +949,7 @@ class dispatchmethod(object):
 
 
 class default_dispatchmethod(object):
+    """Decorator class for rule dispatcher."""
 
     def __init__(self, dispatch_table):
         self.dispatch_table = dispatch_table
@@ -1054,71 +1056,73 @@ class Ccg2Drs(object):
             if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
                 unary = MODEL.infer_unary(op.category)
             assert unary is not None
-            nlst = ProductionList()
-            nlst.set_options(self.options)
-            nlst.push_right(stk.pop())      # arg 1
-            nlst.push_right(stk.pop())      # arg 0
             fn = self.rename_vars(unary.get())
             fn.set_options(self.options)
-            nlst.push_right(fn)
+            d2 = stk.pop()
+            d1 = stk.pop()
+            stk.append(d1)
+            self._dispatch_ba(op, stk)
+
+            nlst = ProductionList()
+            nlst.set_options(self.options)
             nlst.set_category(op.category)
-            stk.append(nlst.apply(RL_BA))
+            nlst.push_right(stk.pop())
+            nlst.push_right(d2)
+            stk.append(nlst.flatten().unify())
         else:
             unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
             if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
                 unary = MODEL.infer_unary(op.category)
             assert unary is not None
-            nlst = ProductionList()
-            nlst.set_options(self.options)
-            # reverse order
-            nlst.push_right(stk.pop())
             fn = self.rename_vars(unary.get())
             fn.set_options(self.options)
-            nlst.push_right(fn)
-            nlst.set_category(op.category)
-            stk.append(nlst.apply(RL_BA))
+            stk.append(fn)
+            self._dispatch_ba(op, stk)
 
     @dispatchmethod(dispatchmap, RL_TCR_UNARY)
     def _dispatch_runary(self, op, stk):
         assert len(op.sub_ops) == 2
+        assert len(stk) >= 2
         unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
-        if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
+        if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
             unary = MODEL.infer_unary(op.category)
         assert unary is not None
-        nlst = ProductionList()
-        nlst.set_options(self.options)
-        nlst.push_left(stk.pop())  # arg 1
-        nlst.push_left(stk.pop())  # arg 0
         fn = self.rename_vars(unary.get())
         fn.set_options(self.options)
-        nlst.push_right(fn)
+        stk.append(fn)
+        self._dispatch_ba(op, stk)
+
+        nlst = ProductionList()
+        nlst.set_options(self.options)
         nlst.set_category(op.category)
-        stk.append(nlst.apply(RL_BA))
+        nlst.push_right(stk.pop())
+        nlst.push_right(stk.pop())
+        stk.append(nlst.flatten().unify())
 
     @dispatchmethod(dispatchmap, RL_TC_CONJ)
     def _dispatch_tcconj(self, op, stk):
+        # Special type change rules. See section 3.7-3.8 of LDC 2005T13 manual.
+        # These rules are required to process the CCG conversion of the Penn Treebank.
+        # They are not required for EasySRL or EasyCCG.
         if len(op.sub_ops) == 2:
             fn = self.rename_vars(safe_create_empty_functor(op.category))
+            if op.sub_ops[0].category == CAT_CONJ:
+                vp_or_np = stk.pop()
+                d = stk.pop()
+            else:
+                d = stk.pop()
+                vp_or_np = stk.pop()
+
             nlst = ProductionList()
+            nlst.push_right(fn.type_change_np_snp(vp_or_np))
+            nlst.push_right(d)
             nlst.set_options(self.options)
             nlst.set_category(op.category)
-            if op.sub_ops[0].category == CAT_CONJ:
-                nlst.push_left(stk.pop())  # arg1
-                nlst.push_left(stk.pop())  # arg0
-            else:
-                nlst.push_right(stk.pop())  # arg1
-                nlst.push_right(stk.pop())  # arg0
-
-            nlst.push_right(fn)
-            stk.append(nlst.apply(op.rule))
+            stk.append(nlst.flatten().unify())
         else:
             fn = self.rename_vars(safe_create_empty_functor(op.category))
-            nlst = ProductionList()
-            nlst.set_options(self.options)
-            nlst.set_category(op.category)
-            nlst.push_right(stk.pop())
-            nlst.push_right(fn)
-            stk.append(nlst.apply(op.rule))
+            vp_or_np = stk.pop()
+            stk.append(fn.type_change_np_snp(vp_or_np))
 
     @dispatchmethod(dispatchmap, RL_TC_ATOM)
     def _dispatch_tcatom(self, op, stk):
@@ -1222,30 +1226,20 @@ class Ccg2Drs(object):
             stk.append(d)
             d.set_category(f.category)
 
-    '''
     @dispatchmethod(dispatchmap, RL_RPASS, RL_LPASS, RL_RNUM)
     def _dispatch_pass(self, op, stk):
         d = ProductionList()
+        d.set_options(self.options)
+        d.set_category(op.category)
         for i in range(len(op.sub_ops)):
             d.push_left(stk.pop())
-        stk.append(d.flatten().unify())
-    '''
+        d = d.flatten().unify()
+        stk.append(d)
 
     @default_dispatchmethod(dispatchmap)
     def _dispatch_default(self, op, stk):
-        if len(op.sub_ops) == 2:
-            nlst = ProductionList()
-            nlst.set_options(self.options)
-            nlst.set_category(op.category)
-            nlst.push_left(stk.pop())   # arg1
-            nlst.push_left(stk.pop())   # arg0
-            stk.append(nlst.apply(op.rule))
-        else:
-            nlst = ProductionList()
-            nlst.set_options(self.options)
-            nlst.set_category(op.category)
-            nlst.push_right(stk.pop())
-            stk.append(nlst.apply(op.rule))
+        # All rules must have a handler
+        assert False
 
     def dispatch(self, op, stk):
         method = self.dispatchmap.lookup(op.rule)

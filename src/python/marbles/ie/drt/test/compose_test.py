@@ -20,6 +20,21 @@ def dexpr(s):
 class ComposeTest(unittest.TestCase):
     
     def test1_Compose(self):
+        # λP.[x|me(x),own(x,y)];P(y)
+        fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
+        self.assertEquals('λPλy.([x| me(x),own(x,y)];P(y))', repr(fn))
+        d = DrsProduction(drs=dexpr('([x],[corner(x)])'), category=Category('N'))
+        d = fn.apply(d)
+
+        fn = PropProduction(Category(r'PP\NP'), DRSRef('p'))
+        self.assertEquals('λPλp.([p| p: P(*)])', repr(fn))
+        d = fn.apply(d)
+
+        fn = FunctorProduction(Category(r'S\NP'), DRSRef('x'), FunctorProduction(Category(r'(S\NP)/NP'), DRSRef('y'),
+                                                                                 dexpr('([],[wheeze(x,y)])')))
+        self.assertEquals('λQλPλxλy.(P(x);[| wheeze(x,y)];Q(y))', repr(fn))
+        fn = fn.apply(d)
+
         cl1 = ProductionList()
         # [|exist(x)];[x|school(x)],bus(x)]
         cl1.push_right(DrsProduction(drs=dexpr('([],[exists(x)])'), category=Category('NP')))
@@ -28,31 +43,10 @@ class ComposeTest(unittest.TestCase):
         self.assertEquals(0, len(cl1.freerefs))
         self.assertTrue(compare_lists_eq([DRSRef('x')], cl1.universe))
         cl1.set_category(Category('NP'))
+        d = cl1.unify()
 
-        cl = ProductionList()
-        fn = FunctorProduction(Category(r'S\NP'), DRSRef('x'), FunctorProduction(Category(r'(S\NP)/NP'), DRSRef('y'),
-                                                                                 dexpr('([],[wheeze(x,y)])')))
-        self.assertEquals('λQλPλxλy.(P(x);[| wheeze(x,y)];Q(y))', repr(fn))
-        cl.push_right(fn)
+        d = fn.apply(d)
 
-        # λP.[x|me(x),own(x,y)];P(y)
-        cl2 = ProductionList()
-        fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
-        self.assertEquals('λPλy.([x| me(x),own(x,y)];P(y))', repr(fn))
-        cl2.push_right(fn)
-        cl2.push_right(DrsProduction(drs=dexpr('([x],[corner(x)])'), category=Category('N')))
-        cl.push_right(cl2.apply_forward().unify())
-
-        fn = PropProduction(Category(r'PP\NP'), DRSRef('p'))
-        self.assertEquals('λPλp.([p| p: P(*)])', repr(fn))
-        cl.push_right(fn)
-
-        cl.apply_backward()
-        cl.apply_forward()
-        cl.push_left(cl1.unify())
-        cl.apply_backward()
-
-        d = cl.unify()
         d = d.drs.simplify_props()
         s = d.show(SHOW_SET)
         x = u'<{x2,y1},{exists(x2),school(x2),bus(x2),wheeze(x2,y1),y1: <{x1,y},{me(x1),own(x1,y),corner(y)}>}>'
