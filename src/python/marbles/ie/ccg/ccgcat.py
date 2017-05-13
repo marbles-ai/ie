@@ -3,6 +3,7 @@
 import re
 import os
 from marbles.ie.utils.cache import Cache, Freezable
+from marbles.ie.utils.vmap import Dispatchable
 from datapath import DATA_PATH
 
 ISCONJMASK = 0x00000001
@@ -988,7 +989,7 @@ CAT_PPNP = Category.from_cache('PP/NP')
 ## @endcond
 
 
-class Rule(object):
+class Rule(Dispatchable):
     """A CCG production rule.
 
     See Also:
@@ -1007,10 +1008,9 @@ class Rule(object):
                 - 'S': substitution
                 - 'PASS': unary pass through
         """
-        super(Rule, self).__init__(ruleName, Rule._counter)
+        super(Rule, self).__init__(Rule._counter)
         self._name = ruleName
         self._rclass = ruleClass if not None else ruleName
-        self._idx = Rule._counter
         Rule._counter += 1
 
     ## @cond

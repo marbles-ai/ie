@@ -1,3 +1,5 @@
+
+
 class VectorMap(object):
     '''Helper for dispatchers. Should be faster than a dictionary, especially
     for large documents, since clear, insert and lookup are done in O(1) time.
@@ -159,3 +161,17 @@ class VectorMap(object):
         # Iterable override
         for i in range(self._tokLimit):
             yield self._map[i]
+
+
+class Dispatchable(object):
+
+    def __init__(self, idx):
+        self._idx = idx
+
+    @property
+    def i(self):
+        return self._idx
+
+
+
+
