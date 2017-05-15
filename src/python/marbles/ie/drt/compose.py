@@ -29,6 +29,8 @@ CO_BUILD_STATES = 0x0010
 CO_ADD_STATE_PREDICATES = 0x0020
 ## Disable Verbnet
 CO_NO_VERBNET = 0x0040
+## Fast Renaming
+CO_FAST_RENAME = 0x0080
 
 ## @}
 
@@ -36,6 +38,12 @@ CO_NO_VERBNET = 0x0040
 class DrsComposeError(Exception):
     """AbstractProduction Error."""
     pass
+
+
+def unify_vars(f, g, rs):
+    pass
+
+
 
 
 def identity_functor(category, ref=None):
@@ -74,6 +82,9 @@ class AbstractProduction(object):
 
     def __eq__(self, other):
         return id(self) == id(other)
+
+    def get_raw_variables(self):
+        raise NotImplementedError
 
     @property
     def category(self):
@@ -163,6 +174,9 @@ class AbstractProduction(object):
     def make_new_drsrefs(ors, ers):
         return get_new_drsrefs(ors, ers)
 
+    def clone(self):
+        raise NotImplementedError
+
     def size(self):
         """If a list then get the number of elements in the production list else return 1."""
         return 1
@@ -207,16 +221,55 @@ class AbstractProduction(object):
         Args:
             rs: A list of tuples, (old_name, new_name).
         """
+        assert 0 == (self.compose_options & CO_FAST_RENAME)
         if self._lambda_refs is not None:
             self._lambda_refs = self._lambda_refs.alpha_convert(rs)
 
-    def rename_vars(self, rs):
+    def rename_vars(self, rs, other=None):
         """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
+            other: Optional production containing new variables.
         """
         raise NotImplementedError
+
+    def fast_rename_vars(self, rs, other=None):
+        """Fast version of rename_vars().
+
+        Args:
+            rs: A list of tuples, (old_name, new_name).
+            other: Optional production containing new variables.
+        """
+        assert 0 != (self.compose_options & CO_FAST_RENAME)
+        vs = self.get_raw_variables()
+        vm = {}
+        for x in rs:
+            vm.setdefault(x[0].var.to_string(), x[1])
+        xrs = None
+        if len(vm) != len(rs):
+            # duplicate old names
+            xrs = map(lambda y: (y[1], vm[x[0].var.to_string()]), filter(lambda x: vm[x[0].var.to_string()] != x[1], rs))
+            if len(xrs) != 0:
+                if other is not None:
+                    assert 0 == len(set(vs).intersection(map(lambda x: x[0], xrs)))
+                    ovs = other.get_raw_variables()
+                    if 0 == len(set(ovs).intersection(map(lambda x: x[0], xrs))):
+                        pass
+                    assert 0 != len(set(ovs).intersection(map(lambda x: x[0], xrs)))
+            else:
+                xrs = None
+        for v in vs:
+            try:
+                n = vm[v.var.to_string()]
+                v.var = n.var
+            except Exception:
+                pass
+        if xrs:
+            if other is not None:
+                other.fast_rename_vars(xrs, None)
+            else:
+                self.fast_rename_vars(xrs, None)
 
     def unify(self):
         """Perform a DRS unification.
@@ -240,10 +293,8 @@ class AbstractProduction(object):
         ers2 = self.variables
         ors = intersect(ers, ers2)
         if len(ors) != 0:
-            # Get new variables from document manager
             nrs = self.make_new_drsrefs(ors, union(ers, ers2))
             xrs = zip(ors, nrs)
-            # Delegate rename to the document manager
             self.rename_vars(xrs)
 
 
@@ -265,6 +316,16 @@ class DrsProduction(AbstractProduction):
         if len(lr) == 0:
             return self.drs.show(SHOW_LINEAR).encode('utf-8')
         return 'λ' + 'λ'.join(lr) + '.' + self.drs.show(SHOW_LINEAR).encode('utf-8')
+
+    def get_raw_variables(self):
+        """Get the variables. Both free and bound referents are returned.
+
+        Remarks:
+            Duplicates are not removed. This is required for fast_rename_vars().
+        """
+        u = self._drs.get_variables()
+        u.extend(self.lambda_refs)
+        return u
 
     @property
     def universe(self):
@@ -310,23 +371,33 @@ class DrsProduction(AbstractProduction):
         """
         return self._drs.ispure
 
+    def clone(self):
+        d = DrsProduction(DRS(self._drs.universe, self._drs.conditions), category=self.category)
+        d.set_lambda_refs(self.lambda_refs)
+        return d
+
     def verify(self):
         """Test helper."""
         if len(self.lambda_refs) != 1 or not self.category.isatom:
             pass
         return len(self.lambda_refs) == 1 and self.category.isatom
 
-    def rename_vars(self, rs):
+    def rename_vars(self, rs, other=None):
         """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
+            other: Optional production containing new variables.
         """
         if len(rs) == 0:
             return
-        self._drs = self._drs.alpha_convert(rs)
-        self._drs = self._drs.substitute(rs)
-        self.rename_lambda_refs(rs)
+        if 0 == (self.compose_options & CO_FAST_RENAME):
+            self._drs = self._drs.alpha_convert(rs)
+            self._drs = self._drs.substitute(rs)
+            self.rename_lambda_refs(rs)
+        else:
+            self.fast_rename_vars(rs, other)
+
 
 class ProductionList(AbstractProduction):
     """A list of productions."""
@@ -352,6 +423,12 @@ class ProductionList(AbstractProduction):
         if len(lr) == 0:
             return '<' + '##'.join([repr(x) for x in self._compList]) + '>'
         return 'λ' + 'λ'.join(lr) + '.<' + '##'.join([repr(x) for x in self._compList]) + '>'
+
+    def get_raw_variables(self):
+        u = self.lambda_refs
+        for d in self._compList:
+            u.extend(d.get_raw_variables)
+        return u
 
     @property
     def universe(self):
@@ -426,17 +503,21 @@ class ProductionList(AbstractProduction):
         self._compList = compList
         return self
 
-    def rename_vars(self, rs):
+    def rename_vars(self, rs, other=None):
         """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
+            other: Optional production containing new variables.
         """
         if len(rs) == 0:
             return
-        self.rename_lambda_refs(rs)
-        for d in self._compList:
-            d.rename_vars(rs)
+        if 0 == (self.compose_options & CO_FAST_RENAME):
+            self.rename_lambda_refs(rs)
+            for d in self._compList:
+                d.rename_vars(rs)
+        else:
+            self.fast_rename_vars(rs, other)
 
     def push_right(self, other, merge=False):
         """Push an argument to the right of the list.
@@ -506,11 +587,10 @@ class ProductionList(AbstractProduction):
             if len(rn) != 0:
                 # FIXME: should this be allowed?
                 # Alpha convert bound vars in both self and arg
-                xrs = zip(rn, d.docvw.make_new_drsrefs(rn, universe))
+                xrs = zip(rn, d.make_new_drsrefs(rn, universe))
                 # Rename so variable subscripts increase left to right
                 for m in ml[i+1:]:
-                    # Delegate renaming to document manager
-                    m.docvw.rename_vars(xrs, m)
+                    m.rename_vars(xrs, m)
             universe = union(universe, d.universe)
 
         # Merge conditions and referents
@@ -602,7 +682,7 @@ class FunctorProduction(AbstractProduction):
             if self._comp.isfunctor:
                 u = self._comp._get_variables(u)
             else:
-                u = u.union(self._comp.variables)
+                u.extend(self._comp.get_raw_variables())
         return u
 
     def _get_freerefs(self, u):
@@ -639,6 +719,9 @@ class FunctorProduction(AbstractProduction):
             g = g.outer
             i += 1
         return i
+
+    def get_raw_variables(self):
+        return self._get_variables(self.lambda_refs)
 
     @property
     def outer_scope(self):
@@ -708,8 +791,8 @@ class FunctorProduction(AbstractProduction):
     @property
     def variables(self):
         """Get the variables."""
-        u = self._get_variables(set(self.lambda_refs))
-        return sorted(u)
+        u = self._get_variables(self.lambda_refs)
+        return sorted(set(u))
 
     @property
     def freerefs(self):
@@ -764,6 +847,15 @@ class FunctorProduction(AbstractProduction):
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
+
+    def clone(self):
+        f = self.inner_scope
+        d = f._comp.clone() if f._comp is not None else None
+        g = type(f)(category=f._category, referent=f._lambda_refs.universe, production=d)
+        while f.outer is not None:
+            f = f.outer
+            g = type(f)(category=f._category, referent=f._lambda_refs.universe, production=g)
+        return g
 
     def unify_atoms(self, a, b):
         """Unify two atoms: a and b.
@@ -898,17 +990,21 @@ class FunctorProduction(AbstractProduction):
         if self._comp is not None:
             self._comp.set_options(options)
 
-    def rename_vars(self, rs):
+    def rename_vars(self, rs, other=None):
         """Perform alpha conversion on the production data.
 
         Args:
             rs: A list of tuples, (old_name, new_name).
+            other: Optional production containing new variables.
         """
         if len(rs) == 0:
             return
-        self.rename_lambda_refs(rs)
-        if self._comp is not None:
-            self._comp.rename_vars(rs)
+        if 0 == (self.compose_options & CO_FAST_RENAME):
+            self.rename_lambda_refs(rs)
+            if self._comp is not None:
+                self._comp.rename_vars(rs)
+        else:
+            self.fast_rename_vars(rs, other)
 
     def unify(self):
         """Finalize the production by performing a unify right to left.
@@ -988,7 +1084,6 @@ class FunctorProduction(AbstractProduction):
         if len(ors) != 0:
             nrs = self.make_new_drsrefs(ors, union(ers, ers2))
             xrs = zip(ors, nrs)
-            # Delegate rename to document manager
             self.rename_vars(xrs)
 
     def type_change_np_snp(self, np):
@@ -1051,7 +1146,7 @@ class FunctorProduction(AbstractProduction):
             np = p.apply(np)
         else:
             rs = zip(slr, lr)
-            self.rename_vars(rs)
+            self.rename_vars(rs, np)
 
         fc = self.pop()
         np.set_lambda_refs(fc.lambda_refs)
@@ -1443,7 +1538,7 @@ class FunctorProduction(AbstractProduction):
             rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                     zip(fs, gs, glr, flr)))
             # Unify
-            g.rename_vars(rs)
+            g.rename_vars(rs, self)
 
         ors = intersect(g.universe, self.universe)
         if len(ors) != 0:
@@ -1452,7 +1547,7 @@ class FunctorProduction(AbstractProduction):
             #    raise DrsComposeError('unification not possible')
             ers = union(g.variables, self.outer_scope.variables)
             nrs = g.make_new_drsrefs(ors, ers)
-            g.rename_vars(zip(ors, nrs))
+            g.rename_vars(zip(ors, nrs), self)
 
         if g.isfunctor:
             assert g.inner_scope._comp is not None

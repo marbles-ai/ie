@@ -365,7 +365,8 @@ class Lexeme(object):
         self.head = idx
         self.dep = -1
         self.idx = idx
-        self.prod = None
+        self.variables = None
+        self.conditions = None
         self.mask = 0
         self.refs = []
 
@@ -1154,16 +1155,25 @@ class Ccg2Drs(object):
         Returns:
             A renamed DrsProduction instance.
         """
-        # Move names to 1:...
-        v = set(filter(lambda x: not x.isconst, d.variables))
-        ors = filter(lambda x: x.var.idx < len(v), v)
+        vx = set(filter(lambda x: not x.isconst, d.variables))
+        ors = filter(lambda x: x.var.idx < len(vx), vx)
         if len(ors) != 0:
-            mx = 1 + max([x.var.idx for x in v])
+            # Move names to > len(vx)
+            mx = 1 + max([x.var.idx for x in vx])
             idx = [i+mx for i in range(len(ors))]
             rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
             d.rename_vars(rs)
-            v = set(filter(lambda x: not x.isconst, d.variables))
-            ors = filter(lambda x: x.var.idx < len(v), v)
+            vx = set(filter(lambda x: not x.isconst, d.variables))
+
+        # Attempt to order by first occurence
+        v = map(lambda y: y.referents[0], filter(lambda x: isinstance(x, Rel) and len(x.referents) == 1
+                                                           and not x.referents[0].isconst, d.drs.conditions))
+        v = remove_dups(v)
+        if len(vx) != len(v):
+            f = set(vx).difference(v)
+            v.extend(f)
+
+        # Move names to 1:...
         idx = [i+1 for i in range(len(v))]
         rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
         d.rename_vars(rs)
@@ -1176,6 +1186,8 @@ class Ccg2Drs(object):
                     if fc is not None:
                         d.rename_vars([(x, DRSRef(DRSVar('e', x.var.idx)))])
             break
+        self.xid = self.limit
+        self.eid = self.limit
         return d
 
     def rename_vars(self, d):
@@ -1230,21 +1242,23 @@ class Ccg2Drs(object):
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
         # First create all productions up front
-        for lexeme in self.lexque:
+        prods = [None] * len(self.lexque)
+        for i in range(len(self.lexque)):
+            lexeme = self.lexque[i]
             if lexeme.category.ispunct:
-                lexeme.prod = DrsProduction(DRS([], []), category=lexeme.category)
-                lexeme.prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
+                prod = DrsProduction(DRS([], []), category=lexeme.category)
+                prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
-                lexeme.prod.set_options(self.options)
+                prod.set_options(self.options)
             elif lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-                lexeme.prod = DrsProduction(DRS([], []), category=CAT_EMPTY)
-                lexeme.prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
+                prod = DrsProduction(DRS([], []), category=CAT_EMPTY)
+                prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
-                lexeme.prod.set_options(self.options)
             else:
-                lexeme.prod = self.rename_vars(lexeme.get_production())
-                lexeme.prod.set_options(self.options)
-
+                prod = self.rename_vars(lexeme.get_production())
+            prod.set_options(self.options)
+            lexeme.prod = prod
+            prods[i] = prod.clone()
         # TODO: Defer special handling of proper nouns
 
         # Process exec queue
@@ -1271,6 +1285,10 @@ class Ccg2Drs(object):
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
+
+        for i in range(len(self.lexque)):
+            self.lexque[i].prod = prods[i]
+
         assert len(stk) == 1
         d = stk[0]
         if d.isfunctor and d.isarg_left and d.category.argument_category().isatom:
