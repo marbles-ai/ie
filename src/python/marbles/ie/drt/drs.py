@@ -137,39 +137,39 @@ class AbstractDRS(Showable):
         """Returns the list of all free DRSRef's in this DRS.
 
         Remarks:
-            Same as get_freerefs(self)
+            Same as sorted(set(get_freerefs(self)))
         """
-        return self.get_freerefs(self)
+        return sorted(set(self.get_freerefs(self)))
 
     @property
     def variables(self):
         """Returns the list of all bound DRSRef's in this DRS.
 
         Remarks:
-            Same as sorted(get_variables(None))
+            Same as sorted(set(get_variables(None)))
         """
-        return sorted(self.get_variables(None))
+        return sorted(set(self.get_variables(None)))
 
     @property
     def constants(self):
         """Returns the list of all constant DRSRef's in this DRS.
 
         Remarks:
-            Same as sorted(get_constants(None))
+            Same as sorted(set(get_constants(None)))
         """
-        return sorted(self.get_constants(None))
+        return sorted(set(self.get_constants(None)))
 
     @property
     def universes(self):
         """Returns the list of DRSRef's from all universes in this DRS.
 
         Remarks:
-            Same as get_universes(None)
+            Same as sorted(set(get_universes(None)))
 
         See Also:
             AbstractDRS.universe property.
         """
-        return self.get_universes(None)
+        return sorted(set(self.get_universes(None)))
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isResolvedDRS</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isResolvedPDRS</a>.
@@ -319,8 +319,7 @@ class AbstractDRS(Showable):
         Returns:
             A list of DRSRef's unioned with `u`.
         """
-        if u is None: return set()
-        return u
+        return u if u is not None else []
 
     def get_constants(self, u=None):
         """Returns the list of all constant DRSRef's in this DRS. Constants were introduced by Muskens, 1996. A constant
@@ -332,8 +331,7 @@ class AbstractDRS(Showable):
         Returns:
             A list of constant DRSRef's unioned with `u`.
         """
-        if u is None: return set()
-        return u
+        return u if u is not None else []
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:drsUniverses</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:pdrsUniverses</a>.
@@ -347,8 +345,7 @@ class AbstractDRS(Showable):
         Returns:
             A list of DRSRef's unioned with `u`.
         """
-        if u is None: return []
-        return u
+        return u if u is not None else []
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsLambdas</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsLambdaVars</a>.
@@ -791,10 +788,10 @@ class DRS(AbstractDRS):
         """
         if gd is None:
             gd = self.global_drs
-        y = set()
+        u = []
         for c in self._conds:
-            y = y.union(c._get_freerefs(self, gd))
-        return sorted(y)
+            u.extend(c._get_freerefs(self, gd))
+        return u
 
     def resolve_merges(self):
         """Resolves all unresolved merges in this DRS."""
@@ -812,9 +809,9 @@ class DRS(AbstractDRS):
             A set of bound DRSRef's unioned with `u`.
         """
         if u is None:
-            u = set(self._refs) # shallow copy
+            u = filter(lambda x: not x.isconst, self.universe)
         else:
-            u = set(self._refs).union(u)
+            u.extend(filter(lambda x: not x.isconst, self.universe))
         for c in self._conds:
             u = c.get_variables(u)
         return u
@@ -829,9 +826,9 @@ class DRS(AbstractDRS):
             A set of constant DRSRef's unioned with `u`.
         """
         if u is None:
-            u = set(self._refs) # shallow copy
+            u = filter(lambda x: x.isconst, self.universe)
         else:
-            u = set(self._refs).union(u)
+            u.extend(filter(lambda x: x.isconst, self.universe))
         for c in self._conds:
             u = c.get_constants(u)
         return u
@@ -1039,7 +1036,8 @@ class Merge(AbstractDRS):
         if not self._drsA._ispure_helper(rs, gd): return False
         y = []
         y.extend(rs)
-        y = sorted(self._drsA.get_variables(set(y)))
+        # TODO: get_variables() no longer uses sets, do we need set()
+        y = sorted(set(self._drsA.get_variables(y)))
         return self._drsB._ispure_helper(y, gd)
 
     @property
@@ -1111,7 +1109,9 @@ class Merge(AbstractDRS):
         """
         if gd is None:
             gd = self.global_drs
-        return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
+        u = self._drsA.get_freerefs(gd)
+        u.extend(self._drsB.get_freerefs(gd))
+        return u
 
     def resolve_merges(self):
         """Resolves all unresolved merges in a DRS."""
@@ -1273,8 +1273,8 @@ def merge(d1, d2):
         # orig haskell code Merge.hs and Variable.hs
         p1 = d1.resolve_merges().purify()
         p2 = d2.resolve_merges().purify()
-        ors = sorted(p2.get_variables().intersection(p1.variables))
-        nrs = get_new_drsrefs(ors, sorted(p2.get_variables().union(p1.get_variables())))
+        ors = sorted(set(p2.get_variables()).intersection(p1.variables))
+        nrs = get_new_drsrefs(ors, sorted(set(p2.get_variables()).union(p1.get_variables())))
         da = p2.alpha_convert(zip(ors,nrs))
         return DRS(union(p1.universe, da.universe), union(p1.conditions, da.conditions))
 
@@ -1309,6 +1309,9 @@ def get_new_drsrefs(ors, ers):
 
 class AbstractDRSRef(Showable):
     """Abstract DRS referent"""
+
+    def __init__(self, drsVar):
+        self.var = drsVar
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1350,12 +1353,11 @@ class AbstractDRSRef(Showable):
         """Test if this DRS is resolved (containing no unresolved merges or lambdas)"""
         return False
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ##
-    @property
-    def var(self):
-        """Converts a DRSRef into a DRSVar."""
-        raise NotImplementedError
+    # Make public to support fast renaming
+    #@property
+    #def var(self):
+    #    """Converts a DRSRef into a DRSVar."""
+    #    raise NotImplementedError
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:increase</a>
     ##
@@ -1380,30 +1382,29 @@ class LambdaDRSRef(AbstractDRSRef):
         """
         if not isinstance(lambdaVar, LambdaDRSVar):
             raise TypeError
-        self._var = lambdaVar
+        super(LambdaDRSRef, self).__init__(lambdaVar)
         self._pos = pos
 
     def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var or self._pos != other._pos
+        return type(self) != type(other) or self.var != other.var or self._pos != other._pos
 
     def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var and self._pos == other._pos
+        return type(self) == type(other) and self.var == other.var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRSRef(%s,%i)' % (self._var.var, self._pos)
+        return 'LambdaDRSRef(%s,%i)' % (self.var.var, self._pos)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         """Adds a trailing integer to the referent to make it unique."""
-        u.add(LambdaTuple(self._var, self._pos))
+        u.add(LambdaTuple(self.var, self._pos))
         return u
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ##
-    @property
-    def var(self):
-        """Converts a DRSRef into a DRSVar."""
-        return self._var.var
+    # Make public to support fast renaming
+    #@property
+    #def var(self):
+    #    """Converts a DRSRef into a DRSVar."""
+    #    return self._var.var
 
 
 class DRSRef(AbstractDRSRef):
@@ -1413,16 +1414,16 @@ class DRSRef(AbstractDRSRef):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, (DRSVar, DRSConst)):
             raise TypeError('DRSRef expect string or DRSVar')
-        self._var = drsVar
+        super(DRSRef, self).__init__(drsVar)
 
     def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var
+        return type(self) != type(other) or self.var != other.var
 
     def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var
+        return type(self) == type(other) and self.var == other.var
 
     def __repr__(self):
-        return '%s' % self._var
+        return '%s' % self.var
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1430,24 +1431,23 @@ class DRSRef(AbstractDRSRef):
 
     @property
     def isconst(self):
-        return isinstance(self._var, DRSConst)
+        return isinstance(self.var, DRSConst)
 
     @property
     def isresolved(self):
         return True
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRefToDRSVar</a>
-    ##
-    @property
-    def var(self):
-        """Converts a DRSRef into a DRSVar."""
-        return self._var
+    # Make public to support fast renaming
+    #@property
+    #def var(self):
+    #    """Converts a DRSRef into a DRSVar."""
+    #    return self.var
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:increase</a>
     ##
     def increase_new(self):
         """Adds a trailing integer to the referent to make it unique."""
-        return DRSRef(self._var.increase_new())
+        return DRSRef(self.var.increase_new())
 
 
 class AbstractDRSRelation(object):
@@ -1618,7 +1618,7 @@ class AbstractDRSCond(Showable):
         """Returns the list of all DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of DRSRef's unioned with `u`.
@@ -1629,7 +1629,7 @@ class AbstractDRSCond(Showable):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
@@ -1763,23 +1763,25 @@ class Rel(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
         """
-        return u.union(filter(lambda x: not x.isconst, self._refs))
+        u.extend(filter(lambda x: not x.isconst, self._refs))
+        return u
 
     def get_constants(self, u):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
         """
-        return u.union(filter(lambda x: x.isconst, self._refs))
+        u.extend(filter(lambda x: x.isconst, self._refs))
+        return u
 
     def clone(self):
         return self
@@ -1830,7 +1832,8 @@ class Neg(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = sorted(self._drs.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drs.get_variables(rs)))
         return True, rs
 
     def _get_freerefs(self, ld, gd, pvar=None):
@@ -1901,7 +1904,7 @@ class Neg(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
@@ -1912,7 +1915,7 @@ class Neg(AbstractDRSCond):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
@@ -1974,7 +1977,9 @@ class Imp(AbstractDRSCond):
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Imp d1 d2:cs) = drsFreeRefs d1 gd `union` drsFreeRefs d2 gd `union` free cs
-        return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
+        u = self._drsA.get_freerefs(gd)
+        u.extend(self._drsB.get_freerefs(gd))
+        return u
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
@@ -1982,9 +1987,10 @@ class Imp(AbstractDRSCond):
 
     def _ispure(self, ld, gd, rs):
         if not self._drsA._ispure_helper(rs, gd): return (False, None)
-        rs = sorted(self._drsA.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drsA.get_variables(rs)))
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
-        rs = sorted(self._drsB.get_variables(set(rs)))
+        rs = sorted(set(self._drsB.get_variables(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2062,7 +2068,7 @@ class Imp(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
@@ -2074,7 +2080,7 @@ class Imp(AbstractDRSCond):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constants DRSRef's unioned with `u`.
@@ -2151,7 +2157,9 @@ class Or(AbstractDRSCond):
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Imp d1 d2:cs) = drsFreeRefs d1 gd `union` drsFreeRefs d2 gd `union` free cs
-        return union(self._drsA.get_freerefs(gd), self._drsB.get_freerefs(gd))
+        u = self._drsA.get_freerefs(gd)
+        u.extend(self._drsB.get_freerefs(gd))
+        return u
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
@@ -2159,9 +2167,10 @@ class Or(AbstractDRSCond):
 
     def _ispure(self, ld, gd, rs):
         if not self._drsA._ispure_helper(rs, gd): return (False, None)
-        rs = sorted(self._drsA.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drsA.get_variables(rs)))
         if not self._drsB._ispure_helper(rs, gd): return (False, None)
-        rs = sorted(self._drsB.get_variables(set(rs)))
+        rs = sorted(set(self._drsB.get_variables(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2242,7 +2251,7 @@ class Or(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
@@ -2254,7 +2263,7 @@ class Or(AbstractDRSCond):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
@@ -2320,7 +2329,9 @@ class Prop(AbstractDRSCond):
 
     def _get_freerefs(self, ld, gd, pvar=None):
         # free (Prop r d1:cs) = snd (partition (flip (`drsBoundRef` ld) gd) [r]) `union` drsFreeRefs d1 gd `union` free cs
-        return union(filter(lambda x: not x.has_bound(ld, gd), [self._ref]), self._drs.get_freerefs(gd))
+        u = filter(lambda x: not x.has_bound(ld, gd), [self._ref])
+        u.extend(self._drs.get_freerefs(gd))
+        return u
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         """Helper for DRS.isproper"""
@@ -2329,7 +2340,8 @@ class Prop(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not _pure_refs(ld, gd, [self._ref], rs) or not self._drs._ispure_helper(rs, gd):
             return (False, None)
-        rs = sorted(self._drs.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drs.get_variables(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2405,24 +2417,26 @@ class Prop(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
         """
-        u.add(self._ref)
+        if not self._ref.isconst:
+            u.append(self._ref)
         return self._drs.get_variables(u)
 
     def get_constants(self, u):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
         """
-        u.add(self._ref)
+        if self._ref.isconst:
+            u.append(self._ref)
         return self._drs.get_constants(u)
 
     def clone(self):
@@ -2486,7 +2500,8 @@ class Diamond(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = sorted(self._drs.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drs.get_variables(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2548,7 +2563,7 @@ class Diamond(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
@@ -2559,7 +2574,7 @@ class Diamond(AbstractDRSCond):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.
@@ -2629,7 +2644,8 @@ class Box(AbstractDRSCond):
     def _ispure(self, ld, gd, rs):
         if not self._drs._ispure_helper(rs, gd): return (False, None)
         # Can modify rs because it will be replaced by caller by the one we pass back
-        rs = sorted(self._drs.get_variables(set(rs)))
+        # TODO: get_variables() no longer uses sets so should we use set()?
+        rs = sorted(set(self._drs.get_variables(rs)))
         return True, rs
 
     def _universes(self, u):
@@ -2691,7 +2707,7 @@ class Box(AbstractDRSCond):
         """Returns the list of all bound DRSRef's in this condition. This serves as a helper to DRS.get_variables()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of bound DRSRef's unioned with `u`.
@@ -2702,7 +2718,7 @@ class Box(AbstractDRSCond):
         """Returns the list of all constant DRSRef's in this condition. This serves as a helper to DRS.get_constants()
 
         Args:
-            u: An initial set(). Cannot be None.
+            u: An initial list. Cannot be None.
 
         Returns:
             A list of constant DRSRef's unioned with `u`.

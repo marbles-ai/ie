@@ -24,7 +24,7 @@ class DrsTest(unittest.TestCase):
         x = u'<{},{}>'
         self.assertEquals(x,s)
         s = d.show(SHOW_BOX)
-        x = u'\u250C---\u2510\n|   |\n\u251C---\u2524\n|   |\n|   |\n\u2514---\u2518\n'
+        x = u'\u250C---\u2510\n|   |\n\u251C---\u2524\n|   |\n\u2514---\u2518\n'
         self.assertEquals(x,s)
         s = d.show(SHOW_LINEAR)
         x = u'[| ]'
@@ -79,11 +79,7 @@ class DrsTest(unittest.TestCase):
 |   |          | |
 | \u00AC \u251C----------\u2524 |
 |   | happy(x) | |
-|   |          | |
-|   |          | |
 |   \u2514----------\u2518 |
-|                |
-|                |
 \u2514----------------\u2518
 '''
         self.assertEquals(x,s)
@@ -267,12 +263,12 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['x','y','a']]))
         a = d.conditions[1].consequent.get_freerefs()
         self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['a']]))
-        a = d.get_freerefs()
+        a = d.freerefs
         self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['c','z','a']]))
         dp = d.purify()
-        a = dp.get_freerefs()
+        a = dp.freerefs
         self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['c','z','a']]))
-        a = dp.get_universes()
+        a = dp.universes
         self.assertTrue(compare_lists_eq(a, [DRSRef(x) for x in['x','y','z1']]))
 
         # Check universe
@@ -280,7 +276,7 @@ class DrsTest(unittest.TestCase):
         self.assertTrue(compare_lists_eq(d.conditions[1].antecedent.universe, [DRSRef('y')]))
         self.assertTrue(compare_lists_eq(d.conditions[1].consequent.universe, [DRSRef('z')]))
         self.assertTrue(compare_lists_eq(d.get_universes(), [DRSRef('x'), DRSRef('y'), DRSRef('z')]))
-        self.assertTrue(compare_lists_eq(d.get_variables(), [DRSRef('c'), DRSRef('a'), DRSRef('x'), DRSRef('y'), DRSRef('z')]))
+        self.assertTrue(compare_lists_eq(d.variables, [DRSRef('c'), DRSRef('a'), DRSRef('x'), DRSRef('y'), DRSRef('z')]))
 
         # Cannot convert free variables
         a = d.alpha_convert([(DRSRef('a'), DRSRef('r')), (DRSRef('c'), DRSRef('s')), (DRSRef('z'), DRSRef('t'))])
