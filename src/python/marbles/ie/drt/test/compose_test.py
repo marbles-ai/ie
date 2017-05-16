@@ -686,12 +686,17 @@ class ComposeTest(unittest.TestCase):
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
         d = ccg.create_drs()
         d = ccg.final_rename(d)
         s = d.drs.show(SHOW_LINEAR)
         x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather(x2),High(x2)]'
+        self.assertEquals(x, s)
+        # Resolve only works with fast rename option
+        ccg.resolve_proper_names(d)
+        x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
+        s = d.drs.show(SHOW_LINEAR)
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -865,10 +870,7 @@ class ComposeTest(unittest.TestCase):
 ) '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        ccg.build_execution_sequence(pt)
-        d = ccg.create_drs()
-        d = ccg.final_rename(d)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         s = d.drs.show(SHOW_LINEAR)
         print(s)
 
@@ -994,7 +996,8 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        self.assertIsNotNone(d)
+        s = d.drs.show(SHOW_LINEAR)
+        print(s)
 
     def test6_Pronouns(self):
         txt = '''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2> (<L ((S[dcl]\NP)/PP)/NP VBD VBD leased ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN car N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ my NP/(N/PP)>) (<T N/PP 0 2> (<L N/PP NN NN friend N/PP>) (<T (N/PP)\(N/PP) 0 2> (<L ((N/PP)\(N/PP))/NP IN IN for ((N/PP)\(N/PP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N CD CD $5 N>) (<T N\N 0 2> (<L (N\N)/N DT DT a (N\N)/N>) (<L N NN NN month. N>) ) ) ) ) ) ) ) ) )'''
