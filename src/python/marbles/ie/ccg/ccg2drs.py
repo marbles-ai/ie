@@ -14,7 +14,7 @@ from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N,
     FEATURE_ADJ, FEATURE_PSS, FEATURE_TO, FEATURE_DCL
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
-    DrsComposeError, identity_functor, CO_NO_VERBNET
+    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg, DRSRelation
 from marbles.ie.drt.common import DRSConst, DRSVar
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
@@ -1144,6 +1144,55 @@ class Ccg2Drs(object):
         # All rules must have a handler
         assert False
 
+    def resolve_proper_names(self, d):
+        """Merge proper names."""
+
+        # Resolve only works with fast rename option
+        if 0 == (self.options & CO_FAST_RENAME):
+            return d
+        # find spans of nouns with same referent
+        spans = []
+        lastref = DRSRef('$$$$')
+        startIdx = -1
+        endIdx = -1
+        for i in range(len(self.lexque)):
+            lexeme = self.lexque[i]
+            ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
+            if startIdx >= 0:
+                if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
+                        (lexeme.word == '&' and (i+1) < len(self.lexque) and self.lexque[i+1].isproper_noun)):
+                    endIdx = i
+                    continue
+                else:
+                    if startIdx != endIdx:
+                        spans.append((startIdx, endIdx))
+                    startIdx = -1
+
+            if lexeme.isproper_noun:
+                startIdx = i
+                endIdx = i
+                lastref = ref
+
+        if startIdx >= 0:
+            spans.append((startIdx, endIdx))
+
+        for s, e in spans:
+            lexeme = self.lexque[s]
+            ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
+            names = [lexeme.stem]
+            fca = d.drs.find_condition(Rel(lexeme.stem, [ref]))
+            if fca is None:
+                continue
+            for i in range(s+1, e+1):
+                fc = d.drs.find_condition(Rel(self.lexque[i].stem, [ref]))
+                if fc is not None:
+                    names.append(self.lexque[i].stem)
+                    d.drs.remove_condition(fc)
+            nm = '-'.join(names)
+            fca.cond.relation.rename(nm)
+        return d
+
+
     def final_rename(self, d):
         """Rename to ensure:
             - indexes progress is 1,2,...
@@ -1271,6 +1320,7 @@ class Ccg2Drs(object):
                 self.dispatch(op, stk)
 
             # TODO: remove debug code
+            '''
             if op.category.get_scope_count() != stk[-1].get_scope_count():
                 pass
 
@@ -1281,6 +1331,7 @@ class Ccg2Drs(object):
             if not stk[-1].category.can_unify(op.category):
                 stk[-1].category.can_unify(op.category)
                 pass
+            '''
 
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
@@ -1467,12 +1518,14 @@ def process_ccg_pt(pt, options=None):
     See Also:
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
-    ccg = Ccg2Drs(options)
+    ccg = Ccg2Drs(options | CO_FAST_RENAME)
     pt = pt_to_utf8(pt)
     ccg.build_execution_sequence(pt)
     d = ccg.create_drs()
-    return ccg.final_rename(d)
-    #return ccg.resolve_anaphora(f)
+    d = ccg.final_rename(d)
+    d = ccg.resolve_proper_names(d)
+    # TODO: resolve anaphora
+    return d
 
 
 ## @ingroup gfn
