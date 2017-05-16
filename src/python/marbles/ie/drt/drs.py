@@ -1551,6 +1551,14 @@ class DRSRelation(AbstractDRSRelation):
         """Converts this instance into a string."""
         return self._var.to_string().decode('utf-8')
 
+    def rename(self, drsVar):
+        if isinstance(drsVar, str):
+            drsVar = DRSVar(drsVar)
+        elif not isinstance(drsVar, DRSVar):
+            raise TypeError('DRSRelation expects DRSVar')
+        self._var = drsVar
+
+
 
 class AbstractDRSCond(Showable):
     """Abstract DRS Condition"""
