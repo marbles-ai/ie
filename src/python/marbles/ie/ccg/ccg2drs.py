@@ -1215,7 +1215,7 @@ class Ccg2Drs(object):
                 ref = DRSRef('$$$$')
             else:
                 ref = lexeme.refs[0]
-            #ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
+
             if startIdx >= 0:
                 if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
                         (lexeme.word == '&' and (i+1) < len(self.lexque) and self.lexque[i+1].isproper_noun)):
@@ -1403,9 +1403,6 @@ class Ccg2Drs(object):
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
-
-        for i in range(len(self.lexque)):
-            self.lexque[i].prod = prods[i]
 
         assert len(stk) == 1
         d = stk[0]
