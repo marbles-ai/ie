@@ -14,8 +14,9 @@ sys.path.insert(0, pypath)
 #from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt, pt_to_ccgbank
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, DrsProduction
+from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
+from marbles.ie.drt.drs import DRS
 
 
 def die(s):
@@ -60,7 +61,7 @@ if __name__ == '__main__':
     failed_ccg2drs = []
     start = 0
     progress = -1
-    for fn in allfiles:
+    for fn in allfiles[2:3]:
         idx = idsrch.match(fn)
         if idx is None:
             continue
@@ -96,10 +97,8 @@ if __name__ == '__main__':
             try:
                 d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
                 assert d is not None
-                d = d.unify()
-                assert d is not None
-                assert isinstance(d, DrsProduction)
-                d = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
+                assert isinstance(d, DRS)
+                d = d.show(SHOW_LINEAR).encode('utf-8').strip()
             except Exception as e:
                 print(e)
                 failed_ccg2drs.append((name, i, ccgbank))

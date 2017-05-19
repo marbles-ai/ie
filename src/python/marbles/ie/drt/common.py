@@ -270,61 +270,16 @@ class DRSVar(AbstractDRSVar):
         return '%s%i' % (self._name, self._idx)
 
 
-class DRSConst(AbstractDRSVar):
+class DRSConst(DRSVar):
     """DRS Constant. Refer to Muskens, 1996."""
-    def __init__(self, name):
-        self._name = name
+    def __init__(self, *args, **kwargs):
+        super(DRSConst, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return 'DRSConst(%s)' % self.to_string()
-
-    def __eq__(self, other):
-        return type(self) == type(other) and self.to_string() == other.to_string()
-
-    def __ne__(self, other):
-        return type(self) != type(other) or self.to_string() != other.to_string()
-
-    def __hash__(self):
-        return hash(self._name)
-
-    def __lt__(self, other):
-        return type(self) == type(other) and self.to_string() < other.to_string()
-
-    def __le__(self, other):
-        return type(self) == type(other) and self.to_string() < other.to_string()
-
-    def __gt__(self, other):
-        return not self.__le__(other)
-
-    def __ge__(self, other):
-        return not self.__lt__(other)
+        return 'Const(%s)' % self.to_string()
 
     def increase_new(self):
-        return DRSConst(self._name)
-
-    ## @property idx
-    @property
-    def idx(self):
-        return 0
-
-    ## @property name
-    @property
-    def name(self):
-        return self._name
-
-    def show(self, notation):
-        """Display for screen.
-
-        Args:
-            notation: An integer notation.
-
-        Returns:
-            A unicode string.
-        """
-        return unicode(self)
-
-    def to_string(self):
-        return self._name
+        return DRSConst(self._name, self._idx)
 
 
 class LambdaDRSVar(AbstractDRSVar):

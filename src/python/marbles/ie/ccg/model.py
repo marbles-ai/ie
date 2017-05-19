@@ -5,9 +5,9 @@ import os
 import re
 
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
-from marbles.ie.drt.common import DRSVar
+from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.compose import FunctorProduction, DrsProduction, PropProduction
-from marbles.ie.drt.drs import DRS, DRSRef
+from marbles.ie.drt.drs import DRSRef
 from marbles.ie.utils.cache import Cache
 from datapath import DATA_PATH
 
@@ -16,17 +16,16 @@ class FunctorTemplateGeneration(object):
     """Template Generation Variables"""
 
     def __init__(self):
-        self.ei = 0
-        self.xi = 0
+        self.i = 0
         self.tags = {}
 
     def next_ei(self):
-        self.ei += 1
-        return self.ei
+        self.i += 1
+        return self.i
 
     def next_xi(self):
-        self.xi += 1
-        return self.xi
+        self.i += 1
+        return self.i
 
     def istagged(self, key):
         return key in self.tags
@@ -164,10 +163,11 @@ class FunctorTemplate(object):
                     key = m.group('idx')
                 if key is None or not gen.istagged(key):
                     acln = a.clean(True)
+                    # Use DRSConst because we never want to modify template refs.
                     if (acln == CAT_Sany and acln != CAT_Sadj) or acln.signature[0] == 'Z':
-                        r = DRSRef(DRSVar('e', gen.next_ei()))
+                        r = DRSRef(DRSConst('e', gen.next_ei()))
                     else:
-                        r = DRSRef(DRSVar('x', gen.next_xi()))
+                        r = DRSRef(DRSConst('x', gen.next_xi()))
                     if key is not None:
                         gen.tag(key, r)
                 else:
@@ -188,9 +188,9 @@ class FunctorTemplate(object):
 
         if key is None or not gen.istagged(key):
             if acln == CAT_Sany and acln != CAT_Sadj:
-                r = DRSRef(DRSVar('e', gen.next_ei()))
+                r = DRSRef(DRSConst('e', gen.next_ei()))
             else:
-                r = DRSRef(DRSVar('x', gen.next_xi()))
+                r = DRSRef(DRSConst('x', gen.next_xi()))
             if key is not None:
                 gen.tag(key, r)
         else:
@@ -203,21 +203,33 @@ class FunctorTemplate(object):
         return FunctorTemplate(tuple(fn), predargOrig, r, acln if final_atom is None else final_atom,
                                construct_empty=construct_empty)
 
+    def create_constructor_rule_map(self):
+        rule_map = {self.final_ref: DRSRef(DRSVar(self.final_ref.var.name, self.final_ref.var.idx))}
+        for c in self._constructor_rule:
+            if isinstance(c[1], DRSRef):
+                rule_map.setdefault(c[1], DRSRef(DRSVar(c[1].var.name, c[1].var.idx)))
+            else:
+                for x in c[1]:
+                    rule_map.setdefault(x, DRSRef(DRSVar(x.var.name, x.var.idx)))
+        return rule_map
+
     def create_empty_functor(self):
         """Create a FunctorProduction with an empty inner DrsProduction
 
         Returns:
             A FunctorProduction.
         """
-        d = DrsProduction(DRS([], []))
+        rule_map = self.create_constructor_rule_map()
+        d = DrsProduction([], [])
         d.set_category(self.final_atom.remove_wildcards())
-        d.set_lambda_refs([self.final_ref])
-        return self.create_functor(d)
+        d.set_lambda_refs([rule_map[self.final_ref]])
+        return self.create_functor(rule_map, d)
 
-    def create_functor(self, fn=None):
+    def create_functor(self, rule_map, fn=None):
         """Create a FunctorProduction with the given inner DrsProduction.
 
         Args:
+            rule_map: A constructor rule map created by create_constructor_rule_map().
             fn: The inner DrsProduction.
 
         Returns:
@@ -227,7 +239,10 @@ class FunctorTemplate(object):
         for c in self._constructor_rule:
             assert not category.isempty
             assert category.isfunctor
-            fn = c[0](category, c[1], fn)
+            if isinstance(c[1], DRSRef):
+                fn = c[0](category, rule_map[c[1]], fn)
+            else:
+                fn = c[0](category, [rule_map[x] for x in c[1]], fn)
             category = category.result_category()
         assert category.isatom
         return fn
@@ -382,6 +397,11 @@ class Model(object):
             cat = Category(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.build_template() expects signature or Category')
+        if final_atom:
+            if isinstance(final_atom, str):
+                final_atom = Category(final_atom)
+            elif not isinstance(final_atom, Category):
+                raise TypeError('Model.build_template() expects signature or Category')
         key = cat.clean(True)
         return key, FunctorTemplate.create_from_category(cat, final_atom, construct_empty=construct_empty)
 

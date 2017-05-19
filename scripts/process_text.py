@@ -176,10 +176,9 @@ if __name__ == '__main__':
 
                 try:
                     d = process_ccg_pt(pt, ops)
-                    d = d.unify()
-                    drs = d.drs.show(SHOW_LINEAR).encode('utf-8').strip()
-                    fol, _ = d.drs.to_fol()
+                    fol, _ = d.to_fol()
                     fol = unicode(fol).encode('utf-8')
+                    drs = d.show(SHOW_LINEAR).encode('utf-8')
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise

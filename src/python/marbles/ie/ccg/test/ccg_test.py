@@ -549,6 +549,295 @@ class CcgTest(unittest.TestCase):
         ]
         self.assertListEqual(expected, actual)
 
+    def test6_Wsj0999_11(self):
+        txt = '''
+(<T S[dcl] 0 2>
+  (<T S[dcl] 0 2>
+    (<T S[dcl] 1 2>
+      (<T NP 0 2>
+        (<T NP 0 1>
+          (<L N NNS NNS People N>)
+        )
+        (<T NP\NP 0 2>
+          (<L (NP\NP)/NP IN IN on (NP_159\NP_159)/NP_160>)
+          (<T NP 0 1>
+            (<T N 1 2>
+              (<L N/N VBN VBN fixed N_169/N_169>)
+              (<L N NNS NNS incomes N>)
+            )
+          )
+        )
+      )
+      (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/NP VBP VBP get (S[dcl]\NP_128)/NP_129>)
+        (<T NP 0 2>
+          (<T NP 1 2>
+            (<L NP[nb]/N DT DT a NP[nb]_136/N_136>)
+            (<L N NN NN break N>)
+          )
+          (<T NP\NP 0 2>
+            (<L (NP\NP)/NP IN IN at (NP_144\NP_144)/NP_145>)
+            (<T NP 0 1>
+              (<L N NNP NNP Espre N>)
+            )
+          )
+        )
+      )
+    )
+    (<T S[dcl][conj] 1 2>
+      (<L ; ; : ; ;>)
+      (<T S[dcl] 1 2>
+        (<T NP 0 1>
+          (<T N 1 2>
+            (<L N/N IN IN over N_248/N_248>)
+            (<L N CD CD 55 N>)
+          )
+        )
+        (<T S[dcl]\NP 0 2>
+          (<L (S[dcl]\NP)/NP VBZ NNS wins (S[dcl]\NP_177)/NP_178>)
+          (<T NP 0 2>
+            (<T NP 1 2>
+              (<L NP[nb]/N DT DT a NP[nb]_206/N_206>)
+              (<T N 1 2>
+                (<T N/N 1 2>
+                  (<L (N/N)/(N/N) CD CD 45 (N_201/N_195)_201/(N_201/N_195)_201>)
+                  (<L N/N NN NN % N_187/N_187>)
+                )
+                (<L N NN NN discount N>)
+              )
+            )
+            (<T NP\NP 0 2>
+              (<L (NP\NP)/NP IN IN at (NP_214\NP_214)/NP_215>)
+              (<T NP 0 1>
+                (<T N 1 2>
+                  (<L N/N NNP NNP Anaheim N_238/N_238>)
+                  (<T N 1 2>
+                    (<L N/N NNP NNP Imperial N_231/N_231>)
+                    (<T N 1 2>
+                      (<L N/N NNP NNP Health N_224/N_224>)
+                      (<L N NNP NNP Spa N>)
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (<L . . . . .>)
+)'''
+        pt = parse_ccg_derivation(txt)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(people, N, NNS)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(on, (NP\\NP)/NP, IN)',
+            '<PushOp>:(fix, N/N, VBN)',
+            '<PushOp>:(incomes, N, NNS)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<PushOp>:(get, (S[dcl]\\NP)/NP, VBP)',
+            '<PushOp>:(a, NP[nb]/N, DT)',
+            '<PushOp>:(break, N, NN)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(at, (NP\\NP)/NP, IN)',
+            '<PushOp>:(Espre, N, NNP)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(;, ;, ;)',
+            '<PushOp>:(over, N/N, IN)',
+            '<PushOp>:(55, N, CD)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(win, (S[dcl]\\NP)/NP, VBZ)',
+            '<PushOp>:(a, NP[nb]/N, DT)',
+            '<PushOp>:(45, (N/N)/(N/N), CD)',
+            '<PushOp>:(%, N/N, NN)',
+            '<ExecOp>:(2, FA N/N)',
+            '<PushOp>:(discount, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(at, (NP\\NP)/NP, IN)',
+            '<PushOp>:(Anaheim, N/N, NNP)',
+            '<PushOp>:(Imperial, N/N, NNP)',
+            '<PushOp>:(Health, N/N, NNP)',
+            '<PushOp>:(Spa, N, NNP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<ExecOp>:(2, RP S[dcl][conj])',
+            '<ExecOp>:(2, RCONJ S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
+        
+    def test7_EasySRL_04_1850(self):
+        txt = '''
+(<T S[dcl] 0 2>
+  (<T S[dcl] 1 2>
+    (<T NP 0 2>
+      (<L NP/N DT DT The NP/N>)
+      (<T N 1 2>
+        (<L N/N NN NN investment N/N>)
+        (<T N 0 2>
+          (<L N NN NN community N>)
+          (<L , , , , ,>)
+        )
+      )
+    )
+    (<T S[dcl]\NP 1 2>
+      (<T (S\NP)/(S\NP) 0 2>
+        (<L (S\NP)/(S\NP) RB RB however (S\NP)/(S\NP)>)
+        (<T ((S\NP)/(S\NP))\((S\NP)/(S\NP)) 1 2>
+          (<L , , , , ,>)
+          (<L (S\NP)/(S\NP) RB RB strongly (S\NP)/(S\NP)>)
+        )
+      )
+      (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/S[em] VBZ VBZ believes (S[dcl]\NP)/S[em]>)
+          (<T S[em] 0 2>
+            (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>)
+            (<T S[dcl] 1 2>
+              (<T NP 0 2>
+                 (<L NP/N DT DT the NP/N>)
+                 (<L N NN NN strike N>)
+              )
+              (<T S[dcl]\NP 0 2>
+                (<L (S[dcl]\NP)/(S[b]\NP) MD MD will (S[dcl]\NP)/(S[b]\NP)>)
+                (<T S[b]\NP 0 2>
+                  (<T S[b]\NP 0 2>
+                    (<L (S[b]\NP)/(S[pss]\NP) VB VB be (S[b]\NP)/(S[pss]\NP)>)
+                    (<L S[pss]\NP VBN VBN settled S[pss]\NP>)
+                  )
+                (<T (S\NP)\(S\NP) 0 2>
+                  (<L ((S\NP)\(S\NP))/S[dcl] IN IN before ((S\NP)\(S\NP))/S[dcl]>)
+                  (<T S[dcl] 1 2>
+                    (<L NP[thr] EX EX there NP[thr]>)
+                    (<T S[dcl]\NP[thr] 0 2>
+                      (<L (S[dcl]\NP[thr])/NP VBZ VBZ is (S[dcl]\NP[thr])/NP>)
+                      (<T NP 0 2>
+                        (<T NP 0 2>
+                          (<L NP/N DT DT any NP/N>)
+                          (<T N 1 2>
+                            (<L N/N JJ JJ lasting N/N>)
+                            (<T N 0 2>
+                              (<L N/PP NN NN effect N/PP>)
+                              (<T PP 0 2>
+                                (<L PP/NP IN IN on PP/NP>)
+                                (<T NP 1 2>
+                                  (<L NP/NP CC CC either NP/NP>)
+                                  (<T NP 0 1>
+                                    (<L N NNP NNP Boeing N>)
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
+                        (<T NP\NP 1 2>
+                          (<L conj CC CC or conj>)
+                          (<T NP 0 2>
+                            (<L NP/(N/PP) PRP$ PRP$ its NP/(N/PP)>)
+                            (<T N/PP 1 2>
+                              (<L N/N NN NN work N/N>)
+                              (<L N/PP NN NN force N/PP>)
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+  (<L . . . . .>)
+)'''
+        pt = parse_ccg_derivation(txt)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(the, NP/N, DT)',
+            '<PushOp>:(investment, N/N, NN)',
+            '<PushOp>:(community, N, NN)',
+            '<PushOp>:(,, ,, ,)',
+            '<ExecOp>:(2, LP N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(however, (S\NP)/(S\NP), RB)',
+            '<PushOp>:(,, ,, ,)',
+            '<PushOp>:(strongly, (S\NP)/(S\NP), RB)',
+            '<ExecOp>:(2, R_UNARY_TC ((S\NP)/(S\NP))\((S\NP)/(S\NP)))',
+            '<ExecOp>:(2, BA (S\NP)/(S\NP))',
+            '<PushOp>:(believe, (S[dcl]\NP)/S[em], VBZ)',
+            '<PushOp>:(that, S[em]/S[dcl], IN)',
+            '<PushOp>:(the, NP/N, DT)',
+            '<PushOp>:(strike, N, NN)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(will, (S\NP)/(S\NP), MD)',
+            '<PushOp>:(be, (S[b]\NP)/(S[pss]\NP), VB)',
+            '<PushOp>:(settle, S[pss]\NP, VBN)',
+            '<ExecOp>:(2, FA S[b]\NP)',
+            '<PushOp>:(before, ((S\NP)\(S\NP))/S[dcl], IN)',
+            '<PushOp>:(there, NP[thr], EX)',
+            '<PushOp>:(be, (S[dcl]\NP[thr])/NP, VBZ)',
+            '<PushOp>:(any, NP/N, DT)',
+            '<PushOp>:(lasting, N/N, JJ)',
+            '<PushOp>:(effect, N/PP, NN)',
+            '<PushOp>:(on, PP/NP, IN)',
+            '<PushOp>:(either, NP/NP, CC)',
+            '<PushOp>:(Boeing, N, NNP)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, FA PP)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(or, conj, CC)',
+            '<PushOp>:(its, NP/(N/PP), PRP$)',
+            '<PushOp>:(work, N/N, NN)',
+            '<PushOp>:(force, N/PP, NN)',
+            '<ExecOp>:(2, FC N/PP)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, R_UNARY_TC NP\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<ExecOp>:(2, FA S[dcl]\NP[thr])',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<ExecOp>:(2, FA (S\NP)\(S\NP))',
+            '<ExecOp>:(2, BA S[b]\NP)',
+            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<ExecOp>:(2, FA S[em])',
+            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
+        
     def test7_RuleUniquenessLDC(self):
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(

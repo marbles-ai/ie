@@ -43,7 +43,6 @@ def extract_features(signature):
     features |= FEATURE_TO if '[to]' in signature else 0
     return signature, features
 
-
 ## @ingroup gfn
 def iscombinator_signature(signature):
     """Test if a CCG type is a combinator. A combinator expects a function as the argument and returns a
@@ -58,7 +57,8 @@ def iscombinator_signature(signature):
     See Also:
         marbles.ie.ccg.ccgcat.Category
     """
-    return len(signature) > 2 and signature[-1] == ')' and signature[0] == '('
+
+    return len(signature) > 2 and signature[0] == '(' and (signature.endswith(')') or signature.endswith(')[conj]'))
 
 
 ## @ingroup gfn
@@ -100,12 +100,17 @@ def split_signature(signature):
         elif b == 0 and signature[i] in ['/', '\\']:
             ret = signature[0:i]
             arg = signature[i+1:]
-            if ret[-1] == ')' and ret[0] == '(':
+            if ret.endswith(')') and ret.startswith('('):
                 ret = ret[1:-1]
-            if arg[-1] == ')' and arg[0] == '(':
-                arg = arg[1:-1]
+            if arg.startswith('('):
+                if arg.endswith(')'):
+                    arg = arg[1:-1]
+                elif arg.endswith(')[conj]'):
+                    arg = arg[1:-7]
+            elif arg.endswith('[conj]'):
+                arg = arg[0:-6]
             return ret, signature[i], arg
-    return signature, '', ''
+    return signature[0:-6], '', '' if signature.endswith('[conj]') else signature, '', ''
 
 
 ## @ingroup gfn
@@ -539,7 +544,7 @@ class Category(Freezable):
     @property
     def iscombinator(self):
         """A combinator is a function which take a function argument and returns another function."""
-        return iscombinator_signature(self._signature) and not self.ismodifier
+        return not self.ismodifier and iscombinator_signature(self._signature)
 
     @property
     def issentence(self):
@@ -591,8 +596,8 @@ class Category(Freezable):
         if 0 != self._use_cache and cacheable:
             if self._ops_cache:
                 return self._ops_cache[self._OP_ARG_CAT]
-            return self.from_cache(self._splitsig[2].replace('[conj]', '')) if self.isfunctor else CAT_EMPTY
-        return Category(self._splitsig[2].replace('[conj]', '')) if self.isfunctor else CAT_EMPTY
+            return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
+        return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
     def clear_ops_cache(self):
         self._ops_cache = None
@@ -808,8 +813,8 @@ class Category(Freezable):
             return True
         if self.remove_features() in [CAT_PP, CAT_NP, CAT_N] and other.remove_features() in [CAT_PP, CAT_NP, CAT_N]:
             return True
-        s1 = self.signature
-        s2 = other.signature
+        s1 = self.remove_conj_feature().signature
+        s2 = other.remove_conj_feature().signature
         if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
             return True
         if s1[0] == 'S' and s2[0] == 'S':

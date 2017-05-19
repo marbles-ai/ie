@@ -6,6 +6,7 @@ import collections
 import copy
 from nltk.stem import wordnet as wn
 from nltk.stem.snowball import EnglishStemmer
+
 from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     Rule, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
@@ -13,10 +14,10 @@ from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N,
     RL_GFC, RL_GFX, RL_GBC, RL_GBX, \
     FEATURE_ADJ, FEATURE_PSS, FEATURE_TO, FEATURE_DCL
 from marbles.ie.ccg.model import MODEL
-from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, OrProduction, \
+from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, \
     DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg, DRSRelation
-from marbles.ie.drt.common import DRSConst, DRSVar
+from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
 from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
 from marbles.ie.parse import parse_drs
 from marbles.ie.drt.drs import get_new_drsrefs
@@ -26,6 +27,7 @@ from marbles.ie.kb.verbnet import VerbnetDB
 from pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
                 POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
                 POS_NUMBER, POS_PREPOSITION, POS_LIST_PUNCT, POS
+import inflect
 
 ## @{
 ## @ingroup gconst
@@ -278,6 +280,10 @@ CAT_AP = Category.from_cache(r'S[adj]\NP')
 CAT_AP_PP = Category.from_cache(r'(S[adj]\NP)/PP')
 # Past participle
 CAT_MODAL_PAST = Category.from_cache(r'(S[dcl]\NP)/(S[pt]\NP)')
+# If then
+CAT_IF_THEN = Category.from_cache(r'(S/S)/S[dcl]')
+
+POS_POSSESSIVE = POS.from_cache('POS')
 ## @endcond
 
 
@@ -324,7 +330,7 @@ def create_empty_drs_production(category, ref=None):
     Returns:
         A DrsProduction instance.
     """
-    d = DrsProduction(DRS([], []), category=category)
+    d = DrsProduction([], [], category=category)
     if ref is None:
         ref = DRSRef('x1')
     d.set_lambda_refs([ref])
@@ -345,8 +351,10 @@ def strip_apostrophe_s(word):
     if len(word) > 2:
         if word.endswith("'s"):
             return word[0:-2]
-        elif word.endswith("’s"):
-            return word.replace("’s", '')
+        else:
+            uword = word.decode('utf-8')
+            if uword.endswith(u"’s"):
+                return uword.replace(u"’s", u'').encode('utf-8')
     return word
 
 
@@ -356,9 +364,10 @@ class Lexeme(object):
     _ToBePredicates = ('.AGENT', '.ATTRIBUTE', '.EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
-    _Lemmatizer = wn.WordNetLemmatizer()
-    _verbnetDB = VerbnetDB()
     _Punct= '?.,:;'
+    _wnl = wn.WordNetLemmatizer()
+    _vn = VerbnetDB()
+    _p = inflect.engine()
 
     def __init__(self, category, word, pos_tags, idx=0):
 
@@ -369,6 +378,9 @@ class Lexeme(object):
         self.conditions = None
         self.mask = 0
         self.refs = []
+        self.wnsynsets = None
+        self.vnclasses = None
+        self.drs = None
 
         if not isinstance(category, Category):
             self.category = Category.from_cache(category)
@@ -402,11 +414,13 @@ class Lexeme(object):
                 stem = word.lower().rstrip(self._Punct)
                 if self.pos in POS_LIST_VERB or self.pos == POS_GERUND:
                     # FIXME: move to python 3 so its all unicode
-                    self.stem = self._Lemmatizer.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
+                    self.stem = self._wnl.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
                 else:
                     self.stem = stem
 
     def __repr__(self):
+        if self.drs:
+            return '<Lexeme>:(%s, %s, %s)' % (self.word, self.drs.show(SHOW_LINEAR).encode('utf-8'), self.category)
         return '<Lexeme>:(%s, %s, %s)' % (self.word, self.stem, self.category)
 
     @property
@@ -502,39 +516,33 @@ class Lexeme(object):
         if self.isproper_noun:
             # If we are a functor and a proper noun then argument type if the
             # correct referent for the noun
-            if isinstance(template.constructor_rule[0][1], DRSRef):
-                x = [template.constructor_rule[0][1]]
-            else:
-                x = [template.constructor_rule[0][1][0]]
-            x.extend(complement(refs, x))
-            refs = x
             if self._TypeMonth.match(self.stem):
                 if self.stem in _MONTHS:
-                    conds.append(Rel(_MONTHS[self.stem], [refs[0]]))
+                    conds.append(Rel(_MONTHS[self.stem], [self.refs[0]]))
                 else:
-                    conds.append(Rel(self.stem, [refs[0]]))
+                    conds.append(Rel(self.stem, [self.refs[0]]))
                 if template.isfinalevent:
-                    conds.append(Rel('.DATE', refs[0:2]))
+                    conds.append(Rel('.DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('.DATE', refs))
+                    conds.append(Rel('.DATE', self.refs))
             elif self._TypeWeekday.match(self.stem):
                 if self.stem in _WEEKDAYS:
-                    conds.append(Rel(_WEEKDAYS[self.stem], [refs[0]]))
+                    conds.append(Rel(_WEEKDAYS[self.stem], [self.refs[0]]))
                 else:
-                    conds.append(Rel(self.stem, [refs[0]]))
+                    conds.append(Rel(self.stem, [self.refs[0]]))
                 if template.isfinalevent:
-                    conds.append(Rel('.DATE', refs[0:2]))
+                    conds.append(Rel('.DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('.DATE', refs))
+                    conds.append(Rel('.DATE', self.refs))
             else:
-                conds.append(Rel(self.stem, [refs[0]]))
+                conds.append(Rel(self.stem, [self.refs[0]]))
         elif self.isnumber:
-            conds.append(Rel(self.stem, [refs[0]]))
-            conds.append(Rel('.NUM', refs))
+            conds.append(Rel(self.stem, [self.refs[0]]))
+            conds.append(Rel('.NUM', self.refs))
         elif self.pos == POS_PREPOSITION and not self.ispreposition:
-            conds.append(Rel(self.stem, refs))
+            conds.append(Rel(self.stem, self.refs))
         else:
-            conds.append(Rel(self.stem, [refs[0]]))
+            conds.append(Rel(self.stem, [self.refs[0]]))
         return conds
 
     def _copy_production_from_sample(self, sample):
@@ -549,8 +557,33 @@ class Lexeme(object):
             assert isinstance(c, Rel)
             conds.append(Rel(c.relation, map(lambda x: nvrs[x.var.to_string()], c.referents)))
         refs = map(lambda x: nvrs[x.var.to_string()], sample[0].referents)
-        d = DrsProduction(DRS(refs, conds))
+        self.drs = DRS(refs, conds)
+        self.refs = [v for k, v in nvrs]
+        d = DrsProduction(self.drs.universe, self.drs.freerefs, indexes=[self.idx])
         d.set_lambda_refs(map(lambda x: nvrs[x.var.to_string()], sample[2]))
+        #self.refs = d.variables
+        return d
+
+    def get_noun_drs(self):
+        if not self.isproper_noun and not self.pos == POS_POSSESSIVE:
+            # TODO: cache nouns
+            # pattern.en.pluralize(self.stem)
+            # or use inflect https://pypi.python.org/pypi/inflect
+            if self.stem == "'s":
+                pass
+            sp = self._p.plural(self.stem)
+            self.wnsynsets = wn.wordnet.synsets(self._wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
+            if False and self.stem != sp:
+                rp = DRSRef(DRSVar('x', len(self.refs)+1))
+                self.drs = DRS([self.refs[0], rp],
+                               [Rel(self.stem, [self.refs[0]]), Rel(sp, [rp]), Rel('.ISMEMBER', [self.refs[0], rp])])
+                d = DrsProduction([self.refs[0], rp], self.refs[1:], category=self.category, indexes=[self.idx])
+                d.set_lambda_refs([self.refs[0]])
+                return d
+
+        self.drs = DRS([self.refs[0]], [Rel(self.stem, [self.refs[0]])])
+        d = DrsProduction([self.refs[0]], self.refs[1:], category=self.category, indexes=[self.idx])
+        d.set_lambda_refs([self.refs[0]])
         return d
 
     def get_production(self, docmgr=None):
@@ -561,7 +594,6 @@ class Lexeme(object):
         """
         no_vn = docmgr.no_vn if docmgr is not None else True
         template = self.get_template()
-        compose = None if template is None else template.constructor_rule
         if docmgr is None:
             docmgr = SimpleDocMgr()
 
@@ -571,61 +603,53 @@ class Lexeme(object):
         # To take advantage of fast renaming we need to do one rename post functor creation
         # since template DRSRefs are global and we never want to modify these.
 
-        if compose is None:
+        if template is None:
             # Simple type
             # Handle prepositions
             if self.category in [CAT_CONJ, CAT_NPthr]:
-                self.refs = [DRSRef('x1')]
+                self.refs = [DRSRef(DRSVar('x', 1))]
                 if self.stem == 'or':
                     self.mask |= RT_UNION
-                    return create_empty_drs_production(self.category, self.refs[0])
                 elif self.stem == 'nor':
                     self.mask |= RT_UNION | RT_NEGATE
-                    return create_empty_drs_production(self.category, self.refs[0])
                 return create_empty_drs_production(self.category, self.refs[0])
             elif self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
-                self.refs = [DRSRef('x1')]
+                self.refs = [DRSRef(DRSVar('x', 1))]
                 return identity_functor(self.category, self.refs[0])
             elif self.ispronoun and self.stem in _PRON:
                 d = self._copy_production_from_sample(_PRON[self.stem])
                 d.set_category(self.category)
-                self.refs = d.variables
                 return d
             elif self.category == CAT_N:
-                self.refs = [DRSRef('x1')]
+                self.refs = [DRSRef(DRSVar('x', 1))]
                 if self.isproper_noun:
                     self.mask |= RT_PROPERNAME
                 elif self.pos == POS_NOUN_S:
                     self.mask |= RT_ENTITY | RT_PLURAL
                 else:
                     self.mask |= RT_ENTITY
-                d = DrsProduction(DRS([self.refs[0]], [Rel(self.stem, [self.refs[0]])]), category=self.category)
-                d.set_lambda_refs([self.refs[0]])
-                return d
+                return self.get_noun_drs()
             elif self.category == CAT_NOUN:
-                self.refs = [DRSRef('x1')]
+                self.refs = [DRSRef(DRSVar('x', 1))]
                 if self.isnumber:
                     self.mask |= RT_NUMBER
                 elif self.pos == POS_NOUN_S:
                     self.mask |= RT_ENTITY | RT_PLURAL
                 else:
                     self.mask |= RT_ENTITY
-                d = DrsProduction(DRS([self.refs[0]], [Rel(self.stem, [self.refs[0]])]))
-                d.set_category(self.category)
-                d.set_lambda_refs([self.refs[0]])
-                return d
+                return self.get_noun_drs()
             elif self.category == CAT_CONJ_CONJ or self.category == CAT_CONJCONJ:
-                self.refs = [DRSRef('x1')]
+                self.refs = [DRSRef(DRSVar('x', 1))]
                 return create_empty_drs_production(CAT_CONJ, self.refs[0])
                 #return identity_functor(self.category)
             elif self.isadverb and self.stem in _ADV:
                 d = self._copy_production_from_sample(_ADV[self.stem])
                 d.set_category(self.category)
-                self.refs = d.variables
                 return d
             else:
-                self.refs = [DRSRef('x1')]
-                d = DrsProduction(DRS([], [Rel(self.stem, [self.refs[0]])]), category=self.category)
+                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.drs = DRS([], [Rel(self.stem, [self.refs[0]])])
+                d = DrsProduction([], self.refs, category=self.category, indexes=[self.idx])
                 d.set_lambda_refs([self.refs[0]])
                 return d
 
@@ -638,35 +662,40 @@ class Lexeme(object):
             if self.ispronoun and self.stem in _PRON:
                 d = self._copy_production_from_sample(_PRON[self.stem])
                 d.set_category(CAT_NP)
-                self.refs = d.variables
                 return FunctorProduction(self.category, d.lambda_refs, d)
 
             else:
-                nref = DRSRef('x1')
+                nref = DRSRef(DRSVar('x', 1))
                 self.refs = [nref]
                 if self.category == CAT_DETERMINER:
                     if self.stem in ['a', 'an']:
-                        fn = DrsProduction(DRS([], [Rel('.MAYBE', [nref])]), category=CAT_NP)
+                        self.drs = DRS([], [Rel('.MAYBE', [nref])])
+                        fn = DrsProduction([], [nref], category=CAT_NP, indexes=[self.idx])
                     elif self.stem in ['the', 'thy']:
-                        fn = DrsProduction(DRS([], [Rel('.EXISTS', [nref])]), category=CAT_NP)
+                        self.drs = DRS([], [Rel('.EXISTS', [nref])])
+                        fn = DrsProduction([], [nref], category=CAT_NP, indexes=[self.idx])
                     else:
-                        fn = DrsProduction(DRS([], [Rel(self.stem, [nref])]), category=CAT_NP)
+                        self.drs = DRS([], [Rel(self.stem, [nref])])
+                        fn = DrsProduction([], [nref], category=CAT_NP, indexes=[self.idx])
                 elif self.pos == POS_DETERMINER and self.stem in ['the', 'thy', 'a', 'an']:
-                    fn = DrsProduction(DRS([], []), category=CAT_NP)
+                    fn = DrsProduction([], [], category=CAT_NP, indexes=[self.idx])
                 else:
-                    fn = DrsProduction(DRS([], [Rel(self.stem, [nref])]), category=CAT_NP)
+                    self.drs = DRS([], [Rel(self.stem, [nref])])
+                    fn = DrsProduction([], [nref], category=CAT_NP, indexes=[self.idx])
                 fn.set_lambda_refs([nref])
             return FunctorProduction(category=self.category, referent=nref, production=fn)
 
         else:
+            compose = None if template is None else template.constructor_rule
             refs = []
+            rule_map = template.create_constructor_rule_map()
             for c in compose:
                 if isinstance(c[1], tuple):
-                    refs.extend(list(c[1]))
+                    refs.extend([rule_map[x] for x in c[1]])
                 else:
-                    refs.append(c[1])
+                    refs.append(rule_map[c[1]])
 
-            refs.append(template.final_ref)
+            refs.append(rule_map[template.final_ref])
             refs.reverse()
             refs = remove_dups(refs)
             final_atom = template.final_atom.remove_wildcards()
@@ -686,7 +715,7 @@ class Lexeme(object):
                 conds = []
                 vncond = None
                 try:
-                    vnclasses = [] if no_vn else self._verbnetDB.name_index[self.stem]
+                    vnclasses = [] if no_vn else self._vn.name_index[self.stem]
                     if len(vnclasses) == 1:
                         vncond = Rel('.VN.' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
                     elif len(vnclasses) >= 2:
@@ -718,46 +747,57 @@ class Lexeme(object):
 
                     if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
                         conds.append(Rel('.EVENT', [refs[0]]))
+                        self.vnclasses = vnclasses
 
                     # passive case
                     if len(refs) > 1:
                         conds.append(Rel('.MOD', [refs[0], refs[-1]]))
-                    d = DrsProduction(DRS([], conds))
+
+                    self.drs = DRS([], conds)
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
                 elif self.category == CAT_MODAL_PAST:
                     conds.append(Rel('.MODAL', [refs[0]]))
-                    d = DrsProduction(DRS([], conds))
+                    self.drs = DRS([], conds)
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
                 elif self.category in CAT_COPULAR:
+                    if len(refs) != 3:
+                        pass
                     assert len(refs) == 3, "copular expects 3 referents"
 
                     # Special handling
                     self.mask |= RT_EVENT
+                    self.vnclasses = vnclasses
                     if self.stem == 'be':
                         # Discard conditions
                         conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
                                       Rel('.ROLE', [refs[0], refs[2]])])
-                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom)
+
                     else:
                         conds.append(Rel('.EVENT', [refs[0]]))
                         conds.append(Rel('.AGENT', [refs[0], refs[1]]))
                         conds.append(Rel('.ROLE', [refs[0], refs[2]]))
-                        d = DrsProduction(DRS([refs[0]], conds), category=final_atom)
-
+                    self.drs = DRS([refs[0]], conds)
+                    d = DrsProduction([refs[0]], refs[1:], category=final_atom, indexes=[self.idx])
                 elif self.category == CAT_VPdcl:
-
+                    if len(refs) != 2:
+                        pass
                     assert len(refs) == 2, "VP[dcl] expects 2 referents"
 
                     conds.append(Rel('.EVENT', [refs[0]]))
                     conds.append(Rel('.AGENT', [refs[0], refs[1]]))
                     self.mask |= RT_EVENT
+                    self.vnclasses = vnclasses
 
                     # Special handling
-                    d = DrsProduction(DRS([refs[0]], conds), category=final_atom)
+                    self.drs = DRS([refs[0]], conds)
+                    d = DrsProduction([refs[0]], self.refs[1:], category=final_atom, indexes=[self.idx])
 
                 else:
                     # TODO: use verbnet to get semantics
                     self.mask |= RT_EVENT
+                    self.vnclasses = vnclasses
                     if self.stem == 'be' and self.category.can_unify(CAT_TV):
                         # Discard conditions
                         conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
@@ -771,7 +811,8 @@ class Lexeme(object):
                             rx = [refs[0]]
                             rx.extend(refs[len(pred)+1:])
                             conds.append(Rel('.EXTRA', rx))
-                    d = DrsProduction(DRS([refs[0]], conds))
+                    self.drs = DRS([refs[0]], conds)
+                    d = DrsProduction([refs[0]], refs[1:], indexes=[self.idx])
 
             elif self.isadverb and template.isfinalevent:
                 if self.stem in _ADV:
@@ -779,7 +820,8 @@ class Lexeme(object):
                     rs = zip(d.variables, refs)
                     d.rename_vars(rs)
                 else:
-                    d = DrsProduction(DRS([], [Rel(self.stem, refs[0])]))
+                    self.drs = DRS([], [Rel(self.stem, refs[0])])
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
             #elif self.pos == POS_DETERMINER and self.stem == 'a':
 
@@ -800,23 +842,27 @@ class Lexeme(object):
 
             elif self.ispreposition:
                 if template.construct_empty:
-                    d = DrsProduction(DRS([], []))
+                    d = DrsProduction([], [], indexes=[self.idx])
                 else:
-                    d = DrsProduction(DRS([], [Rel(self.stem, refs)]))
+                    self.drs = DRS([], [Rel(self.stem, refs)])
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
             elif self.pos == POS_PREPOSITION and self.category.test_returns_modifier() \
                     and len(refs) > 1 and not self.category.ismodifier:
-                d = DrsProduction(DRS([], [Rel(self.stem, [refs[0], refs[-1]])]))
+                self.drs = DRS([], [Rel(self.stem, [refs[0], refs[-1]])])
+                d = DrsProduction([], self.refs, indexes=[self.idx])
 
             elif final_atom == CAT_Sadj and len(refs) > 1:
                 if self.category == CAT_AP_PP or self.category.ismodifier or \
                         self.category.test_returns_modifier():
-                    d = DrsProduction(DRS([], [Rel(self.stem, refs[0])]))
+                    self.drs = DRS([], [Rel(self.stem, refs[0])])
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
                 else:
                     conds = [Rel(self.stem, refs[0])]
                     for r in refs[1:]:
                         conds.append(Rel('.ATTRIBUTE', [refs[0], r]))
-                    d = DrsProduction(DRS([], conds))
+                    self.drs = DRS([], conds)
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
             else:
                 if self.isproper_noun:
@@ -827,17 +873,20 @@ class Lexeme(object):
 
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
-                        d = DrsProduction(DRS([], []))
+                        d = DrsProduction([], [], indexes=[self.idx])
                     elif self.pos == POS_MODAL:
-                        d = DrsProduction(DRS([], [Rel(self.stem, [refs[0]]), Rel('.MODAL', [refs[0]])]))
+                        self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
+                        d = DrsProduction([], self.refs, indexes=[self.idx])
                     else:
-                        d = DrsProduction(DRS([], self.build_conditions([], refs, template)))
+                        self.drs = DRS([], self.build_conditions([], refs, template))
+                        d = DrsProduction([], self.refs, indexes=[self.idx])
                 else:
-                    d = DrsProduction(DRS([], self.build_conditions([], refs, template)))
+                    self.drs = DRS([], self.build_conditions([], refs, template))
+                    d = DrsProduction([], self.refs, indexes=[self.idx])
 
             d.set_lambda_refs([final_ref])
             d.set_category(final_atom)
-            fn = template.create_functor(d)
+            fn = template.create_functor(rule_map, d)
             return fn
 
 
@@ -859,8 +908,6 @@ class PushOp(AbstractOperand):
         self.lexeme = lexeme
 
     def __repr__(self):
-        if self.lexeme.prod:
-            return '<PushOp>:(%s, %s, %s)' % (repr(self.lexeme.prod), self.lexeme.category, self.lexeme.pos)
         return '<PushOp>:(%s, %s, %s)' % (self.lexeme.stem, self.lexeme.category, self.lexeme.pos)
 
     @property
@@ -931,6 +978,9 @@ def parse_ccg_derivation2(ccgbank):
                 pt.append('T')
                 stk.pop()
                 pt = stk[-1]
+    # TODO: remove debug code below
+    if level != 0 or len(root) != 1:
+        pass
     assert level == 0
     assert len(root) == 1
     return root[0]
@@ -939,7 +989,7 @@ def parse_ccg_derivation2(ccgbank):
 class Ccg2Drs(object):
     """CCG to DRS Converter"""
     dispatchmap = VectorMap(Rule.rule_count())
-    _verbnetDB = VerbnetDB()
+    _vn = VerbnetDB()
     debugcount = 0
 
     def __init__(self, options=0):
@@ -950,6 +1000,7 @@ class Ccg2Drs(object):
         self.exeque = []
         self.lexque = []
         self.depth = -1
+        self.final_prod = None
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
@@ -987,8 +1038,11 @@ class Ccg2Drs(object):
         assert len(op.sub_ops) == 2
         assert len(stk) >= 2
         unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
-        if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
+        if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
             unary = MODEL.infer_unary(op.category)
+        # TODO: remove debug code below
+        if unary is None:
+            pass
         assert unary is not None
         fn = self.rename_vars(unary.get())
         fn.set_options(self.options)
@@ -1031,7 +1085,7 @@ class Ccg2Drs(object):
     def _dispatch_tcatom(self, op, stk):
         assert len(op.sub_ops) == 1
         # Special rule to change atomic type
-        fn = self.rename_vars(identity_functor(Category.combine(op.category, '\\', d.category)))
+        fn = self.rename_vars(identity_functor(Category.combine(op.category, '\\', stk[-1].category)))
         fn.set_options(self.options)
         stk.append(fn)
         self._dispatch_ba(op, stk)  # backward application
@@ -1125,7 +1179,7 @@ class Ccg2Drs(object):
         else:
             d = ProductionList(f)
             d.push_right(g)
-            d = d.flatten().unify()
+            d = d.unify()
             stk.append(d)
             d.set_category(f.category)
 
@@ -1136,20 +1190,20 @@ class Ccg2Drs(object):
         d.set_category(op.category)
         for i in range(len(op.sub_ops)):
             d.push_left(stk.pop())
-        d = d.flatten().unify()
-        stk.append(d)
+        if d.contains_functor:
+            # Bit of a hack, flatten() gets rid of empty productions
+            stk.append(d.flatten().unify())
+        else:
+            stk.append(d.unify())
 
     @default_dispatchmethod(dispatchmap)
     def _dispatch_default(self, op, stk):
         # All rules must have a handler
         assert False
 
-    def resolve_proper_names(self, d):
+    def resolve_proper_names(self):
         """Merge proper names."""
 
-        # Resolve only works with fast rename option
-        if 0 == (self.options & CO_FAST_RENAME):
-            return d
         # find spans of nouns with same referent
         spans = []
         lastref = DRSRef('$$$$')
@@ -1157,7 +1211,11 @@ class Ccg2Drs(object):
         endIdx = -1
         for i in range(len(self.lexque)):
             lexeme = self.lexque[i]
-            ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
+            if lexeme.refs is None or len(lexeme.refs) == 0:
+                ref = DRSRef('$$$$')
+            else:
+                ref = lexeme.refs[0]
+            #ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
             if startIdx >= 0:
                 if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
                         (lexeme.word == '&' and (i+1) < len(self.lexque) and self.lexque[i+1].isproper_noun)):
@@ -1178,69 +1236,78 @@ class Ccg2Drs(object):
 
         for s, e in spans:
             lexeme = self.lexque[s]
-            ref = lexeme.prod.get_unify_scopes(False)[-1] if lexeme.prod.isfunctor else lexeme.prod.lambda_refs[0]
+            ref = lexeme.refs[0]
             names = [lexeme.stem]
-            fca = d.drs.find_condition(Rel(lexeme.stem, [ref]))
+            fca = lexeme.drs.find_condition(Rel(lexeme.stem, [ref]))
             if fca is None:
                 continue
             for i in range(s+1, e+1):
-                fc = d.drs.find_condition(Rel(self.lexque[i].stem, [ref]))
+                lexeme = self.lexque[i]
+                fc = lexeme.drs.find_condition(Rel(self.lexque[i].stem, [ref]))
                 if fc is not None:
                     names.append(self.lexque[i].stem)
-                    d.drs.remove_condition(fc)
+                    lexeme.drs.remove_condition(fc)
             nm = '-'.join(names)
             fca.cond.relation.rename(nm)
-        return d
 
+    def get_drs(self):
+        refs = []
+        conds = []
+        for w in self.lexque:
+            if w.drs:
+                refs.extend(w.drs.universe)
+                conds.extend(w.drs.conditions)
 
-    def final_rename(self, d):
+        return DRS(refs, conds)
+
+    def final_rename(self):
         """Rename to ensure:
             - indexes progress is 1,2,...
             - events are tagged e, others x
-
-        Args:
-            d: A DrsProduction instance.
-
-        Returns:
-            A renamed DrsProduction instance.
         """
-        vx = set(filter(lambda x: not x.isconst, d.variables))
+        vx = set(filter(lambda x: not x.isconst, self.final_prod.variables))
         ors = filter(lambda x: x.var.idx < len(vx), vx)
         if len(ors) != 0:
             # Move names to > len(vx)
             mx = 1 + max([x.var.idx for x in vx])
             idx = [i+mx for i in range(len(ors))]
             rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(ors, idx))
-            d.rename_vars(rs)
-            vx = set(filter(lambda x: not x.isconst, d.variables))
+            self.final_prod.rename_vars(rs)
+            vx = set(filter(lambda x: not x.isconst, self.final_prod.variables))
 
         # Attempt to order by first occurence
-        v = map(lambda y: y.referents[0], filter(lambda x: isinstance(x, Rel) and len(x.referents) == 1
-                                                           and not x.referents[0].isconst, d.drs.conditions))
+        v = []
+        for t in self.lexque:
+            if t.drs:
+                v.extend(t.drs.universe)
+
         v = remove_dups(v)
         if len(vx) != len(v):
             f = set(vx).difference(v)
             v.extend(f)
 
+        # Map variables to type
+        vtype = dict(map(lambda y: (y.refs[0], y.mask), filter(lambda x: x.drs and len(x.drs.universe) != 0, self.lexque)))
+
         # Move names to 1:...
         idx = [i+1 for i in range(len(v))]
-        rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
-        d.rename_vars(rs)
-        # Ensure events are e? refs
-        while True:
-            v = set(filter(lambda x: not x.isconst, d.variables))
-            for x in v:
-                if x.var.name == 'x':
-                    fc = d.drs.find_condition(Rel('.EVENT', [x]))
-                    if fc is not None:
-                        d.rename_vars([(x, DRSRef(DRSVar('e', x.var.idx)))])
-            break
+        #rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
+        rs = []
+        for u, i in zip(v, idx):
+            mask = vtype.setdefault(u, 0)
+            if 0 != (mask & RT_EVENT):
+                # ensure events are prefixed 'e'
+                rs.append((u, DRSRef(DRSVar('e', i))))
+            else:
+                rs.append((u, DRSRef(DRSVar('x', i))))
+
+        self.final_prod.rename_vars(rs)
         self.xid = self.limit
         self.eid = self.limit
-        return d
 
     def rename_vars(self, d):
-        """Rename to ensure variable names are disjoint.
+        """Rename to ensure variable names are disjoint. This should be called immediately after
+        creating a production.
 
         Args:
             d: A DrsProduction instance.
@@ -1248,6 +1315,9 @@ class Ccg2Drs(object):
         Returns:
             A renamed DrsProduction instance.
         """
+        if len(filter(lambda x: x.isconst, d.variables)) != 0:
+            pass
+        assert len(filter(lambda x: x.isconst, d.variables)) == 0
         v = set(filter(lambda x: not x.isconst, d.variables))
         xlimit = 0
         elimit = 0
@@ -1295,32 +1365,30 @@ class Ccg2Drs(object):
         for i in range(len(self.lexque)):
             lexeme = self.lexque[i]
             if lexeme.category.ispunct:
-                prod = DrsProduction(DRS([], []), category=lexeme.category)
+                prod = DrsProduction([], [], category=lexeme.category)
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
                 prod.set_options(self.options)
             elif lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-                prod = DrsProduction(DRS([], []), category=CAT_EMPTY)
+                prod = DrsProduction([], [], category=CAT_EMPTY)
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
             else:
                 prod = self.rename_vars(lexeme.get_production())
             prod.set_options(self.options)
-            lexeme.prod = prod
-            prods[i] = prod.clone()
+            prods[i] = prod
         # TODO: Defer special handling of proper nouns
 
         # Process exec queue
         stk = []
         for op in self.exeque:
             if isinstance(op, PushOp):
-                stk.append(op.lexeme.prod)
+                stk.append(prods[op.lexeme.idx])
             else:
                 # ExecOp dispatch based on rule
                 self.dispatch(op, stk)
 
             # TODO: remove debug code
-            '''
             if op.category.get_scope_count() != stk[-1].get_scope_count():
                 pass
 
@@ -1331,7 +1399,6 @@ class Ccg2Drs(object):
             if not stk[-1].category.can_unify(op.category):
                 stk[-1].category.can_unify(op.category)
                 pass
-            '''
 
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
@@ -1343,8 +1410,8 @@ class Ccg2Drs(object):
         assert len(stk) == 1
         d = stk[0]
         if d.isfunctor and d.isarg_left and d.category.argument_category().isatom:
-            return d.apply_null_left().unify()
-        return d
+            d = d.apply_null_left().unify()
+        self.final_prod = d
 
     def build_execution_sequence(self, pt):
         """Build the execution sequence from a ccgbank parse tree.
@@ -1380,6 +1447,10 @@ class Ccg2Drs(object):
                 rule = get_rule(cats[0], cats[1], result)
                 if rule is None:
                     rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
+                    # TODO: remove debug code below
+                    if rule is None:
+                        rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
+                        pass
                     assert rule is not None
 
                 # Head resolved to lexque indexes
@@ -1521,9 +1592,10 @@ def process_ccg_pt(pt, options=None):
     ccg = Ccg2Drs(options | CO_FAST_RENAME)
     pt = pt_to_utf8(pt)
     ccg.build_execution_sequence(pt)
-    d = ccg.create_drs()
-    d = ccg.final_rename(d)
-    d = ccg.resolve_proper_names(d)
+    ccg.create_drs()
+    ccg.final_rename()
+    ccg.resolve_proper_names()
+    d = ccg.get_drs()
     # TODO: resolve anaphora
     return d
 

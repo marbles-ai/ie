@@ -1311,7 +1311,7 @@ class AbstractDRSRef(Showable):
     """Abstract DRS referent"""
 
     def __init__(self, drsVar):
-        self.var = drsVar
+        self._var = drsVar
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1370,6 +1370,10 @@ class AbstractDRSRef(Showable):
         """Convert to a DRSRef. This implementation returns self."""
         return self
 
+    def set_var(self, var):
+        assert not self.isconst
+        self._var = var
+
 
 class LambdaDRSRef(AbstractDRSRef):
     """Lambda DRS referent"""
@@ -1386,25 +1390,24 @@ class LambdaDRSRef(AbstractDRSRef):
         self._pos = pos
 
     def __ne__(self, other):
-        return type(self) != type(other) or self.var != other.var or self._pos != other._pos
+        return type(self) != type(other) or self._var != other.var or self._pos != other._pos
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.var == other.var and self._pos == other._pos
+        return type(self) == type(other) and self._var == other.var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRSRef(%s,%i)' % (self.var.var, self._pos)
+        return 'LambdaDRSRef(%s,%i)' % (self._var.var, self._pos)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         """Adds a trailing integer to the referent to make it unique."""
-        u.add(LambdaTuple(self.var, self._pos))
+        u.add(LambdaTuple(self._var, self._pos))
         return u
 
-    # Make public to support fast renaming
-    #@property
-    #def var(self):
-    #    """Converts a DRSRef into a DRSVar."""
-    #    return self._var.var
+    @property
+    def var(self):
+        """Converts a DRSRef into a DRSVar."""
+        return self._var.var
 
 
 class DRSRef(AbstractDRSRef):
@@ -1417,13 +1420,13 @@ class DRSRef(AbstractDRSRef):
         super(DRSRef, self).__init__(drsVar)
 
     def __ne__(self, other):
-        return type(self) != type(other) or self.var != other.var
+        return type(self) != type(other) or self._var != other.var
 
     def __eq__(self, other):
-        return type(self) == type(other) and self.var == other.var
+        return type(self) == type(other) and self._var == other.var
 
     def __repr__(self):
-        return '%s' % self.var
+        return '%s' % self._var
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1431,23 +1434,25 @@ class DRSRef(AbstractDRSRef):
 
     @property
     def isconst(self):
-        return isinstance(self.var, DRSConst)
+        return isinstance(self._var, DRSConst)
 
     @property
     def isresolved(self):
         return True
 
-    # Make public to support fast renaming
-    #@property
-    #def var(self):
-    #    """Converts a DRSRef into a DRSVar."""
-    #    return self.var
+    @property
+    def var(self):
+        """Converts a DRSRef into a DRSVar."""
+        return self._var
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:increase</a>
     ##
     def increase_new(self):
         """Adds a trailing integer to the referent to make it unique."""
-        return DRSRef(self.var.increase_new())
+        if self.isconst:
+            pass
+        assert not self.isconst
+        return DRSRef(self._var.increase_new())
 
 
 class AbstractDRSRelation(object):
@@ -1557,7 +1562,6 @@ class DRSRelation(AbstractDRSRelation):
         elif not isinstance(drsVar, DRSVar):
             raise TypeError('DRSRelation expects DRSVar')
         self._var = drsVar
-
 
 
 class AbstractDRSCond(Showable):

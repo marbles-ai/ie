@@ -9,7 +9,8 @@ from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
-from marbles.ie.parse import parse_drs, parse_ccg_derivation
+from marbles.ie.parse import parse_drs  #, parse_ccg_derivation
+from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 
 
 # Like NLTK's dexpr()
@@ -19,7 +20,7 @@ def dexpr(s):
 
 class ComposeTest(unittest.TestCase):
     
-    def test1_Compose(self):
+    def __test1_Compose(self):
         # λP.[x|me(x),own(x,y)];P(y)
         fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
         self.assertEquals('λPλy.([x| me(x),own(x,y)];P(y))', repr(fn))
@@ -51,6 +52,17 @@ class ComposeTest(unittest.TestCase):
         s = d.show(SHOW_SET)
         x = u'<{x2,y1},{exists(x2),school(x2),bus(x2),wheeze(x2,y1),y1: <{x1,y},{me(x1),own(x1,y),corner(y)}>}>'
         self.assertEquals(x, s)
+
+    def test1_Plural(self):
+        txt = '''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT A NP/N>) (<L N NN NN farmer N>) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/PP VBN VBN protested (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN against PP/NP>)
+        (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ new N/N>) (<L N NN NN tax N>) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        s = d.show(SHOW_LINEAR)
+        print(s)
+
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -159,18 +171,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
-
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -248,17 +253,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0001_2(self):
         # Mr. Vinken is chairman of Elsevier N.V. , the Dutch publishing group .
@@ -322,17 +321,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0003_1(self):
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
@@ -488,17 +481,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0004_1(self):
         # Yields on money-market mutual funds continued to slide, amid signs that portfolio managers expect further
@@ -521,17 +508,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0004_1_EasySRL(self):
         # Same sentence as test12_Wsj0004_1() but parse tree generated by EasySRL rather than LDC.
@@ -550,17 +531,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test2_Wsj0012_1(self):
         txt = '''
@@ -668,17 +643,11 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d1 = ccg.create_drs()
-        d1 = ccg.final_rename(d1)
-        s1 = d1.drs.show(SHOW_LINEAR)
-        print(s1)
-        ccg.options |= CO_FAST_RENAME
-        d2 = ccg.create_drs()
-        d2 = ccg.final_rename(d2)
-        s2 = d2.drs.show(SHOW_LINEAR)
-        print('==')
-        print(s2)
-        self.assertEquals(s1, s2)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        print(s)
 
     def test3_ParseEasySrl(self):
         # Welcome to MerryWeather High
@@ -688,15 +657,14 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d = ccg.create_drs()
-        d = ccg.final_rename(d)
-        s = d.drs.show(SHOW_LINEAR)
-        x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather(x2),High(x2)]'
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        x = u'[e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather(x2),High(x2)]'
         self.assertEquals(x, s)
-        # Resolve only works with fast rename option
-        ccg.resolve_proper_names(d)
-        x = u'[x3,e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
-        s = d.drs.show(SHOW_LINEAR)
+        ccg.resolve_proper_names()
+        x = u'[e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
+        s = ccg.get_drs().show(SHOW_LINEAR)
         self.assertEquals(x, s)
 
         # The door opens and I step up.
@@ -727,11 +695,10 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d = ccg.create_drs()
-        d = ccg.final_rename(d)
-        d = d.drs.simplify_props()
-        s = d.show(SHOW_LINEAR)
-        x = u'[x1,e2,e4| door(x1),open(e2),.EVENT(e2),.AGENT(e2,x1),i(x3),step(e4),.EVENT(e4),.AGENT(e4,x3),up(e4),direction(e4)]'
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        x = u'[x1,e2,e3| door(x1),open(e2),.EVENT(e2),.AGENT(e2,x1),i(x4),step(e3),.EVENT(e3),.AGENT(e3,x4),up(e3),direction(e3)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -743,9 +710,9 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d = ccg.create_drs()
-        d = ccg.final_rename(d)
-        s = d.drs.show(SHOW_LINEAR)
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
         x = u'[x1,e2,x3| school(x1),bus(x1),wheeze(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,x3),to(x3),i(x4),.POSS(x4,x3),corner(x3)]'
         self.assertEquals(x, s)
 
@@ -776,8 +743,8 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
         ccg.build_execution_sequence(pt)
-        d = ccg.create_drs()
-        s = d.drs.show(SHOW_LINEAR)
+        ccg.create_drs()
+        s = ccg.get_drs().show(SHOW_LINEAR)
         print(s)
 
     def test5_ProperNouns1(self):
@@ -871,7 +838,7 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        s = d.drs.show(SHOW_LINEAR)
+        s = d.show(SHOW_LINEAR)
         print(s)
 
     def test5_ProperNouns2(self):
@@ -996,7 +963,7 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
-        s = d.drs.show(SHOW_LINEAR)
+        s = d.show(SHOW_LINEAR)
         print(s)
 
     def test6_Pronouns(self):
@@ -1156,7 +1123,7 @@ class ComposeTest(unittest.TestCase):
         (<L ((S\NP)\(S\NP))/PP JJ JJ due ((S\NP)\(S\NP))/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2>
         (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ general N/N>) (<L N NN NN election N>) ) ) ) ) ) )''')
         for t in txt:
-            pt = parse_ccg_derivation(t.decode('utf-8'))
+            pt = parse_ccg_derivation(t)
             self.assertIsNotNone(pt)
             s = sentence_from_pt(pt)
             print(s)
@@ -1186,7 +1153,7 @@ class ComposeTest(unittest.TestCase):
 
     def test6_Gerund1(self):
         txt = '''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T S/S 0 1> (<T S[ng]\NP 0 2> (<T (S[ng]\NP)/PP 0 2> (<L ((S[ng]\NP)/PP)/NP VBG VBG Presenting ((S[ng]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNS NNS IMF’s N/N>) (<T N 1 2> (<L N/N JJ JJ annual N/N>) (<T N 0 2> (<L N/PP NN NN healthcheck N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN alongside PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP George N/N>) (<L N NNP NNP Osborne N>) ) ) ) (<L , , , , ,>) ) ) ) (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Lagarde N>) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2> (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<T N 0 2> (<L N/PP NNS NNS risks N/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN outlook N>) ) ) ) ) ) ) ) ) (<L , , , , ,>) ) (<T S\S 0 2> (<L (S\S)/PP VBG VBG including (S\S)/PP>) (<T PP 0 2> (<L PP/NP IN IN from PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NN NN housing N/N>) (<L N NN NN market N>) ) ) ) ) ) (<L , , , , ,>) ) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC but conj>) (<T S[dcl] 1 2> (<L NP PRP PRP she NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD was (S[dcl]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB generally (S[adj]\NP)/(S[adj]\NP)>) (<L S[adj]\NP JJ JJ positive. S[adj]\NP>) ) ) ) ) )'''
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1213,7 +1180,7 @@ class ComposeTest(unittest.TestCase):
         #   )
         # )
         # [x1,e2,x3| .ENTITY(x1),.ENTITY(x1),[| your(x3)] ⇒ [| you(x1),owns(x1,x3)],apple(x1),pie(x1),.EVENT(e2),smells(e2),.AGENT(e2,x3),very(e2),tempting(e2)]
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1225,7 +1192,7 @@ class ComposeTest(unittest.TestCase):
         # I am sorry
         txt='''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
         (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L S[adj]\NP IN IN sorry. S[adj]\NP>) ) )'''
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1239,7 +1206,7 @@ class ComposeTest(unittest.TestCase):
         (<L (S[adj]\NP)/(S[adj]\NP) RB RB really (S[adj]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 0 2>
         (<L (S[adj]\NP)/PP VBN VBN disappointed (S[adj]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN with PP/NP>) (<T NP 0 2>
         (<L NP/N DT DT the NP/N>) (<L N NN NN review. N>) ) ) ) ) ) )'''
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1252,7 +1219,7 @@ class ComposeTest(unittest.TestCase):
         txt = '''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/(S[adj]\NP) 0 2>
         (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L (S\NP)\(S\NP) RB RB really (S\NP)\(S\NP)>)
         ) (<L S[adj]\NP JJ JJ sorry. S[adj]\NP>) ) )'''
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1262,7 +1229,7 @@ class ComposeTest(unittest.TestCase):
 
     def test9_Verbnet1(self):
         txt = '''(<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Jim N>) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[to]\NP) VBZ VBZ likes (S[dcl]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2> (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB jump (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN over PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN dog. N>) ) ) ) ) ) )'''
-        pt = parse_ccg_derivation(txt.decode('utf-8'))
+        pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         print(s)
@@ -1299,8 +1266,8 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = []
         failed_ccg2drs = []
-        start = 50
-        for fn in allfiles[0:]:
+        start = 0
+        for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
@@ -1321,12 +1288,10 @@ class ComposeTest(unittest.TestCase):
                 try:
                     d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
                     assert d is not None
-                    d = d.unify()
-                    assert d is not None
-                    assert isinstance(d, DrsProduction)
-                    s = d.drs.show(SHOW_LINEAR).encode('utf-8')
+                    s = d.show(SHOW_LINEAR).encode('utf-8')
                     print(s)
                 except Exception as e:
+                    raise
                     print(e)
                     failed_ccg2drs.append(hdr)
                     continue
@@ -1389,10 +1354,7 @@ class ComposeTest(unittest.TestCase):
                 try:
                     d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
                     assert d is not None
-                    d = d.unify()
-                    assert d is not None
-                    assert isinstance(d, DrsProduction)
-                    s = d.drs.show(SHOW_LINEAR).encode('utf-8')
+                    s = d.show(SHOW_LINEAR).encode('utf-8')
                     print(s)
                 except Exception as e:
                     raise
