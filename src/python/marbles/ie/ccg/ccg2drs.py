@@ -1735,15 +1735,15 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             if template is None:
                 continue
             fn = lexeme.get_production()
-            if len(fn.lambda_refs) == 1:
+            if lexeme.drs is None or len(fn.lambda_refs) == 1:
                 continue
 
             atoms = template.predarg_category.extract_unify_atoms(False)
             refs = fn.get_unify_scopes(False)
-            d = fn.pop()
-            d.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
+            # This will rename lexeme.drs
+            fn.rename_vars(zip(refs, map(lambda x: DRSRef(x.signature), atoms)))
             rel = DRSRelation(lexeme.stem)
-            c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, d.drs.conditions)
+            c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, lexeme.drs.conditions)
             if len(c) == 1:
                 c = repr(c[0]) + ': ' + template.predarg_category.signature
                 if lexeme.stem in dictionary:
