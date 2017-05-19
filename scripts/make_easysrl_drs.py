@@ -61,7 +61,7 @@ if __name__ == '__main__':
     failed_ccg2drs = []
     start = 0
     progress = -1
-    for fn in allfiles[2:3]:
+    for fn in allfiles:
         idx = idsrch.match(fn)
         if idx is None:
             continue
