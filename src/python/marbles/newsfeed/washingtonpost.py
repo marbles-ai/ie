@@ -177,6 +177,7 @@ if __name__ == '__main__':
     for a in articles:
         print(a.title)
         print('='*len(a.title))
+        print(a.link)
         print(a.summary)
         print('--begin-body--')
         text = scraper.get_article_text(a.link)
