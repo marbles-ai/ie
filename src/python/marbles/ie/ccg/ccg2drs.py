@@ -287,11 +287,113 @@ POS_POSSESSIVE = POS.from_cache('POS')
 ## @endcond
 
 
-class SimpleDocMgr(object):
-    """Abstract document view"""
+class IndexSpan(object):
+    """View of a document."""
+    def __init__(self, doc, indexes=None):
+        self._doc = doc
+        if indexes is None:
+            self._indexes = []
+        else:
+            self._indexes = indexes
+
+    def __len__(self):
+        return len(self._indexes)
+
+    def __getitem__(self, i):
+        return self._doc[i]
+
+    def __iter__(self):
+        for k in self._indexes:
+            yield self._doc[k]
+
+    def __repr__(self):
+        return self.text
+
+    def __eq__(self, other):
+        return (len(other._indexes) == 0 and len(self._indexes) == 0) or \
+               (len(self._indexes) != 0 and len(other._indexes) != 0 and \
+                other._doc._hash == self._doc._hash and other._indexes[0] == self._indexes[0])
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self._doc._hash < other._doc._hash or (self._doc._hash == other._doc._hash and \
+                                                      ((len(self._indexes) == 0 and len(other._indexes) != 0) or \
+                                                       (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] < other._indexes[0])))
+
+    def __gt__(self, other):
+        return self._doc._hash > other._doc._hash or (self._doc._hash == other._doc._hash and \
+                                                      ((len(self._indexes) != 0 and len(other._indexes) == 0) or \
+                                                       (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] > other._indexes[0])))
+
+    def __le__(self, other):
+        return other.__gt__(self)
+
+    def __ge__(self, other):
+        return other.__lt__(self)
+
+    def __hash__(self):
+        return (self._idx << 5) ^ (self.idx >> 27) ^ self._doc._hash
+
+    def union(self, other):
+        """Union two spans."""
+        if other is None or len(other) == 0: return
+        self._indexes.extend(filter(lambda x: x not in self._indexes, other._indexes))
+        self._indexes.sort()
+
+    def complement(self, other):
+        """Remove other from this span."""
+        if other is None or len(other) == 0: return
+        self._indexes = filter(lambda x: x not in other._indexes, self._indexes)
+
+    def intersect(self, other):
+        """Find common span."""
+        if other is None or len(other) == 0:
+            self._indexes = []
+            return
+        self._indexes = filter(lambda x: x in other._indexes, self._indexes)
+
+    @property
+    def text(self):
+        if len(self._indexes) == 0:
+            return ''
+        txt = self._doc[self._indexes[0]].text
+        for i in self._indexes[1:]:
+            tok = self._doc[i]
+            if tok.ispunct:
+                txt += tok.text
+            else:
+                txt += ' ' + tok.text
+        return txt
+
+    @property
+    def text_with_ws(self):
+        return self.text
+
+
+class Document(object):
+    def __init__(self, lexemes):
+        self._lexemes = lexemes
+
+    def __getitem__(self, slice_i_j):
+        if isinstance(slice_i_j, slice):
+            return IndexSpan(self, [i for i in range(slice_i_j)])
+        return self._lexemes[slice_i_j]
+
+    def __iter__(self):
+        for i in range(len(self._lexemes)):
+            yield self._lexemes[i]
+
+    def __len__(self):
+        return len(self._lexemes)
 
     @property
     def no_vn(self):
+        return True
+
+    @property
+    def no_wn(self):
         return True
 
 
@@ -586,16 +688,14 @@ class Lexeme(object):
         d.set_lambda_refs([self.refs[0]])
         return d
 
-    def get_production(self, docmgr=None):
+    def get_production(self, options=0):
         """Get the production model for this category.
 
         Returns:
             A Production instance.
         """
-        no_vn = docmgr.no_vn if docmgr is not None else True
+        no_vn = 0 != (CO_NO_VERBNET & options)
         template = self.get_template()
-        if docmgr is None:
-            docmgr = SimpleDocMgr()
 
         # Ensure we only have one instance for each referent name. FunctorTemplate's guarantee
         # this. This allows fast renaming by changing the DRSVar embedded in the DRSRef.
@@ -1374,7 +1474,7 @@ class Ccg2Drs(object):
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
             else:
-                prod = self.rename_vars(lexeme.get_production())
+                prod = self.rename_vars(lexeme.get_production(self.options))
             prod.set_options(self.options)
             prods[i] = prod
         # TODO: Defer special handling of proper nouns
@@ -1403,7 +1503,6 @@ class Ccg2Drs(object):
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
-
         assert len(stk) == 1
         d = stk[0]
         if d.isfunctor and d.isarg_left and d.category.argument_category().isatom:
