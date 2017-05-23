@@ -5,7 +5,6 @@
         <MEMBER name="use" wn="use%2:34:00" grouping="use.02"/>
         <MEMBER name="consume" wn="consume%2:34:01" grouping="consume.02"/>
         <MEMBER name="pass" wn="pass%2:42:00" grouping="pass.03"/>
-        <MEMBER name="kill" wn="" grouping=""/>
     </MEMBERS>
     <THEMROLES>
         <THEMROLE type="Agent">

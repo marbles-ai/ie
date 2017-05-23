@@ -411,6 +411,14 @@
                                 <ARG type="ThemRole" value="Theme"/>
                             </ARGS>
                         </PRED>
+                        <PRED value="direction">
+                            <ARGS>
+                                <ARG type="Event" value="during(E)"/>
+                                <ARG type="Constant" value="toward"/>
+                                <ARG type="ThemRole" value="Theme"/>
+                                <ARG type="ThemRole" value="Destination"/>
+                            </ARGS>
+                        </PRED>
                         <PRED value="location">
                             <ARGS>
                                 <ARG type="Event" value="end(E)"/>

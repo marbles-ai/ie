@@ -42,10 +42,7 @@
         <MEMBER name="suborn" wn="suborn%2:41:00 suborn%2:32:00" grouping="suborn.01"/>
         <MEMBER name="sway" wn="sway%2:41:00" grouping="sway.01"/>
         <MEMBER name="sweet-talk" wn="sweet-talk%2:32:00" grouping=""/>
-        <MEMBER name="talk_into" wn="" grouping="talk.04"/>
-        <MEMBER name="talk_out_of" wn="" grouping="talk.04"/>
         <MEMBER name="tempt" wn="tempt%2:32:04" grouping="tempt.02"/>
-        <MEMBER name="win_over" wn="win_over%2:32:00" grouping="win.03"/>
         <MEMBER name="bullshit" wn="bullshit%2:32:00" grouping=""/>
         <MEMBER name="sandbag" wn="sandbag%2:41:02" grouping=""/>
         <MEMBER name="railroad" wn="railroad%2:41:00" grouping=""/>
@@ -180,7 +177,6 @@
                 <MEMBER name="deceive" wn="deceive%2:32:00" grouping="deceive.01"/>
                 <MEMBER name="delude" wn="delude%2:41:00" grouping=""/>
                 <MEMBER name="draw" wn="draw%2:38:11" grouping="draw.02"/>
-                <MEMBER name="drive" wn="" grouping=""/>
                 <MEMBER name="dupe" wn="dupe%2:32:00" grouping=""/>
                 <MEMBER name="ensnare" wn="ensnare%2:41:00" grouping=""/>
                 <MEMBER name="entrap" wn="entrap%2:41:00" grouping=""/>

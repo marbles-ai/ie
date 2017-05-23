@@ -71,7 +71,7 @@
         <MEMBER name="disgruntle" wn="disgruntle%2:37:00" grouping=""/>
         <MEMBER name="disgust" wn="disgust%2:39:00 disgust%2:37:00" grouping="disgust.01"/>
         <MEMBER name="dishearten" wn="dishearten%2:37:00" grouping=""/>
-        <MEMBER name="dishonour" wn="dishonour%2:41:00" grouping="dishonour.01"/>
+        <MEMBER name="dishonour" wn="dishonour%1:26:00" grouping="dishonour.01"/>
         <MEMBER name="disillusion" wn="disillusion%2:37:00" grouping=""/>
         <MEMBER name="dismay" wn="dismay%2:37:01 dismay%2:37:00" grouping=""/>
         <MEMBER name="dispirit" wn="dispirit%2:37:00" grouping=""/>
@@ -303,7 +303,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The little children amused easily.</EXAMPLE>
+                <EXAMPLE>Little children amuse easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Experiencer">
@@ -313,11 +313,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="emotional_state">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="VerbSpecific" value="?Emotion"/>
                         <ARG type="ThemRole" value="Experiencer"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -374,10 +378,9 @@
                         <ARG type="Event" value="E"/>
                     </ARGS>
                 </PRED>
-
                 <PRED value="emotional_state">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
+                        <ARG type="Event" value="during(E)"/>
                         <ARG type="VerbSpecific" value="Emotion"/>
                         <ARG type="ThemRole" value="Experiencer"/>
                     </ARGS>

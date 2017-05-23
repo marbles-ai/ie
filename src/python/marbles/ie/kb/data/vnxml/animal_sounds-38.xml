@@ -44,7 +44,6 @@
         <MEMBER name="purr" wn="purr%2:32:00" grouping="purr.01"/>
         <MEMBER name="quack" wn="quack%2:32:00" grouping=""/>
         <MEMBER name="roar" wn="roar%2:32:05" grouping="roar.01"/>
-        <MEMBER name="rooroo" wn="" grouping=""/>
         <MEMBER name="scrawk" wn="" grouping=""/>
         <MEMBER name="squawk" wn="squawk%2:32:01" grouping=""/>
         <MEMBER name="squeak" wn="squeak%2:39:00" grouping=""/>
@@ -234,12 +233,12 @@
                 <PRED value="location">
                     <ARGS>
                         <ARG type="Event" value="during(E)"/>
-                        <ARG type="ThemRole" value="Agent"/>
+                        <ARG type="VerbSpecific" value="Sound"/>
                         <ARG type="ThemRole" value="Location"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
-            </FRAME>
+        </FRAME>
     </FRAMES>
     <SUBCLASSES/>
 </VNCLASS>

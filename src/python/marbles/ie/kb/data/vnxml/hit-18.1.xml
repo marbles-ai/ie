@@ -838,6 +838,114 @@
                 </PRED>
             </SEMANTICS>
         </FRAME>
+                <FRAME>
+                    <DESCRIPTION descriptionNumber="0.2" primary="NP V NP" secondary="Transitive; Body-part or reflexive Object" xtag="0.2"/>
+                    <EXAMPLES>
+                        <EXAMPLE>Paul hit his elbow.</EXAMPLE>
+                    </EXAMPLES>
+                    <SYNTAX>
+                        <NP value="Agent">
+                            <SYNRESTRS/>
+                        </NP>
+                        <VERB/>
+                        <NP value="Instrument">
+                            <SYNRESTRS/>
+                        </NP>
+                    </SYNTAX>
+                    <SEMANTICS>
+                        <PRED value="cause">
+                            <ARGS>
+                                <ARG type="ThemRole" value="Agent"/>
+                                <ARG type="Event" value="E"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="manner">
+                            <ARGS>
+                                <ARG type="Event" value="during(E)"/>
+                                <ARG type="Constant" value="directedmotion"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED bool="!" value="contact">
+                            <ARGS>
+                                <ARG type="Event" value="during(E)"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                                <ARG type="ThemRole" value="Patient"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="manner">
+                            <ARGS>
+                                <ARG type="Event" value="end(E)"/>
+                                <ARG type="Constant" value="forceful"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="contact">
+                            <ARGS>
+                                <ARG type="Event" value="end(E)"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                                <ARG type="ThemRole" value="?Patient"/>
+                            </ARGS>
+                        </PRED>
+                    </SEMANTICS>
+                </FRAME>
+                <FRAME>
+                    <DESCRIPTION descriptionNumber="0.2" primary="NP V NP PP" secondary="Transitive; Body-part or reflexive Object" xtag="0.2"/>
+                    <EXAMPLES>
+                        <EXAMPLE>Paul hit his elbow on the doorknob.</EXAMPLE>
+                    </EXAMPLES>
+                    <SYNTAX>
+                        <NP value="Agent">
+                            <SYNRESTRS/>
+                        </NP>
+                        <VERB/>
+                        <NP value="Instrument">
+                            <SYNRESTRS/>
+                        </NP>
+                        <PREP value="against on">
+                            <SELRESTRS/>
+                        </PREP>
+                        <NP value="Patient">
+                            <SYNRESTRS/>
+                        </NP>
+                    </SYNTAX>
+                    <SEMANTICS>
+                        <PRED value="cause">
+                            <ARGS>
+                                <ARG type="ThemRole" value="Agent"/>
+                                <ARG type="Event" value="E"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="manner">
+                            <ARGS>
+                                <ARG type="Event" value="during(E)"/>
+                                <ARG type="Constant" value="directedmotion"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED bool="!" value="contact">
+                            <ARGS>
+                                <ARG type="Event" value="during(E)"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                                <ARG type="ThemRole" value="Patient"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="manner">
+                            <ARGS>
+                                <ARG type="Event" value="end(E)"/>
+                                <ARG type="Constant" value="forceful"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="contact">
+                            <ARGS>
+                                <ARG type="Event" value="end(E)"/>
+                                <ARG type="ThemRole" value="Instrument"/>
+                                <ARG type="ThemRole" value="Patient"/>
+                            </ARGS>
+                        </PRED>
+                    </SEMANTICS>
+                </FRAME>
             </FRAMES>
             <SUBCLASSES/>
         </VNSUBCLASS>

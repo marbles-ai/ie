@@ -51,7 +51,7 @@
                         <ARG type="Event" value="E"/>
                     </ARGS>
                 </PRED>
-                <PRED value="body_motion">
+                <PRED value="motion">
                     <ARGS>
                         <ARG type="Event" value="during(E)"/>
                         <ARG type="ThemRole" value="Patient"/>
@@ -94,7 +94,7 @@
                         <ARG type="Event" value="E"/>
                     </ARGS>
                 </PRED>
-                <PRED value="body_motion">
+                <PRED value="motion">
                     <ARGS>
                         <ARG type="Event" value="during(E)"/>
                         <ARG type="ThemRole" value="Patient"/>
@@ -146,10 +146,10 @@
                                 <ARG type="Event" value="E"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="body_motion">
+                        <PRED value="motion">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
-                                <ARG type="VerbSpecific" value="?Patient"/>
+                                <ARG type="VerbSpecific" value="Patient"/>
                             </ARGS>
                         </PRED>
                         <PRED value="transfer_info">
@@ -188,10 +188,10 @@
                                 <ARG type="Event" value="E"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="body_motion">
+                        <PRED value="motion">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
-                                <ARG type="VerbSpecific" value="?Patient"/>
+                                <ARG type="VerbSpecific" value="Patient"/>
                             </ARGS>
                         </PRED>
                         <PRED value="transfer_info">
@@ -225,10 +225,10 @@
                                 <ARG type="Event" value="E"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="body_motion">
+                        <PRED value="motion">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
-                                <ARG type="VerbSpecific" value="?Patient"/>
+                                <ARG type="VerbSpecific" value="Patient"/>
                             </ARGS>
                         </PRED>
                         <PRED value="transfer_info">
@@ -265,10 +265,10 @@
                                 <ARG type="Event" value="E"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="body_motion">
+                        <PRED value="motion">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
-                                <ARG type="VerbSpecific" value="?Patient"/>
+                                <ARG type="VerbSpecific" value="Patient"/>
                             </ARGS>
                         </PRED>
                         <PRED value="transfer_info">
@@ -302,7 +302,7 @@
                                 <ARG type="Event" value="E"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="body_motion">
+                        <PRED value="motion">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
                                 <ARG type="VerbSpecific" value="?Patient"/>

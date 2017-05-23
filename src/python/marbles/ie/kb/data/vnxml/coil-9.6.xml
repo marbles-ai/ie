@@ -127,7 +127,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle PP.location" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>That type of rope coiled easily around the post.</EXAMPLE>
+                <EXAMPLE>That type of rope coils easily around the post.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Theme">
@@ -145,24 +145,15 @@
                 </NP>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="rotational_motion">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="during(E)"/>
                         <ARG type="ThemRole" value="Theme"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED bool="!" value="Prep">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="start(E)"/>
-                        <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Location"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="Prep">
-                    <ARGS>
-                        <ARG type="Event" value="E"/>
-                        <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Location"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

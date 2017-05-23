@@ -25,7 +25,7 @@
         <MEMBER name="green" wn="" grouping=""/>
         <MEMBER name="molder" wn="molder%2:30:00" grouping=""/>
         <MEMBER name="molt" wn="molt%2:29:00" grouping=""/>
-        <MEMBER name="moult" wn="moult%2:29:00" grouping=""/>
+        <MEMBER name="moult" wn="moult%2:39:00" grouping=""/>
         <MEMBER name="oxidize" wn="" grouping=""/>
         <MEMBER name="phosphoresce" wn="" grouping=""/>
 	<MEMBER name="progress" wn="" grouping=""/>

@@ -267,12 +267,6 @@
                         <ARG type="ThemRole" value="Destination"/>
                     </ARGS>
                 </PRED>
-                 <PRED value="cause">
-                    <ARGS>
-                        <ARG type="ThemRole" value="Agent"/>
-                        <ARG type="Event" value="E"/>
-                    </ARGS>
-                </PRED>
             </SEMANTICS>
         </FRAME>
     </FRAMES>

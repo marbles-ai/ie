@@ -189,7 +189,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The Idaho potatoes baked beautifully.</EXAMPLE>
+                <EXAMPLE>Idaho potatoes bake beautifully.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -199,11 +199,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="cooked">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="VerbSpecific" value="Form"/>
                         <ARG type="ThemRole" value="Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

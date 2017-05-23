@@ -34,10 +34,6 @@
         <MEMBER name="separate" wn="separate%2:42:00 separate%2:35:01 separate%2:35:02" grouping="separate.01"/>
         <MEMBER name="shoo" wn="shoo%2:38:00" grouping=""/>
         <MEMBER name="subtract" wn="subtract%2:31:00" grouping="subtract.01"/>
-        <MEMBER name="take" wn="subtract%2:31:00" grouping="take.10"/>
-        <MEMBER name="take_away" wn="take_away%2:30:01 take_away%2:30:00 take_away%2:40:01 take_away%2:30:02" grouping="take.10"/>
-        <MEMBER name="take_out" wn="take_out%2:41:01 take_out%2:35:01 take_out%2:30:00 take_out%2:35:00 take_out%2:40:00 take_out%2:38:10 take_out%2:38:00 take_out%2:35:09 take_out%2:31:01 take_out%2:31:00" grouping="take.10"/>
-        <MEMBER name="take_off" wn="take_off%2:30:00 take_off%2:41:00 take_off%2:29:03" grouping="take.10"/>
         <MEMBER name="uproot" wn="uproot%2:35:00" grouping=""/>
         <MEMBER name="winkle" wn="winkle%2:35:00" grouping=""/>
         <MEMBER name="wrench" wn="wrench%2:35:00" grouping="wrench.01"/>

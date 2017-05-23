@@ -130,7 +130,7 @@
                         <ARG type="Event" value="during(E)"/>
                         <ARG type="ThemRole" value="Agent"/>
                         <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Result"/>
+                        <ARG type="ThemRole" value="?Result"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

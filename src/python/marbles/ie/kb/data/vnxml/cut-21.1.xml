@@ -219,7 +219,7 @@
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADVP-Middle" secondary="Middle Construction" xtag=""/>
             <!-- Verb specifies property (cut, scratch, etc) Prop of Patient, -->
             <EXAMPLES>
-                <EXAMPLE>The bread cut easily.</EXAMPLE>
+                <EXAMPLE>The bread cuts easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -229,10 +229,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="degradation_material_integrity">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
                         <ARG type="ThemRole" value="Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

@@ -313,6 +313,7 @@
         <MEMBER name="toughen" wn="toughen%2:30:00" grouping=""/>
         <MEMBER name="tranquilize" wn="" grouping=""/>
         <MEMBER name="treble" wn="" grouping=""/>
+	<MEMBER name="trigger" wn="" grouping=""/>
         <MEMBER name="trip" wn="trip%2:36:00" grouping="trip.03"/>
         <MEMBER name="triple" wn="triple%2:30:00" grouping="triple.01"/>
         <MEMBER name="ulcerate" wn="ulcerate%2:30:00 ulcerate%2:29:00" grouping=""/>
@@ -452,7 +453,7 @@
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <!-- Verb specifies property Prop of Patient-->
             <EXAMPLES>
-                <EXAMPLE>The cotton clothes dried easily.</EXAMPLE>
+                <EXAMPLE>Cotton clothes dry easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -462,11 +463,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="state">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="VerbSpecific" value="Endstate"/>
                         <ARG type="ThemRole" value="Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

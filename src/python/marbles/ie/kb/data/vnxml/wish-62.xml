@@ -4,6 +4,7 @@
     <MEMBERS>
         <MEMBER name="expect" wn="expect%2:32:00" grouping="expect.01"/>
         <MEMBER name="wish" wn="wish%2:37:02" grouping="wish.02"/>
+        <MEMBER name="hope" wn="hope%2:37:01 hope%2:31:00" grouping="hope.01"/>
         <MEMBER name="intend" wn="intend%2:31:00" grouping="intend.01"/>
         <MEMBER name="mean" wn="mean%2:31:00" grouping="mean.02"/>
         <MEMBER name="plan" wn="plan%2:31:01" grouping="plan.01"/>
@@ -21,7 +22,7 @@
                 <SELRESTR Value="+" type="organization"/>
             </SELRESTRS>
         </THEMROLE>
-        <THEMROLE type="Stimulus">
+        <THEMROLE type="Theme">
             <SELRESTRS/>
         </THEMROLE>
     </THEMROLES>
@@ -36,7 +37,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="for_comp"/>
                     </SYNRESTRS>
@@ -47,7 +48,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -62,7 +63,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="-" type="sentential"/>
                     </SYNRESTRS>
@@ -73,7 +74,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -88,7 +89,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="to_be"/>
                     </SYNRESTRS>
@@ -99,7 +100,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -114,7 +115,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="np_ppart"/>
                     </SYNRESTRS>
@@ -125,7 +126,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -140,7 +141,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="that_comp"/>
                     </SYNRESTRS>
@@ -151,7 +152,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -166,7 +167,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Stimulus">
+                <NP value="Theme">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="sc_to_inf"/>
                     </SYNRESTRS>
@@ -177,7 +178,7 @@
                     <ARGS>
                         <ARG type="Event" value="E"/>
                         <ARG type="ThemRole" value="Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

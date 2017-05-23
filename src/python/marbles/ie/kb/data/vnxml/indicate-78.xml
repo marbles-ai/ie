@@ -297,7 +297,7 @@
                         <PRED value="indicate">
                             <ARGS>
                                 <ARG type="Event" value="during(E)"/>
-                                <ARG type="ThemRole" value="Cause"/>
+                                <ARG type="ThemRole" value="Agent"/>
                                 <ARG type="ThemRole" value="Recipient"/>
                                 <ARG type="ThemRole" value="Topic"/>
                             </ARGS>

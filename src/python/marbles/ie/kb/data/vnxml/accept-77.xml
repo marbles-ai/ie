@@ -2,9 +2,7 @@
 <!DOCTYPE VNCLASS SYSTEM "vn_class-3.dtd">
 <VNCLASS ID="accept-77" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="vn_schema-3.xsd">
     <MEMBERS>
-        <MEMBER name="accept" wn="accept%2:31:01 accept%2:31:03"
-        grouping="accept.01 accept.02 accept.03"/>
-        <MEMBER name="buy" wn="buy%2:31:09" grouping="buy.03"/>
+        <MEMBER name="accept" wn="accept%2:31:01 accept%2:31:03" grouping="accept.01 accept.02 accept.03"/>
         <MEMBER name="understand" wn="understand%2:31:04" grouping="understand.01"/>
         <MEMBER name="encourage" wn="encourage%2:41:00 encourage%2:37:00" grouping="encourage.01 encourage.02"/>
         <MEMBER name="discourage" wn="discourage%2:32:01 discourage%2:37:00" grouping="discourage.02"/>

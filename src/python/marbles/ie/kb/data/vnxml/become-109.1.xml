@@ -56,7 +56,14 @@
 	     <MEMBERS>
 		<MEMBER name="become" wn="become%2:30:00" grouping="become.01"/>
 	    </MEMBERS>
-	    <THEMROLES/>
+	    <THEMROLES>
+		<THEMROLE type="Patient">
+		    <SELRESTRS/>
+		</THEMROLE>
+		<THEMROLE type="Result">
+		    <SELRESTRS/>
+		</THEMROLE>
+	    </THEMROLES>
 	    <FRAMES>
 		<FRAME>
 		    <DESCRIPTION descriptionNumber="" primary="NP V NP" secondary="" xtag="0.2"/>
@@ -97,7 +104,14 @@
 			<MEMBER name="end_up" wn="end_up%2:30:01" grouping="end.04"/>
 			<MEMBER name="leave" wn="" grouping=""/>
 		    </MEMBERS>
-		    <THEMROLES/>
+		    <THEMROLES>
+			<THEMROLE type="Patient">
+			    <SELRESTRS/>
+			</THEMROLE>
+			<THEMROLE type="Result">
+			    <SELRESTRS/>
+			</THEMROLE>
+		    </THEMROLES>
 		    <FRAMES>
 			<FRAME>
 			    <DESCRIPTION descriptionNumber="" primary="NP V PP.attribute" secondary="" xtag="0.2"/>

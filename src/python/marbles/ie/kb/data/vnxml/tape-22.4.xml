@@ -232,7 +232,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle PP" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The labels taped easily to that kind of cover.</EXAMPLE>
+                <EXAMPLE>Labels tape easily to that kind of cover.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -248,26 +248,15 @@
                 </NP>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="together">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="Constant" value="physical"/>
-                        <ARG type="ThemRole" value="Patient"/>
-                        <ARG type="ThemRole" value="Co-Patient"/>
+                        <ARG type="ThemRole" value="Patient+Co-Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED value="attached">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="attached">
-                    <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Co-Patient"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -275,7 +264,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The labels taped easily.</EXAMPLE>
+                <EXAMPLE>Most labels tape easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -287,26 +276,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="together">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="Constant" value="physical"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
+                        <ARG type="ThemRole" value="Patient_i+Patient_j"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED value="attached">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="attached">
-                    <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -314,7 +292,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle together" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The labels and covers taped easily together.</EXAMPLE>
+                <EXAMPLE>Labels and covers tape easily together.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -327,26 +305,15 @@
                 <LEX value="together"/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="together">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="Constant" value="physical"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
+                        <ARG type="ThemRole" value="Patient_i+Patient_j"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED value="attached">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="attached">
-                    <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -354,7 +321,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V together ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The labels and covers taped together easily.</EXAMPLE>
+                <EXAMPLE>Labels and covers tape together easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -367,26 +334,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="together">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="Constant" value="physical"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
+                        <ARG type="ThemRole" value="Patient_i+Patient_j"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED value="attached">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_i"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="attached">
-                    <ARGS>
-                        <ARG type="Event" value="end(E)"/>
-                        <ARG type="ThemRole" value="Patient_j"/>
-                        <ARG type="VerbSpecific" value="Instrument"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

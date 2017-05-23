@@ -4,7 +4,6 @@
     <MEMBERS>
         <MEMBER name="cast" wn="cast%2:36:02 cast%2:35:00" grouping="cast.01"/>
         <MEMBER name="discard" wn="discard%2:40:00" grouping="discard.01"/>
-        <MEMBER name="drive" wn="drive%2:35:01" grouping="drive.04"/>
     </MEMBERS>
     <THEMROLES>
         <THEMROLE type="Agent">
@@ -342,7 +341,7 @@
                 <NP value="Theme">
                     <SYNRESTRS/>
                 </NP>
-                <NP value="ADV">
+                <NP value="Destination">
                     <SYNRESTRS>
                         <SYNRESTR Value="+" type="adv_loc"/>
                     </SYNRESTRS>

@@ -13,9 +13,9 @@
         <MEMBER name="exact" wn="exact%2:32:00" grouping=""/>
         <MEMBER name="grab" wn="grab%2:35:00 grab%2:40:00" grouping="grab.01 grab.02"/>
         <MEMBER name="inherit" wn="inherit%2:40:00" grouping="inherit.01 inherit.02 inherit.03"/>
-        <MEMBER name="make" wn="make%2:40:01" grouping="make.07"/>
         <MEMBER name="receive" wn="receive%2:40:00" grouping="receive.01"/>
-        <MEMBER name="recoup" wn="recoup%2:40:02 recoup%2:40:00" grouping="recoup.01 recoup.02"/>
+        <MEMBER name="recoup" wn="recoup%2:40:02 recoup%2:40:00"
+        grouping="recoup.01 recoup.02"/>
         <MEMBER name="recover" wn="recover%2:40:00" grouping="recover.01"/>
         <MEMBER name="regain" wn="regain%2:40:00 regain%2:40:01" grouping="regain.01"/>
         <MEMBER name="retrieve" wn="retrieve%2:40:00 retrieve%2:35:00" grouping="retrieve.01"/>

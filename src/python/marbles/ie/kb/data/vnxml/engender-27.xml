@@ -27,7 +27,6 @@
         <MEMBER name="prompt" wn="prompt%2:36:00" grouping="prompt.01"/>
         <MEMBER name="stimulate" wn="stimulate%2:36:00 stimulate%2:32:00" grouping="stimulate.01"/>
         <MEMBER name="stir_up" wn="stir_up%2:32:00" grouping="stir.02"/>
-        <MEMBER name="trigger" wn="" grouping=""/>
     </MEMBERS>
     <THEMROLES>
         <THEMROLE type="Cause">

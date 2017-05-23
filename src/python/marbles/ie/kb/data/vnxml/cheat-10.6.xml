@@ -29,6 +29,7 @@
         <MEMBER name="unburden" wn="unburden%2:40:00 unburden%2:35:00" grouping=""/>
         <MEMBER name="wean" wn="wean%2:37:00" grouping=""/>
         <MEMBER name="whitewash" wn="whitewash%2:32:00" grouping="whitewash.02"/>
+        <MEMBER name="bilk" wn="bilk%2:41:00" grouping=""/>
         <MEMBER name="bleed" wn="bleed%2:40:09 bleed%2:30:00" grouping="bleed.04"/>
         <MEMBER name="cheat" wn="cheat%2:41:00" grouping="cheat.01"/>
         <MEMBER name="defraud" wn="defraud%2:41:00" grouping="defraud.01"/>
@@ -187,7 +188,6 @@
     <SUBCLASSES>
         <VNSUBCLASS ID="cheat-10.6-1">
             <MEMBERS>
-                <MEMBER name="bilk" wn="bilk%2:41:00" grouping=""/>
                 <MEMBER name="burgle" wn="?burgle%2:41:00" grouping=""/>
                 <MEMBER name="con" wn="con%2:41:00" grouping="con.01"/>
                 <MEMBER name="cozen" wn="cozen%2:40:00" grouping="cozen.01"/>

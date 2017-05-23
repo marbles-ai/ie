@@ -159,7 +159,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>The copper rods bent easily.</EXAMPLE>
+                <EXAMPLE>Copper rods bend easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -169,11 +169,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="physical_form">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="VerbSpecific" value="Form"/>
                         <ARG type="ThemRole" value="Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

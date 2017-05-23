@@ -42,6 +42,13 @@
                         <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
+                <PRED value="Prep">
+                    <ARGS>
+                        <ARG type="Event" value="E"/>
+                        <ARG type="ThemRole" value="Theme"/>
+                        <ARG type="ThemRole" value="Location"/>
+                    </ARGS>
+                </PRED>
             </SEMANTICS>
         </FRAME>
     </FRAMES>
@@ -126,6 +133,13 @@
                                     <ARGS>
                                         <ARG type="Event" value="during(E)"/>
                                         <ARG type="ThemRole" value="Theme"/>
+                                    </ARGS>
+                                </PRED>
+                                <PRED value="Prep">
+                                    <ARGS>
+                                        <ARG type="Event" value="E"/>
+                                        <ARG type="ThemRole" value="Theme"/>
+                                        <ARG type="ThemRole" value="Pivot"/>
                                     </ARGS>
                                 </PRED>
                             </SEMANTICS>

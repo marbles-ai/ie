@@ -6,7 +6,6 @@
         <MEMBER name="crave" wn="crave%2:34:00" grouping="crave.01"/>
         <MEMBER name="desire" wn="" grouping="desire.01 desire.02"/>
         <MEMBER name="fancy" wn="fancy%2:37:00" grouping=""/>
-        <MEMBER name="love" wn="love%2:37:02" grouping="love.02"/>
     </MEMBERS>
     <THEMROLES>
         <THEMROLE type="Pivot">

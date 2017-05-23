@@ -11,7 +11,7 @@
                 <SELRESTR Value="+" type="animate"/>
             </SELRESTRS>
         </THEMROLE>
-        <THEMROLE type="Source">
+        <THEMROLE type="Initial_Location">
             <SELRESTRS>
                 <SELRESTR Value="+" type="location"/>
                 <SELRESTR Value="-" type="region"/>
@@ -29,7 +29,7 @@
                     <SYNRESTRS/>
                 </NP>
                 <VERB/>
-                <NP value="Source">
+                <NP value="Initial_Location">
                     <SYNRESTRS/>
                 </NP>
             </SYNTAX>
@@ -44,14 +44,14 @@
                     <ARGS>
                         <ARG type="Event" value="start(E)"/>
                         <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Source"/>
+                        <ARG type="ThemRole" value="Initial_Location"/>
                     </ARGS>
                 </PRED>
                 <PRED bool="!" value="location">
                     <ARGS>
                         <ARG type="Event" value="end(E)"/>
                         <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Source"/>
+                        <ARG type="ThemRole" value="Initial_Location"/>
                     </ARGS>
                 </PRED>
                 <PRED value="direction">
@@ -59,7 +59,7 @@
                         <ARG type="Event" value="during(E)"/>
                         <ARG type="Constant" value="from"/>
                         <ARG type="ThemRole" value="Theme"/>
-                        <ARG type="ThemRole" value="Source"/>
+                        <ARG type="ThemRole" value="Initial_Location"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>
@@ -95,14 +95,14 @@
                             <ARGS>
                                 <ARG type="Event" value="start(E)"/>
                                 <ARG type="ThemRole" value="Theme"/>
-                                <ARG type="ThemRole" value="?Source"/>
+                                <ARG type="ThemRole" value="?Initial_Location"/>
                             </ARGS>
                         </PRED>
                         <PRED bool="!" value="location">
                             <ARGS>
                                 <ARG type="Event" value="end(E)"/>
                                 <ARG type="ThemRole" value="Theme"/>
-                                <ARG type="ThemRole" value="?Source"/>
+                                <ARG type="ThemRole" value="?Initial_Location"/>
                             </ARGS>
                         </PRED>
                         <PRED value="direction">
@@ -110,7 +110,7 @@
                                 <ARG type="Event" value="during(E)"/>
                                 <ARG type="Constant" value="from"/>
                                 <ARG type="ThemRole" value="Theme"/>
-                                <ARG type="ThemRole" value="?Source"/>
+                                <ARG type="ThemRole" value="?Initial_Location"/>
                             </ARGS>
                         </PRED>
                     </SEMANTICS>

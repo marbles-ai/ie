@@ -11,9 +11,11 @@
         <MEMBER name="commiserate" wn="commiserate%2:37:00" grouping=""/>
         <MEMBER name="communicate" wn="communicate%2:32:02" grouping="communicate.01"/>
         <MEMBER name="compromise" wn="" grouping="compromise.01"/>
+        <MEMBER name="cohabit" wn="" grouping=""/>
         <MEMBER name="concur" wn="concur%2:32:00" grouping="concur.01"/>
         <MEMBER name="confabulate" wn="confabulate%2:32:00 confabulate%2:32:01" grouping="confabulate.01"/>
         <MEMBER name="confer" wn="" grouping=""/>
+        <MEMBER name="consort" wn="consort%2:41:12" grouping=""/>
         <MEMBER name="cooperate" wn="cooperate%2:41:00" grouping="cooperate.01"/>
         <MEMBER name="correspond" wn="correspond%2:32:00" grouping="correspond.02"/>
         <MEMBER name="decide" wn="decide%2:31:00 decide%2:31:01" grouping="decide.01"/>
@@ -25,6 +27,7 @@
         <MEMBER name="hobnob" wn="hobnob%2:41:00" grouping=""/>
         <MEMBER name="interact" wn="" grouping=""/>
         <MEMBER name="intermix" wn="" grouping=""/>
+        <MEMBER name="mate" wn="mate%2:35:00 mate%2:35:02" grouping="mate.01 mate.02"/>
         <MEMBER name="mingle" wn="mingle%2:41:00" grouping=""/>
         <MEMBER name="mix" wn="?mix%2:30:00" grouping="mix.01"/>
         <MEMBER name="neck" wn="neck%2:35:00" grouping=""/>
@@ -34,6 +37,7 @@
         <MEMBER name="rendezvous" wn="rendezvous%2:41:00" grouping="rendezvous.01"/>
         <MEMBER name="renegotiate" wn="renegotiate%2:32:01" grouping=""/> 
         <MEMBER name="reunite" wn="" grouping=""/>
+        <MEMBER name="spoon" wn="spoon%2:35:01" grouping=""/>
     </MEMBERS>
     <THEMROLES>
         <THEMROLE type="Agent">

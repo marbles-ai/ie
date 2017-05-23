@@ -33,7 +33,7 @@
                 <VERB/>
                 <NP value="Theme">
                     <SYNRESTRS>
-                        <SYNRESTR Value="+" type="rs_to_inf"/>
+                        <SYNRESTR Value="+" type="to_inf_rs"/>
                     </SYNRESTRS>
                 </NP>
             </SYNTAX>

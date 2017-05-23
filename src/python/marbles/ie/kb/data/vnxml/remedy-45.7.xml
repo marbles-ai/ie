@@ -177,7 +177,7 @@
             <DESCRIPTION descriptionNumber="0.2" primary="NP V NP.patient" secondary="Basic Transitive; Causative" xtag="0.2"/>
             <!-- couldn't find transitive frame for carbonify, degenerate, glutenize, subside-->
             <EXAMPLES>
-                <EXAMPLE>Bill repaired the tractor.</EXAMPLE>
+                <EXAMPLE>Bill dried the clothes.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Agent">
@@ -207,7 +207,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="0.2" primary="NP V NP PP.instrument" secondary="NP-PP; Instrument-PP" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>Bill repaired the tractor with duct tape.</EXAMPLE>
+                <EXAMPLE>Bill dried the clothes with a hairdryer.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Agent">
@@ -251,7 +251,7 @@
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <!-- Verb specifies property Prop of Patient-->
             <EXAMPLES>
-                <EXAMPLE>The new tractors repaired easily.</EXAMPLE>
+                <EXAMPLE>Cotton clothes dry easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -261,11 +261,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="state">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="VerbSpecific" value="Endstate"/>
                         <ARG type="ThemRole" value="Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
+                    </ARGS>
+                </PRED>
+                <PRED value="Adv">
+                    <ARGS>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

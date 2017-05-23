@@ -13,6 +13,7 @@
         <MEMBER name="cap" wn="cap%2:42:00" grouping="cap.01"/>
         <MEMBER name="circle" wn="" grouping="circle.02"/>
         <MEMBER name="cloak" wn="" grouping="cloak.02"/>
+        <MEMBER name="contain" wn="contain%2:42:13" grouping="contain.01"/>
         <MEMBER name="cover" wn="cover%2:35:01" grouping="cover.01"/>
         <MEMBER name="edge" wn="edge%2:35:00" grouping="edge.03"/>
         <MEMBER name="encircle" wn="encircle%2:35:12" grouping=""/>

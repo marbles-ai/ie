@@ -26,7 +26,7 @@
         <MEMBER name="frolic" wn="frolic%2:38:00" grouping=""/>
         <MEMBER name="gallivant" wn="gallivant%2:38:00" grouping=""/>
         <MEMBER name="gambol" wn="gambol%2:38:00" grouping=""/>
-        <MEMBER name="ghost" wn="ghost%2:38:00" grouping="ghost.01"/>
+        <MEMBER name="ghost" wn="ghost%1:09:00" grouping="ghost.01"/>
         <MEMBER name="globetrot" wn="" grouping=""/>
         <MEMBER name="goose_step" wn="goose_step%2:38:00" grouping=""/>
         <MEMBER name="hike" wn="hike%2:38:00" grouping="hike.01"/>
@@ -374,7 +374,6 @@
 		<MEMBER name="hurtle" wn="hurtle%2:38:01 hurtle%2:38:00 hurtle%2:35:00" grouping=""/>
 		<MEMBER name="inch" wn="inch%2:38:00" grouping="inch.01"/>
 		<MEMBER name="lope" wn="lope%2:38:00" grouping=""/>
-	        <MEMBER name="march" wn="march%2:38:04 march%2:38:10" grouping="march.02"/>
 		<MEMBER name="prance" wn="prance%2:38:00" grouping=""/>
 		<MEMBER name="race" wn="race%2:38:00 race%2:38:10" grouping="race.01"/>
 		<MEMBER name="roll" wn="roll%2:38:00 roll%2:29:06" grouping="roll.01"/>
@@ -622,7 +621,7 @@
 			<MEMBER name="fly" wn="fly%2:38:00 fly%2:38:02 fly%2:38:07 fly%2:38:03" grouping="fly.01 fly.02"/>
 			<MEMBER name="jog" wn="jog%2:38:01" grouping=""/>
 			<MEMBER name="jump" wn="jump%2:38:00 jump%2:38:01" grouping="jump.01"/>
-			<MEMBER name="march" wn="march%2:38:01 march%2:38:00" grouping="march.01"/>
+			<MEMBER name="march" wn="march%2:38:01 march%2:38:04 march%2:38:00 march%2:38:10" grouping="march.01 march.02"/>
 			<MEMBER name="parade" wn="parade%2:38:00" grouping=""/>
 			<MEMBER name="promenade" wn="promenade%2:38:01 promenade%2:38:00" grouping=""/>
 			<MEMBER name="run" wn="run%2:38:00 run%2:38:04 run%2:38:10 run%2:38:05" grouping="run.01 run.11"/>

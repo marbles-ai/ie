@@ -7,7 +7,6 @@
         <MEMBER name="exclude" wn="exclude%2:31:01 exclude%2:41:00" grouping="exclude.01"/>
         <MEMBER name="include" wn="include%2:41:03" grouping="include.02"/>
         <MEMBER name="permit" wn="permit%2:32:00" grouping="permit.01"/>
-        <MEMBER name="receive" wn="receive%2:35:00" grouping="receive.02"/>
         <MEMBER name="welcome" wn="welcome%2:35:00" grouping="welcome.02"/>
     </MEMBERS>
     <THEMROLES>

@@ -28,30 +28,6 @@
     </THEMROLES>
     <FRAMES>
         <FRAME>
-            <DESCRIPTION descriptionNumber="8.1" primary="NP V NP" secondary="Basic Transitive" xtag="0.2"/>
-             <EXAMPLES>
-                 <EXAMPLE>I used the shovel.</EXAMPLE>
-             </EXAMPLES>
-             <SYNTAX>
-                 <NP value="Agent">
-                     <SYNRESTRS/>
-                 </NP>
-                 <VERB/>
-                 <NP value="Theme">
-                     <SYNRESTRS/>
-                 </NP>
-             </SYNTAX>
-             <SEMANTICS>
-                 <PRED value="use">
-                     <ARGS>
-                         <ARG type="Event" value="during(E)"/>
-                         <ARG type="ThemRole" value="Agent"/>
-                         <ARG type="ThemRole" value="Theme"/>
-                     </ARGS>
-                 </PRED>
-             </SEMANTICS>
-       </FRAME>
-        <FRAME>
             <DESCRIPTION descriptionNumber="8.1" primary="NP V NP ADV" secondary="NP-ADVP" xtag="0.2"/>
             <EXAMPLES>
                 <EXAMPLE>I used the money well.</EXAMPLE>

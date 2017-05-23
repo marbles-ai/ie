@@ -154,7 +154,7 @@
 		</PREP>
                 <NP value="Source">
                     <SYNRESTRS>
-                        <SYNRESTR Value="+" type="ac_ing"/>
+                        <SYNRESTR Value="+" type="acc_ing"/>
                     </SYNRESTRS>
                 </NP>
             </SYNTAX>

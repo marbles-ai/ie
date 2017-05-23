@@ -165,7 +165,7 @@
                 <FRAME>
                     <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADVP-Middle" secondary="Middle Construction" xtag=""/>
                     <EXAMPLES>
-                        <EXAMPLE>The ice crushed easily.</EXAMPLE>
+                        <EXAMPLE>The ice crushes easily.</EXAMPLE>
                     </EXAMPLES>
                     <SYNTAX>
                         <NP value="Patient">
@@ -175,17 +175,15 @@
                         <ADV/>
                     </SYNTAX>
                     <SEMANTICS>
-                        <PRED value="degradation_material_integrity">
+                        <PRED value="property">
                             <ARGS>
-                                <ARG type="Event" value="result(E)"/>
                                 <ARG type="ThemRole" value="Patient"/>
+                                <ARG type="VerbSpecific" value="Prop"/>
                             </ARGS>
                         </PRED>
-                        <PRED value="physical_form">
+                        <PRED value="Adv">
                             <ARGS>
-                                <ARG type="Event" value="result(E)"/>
-                                <ARG type="VerbSpecific" value="Form"/>
-                                <ARG type="ThemRole" value="Patient"/>
+                                <ARG type="VerbSpecific" value="Prop"/>
                             </ARGS>
                         </PRED>
                     </SEMANTICS>
@@ -384,7 +382,7 @@
                 <FRAME>
                     <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADVP-Middle" secondary="Middle Construction" xtag=""/>
                     <EXAMPLES>
-                        <EXAMPLE>The marble carved easily.</EXAMPLE>
+                        <EXAMPLE>Marble carves easily.</EXAMPLE>
                     </EXAMPLES>
                     <SYNTAX>
                         <NP value="Patient">
@@ -394,10 +392,15 @@
                         <ADV/>
                     </SYNTAX>
                     <SEMANTICS>
-                        <PRED value="degradation_material_integrity">
+                        <PRED value="property">
                             <ARGS>
-                                <ARG type="Event" value="result(E)"/>
                                 <ARG type="ThemRole" value="Patient"/>
+                                <ARG type="VerbSpecific" value="Prop"/>
+                            </ARGS>
+                        </PRED>
+                        <PRED value="Adv">
+                            <ARGS>
+                                <ARG type="VerbSpecific" value="Prop"/>
                             </ARGS>
                         </PRED>
                     </SEMANTICS>

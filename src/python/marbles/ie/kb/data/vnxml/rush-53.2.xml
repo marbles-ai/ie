@@ -42,10 +42,10 @@
                         <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
-                <PRED value="cause">
+                <PRED value="end">
                     <ARGS>
-                        <ARG type="ThemRole" value="Agent"/>
-                        <ARG type="Event" value="E"/>
+                        <ARG type="Event" value="end(E)"/>
+                        <ARG type="ThemRole" value="Theme"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

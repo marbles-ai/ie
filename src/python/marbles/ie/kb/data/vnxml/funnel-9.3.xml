@@ -4,7 +4,7 @@
     <MEMBERS>
         <!--Some members add a predicate specifying instrument-->
         <MEMBER name="dip" wn="dip%2:35:00 dip%2:34:00" grouping="dip.01 dip.08"/>
-        <MEMBER name="dunk" wn="dunk%2:35:00 dunk%2:34:00" grouping="dunk.01"/>
+        <MEMBER name="dunk" wn="dunk%2:35:00 dunk%2:34:00"/>
         <MEMBER name="ladle" wn="ladle%2:35:01" grouping=""/>
         <MEMBER name="hoe" wn="hoe%2:36:00" grouping=""/>
         <MEMBER name="scoop" wn="scoop%2:35:01" grouping="scoop.01"/>

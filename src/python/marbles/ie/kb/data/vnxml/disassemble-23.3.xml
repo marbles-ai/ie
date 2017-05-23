@@ -149,7 +149,7 @@
         <FRAME>
             <DESCRIPTION descriptionNumber="1.1.1" primary="NP V ADV-Middle" secondary="Middle Construction" xtag=""/>
             <EXAMPLES>
-                <EXAMPLE>That new handle unscrewed easily.</EXAMPLE>
+                <EXAMPLE>That new handle unscrews easily.</EXAMPLE>
             </EXAMPLES>
             <SYNTAX>
                 <NP value="Patient">
@@ -161,20 +161,15 @@
                 <ADV/>
             </SYNTAX>
             <SEMANTICS>
-                <PRED value="together">
+                <PRED value="property">
                     <ARGS>
-                        <ARG type="Event" value="start(E)"/>
-                        <ARG type="Constant" value="physical"/>
                         <ARG type="ThemRole" value="Patient"/>
-                        <ARG type="ThemRole" value="?Co-Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
-                <PRED value="apart">
+                <PRED value="Adv">
                     <ARGS>
-                        <ARG type="Event" value="result(E)"/>
-                        <ARG type="Constant" value="physical"/>
-                        <ARG type="ThemRole" value="Patient"/>
-                        <ARG type="ThemRole" value="?Co-Patient"/>
+                        <ARG type="VerbSpecific" value="Prop"/>
                     </ARGS>
                 </PRED>
             </SEMANTICS>

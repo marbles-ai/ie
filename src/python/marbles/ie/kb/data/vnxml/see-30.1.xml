@@ -263,7 +263,7 @@
                         <VERB/>
                         <NP value="Stimulus">
                             <SYNRESTRS>
-                                <SYNRESTR Value="+" type="poss_ing"/>
+                                <SYNRESTR Value="+" type="pos_ing"/>
                             </SYNRESTRS>
                         </NP>
                     </SYNTAX>

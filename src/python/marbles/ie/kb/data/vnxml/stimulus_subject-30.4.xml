@@ -93,43 +93,6 @@
                 </PRED>
             </SEMANTICS>
         </FRAME>
-        <FRAME>
-            <DESCRIPTION descriptionNumber="0.1" primary="NP V
-            PP.attribute" secondary="PP; like-PP" xtag=""/>
-            <EXAMPLES>
-                <EXAMPLE>That pea soups tasted like heaven.</EXAMPLE>
-            </EXAMPLES>  
-            <SYNTAX>
-                <NP value="Stimulus">
-                    <SYNRESTRS/>
-                </NP>
-                <VERB/>
-                <PREP value="like">
-                    <SELRESTRS/>
-                </PREP>                
-            </SYNTAX>
-            <SEMANTICS>
-                <PRED value="Pred">
-                    <ARGS>
-                        <ARG type="Event" value="during(E)"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
-                    </ARGS>
-                </PRED>
-                <PRED value="perceive">
-                    <ARGS>
-                        <ARG type="Event" value="during(E)"/>
-                        <ARG type="ThemRole" value="?Experiencer"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
-                    </ARGS>
-                </PRED>
-                 <PRED value="in_reaction_to">
-                    <ARGS>
-                        <ARG type="Event" value="E"/>
-                        <ARG type="ThemRole" value="Stimulus"/>
-                    </ARGS>
-                </PRED>
-            </SEMANTICS>
-        </FRAME>
     </FRAMES>
     <SUBCLASSES/>
 </VNCLASS>

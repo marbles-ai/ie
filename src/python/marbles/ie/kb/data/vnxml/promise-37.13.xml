@@ -107,7 +107,7 @@
                 <VERB/>
                 <NP value="Topic">
                     <SYNRESTRS>
-			<SYNRESTR Value="+" type="poss_ing"/>
+			<SYNRESTR Value="+" type="possing"/>
 		    </SYNRESTRS>
                 </NP>
             </SYNTAX>
