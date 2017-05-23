@@ -15,12 +15,15 @@ def examples():
     return render_template('examples.html',
                            title='Examples')
 
-
 @app.route('/fakenews')
 def fakenews():
     return render_template('fakenews.html',
                            title='Fake News')
 
+@app.route('/contact')
+def contact():
+    return render_template('contact.html',
+                           title='Contact')
 
 @app.route('/submit', methods=['GET', 'OPTIONS'])
 def submit():

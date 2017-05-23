@@ -1,3 +1,3 @@
-#!/Users/tjt7a/anaconda2/bin/python
+#!/usr/bin/env python
 from app import app
 app.run(debug=True)
