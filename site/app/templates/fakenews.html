@@ -1,163 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <meta name="description" content="">
-    <meta name="author" content="">
-    <link rel="icon" href="favicon.ico">
-
-    <title>Fake News</title>
-
-    <style type="text/css">
-    body {
-      font: 10pt sans;
-    }
-    #mynetwork {
-      width: 600px;
-      height: 600px;
-      border: 1px solid lightgray;
-    }
-
-    #message {
-      color:darkred;
-      max-width:600px;
-      font-size:16px;
-      cursor:pointer;
-      text-decoration: underline;
-    }
-  </style>
-
-    <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-
-    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
-    <link href="../static/css/ie10-viewport-bug-workaround.css" rel="stylesheet">
-
-    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
-      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-    <![endif]-->
-
-    <!-- Custom styles for this template -->
-    <link href="../static/css/carousel.css" rel="stylesheet">
-    <link href="../static/css/extra.css" rel="stylesheet">
+{% extends "layout.html" %}
+{% block title %}Marbles.AI: Fake News{% endblock %}
 
 
-    <link href="../static/css/vis-network.min.css" rel="stylesheet"/>
-
-    <head>
-      <script src="../static/js/plotly-latest.min.js"></script>
-      <script src="../static/js/vis.js"></script>
-      <script src="../static/js/exampleUtil.js"></script>
-        <script src="../static/js/jquery-3.2.1.min.js"></script>
-            <!-- Custom styles for this template -->
-    <link href="justified-nav.css" rel="stylesheet">
-    <link href="../static/css/sticky-footer-navbar.css" rel="stylesheet">
-    </head>
-
-<!-- NAVBAR
-================================================== -->
-  <body onload="draw();">
-  <div class="navbar-wrapper">
-    <div class="container">
-      <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
-        <div class="container">
-          <div class="navbar-header">
-            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-              <span class="sr-only">Toggle navigation</span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="#">Marbles AI</a>
-          </div>
-          <div id="navbar-top" class="collapse navbar-collapse">
-            <ul class="nav navbar-nav">
-              <li><a href="index#about">About</a></li>
-              <li><a href="index#products">Products</a></li>
-              <li><a href="fakenews">Fake News</a></li>
-              <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Developers <span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                  <li><a href="index#java">Java</a></li>
-                  <li><a href="index#nodedotjs">Node.js</a></li>
-                  <li><a href="index#php">PHP</a></li>
-                  <li><a href="index#python">Python</a></li>
-                  <li><a href="index#ruby">Ruby</a></li>
-                  <li role="separator" class="divider"></li>
-                  <li class="dropdown-header">Generic bindings</li>
-                  <li><a href="index#http">HTTP REST</a></li>
-                  <li><a href="index#grpc">gRPC</a></li>
-                </ul>
-              </li>
-              <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Company <span class="caret"></span></a>
-                <ul class="dropdown-menu">
-                  <li><a href="index#about">About</a></li>
-                  <li><a href="index#contact">Contact</a></li>
-                </ul>
-              </li>
-              <li><a href="examples">Examples</a></li>
-            </ul>
-            <ul class="nav navbar-nav navbar-right">
-              <li><a href="signin.html">Sign up|Login</a></li>
-            </ul>
-          </div>
-        </div>
-      </nav>
-
-    </div>
-  </div>
-
-    <!-- Marketing messaging and featurettes
-    ================================================== -->
-    <!-- Wrap the rest of the page in another container to center all the content. -->
-  <nav class="navbar navbar-default"></nav> <!-- Dummy nav bar -->
+{% block content %}
 
         <!-- Jumbotron -->
-      <div class="jumbotron">
+      <div style="background:transparent !important" class="jumbotron">
         <h1>Fake News!</h1>
-        <p class="lead">Fake news is having a significant impact on society; it has not only effected our last election (political; should we add?) but it is having a high-profile impact on large social media companies</p>
+        <p class="lead">Fake news is having a significant impact on society; it has not only effected our last election,
+            but it is having a high-profile impact on large social media companies
+        </p>
       </div>
 
     <!-- Example row of columns -->
       <div class="row">
         <div class="col-lg-4">
           <h2>The Election</h2>
-          <p>Fake news is having a significant impact on society; it has not only effected our last election (political; should we add?) but it is having a high-profile impact on large social media companies like <a href="https://www.usatoday.com/story/tech/news/2017/05/03/facebook-first-quarter-2-billion-users-topped-revenue-estimates/101254122/">Facebook</a></p>
-          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+          <p>Russia had a hand in swaying the American elections in 2016. By pumping social media with fake
+          news that was quickly shared, voters were swayed by false information.</p>
+          <p><a class="btn btn-primary" href="http://www.npr.org/sections/alltechconsidered/2017/04/03/522503844/how-russian-twitter-bots-pumped-out-fake-news-during-the-2016-election" role="button">Russia's Impact on Elections &raquo;</a></p>
         </div>
         <div class="col-lg-4">
-          <h2>Social Media</h2>
-          <p>.. Facebook ...</p>
-          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+          <h2>Manchester Attack</h2>
+          <p>After the Manchester suicide attack on the 22nd of May, 2017, there was a flood of fake
+          reports about missing people. This information was then rapidly proliferated as soon as it was
+          introduced.
+          </p>
+          <p><a class="btn btn-primary" href="http://www.euronews.com/2017/05/23/manchester-attack-social-media-trolls-and-fake-news" role="button">Manchester Fake News &raquo;</a></p>
        </div>
         <div class="col-lg-4">
-          <h2>Fake News</h2>
-          <p>.. Bad News sources ....</p>
-          <p><a class="btn btn-primary" href="#" role="button">View details &raquo;</a></p>
+          <h2>Politics</h2>
+          <p>The political left has become as targeted by fake news as the right, with false information about
+              opposing political issues, deluting meaningful discourse.
+          </p>
+          <p><a class="btn btn-primary" href="https://www.theatlantic.com/technology/archive/2017/02/viva-la-resistance-content/515532/" role="button">Liberal Fake News &raquo;</a></p>
         </div>
       </div>
 
-      <!-- FOOTER -->
-      <footer>
-        <p class="pull-right"><a href="#">Back to top</a></p>
-        <p>&copy; 2016 Marbles AI, Inc. &middot; <a href="#">Privacy</a> &middot; <a href="#">Terms</a></p>
-      </footer>
-
-    <!-- Bootstrap core JavaScript
-    ================================================== -->
-    <!-- Placed at the end of the document so the pages load faster -->
-    <!-- jQuery library -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
-    <script src="../static/js/ie10-viewport-bug-workaround.js"></script>
-    <script src="../static/js/extra.js"></script>
-  </body>
-</html>
+{% endblock %}

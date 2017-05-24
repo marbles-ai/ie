@@ -49,7 +49,7 @@ var titleSeparate = mobileWidth ? 30 : 0;
 // Title in the top-left
 titleWrapper.append("text")
     .attr("class", "title left")
-    .style("font-size", mobileWidth ? "12px" : "16px")
+    .style("font-size", mobileWidth ? "12px" : "20px")
     .attr("x", (width / 2 + margin.left - outerRadius - titleSeparate))
     .attr("y", titleOffset)
     .text("News Sources");
@@ -63,7 +63,7 @@ titleWrapper.append("line")
 
 titleWrapper.append("text")
     .attr("class", "right right")
-    .style("font-size", mobileWidth ? "12px" : "16px")
+    .style("font-size", mobileWidth ? "12px" : "20px")
     .attr("x", (width / 2 + margin.left + outerRadius + titleSeparate))
     .attr("y", titleOffset)
     .text("Marbles");
@@ -106,18 +106,23 @@ linearGradient.append("stop")
 
 linearGradient.append("stop")
     .attr("offset", "45%")
-    .attr("stop-color", "#A3A3A3");
+    //.attr("stop-color", "#A3A3A3");
+    .attr("stop-color", "#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "55%")
-    .attr("stop-color", "#A3A3A3");
+    //.attr("stop-color", "#A3A3A3");
+    .attr("stop-color", "#a37b05");
 
 linearGradient.append("stop")
     .attr("offset", "95%")
     .attr("stop-color", "#E8E8E8");
 
 
-// Data
+/*
+    Set the first set of Names (before "") to the Marbles
+    Set the second set of Names (between "", "") to the Sources
+ */
 var Names = [ // Class 1
              "Marble 1 (Macron)",
              "Marble 2 (LePen)",
@@ -150,6 +155,9 @@ var emptyPerc = 0.5; // What percentage of the circle is empty
 
 var emptyStroke = Math.round(respondents * emptyPerc);
 
+/*
+    This matrix represents the connections between Marbles and Sources
+ */
 var matrix = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,232,65,44,57,39,123,1373,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,11,0,0,24,0],
@@ -161,13 +169,13 @@ var matrix = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,76,21,10,15,125,41,261,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,2206,37,292,32,116,76,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,96,74,43,116,51,135,752,0],
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,34,0,22,27,156,36,0], //Verzorgend personeel
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1141,0,111,291,0,0,48,0], //Wetenschap en techniek (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,0,39,0,0,20,109,0], //Other
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke], //dummyBottom
-    [232,32,173,32,161,510,16,76,32,96,15,1141,36,0,0,0,0,0,0,0,0,0], //Techniek
-    [65,0,43,16,24,0,118,21,2206,74,34,0,0,0,0,0,0,0,0,0,0,0], //Onderwijs
-    [44,0,52,13,17,0,10,10,37,43,0,111,39,0,0,0,0,0,0,0,0,0], //Landbouw
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,34,0,22,27,156,36,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1141,0,111,291,0,0,48,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,0,39,0,0,20,109,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke],
+    [232,32,173,32,161,510,16,76,32,96,15,1141,36,0,0,0,0,0,0,0,0,0],
+    [65,0,43,16,24,0,118,21,2206,74,34,0,0,0,0,0,0,0,0,0,0,0],
+    [44,0,52,13,17,0,10,10,37,43,0,111,39,0,0,0,0,0,0,0,0,0],
     [57,11,55,23,0,57,454,15,292,116,22,291,0,0,0,0,0,0,0,0,0,0],
     [39,0,36,10,2089,0,99,125,32,51,27,0,0,0,0,0,0,0,0,0,0,0],
     [123,0,125,37,85,0,1537,41,116,135,156,0,20,0,0,0,0,0,0,0,0,0],
@@ -244,7 +252,8 @@ wrapper.selectAll("path.chord")
     .data(chord.chords)
     .enter().append("path")
     .attr("class", "chord")
-    .style("stroke", "none")
+    // Set this to None
+    .style("stroke", "blue")
     .style("fill", "url(#animatedGradient)")
     .style("opacity", function(d){
         return (Names[d.source.index] === "" ? 0 : opacityDefault);
