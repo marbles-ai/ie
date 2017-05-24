@@ -1,6 +1,7 @@
 """Original code at https://github.com/eci-store/verbnet-gl.git"""
 import os
 import bs4
+import re
 
 
 VERBNET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'vnxml')
@@ -169,7 +170,6 @@ class Predicate(object):
 
 
 class SyntacticRole(object):
-
     """Represents a syntactic role assigned to a frame"""
 
     def __init__(self, soup):
@@ -264,4 +264,46 @@ class Restriction(object):
 
     def __str__(self):
         return "%s%s" % (self.srvalue, self.srtype)
+
+
+VERBNETDB = VerbnetDB()
+
+
+if __name__ == '__main__':
+    featurespec = re.compile(r'\.[a-z_-]+')
+    frames = {}
+    simplified_frames = set()
+    for vcls in VERBNETDB.classes:
+        for vfrm in vcls.frames:
+            simplified_frames.add(featurespec.sub('', vfrm.description))
+            frames.setdefault(vfrm.description, [])
+            frames[vfrm.description].append(vcls)
+    for frm, vclasses in frames.iteritems():
+        print('===================')
+        print(frm)
+        mbrs = {}
+        for vcls in vclasses:
+            for mbr in vcls.members:
+                mbrs.setdefault(mbr.name, 0)
+                mbrs[mbr.name] += 1
+        s = u'  '
+        for mbr, c in mbrs.iteritems():
+            if c == 2:
+                ss = u'(%d) %s, ' % (c, mbr)
+            else:
+                ss = u'%s, ' % mbr
+            if (len(ss) + len(s)) > 128:
+                print(s)
+                s = u'  ' + ss
+            else:
+                s += ss
+        print(s)
+    print('===================')
+    for frm in simplified_frames:
+        print(frm)
+
+
+
+
+
 
