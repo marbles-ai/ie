@@ -4,7 +4,7 @@
 import os
 import re
 
-from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
+from marbles.ie.ccg.cat import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
 from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.drs import DRSRef

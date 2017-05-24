@@ -6,7 +6,7 @@ import collections
 from common import SHOW_LINEAR, DRSConst, DRSVar
 from drs import AbstractDRS, DRS, DRSRef, Prop, Rel
 from drs import get_new_drsrefs
-from marbles.ie.ccg.ccgcat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_ADJECTIVE, \
+from marbles.ie.ccg.cat import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_ADJECTIVE, \
     RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
     RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TC_CONJ

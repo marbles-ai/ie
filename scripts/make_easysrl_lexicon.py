@@ -12,9 +12,9 @@ sys.path.insert(0, pypath)
 
 
 #from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import sentence_from_pt, extract_lexicon_from_pt
-from marbles.ie.ccg.ccgcat import Category
+from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg2drs import sentence_from_pt, extract_lexicon_from_pt
+from marbles.ie.ccg.cat import Category
 
 
 def die(s):

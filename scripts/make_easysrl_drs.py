@@ -12,8 +12,8 @@ sys.path.insert(0, pypath)
 
 
 #from marbles.ie.parse import parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg.ccg2drs import process_ccg_pt, sentence_from_pt, pt_to_ccgbank
+from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg2drs import process_ccg_pt, sentence_from_pt, pt_to_ccgbank
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.drt.drs import DRS

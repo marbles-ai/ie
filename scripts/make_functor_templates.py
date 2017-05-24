@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import datetime
 import os
 import sys
-import datetime
 from optparse import OptionParser
 
 # Modify python path
@@ -11,11 +11,11 @@ pypath = os.path.join(projdir, 'src', 'python')
 datapath = os.path.join(pypath, 'marbles', 'ie', 'ccg', 'data')
 sys.path.insert(0, pypath)
 
-from marbles.ie.ccg.ccg2drs import extract_predarg_categories_from_pt
+from marbles.ie.ccg2drs import extract_predarg_categories_from_pt
 from marbles.ie.ccg.model import FunctorTemplate, Model
-from marbles.ie.ccg.ccgcat import Category
+from marbles.ie.ccg.cat import Category
 from marbles.ie.utils.cache import Cache
-from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 #from marbles.ie.parse import parse_ccg_derivation
 
 

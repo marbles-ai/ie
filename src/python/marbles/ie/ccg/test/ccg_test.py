@@ -3,10 +3,10 @@
 import os
 import unittest
 
-from marbles.ie.ccg.ccgcat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
+from marbles.ie.ccg.cat import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
     RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
-from marbles.ie.ccg.ccg2drs import Ccg2Drs, PushOp, ExecOp, pt_to_utf8
-from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg2drs import Ccg2Drs, PushOp, ExecOp, pt_to_utf8
+from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 
 

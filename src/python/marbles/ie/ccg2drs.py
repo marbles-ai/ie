@@ -7,7 +7,7 @@ import copy
 from nltk.stem import wordnet as wn
 from nltk.stem.snowball import EnglishStemmer
 
-from marbles.ie.ccg.ccgcat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
+from marbles.ie.ccg.cat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     Rule, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TYPE_RAISE, RL_LPASS, RL_RPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, \
@@ -24,7 +24,7 @@ from marbles.ie.drt.drs import get_new_drsrefs
 from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from marbles.ie.kb.verbnet import VERBNETDB
 # Useful tags
-from pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
+from marbles.ie.ccg.pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
                 POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
                 POS_NUMBER, POS_PREPOSITION, POS_LIST_PUNCT, POS
 import inflect

@@ -55,7 +55,7 @@ def iscombinator_signature(signature):
         True if the signature is a combinator
 
     See Also:
-        marbles.ie.ccg.ccgcat.Category
+        marbles.ie.ccg.cat.Category
     """
 
     return len(signature) > 2 and signature[0] == '(' and (signature.endswith(')') or signature.endswith(')[conj]'))
@@ -885,10 +885,10 @@ class Category(Freezable):
 
     def test_return(self, result_category, exact=True):
         """Test if the functor returns result_category.
-        
+
         Args:
             exact: If True then use equality test else use can_unify() test.
-            
+
         Returns:
             True if a functor and it returns a category matching result_category.
         """

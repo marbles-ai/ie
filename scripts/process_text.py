@@ -1,10 +1,10 @@
 #! /usr/bin/env python
+import os
 import re
 import sys
-import os
 import time
-from subprocess import call
 from optparse import OptionParser
+from subprocess import call
 
 # Modify python path
 projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
@@ -108,9 +108,9 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     # Delay imports so help text can be dislayed without loading model
-    from marbles.ie.ccg.ccg2drs import process_ccg_pt, pt_to_ccgbank
+    from marbles.ie.ccg2drs import process_ccg_pt, pt_to_ccgbank
     from marbles.ie.drt.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
-    from marbles.ie.ccg.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
+    from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
     #from marbles.ie.parse import parse_ccg_derivation
     from marbles.ie.drt.common import SHOW_LINEAR
 
