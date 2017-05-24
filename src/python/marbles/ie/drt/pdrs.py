@@ -63,7 +63,7 @@ def rename_pdrsref(pv, r, lp, gp, rs):
     local PDRS lp which is in global PDRS gp, on the basis of two conversion lists
     for projection variables ps and PDRS referents rs
     """
-    u = gp.get_universes()
+    u = gp.universes
     prtest = PRef(pv, r)
     if any([prtest.has_projected_bound(lp, pr, gp) and gp.test_free_pvar(pr.plabel) for pr in u]) or \
             not prtest.has_bound(lp, gp):
@@ -101,8 +101,8 @@ def disjoin(d1, d2):
     """
     ops = intersect(d2.get_pvars(), d1.get_pvars())
     nps = get_new_pvars(ops, union(d2.get_pvars(), d1.get_pvars()))
-    ors = intersect(d2.get_variables(), d1.get_variables())
-    nrs = get_new_drsrefs(ors, union(d2.get_variables(), d1.get_variables()))
+    ors = intersect(d2.variables, d1.variables)
+    nrs = get_new_drsrefs(ors, union(d2.variables, d1.variables))
     return d2.alpha_convert(zip(ors, nrs), zip(ops, nps))
 
 
@@ -361,7 +361,7 @@ class PRef(AbstractDRSRef):
             for pv in vs:
                 if pv in nx.dfs_postorder_nodes(pg, source=drsLP.label) and \
                     pv in nx.dfs_postorder_nodes(pg, source=self.plabel) and \
-                    PRef(pv,self._ref) in drsGP.get_universes():
+                    PRef(pv,self._ref) in drsGP.universes:
                     return True
         return False
 
@@ -379,7 +379,7 @@ class PRef(AbstractDRSRef):
         """
         if not isinstance(pr2, PRef) or not isinstance(pdrs1, AbstractPDRS) or not isinstance(pdrs2, AbstractPDRS):
             raise TypeError
-        return self.ref == pr2.ref and pr2 in pdrs2.get_universes() and \
+        return self.ref == pr2.ref and pr2 in pdrs2.universes and \
                pdrs2.has_accessible_context(self.plabel, pr2.plabel) and \
                pdrs2.has_accessible_context(pdrs1.label, pr2.plabel)
 
@@ -387,7 +387,7 @@ class PRef(AbstractDRSRef):
     ##
     def has_other_bound(self, drsLP, drsGP):
         """Test whether a referent is bound by some other referent than itself."""
-        u = drsGP.get_universes()
+        u = drsGP.universes
         try:
             u.remove(self)
         except:
@@ -647,7 +647,7 @@ class AbstractPDRS(AbstractDRS):
         """
         cgp, _ = self.purify_pvars(self, self.get_free_pvars(self))
         _, prs = cgp.get_unbound_dup_prefs(cgp)
-        drs, _ = cgp.purify_refs(cgp, zip(prs, get_new_drsrefs(prs, cgp.get_variables())))
+        drs, _ = cgp.purify_refs(cgp, zip(prs, get_new_drsrefs(prs, cgp.variables)))
         return drs
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Translate.hs">/Data/PDRS/Translate.hs:stripPVars</a>
@@ -746,7 +746,8 @@ class LambdaPDRS(AbstractPDRS):
         """
         if u is None:
             return [PDRSRef(v) for v in self._var._set]
-        return sorted(set([PDRSRef(v) for v in self._var._set]).union(u))
+        u.extend([PDRSRef(v) for v in self._var._set])
+        return u
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsLambdas</a>.
     ##
@@ -1363,12 +1364,12 @@ class PDRS(AbstractPDRS):
             A list of DRSRef's unioned with `u`.
         """
         if u is None:
-            u = set(self._refs) # shallow copy
+            u = [x for x in self._refs] # shallow copy
         else:
-            u = set(self._refs).union(u) # union to avoid duplicates
+            u.extend(self._refs)
         for c in self._conds:
             u = c.get_variables(u)
-        return sorted(u)
+        return u
 
     ## @remarks Rriginal haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:pdrsUniverses</a>.
     ##
@@ -2233,7 +2234,10 @@ class PProp(Prop, IPDRSCond):
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Binding.hs#pdrsFreePRefs:free.
     def _get_freerefs(self, ld, gd, pvar=None):
-        return union(filter(lambda x: not x.has_bound(x, ld, gd), [PRef(pvar, self._ref)]), self._drs.get_freerefs(gd))
+        u = filter(lambda x: not x.has_bound(x, ld, gd))
+        u.extend([PRef(pvar, self._ref)])
+        u.extend(self._drs.get_freerefs(gd))
+        return u
 
     def _isproper_subdrsof(self, sd, gd, pvar=None):
         return PRef(pvar, self._ref).has_bound(sd, gd) and self._drs._isproper_subdrsof(gd)
