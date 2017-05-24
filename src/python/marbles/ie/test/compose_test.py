@@ -5,8 +5,8 @@ import unittest
 
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import process_ccg_pt, Ccg2Drs
-from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_FAST_RENAME
-from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
+from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_FAST_RENAME
+from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
 from marbles.ie.parse import parse_drs  #, parse_ccg_derivation

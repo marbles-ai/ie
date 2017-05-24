@@ -6,19 +6,19 @@ import inflect
 import re
 from nltk.stem import wordnet as wn
 
-from marbles.ie.ccg import pt_to_utf8
 from marbles.ie.ccg import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
     Rule, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TYPE_RAISE, RL_LPASS, RL_RPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, \
     RL_GFC, RL_GFX, RL_GBC, RL_GBX, \
     FEATURE_PSS, FEATURE_TO, FEATURE_DCL
+from marbles.ie.ccg import pt_to_utf8
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.ccg.pos import POS_DETERMINER, POS_LIST_PRONOUN, POS_LIST_VERB, POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
                 POS_NUMBER, POS_PREPOSITION, POS_LIST_PUNCT, POS
-from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
-from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, \
+from marbles.ie.compose import ProductionList, FunctorProduction, DrsProduction, \
     DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
+from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from marbles.ie.drt.drs import get_new_drsrefs
 from marbles.ie.drt.utils import remove_dups, union, complement, intersect
@@ -319,12 +319,10 @@ class IndexSpan(object):
         return self._doc._hash < other._doc._hash or (self._doc._hash == other._doc._hash and \
                                                       ((len(self._indexes) == 0 and len(other._indexes) != 0) or \
                                                        (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] < other._indexes[0])))
-
     def __gt__(self, other):
         return self._doc._hash > other._doc._hash or (self._doc._hash == other._doc._hash and \
                                                       ((len(self._indexes) != 0 and len(other._indexes) == 0) or \
                                                        (len(self._indexes) != 0 and len(other._indexes) != 0 and self._indexes[0] > other._indexes[0])))
-
     def __le__(self, other):
         return other.__gt__(self)
 
@@ -420,6 +418,7 @@ def safe_create_empty_functor(category):
     return None
 
 
+## @ingroup gfn
 def create_empty_drs_production(category, ref=None):
     """Return the empty DRS production `λx.[|]`.
 
@@ -1654,9 +1653,6 @@ def process_ccg_pt(pt, options=None):
 
 
 ## @ingroup gfn
-
-
-## @ingroup gfn
 def pt_to_ccgbank(pt, fmt=True):
     """Process the CCG parse tree, add predicate argument tags, and return the ccgbank string.
 
@@ -1671,9 +1667,6 @@ def pt_to_ccgbank(pt, fmt=True):
     ccg.build_execution_sequence(pt)
     s = ccg.get_predarg_ccgbank(fmt)
     return s
-
-
-## @ingroup gfn
 
 
 ## @ingroup gfn

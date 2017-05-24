@@ -4,12 +4,12 @@
 import os
 import re
 
+from datapath import DATA_PATH
 from marbles.ie.ccg import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
+from marbles.ie.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.common import DRSVar, DRSConst
-from marbles.ie.drt.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.drs import DRSRef
 from marbles.ie.utils.cache import Cache
-from datapath import DATA_PATH
 
 
 class FunctorTemplateGeneration(object):
