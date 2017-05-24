@@ -36,7 +36,7 @@ stretchedChord = function(){
         };
     }
 
-    function arc(r, p a){
+    function arc(r, p, a){
 
         var sign = (p[0] >= 0 ? 1 : -1);
 

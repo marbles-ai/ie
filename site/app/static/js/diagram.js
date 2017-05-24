@@ -11,12 +11,14 @@ var mobileWidth = (displayWidth > 500 ? false : true);
 
 var margin = {top: 10,
               bottom: 10,
-              right: 10,
-              left: 10};
+              right: 50,
+              left: 50};
 
 var width = Math.min(displayWidth, 800) - margin.left - margin.right;
 
 var height = (mobileWidth ? 300 : Math.min(displayWidth, 800)*(5/6)) - margin.top - margin.bottom;
+
+console.log("Width, Height: " + width + "," + height);
 
 var svg = d3.select("#chart").append("svg")
         .attr("width", (width + margin.left + margin.right))
@@ -47,10 +49,10 @@ var titleSeparate = mobileWidth ? 30 : 0;
 // Title in the top-left
 titleWrapper.append("text")
     .attr("class", "title left")
-    .style("font-size", mobileWidth ? "12px" : "16px")
+    .style("font-size", mobileWidth ? "12px" : "20px")
     .attr("x", (width / 2 + margin.left - outerRadius - titleSeparate))
     .attr("y", titleOffset)
-    .text("First Class");
+    .text("News Sources");
 
 titleWrapper.append("line")
     .attr("class", "titleLine left")
@@ -61,10 +63,10 @@ titleWrapper.append("line")
 
 titleWrapper.append("text")
     .attr("class", "right right")
-    .style("font-size", mobileWidth ? "12px" : "16px")
+    .style("font-size", mobileWidth ? "12px" : "20px")
     .attr("x", (width / 2 + margin.left + outerRadius + titleSeparate))
     .attr("y", titleOffset)
-    .text("Second Class");
+    .text("Marbles");
 
 titleWrapper.append("line")
     .attr("class", "titleLine right")
@@ -102,19 +104,25 @@ linearGradient.append("stop")
     .attr("offset", "5%")
     .attr("stop-color", "#E8E8E8");
 
-
 linearGradient.append("stop")
     .attr("offset", "45%")
-    .attr("stop-color", "#A3A3A3");
+    //.attr("stop-color", "#A3A3A3");
+    .attr("stop-color", "#1d1ca3");
+
 linearGradient.append("stop")
     .attr("offset", "55%")
-    .attr("stop-color", "#A3A3A3");
+    //.attr("stop-color", "#A3A3A3");
+    .attr("stop-color", "#a37b05");
 
 linearGradient.append("stop")
     .attr("offset", "95%")
     .attr("stop-color", "#E8E8E8");
 
-// Data
+
+/*
+    Set the first set of Names (before "") to the Marbles
+    Set the second set of Names (between "", "") to the Sources
+ */
 var Names = [ // Class 1
              "Marble 1 (Macron)",
              "Marble 2 (LePen)",
@@ -147,36 +155,39 @@ var emptyPerc = 0.5; // What percentage of the circle is empty
 
 var emptyStroke = Math.round(respondents * emptyPerc);
 
+/*
+    This matrix represents the connections between Marbles and Sources
+ */
 var matrix = [
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,232,65,44,57,39,123,1373,0], //Administratief personeel
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,11,0,0,24,0], //Ambachtslieden
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,173,43,52,55,36,125,2413,0], //Bedrijfsbeheer (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,16,13,23,10,37,54,0], //Elementaire beroepen
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,161,24,17,0,2089,85,60,0], //Gezondheidszorg (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,510,0,0,57,0,0,251,0], //IT (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,118,10,454,99,1537,271,0], //Juridisch en culturele (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,76,21,10,15,125,41,261,0], //Leidinggevende functies
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,2206,37,292,32,116,76,0], //Onderwijsgevenden
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,96,74,43,116,51,135,752,0], //Verkopers en verleners persoonlijke diensten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,34,0,22,27,156,36,0], //Verzorgend personeel
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1141,0,111,291,0,0,48,0], //Wetenschap en techniek (vak)specialisten
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,0,39,0,0,20,109,0], //Other
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke], //dummyBottom
-    [232,32,173,32,161,510,16,76,32,96,15,1141,36,0,0,0,0,0,0,0,0,0], //Techniek
-    [65,0,43,16,24,0,118,21,2206,74,34,0,0,0,0,0,0,0,0,0,0,0], //Onderwijs
-    [44,0,52,13,17,0,10,10,37,43,0,111,39,0,0,0,0,0,0,0,0,0], //Landbouw
-    [57,11,55,23,0,57,454,15,292,116,22,291,0,0,0,0,0,0,0,0,0,0], //Kunst, Taal en Cultuur
-    [39,0,36,10,2089,0,99,125,32,51,27,0,0,0,0,0,0,0,0,0,0,0], //Gezondheidszorg
-    [123,0,125,37,85,0,1537,41,116,135,156,0,20,0,0,0,0,0,0,0,0,0], //Gedrag & Maatschappij
-    [1373,24,2413,54,60,251,271,261,76,752,36,48,109,0,0,0,0,0,0,0,0,0], //Economie
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke,0,0,0,0,0,0,0,0] //dummyTop
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,232,65,44,57,39,123,1373,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,11,0,0,24,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,173,43,52,55,36,125,2413,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,16,13,23,10,37,54,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,161,24,17,0,2089,85,60,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,510,0,0,57,0,0,251,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,118,10,454,99,1537,271,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,76,21,10,15,125,41,261,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,2206,37,292,32,116,76,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,96,74,43,116,51,135,752,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,34,0,22,27,156,36,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1141,0,111,291,0,0,48,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,0,39,0,0,20,109,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke],
+    [232,32,173,32,161,510,16,76,32,96,15,1141,36,0,0,0,0,0,0,0,0,0],
+    [65,0,43,16,24,0,118,21,2206,74,34,0,0,0,0,0,0,0,0,0,0,0],
+    [44,0,52,13,17,0,10,10,37,43,0,111,39,0,0,0,0,0,0,0,0,0],
+    [57,11,55,23,0,57,454,15,292,116,22,291,0,0,0,0,0,0,0,0,0,0],
+    [39,0,36,10,2089,0,99,125,32,51,27,0,0,0,0,0,0,0,0,0,0,0],
+    [123,0,125,37,85,0,1537,41,116,135,156,0,20,0,0,0,0,0,0,0,0,0],
+    [1373,24,2413,54,60,251,271,261,76,752,36,48,109,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,emptyStroke,0,0,0,0,0,0,0,0]
 ];
 
 var offset = (2 * Math.PI) * (emptyStroke / (respondents + emptyStroke)) / 4;
 
 var chord = newChordLayout()
     .padding(0.02)
-    .sortChord(d3.descending)
+    .sortChords(d3.descending)
     .matrix(matrix);
 
 var arc = d3.svg.arc()
@@ -196,8 +207,9 @@ var g = wrapper.selectAll("g.group")
     .data(chord.groups)
     .enter().append("g")
     .attr("class", "group")
-    .on("mousover", fade(opacityLow))
+    .on("mouseover", fade(opacityLow))
     .on("mouseout", fade(opacityDefault));
+    //.on("mouseclick", function())
 
 g.append("path")
     .style("stroke", function(d, i){
@@ -227,20 +239,21 @@ g.append("text")
         var c = arc.centroid(d);
         return "translate(" + (c[0] + d.pullOutSize) + "," + c[1] + ")"
             + "rotate(" + (d.angle * 180 / Math.PI - 90) + ")"
-            + "translate(" + 20 + ",0"
+            + "translate(" + 20 + ",0)"
             + (d.angle > Math.PI ? "rotate(180)" : "")
     })
     .text(function(d, i){
         return Names[i];
     })
-    .call(wrapChord, 100);
+     .call(wrapChord, 100);
 
 // Draw Inner Chords
 wrapper.selectAll("path.chord")
     .data(chord.chords)
     .enter().append("path")
     .attr("class", "chord")
-    .style("stroke", "none")
+    // Set this to None
+    .style("stroke", "blue")
     .style("fill", "url(#animatedGradient)")
     .style("opacity", function(d){
         return (Names[d.source.index] === "" ? 0 : opacityDefault);
@@ -251,6 +264,7 @@ wrapper.selectAll("path.chord")
     .attr("d", path)
     .on("mouseover", fadeOnChord)
     .on("mouseout", fade(opacityDefault));
+
 
 // Other functions
 function startAngle(d){
@@ -283,37 +297,37 @@ function fadeOnChord(d){
 
 function wrapChord(text, width){
     text.each(function(){
-        var text = d3.selection(this);
-        var words = text.text().split(/\s+/).reverse();
-        var word;
-        var line = [];
-        var lineNumber = 0;
-        var lineHeight = 1.1;
-        var y = 0;
-        var x = 0;
-        var dy = parseFloat(text.attr("dy"));
-        var tspan = text.text(null).append("tspan")
-            .attr("x", x)
-            .attr("y", y)
-            .attr("dy", dy + "em");
-
-        while(word = words.pop()){
-            line.push(word);
-            tspan.text(line.join(" "));
-            if(tspan.node().getComputedTextLength() > width){
-                line.pop();
-                tspan.text(line.join(" "));
-                line = [word];
-                tspan = text.append("tspan")
-                    .attr("x", x)
-                    .attr("y", y)
-                    .attr("dy", ++lineNumber * lineHeight + dy + "em")
-                    .text(word);
-            }
-        }
+        // var text = d3.selection(this);
+        //
+        // console.log("text: " + text);
+        // var words = text.text().split(/\s+/).reverse();
+        // var word;
+        // var line = [];
+        // var lineNumber = 0;
+        // var lineHeight = 1.1;
+        // var y = 0;
+        // var x = 0;
+        // var dy = parseFloat(text.attr("dy"));
+        // var tspan = text.text(null).append("tspan")
+        //     .attr("x", x)
+        //     .attr("y", y)
+        //     .attr("dy", dy + "em");
+        //
+        // console.log("length of words: " + words.length);
+        // while(word = words.pop()){
+        //     console.log("word: " + word);
+        //     line.push(word);
+        //     tspan.text(line.join(" "));
+        //     if(tspan.node().getComputedTextLength() > width){
+        //         line.pop();
+        //         tspan.text(line.join(" "));
+        //         line = [word];
+        //         tspan = text.append("tspan")
+        //             .attr("x", x)
+        //             .attr("y", y)
+        //             .attr("dy", ++lineNumber * lineHeight + dy + "em")
+        //             .text(word);
+        //     }
+        // }
     });
-}
-
-
-
 }

@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block title %}Marbles.AI: Solving Fake News{% endblock %}
+
+<!-- D3.js -->
+{% block includes %}
+<script src="http://d3js.org/d3.v3.js"></script>
+<script src="../static/js/d3.stretched.chord.js"></script>
+<script src="../static/js/d3.layout.chord.sort.js"></script>
+{% endblock %}
+
+
+{% block content %}
+
+<div style="text-align:center;" id="chart"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="../static/js/diagram.js"></script>
+{% endblock %}
