@@ -80,9 +80,9 @@ endif
 
 # Any dependencies that need to be built locally should be added to this list.
 ifeq ($(LINUX),1)
-PROJECT_DEPS := java protoc protocbuf_py protocbuf_java grpc phantomjs
+PROJECT_DEPS := java protoc protocbuf_py protocbuf_java grpc phantomjs vpython
 else
-PROJECT_DEPS := protoc protocbuf_py protocbuf_java grpc phantomjs
+PROJECT_DEPS := protoc protocbuf_py protocbuf_java grpc phantomjs vpython
 endif
 
 INSTALL_TEMPLATE = @if ./build-tool.sh $(1) check; then \
