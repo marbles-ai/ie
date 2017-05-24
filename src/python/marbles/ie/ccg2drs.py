@@ -1,33 +1,30 @@
 # -*- coding: utf-8 -*-
 """CCG to DRS Production Generator"""
 
-import re
 import collections
-import copy
+import inflect
+import re
 from nltk.stem import wordnet as wn
-from nltk.stem.snowball import EnglishStemmer
 
-from marbles.ie.ccg.cat import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
+from marbles.ie.ccg import pt_to_utf8
+from marbles.ie.ccg import Category, CAT_Sadj, CAT_N, CAT_NOUN, CAT_NP_N, CAT_DETERMINER, CAT_CONJ, CAT_EMPTY, \
     CAT_INFINITIVE, CAT_NP, CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU, CAT_ADJECTIVE, CAT_PREPOSITION, CAT_ADVERB, CAT_NPthr, \
-    Rule, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
+    Rule, get_rule, RL_TC_CONJ, RL_TC_ATOM, RL_TCR_UNARY, RL_TCL_UNARY, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TYPE_RAISE, RL_LPASS, RL_RPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, \
     RL_GFC, RL_GFX, RL_GBC, RL_GBX, \
-    FEATURE_ADJ, FEATURE_PSS, FEATURE_TO, FEATURE_DCL
+    FEATURE_PSS, FEATURE_TO, FEATURE_DCL
 from marbles.ie.ccg.model import MODEL
+from marbles.ie.ccg.pos import POS_DETERMINER, POS_LIST_PRONOUN, POS_LIST_VERB, POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
+                POS_NUMBER, POS_PREPOSITION, POS_LIST_PUNCT, POS
+from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
 from marbles.ie.drt.compose import ProductionList, FunctorProduction, DrsProduction, \
     DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
-from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, Box, Diamond, Prop, Neg, DRSRelation
-from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
-from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, intersect
-from marbles.ie.parse import parse_drs
+from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from marbles.ie.drt.drs import get_new_drsrefs
-from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
+from marbles.ie.drt.utils import remove_dups, union, complement, intersect
 from marbles.ie.kb.verbnet import VERBNETDB
-# Useful tags
-from marbles.ie.ccg.pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
-                POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
-                POS_NUMBER, POS_PREPOSITION, POS_LIST_PUNCT, POS
-import inflect
+from marbles.ie.parse import parse_drs
+from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 
 ## @{
 ## @ingroup gconst
@@ -203,7 +200,6 @@ _EXAMPLE = [
 ]
 
 # To concede
-
 _CONCEDE = [
     'of course', 'after all', 'no doubt', 'naturally', 'unfortunately', 'while it is true', 'although this may be true',
     'although', 'to admit', 'to confess', 'to agree'
@@ -1043,51 +1039,6 @@ CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|
 CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+|[.,:;]|_\d+)+(?=[>])')
 PosInt = re.compile(r'\d+')
 
-WS = re.compile(r'\s*')
-NDS = re.compile(r'(?:\s*\(<)|(?:\s*>\s*\)\s*)', re.MULTILINE)
-
-def parse_ccg_derivation2(ccgbank):
-    nodes = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), NDS.split(ccgbank)))
-    root = []
-    stk = [root]
-    level = 0
-    for nd in nodes:
-        pt = stk[-1]
-        if nd[0] == 'T':
-            assert nd[-1] == '>'
-            level += 1
-            pt.append([])
-            pt = pt[-1]
-            stk.append(pt)
-            toks = WS.split(nd[0:-1])
-            # Nodes contain 3 fields + T
-            # <T CCGcat head count>
-            assert len(toks) == 4
-            pt.append([toks[1], int(toks[2]), int(toks[3])])
-        elif nd[0] == 'L':
-            toks = WS.split(nd)
-            # Leaf nodes contain five fields + L
-            # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-            assert len(toks) == 6
-            pt.append([toks[1], toks[4], toks[2], toks[3], toks[5], 'L'])
-        else:
-            assert nd[0] == ')'
-            toks = WS.split(nd)
-            level -= len(toks)
-            assert level >= 0
-            for i in range(len(toks)):
-                pt.append('T')
-                stk.pop()
-                pt = stk[-1]
-    # TODO: remove debug code below
-    '''
-    if level != 0 or len(root) != 1:
-        pass
-    '''
-    assert level == 0
-    assert len(root) == 1
-    return root[0]
-
 
 class Ccg2Drs(object):
     """CCG to DRS Converter"""
@@ -1703,27 +1654,6 @@ def process_ccg_pt(pt, options=None):
 
 
 ## @ingroup gfn
-def pt_to_utf8(pt, force=False):
-    """Convert a parse tree to utf-8. The conversion is done in-place.
-
-    Args:
-        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-
-    Returns:
-        A utf-8 parse tree
-    """
-    if force or isinstance(pt[-1], unicode):
-        # Convert to utf-8
-        stk = [pt]
-        while len(stk) != 0:
-            lst = stk.pop()
-            for i in range(len(lst)):
-                x = lst[i]
-                if isinstance(x, list):
-                    stk.append(x)
-                elif isinstance(x, unicode):
-                    lst[i] = x.encode('utf-8')
-    return pt
 
 
 ## @ingroup gfn
@@ -1744,24 +1674,6 @@ def pt_to_ccgbank(pt, fmt=True):
 
 
 ## @ingroup gfn
-def sentence_from_pt(pt):
-    """Get the sentence from a CCG parse tree.
-
-    Args:
-        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-
-    Returns:
-        A string
-    """
-    s = []
-    stk = [pt]
-    while len(stk) != 0:
-        pt = stk.pop()
-        if pt[-1] == 'T':
-            stk.extend(reversed(pt[1:-1]))
-        else:
-            s.append(pt[1])
-    return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 
 ## @ingroup gfn

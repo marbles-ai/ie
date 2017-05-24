@@ -3,9 +3,8 @@
 import os
 import unittest
 
-from marbles.ie.ccg.cat import Category
-from marbles.ie.ccg2drs import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg2drs import process_ccg_pt, sentence_from_pt, Ccg2Drs
+from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
+from marbles.ie.ccg2drs import process_ccg_pt, Ccg2Drs
 from marbles.ie.drt.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_FAST_RENAME
 from marbles.ie.drt.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
@@ -1253,8 +1252,8 @@ class ComposeTest(unittest.TestCase):
         # This only needs to be done once to build the EasySRL CCG derivations for
         # the LDC2005T13 dataset.
         allfiles = []
-        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
         ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
         dirlist1 = os.listdir(ldcpath)
         for fname in dirlist1:
@@ -1317,8 +1316,8 @@ class ComposeTest(unittest.TestCase):
         # required in derivations from a CCG parser, so while I implemented
         # some, I did not implement them all, hence some tests are expected to fail.
         allfiles = []
-        projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))))
+        projdir = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
         ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO')
         dirlist1 = os.listdir(ldcpath)
         for dir1 in dirlist1:

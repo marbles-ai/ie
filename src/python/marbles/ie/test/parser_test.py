@@ -80,19 +80,3 @@ class ParserTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
 
-    def test5_Parser(self):
-        filename = os.path.join(self.iepath, 'ccg', 'data', 'parse_ccg_derivation_failed.dat')
-        if os.path.exists(filename):
-            success = 0
-            with open(filename, 'r') as fd:
-                failed = pickle.load(fd)
-            for ln, msg in failed:
-                try:
-                    pt = parse_ccg_derivation(ln)
-                    if pt is not None:
-                        success += 1
-                except Exception:
-                    pass
-            self.assertEqual(len(failed), success)
-
-
