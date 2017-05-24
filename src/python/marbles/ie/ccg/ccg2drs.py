@@ -22,7 +22,7 @@ from marbles.ie.drt.utils import remove_dups, union, union_inplace, complement, 
 from marbles.ie.parse import parse_drs
 from marbles.ie.drt.drs import get_new_drsrefs
 from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from marbles.ie.kb.verbnet import VerbnetDB
+from marbles.ie.kb.verbnet import VERBNETDB
 # Useful tags
 from pos import POS_DETERMINER, POS_LIST_PERSON_PRONOUN, POS_LIST_PRONOUN, POS_LIST_VERB, POS_LIST_ADJECTIVE, \
                 POS_GERUND, POS_PROPER_NOUN, POS_PROPER_NOUN_S, POS_NOUN, POS_NOUN_S, POS_MODAL, POS_UNKNOWN, \
@@ -54,6 +54,8 @@ RT_1P            = 0x0800000000000000
 RT_2P            = 0x0400000000000000
 RT_3P            = 0x0200000000000000
 ## @}
+
+
 
 
 ## @cond
@@ -468,7 +470,6 @@ class Lexeme(object):
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
     _Punct= '?.,:;'
     _wnl = wn.WordNetLemmatizer()
-    _vn = VerbnetDB()
     _p = inflect.engine()
 
     def __init__(self, category, word, pos_tags, idx=0):
@@ -815,7 +816,7 @@ class Lexeme(object):
                 conds = []
                 vncond = None
                 try:
-                    vnclasses = [] if no_vn else self._vn.name_index[self.stem]
+                    vnclasses = [] if no_vn else VERBNETDB.name_index[self.stem]
                     if len(vnclasses) == 1:
                         vncond = Rel('.VN.' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
                     elif len(vnclasses) >= 2:
@@ -1079,8 +1080,10 @@ def parse_ccg_derivation2(ccgbank):
                 stk.pop()
                 pt = stk[-1]
     # TODO: remove debug code below
+    '''
     if level != 0 or len(root) != 1:
         pass
+    '''
     assert level == 0
     assert len(root) == 1
     return root[0]
@@ -1089,7 +1092,6 @@ def parse_ccg_derivation2(ccgbank):
 class Ccg2Drs(object):
     """CCG to DRS Converter"""
     dispatchmap = VectorMap(Rule.rule_count())
-    _vn = VerbnetDB()
     debugcount = 0
 
     def __init__(self, options=0):
@@ -1141,8 +1143,10 @@ class Ccg2Drs(object):
         if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
             unary = MODEL.infer_unary(op.category)
         # TODO: remove debug code below
+        '''
         if unary is None:
             pass
+        '''
         assert unary is not None
         fn = self.rename_vars(unary.get())
         fn.set_options(self.options)
@@ -1489,6 +1493,7 @@ class Ccg2Drs(object):
                 self.dispatch(op, stk)
 
             # TODO: remove debug code
+            '''
             if op.category.get_scope_count() != stk[-1].get_scope_count():
                 pass
 
@@ -1499,7 +1504,7 @@ class Ccg2Drs(object):
             if not stk[-1].category.can_unify(op.category):
                 stk[-1].category.can_unify(op.category)
                 pass
-
+            '''
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
@@ -1544,9 +1549,11 @@ class Ccg2Drs(object):
                 if rule is None:
                     rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                     # TODO: remove debug code below
+                    '''
                     if rule is None:
                         rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
                         pass
+                    '''
                     assert rule is not None
 
                 # Head resolved to lexque indexes
@@ -1595,8 +1602,7 @@ class Ccg2Drs(object):
         for op in self.exeque:
             indent = '  ' * op.depth if pretty else ''
             if isinstance(op, PushOp):
-
-                # Leaf nodes contain six fields:
+                # Leaf nodes contain 5 fields:
                 # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
                 if op.lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
                     stk.append('%s(<L %s %s %s %s %s>)' % (indent, op.lexeme.category, op.lexeme.pos, op.lexeme.pos,
