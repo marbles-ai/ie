@@ -4,7 +4,7 @@
 
 dependencies {
 	compile project(':ext:easysrl')
-	compile project(':ext:easyccg-0.2')
+	compile project(':ext:easyccg')
 }
 
 test {

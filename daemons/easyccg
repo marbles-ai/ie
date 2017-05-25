@@ -2,7 +2,7 @@
 
 source $(dirname $0)/../scripts/common_source.sh
 
-ECCGPATH="$PROJROOT/ext/easyccg-0.2"
+ECCGPATH="$PROJROOT/ext/easyccg"
 PIDFILE=$1
 LOGFILE=$2
 VERSION="0.1.0"
