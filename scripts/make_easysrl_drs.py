@@ -95,7 +95,7 @@ if __name__ == '__main__':
                 continue
 
             try:
-                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES)
+                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
                 assert d is not None
                 assert isinstance(d, DRS)
                 d = d.show(SHOW_LINEAR).encode('utf-8').strip()
