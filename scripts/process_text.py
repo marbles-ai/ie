@@ -162,6 +162,7 @@ if __name__ == '__main__':
             drs = None
             pccg = None
             fol = None
+            constituents = None
 
             if options.ofmt == 'drs':
                 try:
@@ -175,10 +176,15 @@ if __name__ == '__main__':
                 ops |= CO_NO_VERBNET if options.no_vn else 0
 
                 try:
-                    d = process_ccg_pt(pt, ops)
+                    sentence = process_ccg_pt(pt, ops)
+                    d = sentence.get_drs()
                     fol, _ = d.to_fol()
                     fol = unicode(fol).encode('utf-8')
                     drs = d.show(SHOW_LINEAR).encode('utf-8')
+                    constituents = ''
+                    for c in sentence.get_constituents():
+                        constituents += c.vntype + '(' + c.span.text + ') '
+                    constituents = constituents.strip()
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise
@@ -203,6 +209,10 @@ if __name__ == '__main__':
                     sys.stdout.write('<fol>\n')
                     sys.stdout.write(fol)
                     sys.stdout.write('\n</fol>\n')
+                if constituents:
+                    sys.stdout.write('<constituents>\n')
+                    sys.stdout.write(constituents)
+                    sys.stdout.write('\n</constituents>\n')
             else:
                 with open(outfile, 'w') as fd:
                     if html:
@@ -220,10 +230,14 @@ if __name__ == '__main__':
                         fd.write('<drs>\n')
                         fd.write(drs)
                         fd.write('\n</drs>\n')
-                    if drs:
+                    if fol:
                         fd.write('<fol>\n')
                         fd.write(fol)
                         fd.write('\n</fol>\n')
+                    if constituents:
+                        fd.write('<constituents>\n')
+                        fd.write(constituents)
+                        fd.write('\n</constituents>\n')
 
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
