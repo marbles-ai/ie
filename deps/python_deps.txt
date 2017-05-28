@@ -13,3 +13,4 @@ beautifulsoup4
 feedparser
 html2text
 wikipedia
+boto3
