@@ -6,14 +6,49 @@
 <script src="http://d3js.org/d3.v3.js"></script>
 <script src="../static/js/d3.stretched.chord.js"></script>
 <script src="../static/js/d3.layout.chord.sort.js"></script>
+<!--<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script>-->
+
 {% endblock %}
 
 {% block content %}
+<div class="container">
+    <div class="row">
+        <h3 class="section-title text-center">Marbles Demonstration</h3>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <div style="text-align:left;" id="chart"></div>
+        </div>
+        <div class="col-md-4">
 
-<div style="text-align:center;" id="chart"></div>
+        </div>
+        <div class="col-md-4" style="background: rgba(0,0,0,.5); opacity: 1; box-sizing: border-box;">
+            <ul class="input-list" style="background-color: #F6F6F6; font-size: 14px;">
+                <li class="input-event" style="opacity: 1;">
+                    <div class="title">Article 1</div>
+                    <div class="content">Content 1</div>
+                </li>
+                <li class="input-event" style="opacity: 1;">
+                    <div class="title">Article 2</div>
+                    <div class="content">Content 2</div>
+                </li>
+                <li class="input-event" style="opacity: 1;">
+                    <div class="title">Article 3</div>
+                    <div class="content">Content 3</div>
+                </li>
+                <li class="input-event" style="opacity: 1;">
+                    <div class="title">Article 4</div>
+                    <div class="content">Content 4</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
 {% block scripts %}
-<script src="../static/js/diagram.js"></script>
+
+    <script src="../static/js/diagram.js"></script>
+
 {% endblock %}
