@@ -14,7 +14,8 @@ import hashlib
 # under different operating systems
 _PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs')
 _DATE1 = re.compile(r'/(?P<year>\d\d\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/')
-_DOM = re.compile(r'https?://(?P<domain>[a-zA-Z0-9.-]+)(?:/.*)?$')
+_DOM = re.compile(r'https?://(?:ww[^.]*\.)?(?P<domain>[a-zA-Z0-9.-]+)(?:/.*)?$')
+_ALPHANUM = re.compile(r'[^A-Za-z0-9]')
 
 class AbsractScraper(object):
     def __init__(self, firefox=False):
@@ -54,12 +55,21 @@ class Article(object):
     @property
     def summary(self):
         """Get the summary text."""
-        return BeautifulSoup(self.entry.summary, 'lxml').text
+        if hasattr(self.entry, 'summary'):
+            return BeautifulSoup(self.entry.summary, 'lxml').text
+        return self.entry.title
 
     @property
     def link(self):
         """Get the link to the news story."""
         return self.entry.link
+
+    @classmethod
+    def make_s3_name(cls, text):
+        global _ALPHANUM
+        if isinstance(text, unicode):
+            text = text.encode('utf-8')
+        return '-'.join(filter(lambda y: len(y) != 0, map(lambda x: x.lower().strip('?.,:; '), _ALPHANUM.split(text))))
 
     def get_aws_s3_names(self, article_text):
         """Get the s3 names for the article.
@@ -67,29 +77,27 @@ class Article(object):
         Returns:
             A tuple of s3 bucket and a unique article id.
         """
-        global _DOM
-        if isinstance(article_text, unicode):
-            article_text = article_text.encode('utf-8')
-        title = self.entry.title
-        if isinstance(title, unicode):
-            title = title.encode('utf-8')
-        name = '-'.join(map(lambda x: x.lower().strip('?.,:; '), title.split(' ')))
+        # FIXME: move to __future__
+        global _DOM, _ALPHANUM
+        name = self.make_s3_name(self.entry.title)
         dt = '{:%Y/%m/%d}'.format(self.get_date())
         m = _DOM.match(self.entry.link)
         assert m is not None
         dom = m.group('domain').replace('.', '-')
         h = hashlib.md5()
         if isinstance(dom, unicode):
-            dom = dom.encode('utf8')
-        if isinstance(name, unicode):
-            name = name.encode('utf8')
+            dom = dom.encode('utf-8')
         if isinstance(article_text, unicode):
-            article_text = article_text.encode('utf8')
+            article_text = article_text.encode('utf-8')
+        if isinstance(name, unicode):
+            name = name.encode('utf-8')
+        if isinstance(dt, unicode):
+            dt = dt.encode('utf-8')
         h.update(dom)
         h.update(name)
         h.update(article_text)
         h = h.hexdigest()
-        return (dom, name + '/' + dt + '/' + h)
+        return (dom, dt + '/' + name + '/' + h)
 
     def get_date(self, default_now=True):
         global _DATE1

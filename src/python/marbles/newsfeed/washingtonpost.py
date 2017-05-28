@@ -178,10 +178,12 @@ if __name__ == '__main__':
         print(a.title)
         print('='*len(a.title))
         print(a.link)
+        if not hasattr(a, 'summary'):
+            pass
         print(a.summary)
         text = scraper.get_article_text(a.link)
         bucket, name = a.get_aws_s3_names(text)
-        print('%s/%s' % (bucket, name))
+        print('%s/%s/%s' % (bucket, a.make_s3_name(rss.feed.title), name))
         print('--begin-body--')
         print(text)
         time.sleep(1)
