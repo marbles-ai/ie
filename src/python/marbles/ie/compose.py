@@ -11,6 +11,7 @@ from marbles.ie.ccg import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_
     RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
     RL_TC_CONJ
 from marbles.ie.drt.utils import iterable_type_check, intersect, union, union_inplace, remove_dups, rename_var
+from marbles.ie.doc import IndexSpan
 
 ## @{
 ## @ingroup gconst
@@ -277,7 +278,7 @@ class AbstractProduction(object):
 
 class DrsProduction(AbstractProduction):
     """A DRS production."""
-    def __init__(self, universe, freerefs, category=None, indexes=None):
+    def __init__(self, universe, freerefs, category=None, span=None):
         """Constructor.
 
         Args:
@@ -290,12 +291,16 @@ class DrsProduction(AbstractProduction):
             raise TypeError('DrsProduction expects freerefs of referents')
         self._freerefs = freerefs
         self._universe = universe
-        self._indexes = indexes or []
+        self._span = span
 
     def __repr__(self):
         lr = [r.var.to_string() for r in self.lambda_refs]
-        fn = 'f(' + ','.join([u.var.to_string() for u in self.universe]) + '| ' + \
-             ','.join([v.var.to_string() for v in self.freerefs]) + ')'
+        if self._span is not None and len(self._span) != 0:
+            # Span repr include DRS representation
+            fn = repr(self.span)
+        else:
+            fn = 'f(' + ','.join([u.var.to_string() for u in self.universe]) + '| ' + \
+                 ','.join([v.var.to_string() for v in self.freerefs]) + ')'
         if len(lr) == 0:
             return fn
         #    return self.drs.show(SHOW_LINEAR).encode('utf-8')
@@ -334,7 +339,11 @@ class DrsProduction(AbstractProduction):
 
     @property
     def indexes(self):
-        return self._indexes
+        return [x for x in self._span] if self._span else []
+
+    @property
+    def span(self):
+        return self._span
 
     @property
     def isempty(self):
@@ -388,8 +397,8 @@ class ProductionList(AbstractProduction):
     def __repr__(self):
         lr = [r.var.to_string() for r in self.lambda_refs]
         if len(lr) == 0:
-            return '<' + '##'.join([repr(x) for x in self._compList]) + '>'
-        return 'λ' + 'λ'.join(lr) + '.<' + '##'.join([repr(x) for x in self._compList]) + '>'
+            return '[' + ';'.join([repr(x) for x in self._compList]) + ']'
+        return 'λ' + 'λ'.join(lr) + '.[' + ';'.join([repr(x) for x in self._compList]) + ']'
 
     def get_raw_variables(self):
         u = self.lambda_refs
@@ -540,8 +549,11 @@ class ProductionList(AbstractProduction):
 
         # Always unify reversed
         universe = set()
+        sentence = None
         for i in reversed(range(len(ml))):
             d = ml[i]
+            if d.span:
+                sentence = d.span.sentence
             rn = universe.intersection(d.universe)
             if len(rn) != 0:
                 # FIXME: should this be allowed?
@@ -553,15 +565,16 @@ class ProductionList(AbstractProduction):
             universe = universe.union(d.universe)
 
         # Merge indexes
-        indexes = []
+        span = IndexSpan(sentence)
         freerefs = []
         universe = []
         for d in ml:
-            indexes.extend(d._indexes)
+            assert d.span is None or d.span.sentence is sentence
+            span.union(d.span)
             universe.extend(d._universe)
             freerefs.extend(d._freerefs)
 
-        d = DrsProduction(universe, freerefs, category=self.category, indexes=indexes)
+        d = DrsProduction(universe, freerefs, category=self.category, span=span)
         if not self.islambda_inferred:
             d.set_lambda_refs(self.lambda_refs)
         elif not ml[0].islambda_inferred:
@@ -581,7 +594,7 @@ class FunctorProduction(AbstractProduction):
             production: Optionally a marbles.ie.drt.drs.DRS instance or a AbstractProduction instance. The DRS will be converted
                 to a DrsProduction. If production is a functor then the combination is a curried functor.
         """
-        if production is not None and not isinstance(production, AbstractProduction):
+        if production is not None and not isinstance(production, (DrsProduction, FunctorProduction)):
             raise TypeError('production argument must be a AbstractProduction type')
         if category is None :
             raise TypeError('category cannot be None for functors')
@@ -618,7 +631,7 @@ class FunctorProduction(AbstractProduction):
             if self._comp.isfunctor:
                 s = self._comp._repr_helper2(i+1)
             else:
-                s = str(self._comp)
+                s = repr(self._comp)
             if self._category.isarg_right:
                 return '%s;%s(%s)' % (s, v, r)
             else:
@@ -628,7 +641,7 @@ class FunctorProduction(AbstractProduction):
 
     def __repr__(self):
         return self._repr_helper1(ord('P')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) \
-               + '.(' + self._repr_helper2(ord('P')) + ')'
+               + '.<' + self._repr_helper2(ord('P')) + '>'
 
     def _get_variables(self, u):
         if self._comp is not None:
@@ -805,6 +818,11 @@ class FunctorProduction(AbstractProduction):
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
+
+    @property
+    def span(self):
+        fn = self.inner_scope
+        return None if fn._comp is None else fn._comp.span
 
     def unify_atoms(self, a, b):
         """Unify two atoms: a and b.
@@ -1619,7 +1637,7 @@ class PropProduction(FunctorProduction):
         lr = self._lambda_refs.referents
         lr.extend(d._universe)
         dd = DrsProduction(universe=lr, freerefs=d._freerefs,
-                           category=self.category.result_category(), indexes=d.indexes)
+                           category=self.category.result_category(), span=d.span)
         dd.set_options(self.compose_options)
         self.clear()
         dd.set_lambda_refs(lr)
