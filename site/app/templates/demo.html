@@ -23,23 +23,8 @@
 
         </div>
         <div class="col-md-4" style="background: rgba(0,0,0,.5); opacity: 1; box-sizing: border-box;">
-            <ul class="input-list" style="background-color: #F6F6F6; font-size: 14px;">
-                <li class="input-event" style="opacity: 1;">
-                    <div class="title">Article 1</div>
-                    <div class="content">Content 1</div>
-                </li>
-                <li class="input-event" style="opacity: 1;">
-                    <div class="title">Article 2</div>
-                    <div class="content">Content 2</div>
-                </li>
-                <li class="input-event" style="opacity: 1;">
-                    <div class="title">Article 3</div>
-                    <div class="content">Content 3</div>
-                </li>
-                <li class="input-event" style="opacity: 1;">
-                    <div class="title">Article 4</div>
-                    <div class="content">Content 4</div>
-                </li>
+            <h2 class="section-title text-center" style="color: white;">Feeds</h2>
+            <ul id="inputlist" class="input-list" style="background-color: #F6F6F6; font-size: 14px; overflow:hidden; overflow-y:scroll; height:430px;">
             </ul>
         </div>
     </div>
@@ -50,5 +35,6 @@
 {% block scripts %}
 
     <script src="../static/js/diagram.js"></script>
+    <script src="../static/js/addData.js"></script>
 
 {% endblock %}
