@@ -6,8 +6,9 @@
     http://bl.ocks.org/nbremer/f9dacd23eece9d23669c
 */
 
-var displayWidth = $(window).innerWidth();
+var displayWidth = $(window).innerWidth()/2;
 var mobileWidth = (displayWidth > 500 ? false : true);
+//var mobileWidth = true;
 
 var margin = {top: 10,
               bottom: 10,

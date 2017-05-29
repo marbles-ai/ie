@@ -1,14 +1,17 @@
 {% extends "layout.html" %}
 {% block title %}Marbles.AI: Fake News{% endblock %}
 
-
 {% block content %}
 
+<div class="container">
+
+
         <!-- Jumbotron -->
-      <div style="background:transparent !important" class="jumbotron">
+      <div style="background:transparent" class="jumbotron">
         <h1>Fake News!</h1>
-        <p class="lead">Fake news is having a significant impact on society; it has not only effected our last election,
-            but it is having a high-profile impact on large social media companies
+        <p class="lead">Fake news is having a significant impact on our society! It not only allows bad actors to influence
+            other countries' elections, but it is also making it difficult for citizens to understand what is going on
+            around them and make their politicians accountable for their actions.
         </p>
       </div>
 
@@ -36,5 +39,26 @@
           <p><a class="btn btn-primary" href="https://www.theatlantic.com/technology/archive/2017/02/viva-la-resistance-content/515532/" role="button">Liberal Fake News &raquo;</a></p>
         </div>
       </div>
+
+</div>
+
+<div class="container">
+    <p>
+        We solve the problem of identifying Fake News by using a combination of state of the art Natural Language Processing and
+        Machine Learning techniques to analyze information as it comes in. We gather information using our large selection of
+        RSS feeds from websites, Twitter, Facebook, etc. This information is transformed from its raw form into a machine-readable
+        semantic discourse representation that we call Marbles. These Marbles represent the semantics and knowledge represented
+        in the information gathered.
+    </p>
+
+    <p>
+        We then use both supervised and unsupervised Machine Learning techniques to determine the source of information, which we
+        call "Golden Marbles", and both similarities and differences between different sources' Marbles. This allows us to find
+        outlier Marbles that deviate from Golden Marbles. Our technique allows for a much deeper understanding of the information,
+        and it also allows us to evaluate the factualness of information without considering the source. This is particularly
+        important, because of the growing disagreement between members of differing political parties with relation to the
+        factualness of different information sources.
+    </p>
+</div>
 
 {% endblock %}

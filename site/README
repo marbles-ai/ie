@@ -4,3 +4,4 @@ To run on your machine, run:
 						# Run 'docker images' to make sure that the image shows up under 'website'
 	docker run -p 5000:5000 website		# This runs the app, mapping the localhost port 5000 to the exposed port 5000
 						# You should now be able to view the website from http://localhost:5000
+						# Add -d for detached mode
