@@ -165,7 +165,7 @@ class WPostScraper(AbsractScraper):
 
     @classmethod
     def get_rss_feed_list(cls):
-        """Returns a list of tuples of feed urls."""
+        """Returns a list of feed urls."""
         return _ALLFEEDS
 
 
@@ -178,12 +178,9 @@ if __name__ == '__main__':
         print(a.title)
         print('='*len(a.title))
         print(a.link)
-        if not hasattr(a, 'summary'):
-            pass
         print(a.summary)
         text = scraper.get_article_text(a.link)
-        bucket, name = a.get_aws_s3_names(text)
-        print('%s/%s/%s' % (bucket, a.make_s3_name(rss.feed.title), name))
+        print('/%s/%s' % a.get_aws_s3_names(text))
         print('--begin-body--')
         print(text)
         time.sleep(1)
