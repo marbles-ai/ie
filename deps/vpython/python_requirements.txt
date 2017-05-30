@@ -34,3 +34,5 @@ beautifulsoup4
 feedparser
 html2text
 boto3
+feedgen
+watchtower
