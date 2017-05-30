@@ -135,7 +135,7 @@ class Article(object):
         """
         # RSS must support at least one of summary or title
         content = {}
-        content['title'] = safe_utf8_encode(self.title if hasattr(self, 'title') else self.summary)
+        content['title'] = safe_utf8_encode(self.entry.title if hasattr(self.entry, 'title') else self.summary)
         # Summay defaults to title if it does not exist
         content['summary'] = safe_utf8_encode(self.summary)
         content['link'] = safe_utf8_encode(self.link)
@@ -144,6 +144,25 @@ class Article(object):
         content['author'] = safe_utf8_encode(self.entry.author) if hasattr(self.entry, 'author') else 'anonymous'
         content['id'] = safe_utf8_encode(self.entry.id)
         content['provider'] = safe_utf8_encode(self.feed.link)
+        # Try to grab an image
+        if hasattr(self.entry, 'media_content'):
+            media = []
+            thumbnail = -1
+            thumbnailw = 100000000
+            for i in range(len(self.entry.media_content)):
+                m = self.entry.media_content[i]
+                d = dict(map(lambda y: (y[0], int(y[1]) if y[0] == 'width' else y[1]),
+                         map(lambda x: (safe_utf8_encode(x[0]), safe_utf8_encode(x[1])), m.iteritems())))
+                w = d.setdefault('width', 0)    # make sure its always there
+                if w != 0 and w < thumbnailw:
+                    thumbnailw = w
+                    thumbnail = i
+                media.append(d)
+            content['media'] = {
+                'content': media,
+                'thumbnail': thumbnail
+            }
+
         return content
 
 
