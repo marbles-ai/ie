@@ -10,7 +10,10 @@ import StringIO
 import json
 import time
 from random import shuffle
-import watchtower, logging
+import watchtower
+import requests
+import base64
+
 
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -100,18 +103,32 @@ class ReaderArchiver(object):
 
                 # Add to AWS processing queue
                 if self.aws.sqs:
+                    attributes = {
+                        's3': {
+                            'DataType': 'String',
+                            'StringValue': bucket + '/' + objname
+                        },
+                        'hash': {
+                            'DataType': 'String',
+                            'StringValue': hash
+                        }
+                    }
+                    # Store thumbnail in message so website has immediate access
+                    d = arc.setdefault('media', {})
+                    if d.setdefault('thumbnail', -1) >= 0:
+                        media = d['content'][ d['thumbnail']]
+                        r = requests.get(media['url'])
+                        attributes['media_thumbnail'] = {
+                            'DataType': 'String',
+                            'StringValue': base64.b64encode(r.content)
+                        }
+                        attributes['media_type'] = {
+                            'DataType': 'String',
+                            'StringValue': media['type']
+                        }
+                    # Send the message to our queue
                     response = self.aws.sqs.send_message(QueueUrl=self.aws.queue_url, DelaySeconds=0,
-                                                         MessageAttributes={
-                                                             's3': {
-                                                                 'DataType': 'String',
-                                                                 'StringValue': bucket + '/' + objname
-                                                             },
-                                                             'hash': {
-                                                                 'DataType': 'String',
-                                                                 'StringValue': hash
-                                                             },
-                                                         },
-                                                         MessageBody=data)
+                                                     MessageAttributes=attributes, MessageBody=data)
                     # TODO: make level debug once its working
                     self.logger.info('Sent msg(%s) -> s3(%s)', response['MessageId'], hash)
 
@@ -166,7 +183,6 @@ if __name__ == '__main__':
     logger.addHandler(log_handler)
 
     logger.info('Service started')
-    sys.exit(0)
 
     # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
     aws = AWSResources(args[0] if len(args) != 0 else None)
