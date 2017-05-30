@@ -32,6 +32,9 @@ class AbsractScraper(object):
         else:
             self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH)
 
+    def get_blank(self):
+        self.browser.get('about:blank')
+
     def get_article_text(self, url):
         """Scrape the article text.
 
@@ -139,6 +142,8 @@ class Article(object):
         story = scraper.get_article_text(self.link)
         content['content'] = safe_utf8_encode(story)
         content['author'] = safe_utf8_encode(self.entry.author) if hasattr(self.entry, 'author') else 'anonymous'
+        content['id'] = safe_utf8_encode(self.entry.id)
+        content['provider'] = safe_utf8_encode(self.feed.link)
         return content
 
 
