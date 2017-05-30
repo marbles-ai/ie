@@ -18,7 +18,7 @@ import base64
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
 srcdir = os.path.dirname(thisdir)
-if os.path.exists(os.path.join('marbles', 'ie')):
+if os.path.exists(os.path.join(srcdir, 'marbles', 'ie')):
     sys.path.insert(0, srcdir)
 
 
@@ -138,7 +138,7 @@ class ReaderArchiver(object):
                 raise
 
             except Exception as e:
-                self.logger.exception('Exception in aws_archive', exc_info=e)
+                self.logger.exception('Exception caught', exc_info=e)
                 errors += 1
 
         # FIXME: better ratelimit method is to randomly spread across all feeds
