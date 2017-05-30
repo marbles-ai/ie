@@ -10,6 +10,7 @@ import StringIO
 import json
 import time
 from random import shuffle
+import watchtower, logging
 
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -21,10 +22,28 @@ if os.path.exists(os.path.join('marbles', 'ie')):
 from marbles.newsfeed import *
 
 
+class AWSResources:
+    """AWS resources."""
+
+    def __init__(self, queue_name=None):
+        self.s3 = boto3.resource('s3')
+        if queue_name:
+            self.sqs = boto3.client('sqs')
+            if queue_name == 'default-queue':
+                resp = self.sqs.get_queue_url(QueueName='marbles-ai-rss-aggregator')
+            else:
+                resp = self.sqs.get_queue_url(QueueName=queue_name)
+            self.queue_url = resp['QueueUrl']
+        else:
+            self.sqs = None
+            self.queue_url = None
+
+
 class ReaderArchiver(object):
     """RSS/Atom reader archive service."""
-    def __init__(self, s3, scrape, logger, feed_urls=None):
-        self.s3 = s3
+
+    def __init__(self, aws, scrape, logger, feed_urls=None):
+        self.aws = aws
         self.scrape = scrape
         feed_urls = feed_urls if feed_urls is not None else scrape.get_rss_feed_list()
         self.feeds = [scraper.RssFeed(u) for u in feed_urls]
@@ -36,7 +55,7 @@ class ReaderArchiver(object):
             return True
         # Refresh all so we handle deletions
         self.bucket_cache = set()
-        for bkt in self.s3.buckets.all():
+        for bkt in self.aws.s3.buckets.all():
             self.bucket_cache.add(bkt.name)
         return bucket in self.bucket_cache
 
@@ -60,33 +79,53 @@ class ReaderArchiver(object):
                 arc = a.archive(self.scrape)
                 bucket, objname = a.get_aws_s3_names(arc['content'])
                 hash = objname.split('/')[-1]
-                exists = 0 != len([x for x in s3.Bucket('marbles-ai-feeds-hash').objects.filter(Prefix=hash)])
+                exists = 0 != len([x for x in self.aws.s3.Bucket('marbles-ai-feeds-hash').objects.filter(Prefix=hash)])
                 if exists:
                     continue
 
                 if not self.check_bucket_exists(bucket):
                     # Create a bucket
-                    self.s3.create_bucket(Bucket=bucket,
+                    self.aws.s3.create_bucket(Bucket=bucket,
                                           CreateBucketConfiguration={'LocationConstraint': 'us-west-1'})
                     self.bucket_cache.add(bucket)
 
                 strm = StringIO.StringIO()
                 json.dump(arc, strm, indent=2)
                 objpath = objname+'.json'
-                self.s3.Object(bucket, objpath).put(Body=strm.getvalue())
+                data = strm.getvalue()
+                self.aws.s3.Object(bucket, objpath).put(Body=data)
 
                 # Add to hash listing - allows us to find entries by hash
-                self.s3.Object('marbles-ai-feeds-hash', hash).put(Body=objpath)
+                self.aws.s3.Object('marbles-ai-feeds-hash', hash).put(Body=objpath)
+
+                # Add to AWS processing queue
+                if self.aws.sqs:
+                    response = self.aws.sqs.send_message(QueueUrl=self.aws.queue_url, DelaySeconds=0,
+                                                         MessageAttributes={
+                                                             's3': {
+                                                                 'DataType': 'String',
+                                                                 'StringValue': bucket + '/' + objname
+                                                             },
+                                                             'hash': {
+                                                                 'DataType': 'String',
+                                                                 'StringValue': hash
+                                                             },
+                                                         },
+                                                         MessageBody=data)
+                    # TODO: make level debug once its working
+                    self.logger.info('Sent msg(%s) -> s3(%s)', response['MessageId'], hash)
+
 
             except KeyboardInterrupt:
                 # Pass on so we can close the daemon
                 raise
 
             except Exception as e:
-                self.logger.error(str(e))
+                self.logger.exception('Exception in aws_archive', exc_info=e)
                 errors += 1
 
         # FIXME: better ratelimit method is to randomly spread across all feeds
+        self.scrape.get_blank()
         time.sleep(1)
 
     def reload_scraper(self):
@@ -96,44 +135,46 @@ class ReaderArchiver(object):
 if __name__ == '__main__':
     usage = 'Usage: %prog [options] [aws-queue-name]'
     parser = OptionParser(usage)
-    parser.add_option('-l', '--log-level', type='string', action='store', dest='log_level', help='Logging level')
-    parser.add_option('-f', '--log-file', type='string', action='store', dest='log_file', help='Logging file')
-    parser.add_option('-D', '--daemonize', action='store_true', dest='daemonize', default=False, help='Run as a daemon.')
-    parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False, help='Force read.')
+    parser.add_option('-l', '--log-level', type='string', action='store', dest='log_level',
+                      help='Logging level, defaults to \"info\"')
+    parser.add_option('-f', '--log-file', type='string', action='store', dest='log_file',
+                      help='Logging file, defaults to AWS CloudWatch.')
+    parser.add_option('-D', '--daemonize', action='store_true', dest='daemonize', default=False,
+                      help='Run as a daemon.')
+    parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False,
+                      help='Force read.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
-    log_level = options.log_level or 'warning'
-    log_file = options.log_file or os.path.join(thisdir, 'newsreader.log')
 
-    main_logger = logging.getLogger('marbles')
-    service_logger = logging.getLogger('marbles.service')
-    logger = logging.getLogger('marbles.service.newsreader')
-    logger.propagate = True # Propagate to parent log
+    # Setup logging
+    log_level=getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
+    logger = logging.getLogger('service.' + os.path.splitext(os.path.basename(__file__))[0])
+    logger.setLevel(log_level)
 
-    if not options.daemonize:
-        # Log to console
-        log_handler = logging.StreamHandler()
-    elif len(args) == 0:
-        log_handler = logging.FileHandler(log_file, mode='a')
-    else:
-        # TODO: log to aws
-        log_handler = logging.FileHandler(log_file, mode='a')
+    if options.log_file:
+        log_handler = logging.FileHandler(options.log_file, mode='a')
+    elif not options.daemonize:
+        log_handler = logging.StreamHandler()   # Log to console
+    else:   # Log to aws
+        log_handler = watchtower.CloudWatchLogHandler()
 
-    log_handler.setLevel(logging.INFO)
+    log_handler.setLevel(log_level)
+    # Make some attempt to comply with RFC5424
+    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
+                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
     logger.addHandler(log_handler)
-    logger.setLevel(logging.INFO)
 
-    if len(args) > 1:
-        # TODO: connect to aws simple queue service
-        pass
+    logger.info('Service started')
+    sys.exit(0)
 
-    s3 = boto3.resource('s3')
+    # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
+    aws = AWSResources(args[0] if len(args) != 0 else None)
     archivers = [
-        [0, ReaderArchiver(s3, washingtonpost.WPostScraper(), logger, [washingtonpost.WPOST_Politics])],
-        [0, ReaderArchiver(s3, nytimes.NYTimesScraper(), logger, [nytimes.NYTIMES_US_Politics])],
-        [0, ReaderArchiver(s3, reuters.ReutersScraper(), logger, [reuters.REUTERS_Politics])],
-        [0, ReaderArchiver(s3, foxnews.FoxScraper(), logger, [foxnews.FOX_Politics])],
+        [0, ReaderArchiver(aws, washingtonpost.WPostScraper(), logger, [washingtonpost.WPOST_Politics])],
+        [0, ReaderArchiver(aws, nytimes.NYTimesScraper(), logger, [nytimes.NYTIMES_US_Politics])],
+        [0, ReaderArchiver(aws, reuters.ReutersScraper(), logger, [reuters.REUTERS_Politics])],
+        [0, ReaderArchiver(aws, foxnews.FoxScraper(), logger, [foxnews.FOX_Politics])],
     ]
 
     ignore_read = not options.force_read
@@ -155,6 +196,7 @@ if __name__ == '__main__':
                     logger.error(str(e))
 
         except KeyboardInterrupt:
+            logger.info('Exiting due to KeyboardInterrupt')
             break
 
         time.sleep(60*10)       # 10 minutes
@@ -162,6 +204,7 @@ if __name__ == '__main__':
             arc.refresh()
         ignore_read = True
 
-    logger.removeHandler(log_handler)
+    logger.info('Service stopped')
+    #logger.removeHandler(log_handler)
 
 
