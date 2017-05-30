@@ -160,6 +160,8 @@ if __name__ == '__main__':
                       help='Run as a daemon.')
     parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False,
                       help='Force read.')
+    parser.add_option('-X', '--exit-early', action='store_true', dest='exit_early', default=False,
+                      help='Exit after first sync completes.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
@@ -211,13 +213,17 @@ if __name__ == '__main__':
                     arc[0] += 1     # count errors
                     logger.error(str(e))
 
+            if options.exit_early:
+                break
+
+            time.sleep(60*10)       # 10 minutes
+            for arc in archivers:
+                arc[1].refresh()
+
         except KeyboardInterrupt:
             logger.info('Exiting due to KeyboardInterrupt')
             break
 
-        time.sleep(60*10)       # 10 minutes
-        for arc in archivers:
-            arc.refresh()
         ignore_read = True
 
     logger.info('Service stopped')
