@@ -183,7 +183,6 @@ if __name__ == '__main__':
     log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
                                                datefmt='%Y-%m-%dT%H:%M:%S%z'))
     logger.addHandler(log_handler)
-
     logger.info('Service started')
 
     # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
