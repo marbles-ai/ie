@@ -1,3 +1,5 @@
+build
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,9 +10,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-/dist
-/.egg
-/*.egg-info
+dist
+.egg
+*.egg-info
 
 # Unit test / coverage reports
 htmlcov/
