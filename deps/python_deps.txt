@@ -19,3 +19,4 @@ watchtower
 requests
 setuptools
 wheel
+python_daemon

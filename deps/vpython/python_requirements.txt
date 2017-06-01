@@ -36,3 +36,4 @@ boto3
 feedgen
 watchtower
 requests
+python_daemon
