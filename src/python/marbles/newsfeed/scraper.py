@@ -8,6 +8,7 @@ import datetime
 import email.utils
 import re
 import hashlib
+import weakref
 
 
 # PhantomJS files have different extensions
@@ -24,18 +25,65 @@ def safe_utf8_encode(s):
     return s
 
 
-class AbsractScraper(object):
+class Browser(object):
+    """Browser wrapper allows cookie counting and can be shared amongst many scrapers."""
     def __init__(self, firefox=False):
         if firefox:
             # Visual display in firefox
-            self.browser = webdriver.FireFox()
+            self.driver = webdriver.FireFox()
         else:
-            self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH)
+            self.driver = webdriver.PhantomJS(_PHANTOMJS_PATH)
+        self.scrapers = []
+
+    @property
+    def page_source(self):
+        return self.driver.page_source
+
+    def register_scraper(self, scraper):
+        self.scrapers.append(weakref.ref(scraper))
+
+    def get_blank(self):
+        self.driver.get('about:blank')
+
+    def get(self, url):
+        return self.driver.get(url)
+
+    def delete_all_cookies(self):
+        self.driver.delete_all_cookies()
+        for wr in self.scrapers:
+            wr().reset_cookie_count()
 
     def close(self):
-        self.browser.close()
-        self.browser.quit()
-        self.browser = None
+        self.driver.close()
+        self.driver.quit()
+        self.driver = None
+
+
+class AbsractScraper(object):
+    """Web Scraper"""
+    def __init__(self, browser=None, max_count=0):
+        if browser:
+            self.browser = browser
+            self.can_close_browser = False
+        else:
+            self.browser = Browser()
+            self.can_close_browser = True
+        self.max_count = max_count
+        self.count = max_count
+        self.browser.register_scraper(self)
+
+    def reset_cookie_count(self):
+        self.count = self.max_count
+
+    def cookie_count(self):
+        self.count -= 1
+        if self.count <= 0:
+            self.browser.delete_all_cookies()
+            self.count = self.max_count
+
+    def close(self):
+        if self.can_close_browser and self.browser:
+            self.browser.close()
 
     def get_blank(self):
         self.browser.get('about:blank')
