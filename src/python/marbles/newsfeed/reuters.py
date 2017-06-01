@@ -49,8 +49,11 @@ _ALLFEEDS = [
 
 class ReutersScraper(AbsractScraper):
     '''Scraper for Reuters news articles.'''
+
     def __init__(self, *args, **kwargs):
         super(ReutersScraper, self).__init__(*args, **kwargs)
+        # Number of requests before clearing cookies
+        self.count = self.max_count = 5
 
     def get_article_text(self, url):
         """Scrape the article text.
@@ -69,6 +72,7 @@ class ReutersScraper(AbsractScraper):
             paragraphs = a.find_all('p')
             for p in paragraphs:
                 text.append(p.text)
+        self.cookie_count()
         return '\n'.join(text)
 
     @classmethod

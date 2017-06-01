@@ -142,10 +142,12 @@ _ALLFEEDS = [
 ]
 
 class NYTimesScraper(AbsractScraper):
-    '''Scraper for Reuters news articles.'''
+    '''Scraper for New York Time news articles.'''
+
     def __init__(self, *args, **kwargs):
         super(NYTimesScraper, self).__init__(*args, **kwargs)
-        self.count = 5
+        # Number of requests before clearing cookies
+        self.count = self.max_count = 5
 
     def get_article_text(self, url):
         """Scrape the article text.
@@ -162,11 +164,7 @@ class NYTimesScraper(AbsractScraper):
         text = []
         for p in article:
             text.append(p.text)
-        self.count -= 1
-        if self.count == 0:
-            # Nytimes only allows reading of 8 articles so discard cookies regularly
-            self.browser.delete_all_cookies()
-            self.count = 5
+        self.cookie_count()
         return '\n'.join(text)
 
     @classmethod

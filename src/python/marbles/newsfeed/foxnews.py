@@ -43,10 +43,12 @@ _ALLFEEDS = [
 
 
 class FoxScraper(AbsractScraper):
-    '''Scraper for Reuters news articles.'''
+    '''Scraper for Fox news articles.'''
+
     def __init__(self, *args, **kwargs):
         super(FoxScraper, self).__init__(*args, **kwargs)
-        self.count = 5
+        # Number of requests before clearing cookies
+        self.count = self.max_count = 5
 
     def get_article_text(self, url):
         """Scrape the article text.
@@ -65,11 +67,7 @@ class FoxScraper(AbsractScraper):
             paragraphs = a.find_all('p')
             for p in paragraphs:
                 text.append(p.text)
-        self.count -= 1
-        if self.count == 0:
-            # Discard cookies regularly in-case there is a limit
-            self.browser.delete_all_cookies()
-            self.count = 5
+        self.cookie_count()
         return '\n'.join(text)
 
     @classmethod

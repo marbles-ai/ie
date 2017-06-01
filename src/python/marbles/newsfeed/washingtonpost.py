@@ -134,10 +134,11 @@ _ALLFEEDS = [
 
 
 class WPostScraper(AbsractScraper):
-    '''Scraper for Reuters news articles.'''
+    '''Scraper for Washington Post news articles.'''
     def __init__(self, *args, **kwargs):
         super(WPostScraper, self).__init__(*args, **kwargs)
-        self.count = 2
+        # Number of requests before clearing cookies
+        self.count = self.max_count = 2
 
     def get_article_text(self, url):
         """Scrape the article text.
@@ -156,11 +157,7 @@ class WPostScraper(AbsractScraper):
             paragraphs = b.find_all('p', attrs={'class': None})
             for p in paragraphs:
                 text.append(p.text)
-        self.count -= 1
-        if self.count == 0:
-            # Need to discard cookies regularly in-case there is a limit
-            self.browser.delete_all_cookies()
-            self.count = 2
+        self.cookie_count()
         return '\n'.join(text)
 
     @classmethod
