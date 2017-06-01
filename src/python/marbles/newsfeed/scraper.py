@@ -1,5 +1,5 @@
 # The future import will convert all strings to unicode.
-from __future__ import unicode_literals, print_function
+#from __future__ import unicode_literals, print_function
 import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -31,6 +31,11 @@ class AbsractScraper(object):
             self.browser = webdriver.FireFox()
         else:
             self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH)
+
+    def close(self):
+        self.browser.close()
+        self.browser.quit()
+        self.browser = None
 
     def get_blank(self):
         self.browser.get('about:blank')
@@ -78,9 +83,13 @@ class Article(object):
     @classmethod
     def make_s3_name(cls, text):
         global _ALPHANUM
+        text = text.lower()
         if isinstance(text, unicode):
             text = text.encode('utf-8')
-        return '-'.join(filter(lambda y: len(y) != 0, _NALNUMSP.sub('', text).lower().split(' ')))
+        result = '-'.join(filter(lambda y: len(y) != 0, _NALNUMSP.sub('', text).split(' ')))
+        # PWG: don't know why this happens but if text contains unicode
+        # it is converted automatically
+        return safe_utf8_encode(result)
 
     def get_aws_s3_names(self, article_text):
         """Get the s3 name for the article.
