@@ -9,20 +9,23 @@ import boto3
 import StringIO
 import json
 import time
-from random import shuffle
 import watchtower
 import requests
 import base64
+import daemon
+import signal
+import lockfile
 
 
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
-srcdir = os.path.dirname(thisdir)
+srcdir = os.path.dirname(os.path.dirname(thisdir))
 if os.path.exists(os.path.join(srcdir, 'marbles', 'ie')):
     sys.path.insert(0, srcdir)
+terminate = False
 
 
-from marbles.newsfeed import *
+from marbles import newsfeed as nf
 
 
 class AWSResources:
@@ -42,46 +45,96 @@ class AWSResources:
             self.queue_url = None
 
 
+class NewsSource(object):
+    """A news sources consists of a scraper and a list of feeds."""
+    
+    def __init__(self, scraper, feed_urls=None):
+        self.scraper = scraper
+        feed_urls = feed_urls if feed_urls is not None else scraper.get_rss_feed_list()
+        self.feeds = [nf.scraper.RssFeed(u) for u in feed_urls]
+
+    def reload_scraper(self):
+        self.scraper.close()    # closes phantomjs process
+        self.scraper = type(self.scraper)()
+
+    def close(self):
+        self.scraper.close()
+
+
 class ReaderArchiver(object):
     """RSS/Atom reader archive service."""
 
-    def __init__(self, aws, scrape, logger, feed_urls=None):
+    def __init__(self, aws, sources, logger, rlimit=0):
         self.aws = aws
-        self.scrape = scrape
-        feed_urls = feed_urls if feed_urls is not None else scrape.get_rss_feed_list()
-        self.feeds = [scraper.RssFeed(u) for u in feed_urls]
+        self.sources = sources
         self.bucket_cache = set()
+        self.error_cache = {}
         self.logger = logger
+        self.rlimit = rlimit
+        # Flag to prevent refresh on start with -R option
+        self.refreshable = False
+
+    def close(self):
+        for src in self.sources:
+            src.close()
 
     def check_bucket_exists(self, bucket):
         if bucket in self.bucket_cache:
             return True
+        # Bucket count never exceeds a few 100
         # Refresh all so we handle deletions
         self.bucket_cache = set()
         for bkt in self.aws.s3.buckets.all():
             self.bucket_cache.add(bkt.name)
         return bucket in self.bucket_cache
 
-    def refresh(self):
-        for rss in self.feeds:
-            rss.refresh()
-            # FIXME: shorter wait
-            time.sleep(1)
+    def retire_error_cache(self, limit):
+        # Retire least recently used in error cache
+        if limit < len(self.error_cache):
+            return
+        # Each value is a timestamp floating point
+        vk_sort = sorted(self.error_cache.items(), key=lambda x: x[1])
+        vk_sort.reverse()
+        self.error_cache = dict(iterable=vk_sort[0:limit])
 
-    def aws_archive(self, ignore_read=True):
-        # TODO: randomize access across all feeds to help with rate limiting
-        rlimit = {}
+    def refresh(self):
+        global terminate
+        if not self.refreshable:
+            return
+        # TODO: Interleave work
+        for src in self.sources:
+            for rss in src.feeds:
+                rss.refresh()
+                if terminate:
+                    return
+                time.sleep(1)
+            if terminate:
+                return
+        self.refreshable = False
+
+    def read_all(self, ignore_read):
+        global terminate
+        for src in self.sources:
+            self.read_from_source(src, ignore_read)
+            src.reload_scraper()
+            #src.scraper.get_blank()
+            if terminate:
+                return
+
+    def read_from_source(self, src, ignore_read):
+        global terminate
+        self.refreshable = True
         articles = []
-        for i in range(len(self.feeds)):
-            rss = self.feeds[i]
-            articles.extend([(i, a) for a in rss.get_articles(ignore_read=ignore_read)]) # Returns unread articles
+        for rss in src.feeds:
+            articles.extend(rss.get_articles(ignore_read=ignore_read)) # Returns unread articles
 
         errors = 0
-        for i, a in articles:
+        for a in articles:
             try:
-                arc = a.archive(self.scrape)
+                arc = a.archive(src.scraper)
                 bucket, objname = a.get_aws_s3_names(arc['content'])
                 hash = objname.split('/')[-1]
+                self.logger.debug(hash + ' - ' + arc['title'])
                 exists = 0 != len([x for x in self.aws.s3.Bucket('marbles-ai-feeds-hash').objects.filter(Prefix=hash)])
                 if exists:
                     continue
@@ -138,15 +191,78 @@ class ReaderArchiver(object):
                 raise
 
             except Exception as e:
-                self.logger.exception('Exception caught', exc_info=e)
+                # Rate limit errors to the same article id. This avoids flooding the log files.
+                if self.rlimit > 0:
+                    tmnew = time.time()
+                    tmold = self.error_cache.setdefault(a.entry.id, tmnew)
+                    if (tmnew - tmold) >= self.rlimit:
+                        self.error_cache[a.entry.id] = tmnew
+                        self.logger.exception('Exception caught', exc_info=e)
+                else:
+                    self.logger.exception('Exception caught', exc_info=e)
+
                 errors += 1
+            if terminate:
+                return
+            time.sleep(1)
 
-        # FIXME: better ratelimit method is to randomly spread across all feeds
-        self.scrape.get_blank()
-        time.sleep(1)
 
-    def reload_scraper(self):
-        self.scraper = type(self.scraper)()
+hup_recv = 0
+def hup_handler(signum, frame):
+    """Forces code to re-read all active articles. This will re-queue articles on AWS SQS."""
+    global hup_recv
+    hup_recv += 1
+
+
+def term_handler(signum, frame):
+    global terminate, logger
+    terminate = True
+    logger.info('SIGTERM received')
+
+
+def run_daemon(archivers, logger):
+    global hup_recv, terminate
+    count = 0
+    while not terminate:
+        # A HUP will force a read of all articles. Save to local to avoid race condition
+        # between test and set
+        hup_recv_local = hup_recv
+        ignore_read = hup_recv_local == count   # test
+        count = hup_recv_local                  # set
+
+        if not ignore_read:
+            logger.info('HUP signal received, refreshing all articles')
+            for arc in archivers:
+                arc.refresh()
+
+        for arc in archivers:
+            arc.read_all(ignore_read)
+            arc.retire_error_cache(1000)
+            if terminate:
+                logger.info('TERM signal received')
+                break
+
+
+def init_log_handler(log_handler, log_level):
+    log_handler.setLevel(log_level)
+    # Make some attempt to comply with RFC5424
+    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
+                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+
+def init_archivers(queue_name, logger):
+    # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
+    aws = AWSResources(queue_name)
+    sources = [
+        NewsSource(nf.washingtonpost.WPostScraper(), [nf.washingtonpost.WPOST_Politics]),
+        NewsSource(nf.nytimes.NYTimesScraper(), [nf.nytimes.NYTIMES_US_Politics]),
+        NewsSource(nf.reuters.ReutersScraper(), [nf.reuters.REUTERS_Politics]),
+        NewsSource(nf.foxnews.FoxScraper(), [nf.foxnews.FOX_Politics]),
+    ]
+
+    logger.info('Initialization complete')
+    return [
+        ReaderArchiver(aws, sources, logger),
+    ]
 
 
 if __name__ == '__main__':
@@ -155,77 +271,88 @@ if __name__ == '__main__':
     parser.add_option('-l', '--log-level', type='string', action='store', dest='log_level',
                       help='Logging level, defaults to \"info\"')
     parser.add_option('-f', '--log-file', type='string', action='store', dest='log_file',
-                      help='Logging file, defaults to AWS CloudWatch.')
-    parser.add_option('-D', '--daemonize', action='store_true', dest='daemonize', default=False,
-                      help='Run as a daemon.')
+                      help='Logging file, defaults to console or AWS CloudWatch when running as a daemon.')
+    parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
+                      help='Run as a daemon. Ignored with -X option.')
     parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False,
                       help='Force read.')
-    parser.add_option('-X', '--exit-early', action='store_true', dest='exit_early', default=False,
+    parser.add_option('-X', '--one-shot', action='store_true', dest='oneshot', default=False,
                       help='Exit after first sync completes.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
 
     # Setup logging
+    svc_name = os.path.splitext(os.path.basename(__file__))[0]
     log_level=getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
-    logger = logging.getLogger('service.' + os.path.splitext(os.path.basename(__file__))[0])
+    logger = logging.getLogger('service.' + svc_name)
     logger.setLevel(log_level)
 
+    console_handler = None
     if options.log_file:
         log_handler = logging.FileHandler(options.log_file, mode='a')
-    elif not options.daemonize:
-        log_handler = logging.StreamHandler()   # Log to console
-    else:   # Log to aws
-        log_handler = watchtower.CloudWatchLogHandler()
-
-    log_handler.setLevel(log_level)
-    # Make some attempt to comply with RFC5424
-    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
-                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+    else:
+        if not options.daemonize:
+            console_handler = logging.StreamHandler()   # Log to console
+            init_log_handler(console_handler, log_level)
+            logger.addHandler(console_handler)
+        log_handler = watchtower.CloudWatchLogHandler(log_group='core-nlp-services',
+                                                      use_queues=False, # Does not shutdown if True
+                                                      create_log_group=False)
+    init_log_handler(log_handler, log_level)
     logger.addHandler(log_handler)
     logger.info('Service started')
+    queue_name = args[0] if len(args) != 0 else None
 
-    # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
-    aws = AWSResources(args[0] if len(args) != 0 else None)
-    archivers = [
-        [0, ReaderArchiver(aws, washingtonpost.WPostScraper(), logger, [washingtonpost.WPOST_Politics])],
-        [0, ReaderArchiver(aws, nytimes.NYTimesScraper(), logger, [nytimes.NYTIMES_US_Politics])],
-        [0, ReaderArchiver(aws, reuters.ReutersScraper(), logger, [reuters.REUTERS_Politics])],
-        [0, ReaderArchiver(aws, foxnews.FoxScraper(), logger, [foxnews.FOX_Politics])],
-    ]
+    if options.daemonize:
+        print('Starting service')
+        rundir = os.path.join(thisdir, 'run')
+        if not os.path.exists(rundir):
+            os.makedirs(rundir, 0o777)
+        context = daemon.DaemonContext(working_directory=thisdir,
+                                       umask=0o022,
+                                       pidfile=lockfile.FileLock(os.path.join(rundir, svc_name + '.pid')),
+                                       signal_map = { signal.SIGTERM: term_handler, signal.SIGHUP:  hup_handler})
 
-    ignore_read = not options.force_read
-    while True:
+        hup_recv = 1 if options.force_read else 0
         try:
-            for arc in archivers:
-                if arc[0] > 3:
-                    # Stop retrying after 3 errors
-                    continue
+            with context:
+                # When running as a daemon delay creation of headless browsers else they will
+                # be parented to the console. Also if we change uid or gid then the browsers
+                # start under the same credentials.
+                archivers = init_archivers(queue_name, logger)
+                if options.oneshot:
+                    # Useful for testing
+                    for arc in archivers:
+                        arc.read_all(not options.force_read)
+                else:
+                    run_daemon(archivers, logger)
+        except Exception as e:
+            logger.exception('Exception caught', exc_info=e)
 
-                try:
-                    arc[1].aws_archive(ignore_read)
-                    arc[0] = 0      # reset errors
-                except KeyboardInterrupt:
-                    # Pass on so we can close the daemon
-                    raise
-                except Exception as e:
-                    arc[0] += 1     # count errors
-                    logger.error(str(e))
-
-            if options.exit_early:
-                break
-
-            time.sleep(60*10)       # 10 minutes
-            for arc in archivers:
-                arc[1].refresh()
-
+    elif not options.oneshot:
+        archivers = init_archivers(queue_name, logger)
+        try:
+            ignore_read = not options.force_read
+            while True:
+                for arc in archivers:
+                    arc.read_all(ignore_read)
+                ignore_read = True
         except KeyboardInterrupt:
-            logger.info('Exiting due to KeyboardInterrupt')
-            break
+            pass
+    else:
+        archivers = init_archivers(queue_name, logger)
+        for arc in archivers:
+            arc.read_all(not options.force_read)
 
-        ignore_read = True
+    logger.info('Closing headless browsers')
+    try:
+        for arc in archivers:
+            arc.close()
+    except Exception as e:
+        logger.exception('Exception caught', exc_info=e)
 
     logger.info('Service stopped')
-    #logger.removeHandler(log_handler)
+    logging.shutdown()
 
 
