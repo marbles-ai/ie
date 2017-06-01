@@ -46,37 +46,29 @@ class AWSResources:
 
 
 class NewsSource(object):
-    """A news sources consists of a scraper and a list of feeds."""
+    """A news source consists of a scraper and a list of feeds."""
     
     def __init__(self, scraper, feed_urls=None):
         self.scraper = scraper
         feed_urls = feed_urls if feed_urls is not None else scraper.get_rss_feed_list()
         self.feeds = [nf.scraper.RssFeed(u) for u in feed_urls]
 
-    def reload_scraper(self):
-        self.scraper.close()    # closes phantomjs process
-        self.scraper = type(self.scraper)()
-
-    def close(self):
-        self.scraper.close()
-
 
 class ReaderArchiver(object):
     """RSS/Atom reader archive service."""
 
-    def __init__(self, aws, sources, logger, rlimit=0):
+    def __init__(self, aws, sources, logger, browser, rlimit=0):
+        self.browser = browser
         self.aws = aws
         self.sources = sources
         self.bucket_cache = set()
+        self.hash_cache = {}
         self.error_cache = {}
         self.logger = logger
         self.rlimit = rlimit
-        # Flag to prevent refresh on start with -R option
-        self.refreshable = False
 
     def close(self):
-        for src in self.sources:
-            src.close()
+        self.browser.close()
 
     def check_bucket_exists(self, bucket):
         if bucket in self.bucket_cache:
@@ -88,48 +80,66 @@ class ReaderArchiver(object):
             self.bucket_cache.add(bkt.name)
         return bucket in self.bucket_cache
 
+    def check_hash_exists(self, hash):
+        if hash in self.hash_cache:
+            return True
+        return 0 != len([x for x in self.aws.s3.Bucket('marbles-ai-feeds-hash').objects.filter(Prefix=hash)])
+
+    def clear_bucket_cache(self):
+        self.bucket_cache = set()
+
+    def retire_hash_cache(self, limit):
+        """Retire least recently used in hash cache."""
+        if limit <= len(self.hash_cache):
+            return
+        # Each value is a timestamp floating point
+        vk_sort = sorted(self.hash_cache.items(), key=lambda x: x[1])
+        vk_sort.reverse()
+        self.hash_cache = dict(iterable=vk_sort[0:(limit>>1)])
+
     def retire_error_cache(self, limit):
-        # Retire least recently used in error cache
-        if limit < len(self.error_cache):
+        """Retire least recently used in error cache."""
+        if limit <= len(self.error_cache):
             return
         # Each value is a timestamp floating point
         vk_sort = sorted(self.error_cache.items(), key=lambda x: x[1])
         vk_sort.reverse()
-        self.error_cache = dict(iterable=vk_sort[0:limit])
+        self.error_cache = dict(iterable=vk_sort[0:(limit>>1)])
 
     def refresh(self):
         global terminate
-        if not self.refreshable:
+        if terminate:
             return
         # TODO: Interleave work
         for src in self.sources:
-            for rss in src.feeds:
-                rss.refresh()
-                if terminate:
-                    return
-                time.sleep(1)
             if terminate:
                 return
-        self.refreshable = False
+            for rss in src.feeds:
+                if terminate:
+                    return
+                rss.refresh()
+                wait(1)
 
     def read_all(self, ignore_read):
         global terminate
         for src in self.sources:
             self.read_from_source(src, ignore_read)
-            src.reload_scraper()
-            #src.scraper.get_blank()
             if terminate:
                 return
+        self.browser.get_blank()
 
     def read_from_source(self, src, ignore_read):
         global terminate
-        self.refreshable = True
+        if terminate:
+            return
         articles = []
         for rss in src.feeds:
             articles.extend(rss.get_articles(ignore_read=ignore_read)) # Returns unread articles
 
         errors = 0
         for a in articles:
+            if terminate:
+                return
             try:
                 arc = a.archive(src.scraper)
                 bucket, objname = a.get_aws_s3_names(arc['content'])
@@ -185,6 +195,8 @@ class ReaderArchiver(object):
                     # TODO: make level debug once its working
                     self.logger.info('Sent msg(%s) -> s3(%s)', response['MessageId'], hash)
 
+                # Update hash cache
+                self.hash_cache[hash] = time.time()
 
             except KeyboardInterrupt:
                 # Pass on so we can close the daemon
@@ -202,9 +214,8 @@ class ReaderArchiver(object):
                     self.logger.exception('Exception caught', exc_info=e)
 
                 errors += 1
-            if terminate:
-                return
-            time.sleep(1)
+
+            wait(1)
 
 
 hup_recv = 0
@@ -217,7 +228,16 @@ def hup_handler(signum, frame):
 def term_handler(signum, frame):
     global terminate, logger
     terminate = True
-    logger.info('SIGTERM received')
+
+
+def alarm_handler(signum, frame):
+    pass
+
+
+def wait(secs):
+    signal.signal(signal.SIGALRM, alarm_handler)
+    signal.alarm(secs)
+    signal.pause()
 
 
 def run_daemon(archivers, logger):
@@ -231,16 +251,26 @@ def run_daemon(archivers, logger):
         count = hup_recv_local                  # set
 
         if not ignore_read:
-            logger.info('HUP signal received, refreshing all articles')
+            logger.info('HUP received, refreshing all articles')
+            # Clearing will force rebuild of caches
             for arc in archivers:
-                arc.refresh()
+                arc.retire_error_cache(0)   # clears error cache
+                arc.retire_hash_cache(0)    # clears hash cache
+                arc.clear_bucket_cache()
 
         for arc in archivers:
             arc.read_all(ignore_read)
-            arc.retire_error_cache(1000)
+            arc.retire_error_cache(4096)
+            arc.retire_hash_cache(4096)
             if terminate:
-                logger.info('TERM signal received')
                 break
+
+        # Check every 5 minutes
+        wait(5*60)
+        # Refresh RSS feeds
+        for arc in archivers:
+            arc.refresh()
+    logger.info('TERM received, exited daemon run loop')
 
 
 def init_log_handler(log_handler, log_level):
@@ -252,16 +282,18 @@ def init_log_handler(log_handler, log_level):
 def init_archivers(queue_name, logger):
     # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
     aws = AWSResources(queue_name)
+    # Browser creates a single process for this archive
+    browser = nf.scraper.Browser()
     sources = [
-        NewsSource(nf.washingtonpost.WPostScraper(), [nf.washingtonpost.WPOST_Politics]),
-        NewsSource(nf.nytimes.NYTimesScraper(), [nf.nytimes.NYTIMES_US_Politics]),
-        NewsSource(nf.reuters.ReutersScraper(), [nf.reuters.REUTERS_Politics]),
-        NewsSource(nf.foxnews.FoxScraper(), [nf.foxnews.FOX_Politics]),
+        NewsSource(nf.washingtonpost.WPostScraper(browser), [nf.washingtonpost.WPOST_Politics]),
+        NewsSource(nf.nytimes.NYTimesScraper(browser), [nf.nytimes.NYTIMES_US_Politics]),
+        NewsSource(nf.reuters.ReutersScraper(browser), [nf.reuters.REUTERS_Politics]),
+        NewsSource(nf.foxnews.FoxScraper(browser), [nf.foxnews.FOX_Politics]),
     ]
 
     logger.info('Initialization complete')
     return [
-        ReaderArchiver(aws, sources, logger),
+        ReaderArchiver(aws, sources, logger, browser),
     ]
 
 
@@ -303,6 +335,7 @@ if __name__ == '__main__':
     logger.addHandler(log_handler)
     logger.info('Service started')
     queue_name = args[0] if len(args) != 0 else None
+    archivers = []
 
     if options.daemonize:
         print('Starting service')
@@ -312,7 +345,11 @@ if __name__ == '__main__':
         context = daemon.DaemonContext(working_directory=thisdir,
                                        umask=0o022,
                                        pidfile=lockfile.FileLock(os.path.join(rundir, svc_name + '.pid')),
-                                       signal_map = { signal.SIGTERM: term_handler, signal.SIGHUP:  hup_handler})
+                                       signal_map = {
+                                           signal.SIGTERM: term_handler,
+                                           signal.SIGHUP:  hup_handler,
+                                           signal.SIGALRM: alarm_handler,
+                                       })
 
         hup_recv = 1 if options.force_read else 0
         try:
