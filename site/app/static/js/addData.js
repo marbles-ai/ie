@@ -2,25 +2,26 @@
  * Created by tjt7a on 5/28/17.
  */
 
-var list = document.getElementById('inputlist');
-var entry = document.createElement('li');
-
-function addData(value) {
-    var list = document.getElementById('inputlist');
-    var entry = document.createElement('li');
-    var title = document.createElement('div');
-    var content = document.createElement('div');
-    title.setAttribute('class', 'title');
-    content.setAttribute('class', 'content');
-    title.appendChild(document.createTextNode('Article: ' + value));
-    content.appendChild(document.createTextNode('Content: ' + value));
-    entry.appendChild(title);
-    entry.appendChild(content);
-    list.appendChild(entry);
+function generatedata(title, content, when, who) {
+    return "<a href='#' class='list-group-item list-group-item-action flex-column align-items-start'>"
+    + "<div class='d-flex w-100 justify-content-between'>"
+    + "<h5 class='mb-1'>" + title + "</h5>"
+    + "<small>" + when + "</small>"
+    + "</div>"
+    + "<p class='mb-1'>" + content + "</p>"
+    + "<small>" + who + "</small>"
+    + "</a>";
 }
 
 
+function addData(title, content) {
+    $('#inputlist').append(generatedata(title, content, 'time', 'who'));
+}
+
 
 for (i = 0; i < 100; i++) {
-    addData(i);
+    var title = 'Article: ' + i;
+    var content = 'Content: ' + i;
+    console.log("Writing new argument to list");
+    addData(title, content);
 }
