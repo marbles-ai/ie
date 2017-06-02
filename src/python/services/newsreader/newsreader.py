@@ -223,11 +223,13 @@ def hup_handler(signum, frame):
     """Forces code to re-read all active articles. This will re-queue articles on AWS SQS."""
     global hup_recv
     hup_recv += 1
+    logger.info('SIGHUP')
 
 
 def term_handler(signum, frame):
     global terminate, logger
     terminate = True
+    logger.info('SIGTERM')
 
 
 def alarm_handler(signum, frame):
@@ -235,9 +237,15 @@ def alarm_handler(signum, frame):
 
 
 def wait(secs):
+    global terminate
+    logger.debug('Pausing for %s seconds', secs)
     signal.signal(signal.SIGALRM, alarm_handler)
     signal.alarm(secs)
-    signal.pause()
+    if not terminate:
+        # FIXME: We have a race condition here. If SIGTERM arrives just before the pause call we miss it for secs.
+        # A second SIGTERM will help
+        signal.pause()
+    logger.debug('Continue')
 
 
 def run_daemon(archivers, logger):
@@ -306,6 +314,8 @@ if __name__ == '__main__':
                       help='Logging file, defaults to console or AWS CloudWatch when running as a daemon.')
     parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
                       help='Run as a daemon. Ignored with -X option.')
+    parser.add_option('-r', '--rundir', type='string', action='store', dest='rundir',
+                      help='Run directory')
     parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False,
                       help='Force read.')
     parser.add_option('-X', '--one-shot', action='store_true', dest='oneshot', default=False,
@@ -333,18 +343,21 @@ if __name__ == '__main__':
                                                       create_log_group=False)
     init_log_handler(log_handler, log_level)
     logger.addHandler(log_handler)
-    logger.info('Service started')
     queue_name = args[0] if len(args) != 0 else None
     archivers = []
 
+    rundir = os.path.abspath(options.rundir or os.path.join(thisdir, 'run'))
     if options.daemonize:
-        print('Starting service')
-        rundir = os.path.join(thisdir, 'run')
         if not os.path.exists(rundir):
             os.makedirs(rundir, 0o777)
+        if not os.path.isdir(rundir):
+            print('%s is not a directory' % rundir)
+            sys.exit(1)
+        print('Starting service')
+        logger.info('Service started')
         context = daemon.DaemonContext(working_directory=thisdir,
                                        umask=0o022,
-                                       pidfile=lockfile.FileLock(os.path.join(rundir, svc_name + '.pid')),
+                                       pidfile=lockfile.FileLock(os.path.join(rundir, svc_name)),
                                        signal_map = {
                                            signal.SIGTERM: term_handler,
                                            signal.SIGHUP:  hup_handler,
@@ -354,6 +367,8 @@ if __name__ == '__main__':
         hup_recv = 1 if options.force_read else 0
         try:
             with context:
+                with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
+                    fd.write(str(os.getpid()))
                 # When running as a daemon delay creation of headless browsers else they will
                 # be parented to the console. Also if we change uid or gid then the browsers
                 # start under the same credentials.
@@ -364,10 +379,12 @@ if __name__ == '__main__':
                         arc.read_all(not options.force_read)
                 else:
                     run_daemon(archivers, logger)
+
         except Exception as e:
             logger.exception('Exception caught', exc_info=e)
 
     elif not options.oneshot:
+        logger.info('Service started')
         archivers = init_archivers(queue_name, logger)
         try:
             ignore_read = not options.force_read
@@ -378,6 +395,7 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             pass
     else:
+        logger.info('Service started')
         archivers = init_archivers(queue_name, logger)
         for arc in archivers:
             arc.read_all(not options.force_read)
@@ -391,5 +409,11 @@ if __name__ == '__main__':
 
     logger.info('Service stopped')
     logging.shutdown()
+    if options.daemonize:
+        try:
+            os.remove(os.path.join(rundir, svc_name + '.pid'))
+        except:
+            pass
+
 
 
