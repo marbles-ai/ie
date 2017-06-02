@@ -233,7 +233,7 @@ class RssFeed(object):
         self._max_retries = max_retries
 
     def refresh(self):
-        self._rss = feedparser.parse(self.link)
+        self._rss = feedparser.parse(self._link)
 
     def check_isread(self, entry_id):
         """Check if an entry has been read."""
