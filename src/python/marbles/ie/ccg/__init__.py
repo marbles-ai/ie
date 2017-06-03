@@ -81,7 +81,7 @@ def pt_to_utf8(pt, force=False):
     Returns:
         A utf-8 parse tree
     """
-    if force or isinstance(pt[-1], unicode):
+    if force or isinstance(pt[0][0], unicode):  # isinstance(pt[-1], unicode)
         # Convert to utf-8
         stk = [pt]
         while len(stk) != 0:

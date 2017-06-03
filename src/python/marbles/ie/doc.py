@@ -84,7 +84,7 @@ class Constituent(object):
         Returns: A wikipedia topic.
         """
         txt = self.span.text
-        result = wikipedia.search(txt, resuts=max_results)
+        result = wikipedia.search(txt, results=max_results)
         if result is None:
             # Get suggestions from wikipedia
             query = wikipedia.suggest(txt)

@@ -2,6 +2,10 @@ from marbles_service_pb2 import LucidaServiceStub, QueryInput, QuerySpec, Reques
 from google.protobuf import empty_pb2
 import grpc
 import os
+import time
+from subprocess import call
+from marbles import PROJDIR, USE_DEVEL_PATH
+
 
 ## EasySRL gRPC service port
 EASYSRL_PORT = 8084
@@ -107,3 +111,68 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
     if isinstance(response.msg, unicode):
         return response.msg if isUnicode else response.msg.encode('utf-8')
     return response.msg if not isUnicode else response.msg.decode('utf-8')
+
+
+class CcgParserService:
+    """Ccg Parser Service"""
+
+    def __init__(self, daemon, logger=None, workdir=None):
+        """Create a CCG Parse Service.
+
+        Args:
+            daemon: 'easysrl' or 'easyccg'.
+            logger: Optional python logger.
+            workdir: Optional path to daemon if in release mode.
+        """
+        self.workdir = workdir if workdir else os.getcwd()
+        self.grpc_stop_onclose = False
+        self.daemon_name = daemon
+        self.logger = logger
+        try:
+            # Check if easyxxx service has started. If not start it.
+            self.grpc_stub, _ = get_client_transport('localhost', self.daemon_port)
+            ccg_parse(self.grpc_stub, '')
+        except Exception:
+            # Not started
+            if self.logger:
+               self.logger.info('Starting %s gRPC daemon', self.daemon_name)
+            if PROJDIR:
+                call([os.path.join(PROJDIR, 'scripts', 'start_server.sh'),
+                      daemon])
+            else:
+                # When installed we expect mservice.sh is in path
+                call(['mservice.sh',
+                      os.path.join(self.workdir, daemon + '.sh'), 'start', '-d'])
+            time.sleep(4)   # Give it some time to lock session access
+            self.stub, _ = get_client_transport('localhost', self.daemon_port)
+            # Call asynchronously - will wait until default session is created
+            ccg_parse(self.stub, '', timeout=120)
+            self.grpc_stop_onclose = True
+
+    @property
+    def daemon_port(self):
+        """Get the port of the gRPC service"""
+        global EASYSRL_PORT, EASYCCG_PORT
+        return EASYSRL_PORT if self.daemon_name == 'easysrl' else EASYCCG_PORT
+
+    def open_client(self):
+        """Open a connection to the gRPC service"""
+        if self.grpc_stub:
+            stub = self.grpc_stub
+            self.grpc_stub = None
+            return stub
+        return get_client_transport('localhost', self.daemon_port)
+
+    def shutdown(self):
+        """Shutdown the gRPC service if it was opened by this application."""
+        if self.grpc_stop_onclose:
+            if self.logger:
+                self.logger.info('Stopping %s gRPC daemon', self.daemon_name)
+            if PROJDIR:
+                call([os.path.join(PROJDIR, 'scripts', 'stop_server.sh'),
+                      self.daemon_name])
+            else:
+                call(['mservice.sh',
+                      os.path.join(self.workdir, self.daemon_name + '.sh'), 'stop'])
+
+

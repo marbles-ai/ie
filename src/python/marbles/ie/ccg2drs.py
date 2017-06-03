@@ -10,7 +10,7 @@ from marbles.ie.ccg import *
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.compose import ProductionList, FunctorProduction, DrsProduction, \
     DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
-from marbles.ie.drt.common import DRSVar, SHOW_LINEAR
+from marbles.ie.drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from marbles.ie.drt.drs import get_new_drsrefs
 from marbles.ie.drt.utils import remove_dups, union, complement, intersect
@@ -358,12 +358,27 @@ class Lexeme(object):
     _wnl = wn.WordNetLemmatizer()
     _p = inflect.engine()
 
+    def get_json(self):
+        return {
+            'word': self.word,
+            'stem': self.stem,
+            'pos': self.pos.tag,
+            'head': self.head,
+            'idx': self.idx,
+            'mask': self.mask,
+            'refs': [r.var.to_string() for r in self.refs],
+            'drs': 'none' if not self.drs
+                          else reduce(lambda s, kv: s.replace(*kv),
+                                      {Showable.opNeg:u'!', Showable.opImp:u' -> ',
+                                       Showable.opOr:u' or '}.iteritems(), self.drs.show(SHOW_SET)).encode('utf-8'),
+            'category': self.category.signature
+        }
+
     def __init__(self, category, word, pos_tags, idx=0):
 
         self.head = idx
-        self.dep = -1
         self.idx = idx
-        self.variables = None
+        #self.variables = None
         self.conditions = None
         self.mask = 0
         self.refs = []
@@ -1624,7 +1639,7 @@ class Ccg2Drs(UnboundSentence):
 
 
 ## @ingroup gfn
-def process_ccg_pt(pt, options=None):
+def process_ccg_pt(pt, options=0):
     """Process the CCG parse tree.
 
     Args:

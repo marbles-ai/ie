@@ -46,10 +46,11 @@ stop() {
         exit 0
     fi
     echo "Terminating process $PID"
-    kill -15 ${PID} &>/dev/null
-    timed_wait 15 && cleanup || echo "$PID still running after 15 seconds. Will attempt another SIGTERM."
-    kill -15 ${PID} &>/dev/null
-    timed_wait 15 && cleanup || echo "$PID still running after 30 seconds. Will attempt SIGINT."
+    kill -5 ${PID} &>/dev/null
+    # Calling TERM twice fixes non-critical race condition when waiting in python service.
+    timed_wait 5
+    kill -25 ${PID} &>/dev/null
+    timed_wait 25 && cleanup || echo "$PID still running after 30 seconds. Will attempt SIGINT."
     kill -2 ${PID} &>/dev/null
     timed_wait 10 && cleanup || echo "$PID still running after 40 seconds. Will attempt SIGKILL."
     kill -9 ${PID} &>/dev/null
