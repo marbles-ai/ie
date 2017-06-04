@@ -4,8 +4,6 @@ from __future__ import unicode_literals, print_function
 import os
 import re
 import sys
-import time
-from subprocess import call
 
 # Modify python path
 projdir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
@@ -41,20 +39,9 @@ if __name__ == '__main__':
     if not os.path.exists(esrlpath):
         os.makedirs(esrlpath)
 
-    svc_cmd = None
     progress = 0
-    try:
-        # Check if service has started. If not start it.
-        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
-        ccg = grpc.ccg_parse(stub, '')
-    except Exception:
-        # Not started
-        call([os.path.join(projdir, 'scripts', 'start_server.sh'), 'easysrl'])
-        time.sleep(4)   # Give it some time to lock session access
-        stub, _ = grpc.get_client_transport('localhost', grpc.EASYSRL_PORT)
-        # Call asynchronously - will wait until default session is created
-        ccg = grpc.ccg_parse(stub, '', timeout=120)
-        svc_cmd = os.path.join(projdir, 'scripts', 'stop_server.sh')
+    svc = grpc.CcgParserService('easysrl')
+    stub = svc.open_client()
 
     failed_total = 0
     ldcpath = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'RAW')
@@ -93,10 +80,7 @@ if __name__ == '__main__':
                     fd.write(b'\n'.join(failed_parse))
     finally:
         progress = print_progress(progress, 10, done=True)
-        if svc_cmd is not None:
-            # Stop service
-            stub = None
-            call([svc_cmd, 'easysrl'])
+        svc.shutdown()
 
     if failed_total != 0:
         print('THERE WERE %d PARSE FAILURES' % failed_total)
