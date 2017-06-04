@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals, print_function
 import os
 import re
 import sys
@@ -12,6 +13,7 @@ pypath = os.path.join(projdir, 'src', 'python')
 datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 from marbles.ie import grpc
+from marbles import safe_utf8_encode
 
 
 def die(s):
@@ -74,21 +76,21 @@ if __name__ == '__main__':
                 # Parse with EasySRL via gRPC
                 try:
                     ccg = grpc.ccg_parse(stub, ln)
-                    derivations.append(ccg.replace('\n', ''))
+                    derivations.append(safe_utf8_encode(ccg.replace('\n', '')))
                 except Exception as e:
-                    failed_parse.append(ln.strip())
+                    failed_parse.append(safe_utf8_encode(ln.strip()))
                     # Add comment so line numbers match id's
-                    derivations.append('# FAILED: ' + ln.strip())
+                    derivations.append(safe_utf8_encode('# FAILED: ' + ln.strip()))
                 progress = print_progress(progress, 10)
             id = m.group('id')
             if len(derivations) != 0:
                 with open(os.path.join(esrlpath, 'ccg_derivation%s.txt' % id), 'w') as fd:
-                    fd.write('\n'.join(derivations))
+                    fd.write(b'\n'.join(derivations))
 
             failed_total += len(failed_parse)
             if len(failed_parse) != 0:
                 with open(os.path.join(esrlpath, 'ccg_failed%s.txt' % id), 'w') as fd:
-                    fd.write('\n'.join(failed_parse))
+                    fd.write(b'\n'.join(failed_parse))
     finally:
         progress = print_progress(progress, 10, done=True)
         if svc_cmd is not None:
