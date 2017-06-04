@@ -1,3 +1,4 @@
+from __future__ import unicode_literals, print_function
 from bs4 import BeautifulSoup
 from scraper import AbsractScraper, RssFeed
 import time
@@ -61,7 +62,7 @@ class FoxScraper(AbsractScraper):
         """
         self.browser.get(url)
         soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        article = soup.select('div.article-text')
+        article = soup.select('div.article-body')
         text = []
         for a in article:
             paragraphs = a.find_all('p')

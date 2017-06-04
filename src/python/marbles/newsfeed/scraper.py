@@ -1,5 +1,6 @@
 # The future import will convert all strings to unicode.
 #from __future__ import unicode_literals, print_function
+from __future__ import unicode_literals, print_function
 import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -9,6 +10,7 @@ import email.utils
 import re
 import hashlib
 import weakref
+from marbles import safe_utf8_encode, safe_utf8_decode, future_string
 
 
 # PhantomJS files have different extensions
@@ -17,12 +19,6 @@ _PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data
 _DATE1 = re.compile(r'/(?P<year>\d\d\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/')
 _DOM = re.compile(r'https?://(?:ww[^.]*\.)?(?P<domain>[a-zA-Z0-9.-]+)(?:/.*)?$')
 _NALNUMSP = re.compile(r'[^A-Za-z0-9 _-]')
-
-
-def safe_utf8_encode(s):
-    if isinstance(s, unicode):
-        return s.encode('utf-8')
-    return s
 
 
 class Browser(object):
@@ -132,6 +128,9 @@ class Article(object):
     def make_s3_name(cls, text):
         global _ALPHANUM
         text = text.lower()
+        if future_string == unicode:
+            return '-'.join(filter(lambda y: len(y) != 0, _NALNUMSP.sub('', text).split(' ')))
+
         if isinstance(text, unicode):
             text = text.encode('utf-8')
         result = '-'.join(filter(lambda y: len(y) != 0, _NALNUMSP.sub('', text).split(' ')))
@@ -149,6 +148,22 @@ class Article(object):
         global _DOM, _ALPHANUM
         m = _DOM.match(self.entry.link)
         assert m is not None
+        if future_string == unicode:
+            dom = m.group('domain').replace('.', '-')
+            name = self.make_s3_name(self.entry.title)
+            dt = self.get_date()
+            dtYM = '{:%Y-%m}'.format(dt)
+            dtD  = '{:%d}'.format(dt)[::-1]
+            h = hashlib.md5()
+            language = self.feed.language.lower() if hasattr(self.feed, 'language') else 'en-us'
+            h.update(safe_utf8_encode(language))
+            h.update(safe_utf8_encode(dom))
+            h.update(safe_utf8_encode(name))
+            h.update(safe_utf8_encode(article_text))
+            h = h.hexdigest()
+            feedtitle = self.make_s3_name(self.feed.title) if hasattr(self.feed, 'title') else 'unknown'
+            return 'marbles-ai-feeds-%s-%s' % (language, dtYM), '%s/%s/%s/%s/%s' % (dtD, dom, feedtitle, name, h)
+
         dom = safe_utf8_encode(m.group('domain').replace('.', '-'))
         name = self.make_s3_name(self.entry.title)
         dt = self.get_date()
@@ -192,15 +207,15 @@ class Article(object):
         """
         # RSS must support at least one of summary or title
         content = {}
-        content['title'] = safe_utf8_encode(self.entry.title if hasattr(self.entry, 'title') else self.summary)
+        content['title'] = self.entry.title if hasattr(self.entry, 'title') else self.summary
         # Summay defaults to title if it does not exist
-        content['summary'] = safe_utf8_encode(self.summary)
-        content['link'] = safe_utf8_encode(self.link)
+        content['summary'] = self.summary
+        content['link'] = self.link
         story = scraper.get_article_text(self.link)
-        content['content'] = safe_utf8_encode(story)
-        content['author'] = safe_utf8_encode(self.entry.author) if hasattr(self.entry, 'author') else 'anonymous'
-        content['id'] = safe_utf8_encode(self.entry.id)
-        content['provider'] = safe_utf8_encode(self.feed.link)
+        content['content'] = story
+        content['author'] = self.entry.author if hasattr(self.entry, 'author') else 'anonymous'
+        content['id'] = self.entry.id
+        content['provider'] = self.feed.link
         # Try to grab an image
         if hasattr(self.entry, 'media_content'):
             media = []
@@ -208,8 +223,7 @@ class Article(object):
             thumbnailw = 100000000
             for i in range(len(self.entry.media_content)):
                 m = self.entry.media_content[i]
-                d = dict(map(lambda y: (y[0], int(y[1]) if y[0] == 'width' else y[1]),
-                         map(lambda x: (safe_utf8_encode(x[0]), safe_utf8_encode(x[1])), m.iteritems())))
+                d = dict(map(lambda y: (y[0], int(y[1]) if y[0] in ['width', 'height'] else y[1]), m.iteritems()))
                 w = d.setdefault('width', 0)    # make sure its always there
                 if w != 0 and w < thumbnailw:
                     thumbnailw = w

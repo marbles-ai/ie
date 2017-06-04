@@ -1,5 +1,6 @@
+from __future__ import unicode_literals, print_function
 from bs4 import BeautifulSoup
-from .scraper import AbsractScraper, RssFeed
+from scraper import AbsractScraper, RssFeed
 import time
 
 
