@@ -1,3 +1,5 @@
+from __future__ import unicode_literals, print_function
+from marbles import native_string, future_string, safe_utf8_decode, safe_utf8_encode
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var, compare_lists_eq
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
 from common import DRSVar, DRSConst, LambdaDRSVar, Showable
@@ -29,10 +31,16 @@ class LambdaTuple(object):
         return type(self) == type(other) and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaTuple(%s,%i)' % (repr(self._var), self._pos)
+        return b'<LambdaTuple>:%s' % self
+
+    def __unicode__(self):
+        return u'(%s,%i)' % (unicode(self._var), self._pos)
+
+    def __str__(self):
+        return b'(%s,%i)' % (str(self._var), self._pos)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(repr(self))
 
     def __lt__(self, other):
         return self._pos < other._pos or (self._pos == other._pos and self._var < other._var)
@@ -92,6 +100,12 @@ class AbstractDRS(Showable):
     """Abstract Core Discourse Representation Structure for DRS and PDRS"""
     def __init__(self):
         self._accessible_drs = None
+
+    def __str__(self):
+        return safe_utf8_encode(self.show(SHOW_LINEAR))
+
+    def __unicode__(self):
+        return safe_utf8_decode(self.show(SHOW_LINEAR))
 
     def _isproper_subdrsof(self, d):
         """Helper for isproper"""
@@ -533,7 +547,13 @@ class LambdaDRS(AbstractDRS):
         return type(self) == type(other) and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRS(%s,%i)' % (repr(self._var), self._pos)
+        return b'<LambdaDRS>:s' % self
+
+    def __unicode__(self):
+        return u'(%s,%i)' % (unicode(self._var), self._pos)
+
+    def __str__(self):
+        return b'(%s,%i)' % (str(self._var), self._pos)
 
     def _isproper_subdrsof(self, d):
         """Help for isproper"""
@@ -630,7 +650,7 @@ class LambdaDRS(AbstractDRS):
             return self._var.show(notation) + u'\n'
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self._var.show(notation)
-        return u'LambdaDRS ' + self._var.to_string().decode('utf-8')
+        return u'LambdaDRS ' + safe_utf8_decode(self._var.to_string())
 
 
 def conds_to_mfol(conds, world, worlds):
@@ -675,7 +695,7 @@ class DRS(AbstractDRS):
                and compare_lists_eq(self._conds, other._conds)
 
     def __repr__(self):
-        return '[%s| %s]' % (repr(self._refs), repr(self._conds))
+        return b'<DRS>:%s' % self
 
     def _set_accessible(self, d):
         if self._accessible_drs is None:
@@ -995,7 +1015,7 @@ class DRS(AbstractDRS):
             cl = self._show_conditions(notation)
             return u'<{' + ul + u'},{' + cl + u'}>'
         cl = self._show_conditions(notation)
-        return u'DRS ' + str(self._refs).decode('utf-8') + u' [' + cl + u']'
+        return u'DRS ' + unicode(self._refs) + u' [' + cl + u']'
 
 
 class Merge(AbstractDRS):
@@ -1020,7 +1040,14 @@ class Merge(AbstractDRS):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return 'Merge(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+        return b'<Merge>:%s' % self
+
+    def __unicode__(self):
+        return '%s %s %s' % (safe_utf8_decode(self._drsA), Showable.opMerge, safe_utf8_decode(self._drsB))
+
+    def __str__(self):
+        return b'%s %s %s' % (safe_utf8_encode(self._drsA),
+                             safe_utf8_encode(Showable.opMerge), safe_utf8_encode(self._drsB))
 
     def _set_accessible(self, d):
         if self._accessible_drs is None:
@@ -1318,7 +1345,17 @@ class AbstractDRSRef(Showable):
         raise NotImplementedError
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(self.var.to_string())
+
+    def __str__(self):
+        return safe_utf8_encode(self.var.to_string())
+
+    def __unicode__(self):
+        return safe_utf8_decode(self.var.to_string())
+
+    @property
+    def var(self):
+        raise NotImplementedError
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Binding.hs">/Data/DRS/Binding.hs:drsBoundRef</a>
     ##
@@ -1396,7 +1433,7 @@ class LambdaDRSRef(AbstractDRSRef):
         return type(self) == type(other) and self._var == other.var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaDRSRef(%s,%i)' % (self._var.var, self._pos)
+        return b'<LambdaDRSRef>:%s' % self
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1413,7 +1450,7 @@ class LambdaDRSRef(AbstractDRSRef):
 class DRSRef(AbstractDRSRef):
     """DRS referent"""
     def __init__(self, drsVar):
-        if isinstance(drsVar, str):
+        if isinstance(drsVar, (str, unicode)):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, (DRSVar, DRSConst)):
             raise TypeError('DRSRef expect string or DRSVar')
@@ -1426,7 +1463,7 @@ class DRSRef(AbstractDRSRef):
         return type(self) == type(other) and self._var == other.var
 
     def __repr__(self):
-        return '%s' % self._var
+        return b'<DRSRef>:%s' % self.var.to_string()
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1463,7 +1500,7 @@ class AbstractDRSRelation(object):
         raise NotImplementedError
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(self.to_string())
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
     ##
@@ -1471,14 +1508,11 @@ class AbstractDRSRelation(object):
         """Converts this instance into a string."""
         raise NotImplementedError
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
-    ##
-    def to_unicode(self):
-        """Converts this instance into a string."""
-        raise NotImplementedError
-
     def __str__(self):
-        return self.to_string()
+        return safe_utf8_encode(self.to_string())
+
+    def __unicode__(self):
+        return safe_utf8_decode(self.to_string())
 
 
 class LambdaDRSRelation(AbstractDRSRelation):
@@ -1502,7 +1536,7 @@ class LambdaDRSRelation(AbstractDRSRelation):
         return type(self) == type(other) and self._var == other._var and self._idx == other._idx
 
     def __repr__(self):
-        return 'LambdaDRSRelation(%s,%i)' % (self._var, self._idx)
+        return b'<LambdaDRSRelation>:(%s,%i)' % (self.to_string(), self._idx)
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1515,17 +1549,11 @@ class LambdaDRSRelation(AbstractDRSRelation):
         """Converts this instance into a string."""
         return self._var.var.to_string()
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
-    ##
-    def to_unicode(self):
-        """Converts this instance into a string."""
-        return self._var.var.to_string().decode('utf-8')
-
 
 class DRSRelation(AbstractDRSRelation):
     """DRS Relation"""
     def __init__(self, drsVar):
-        if isinstance(drsVar, str):
+        if isinstance(drsVar, (str, unicode)):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, DRSVar):
             raise TypeError('DRSRelation expects DRSVar')
@@ -1538,7 +1566,7 @@ class DRSRelation(AbstractDRSRelation):
         return type(self) == type(other) and self._var == other._var
 
     def __repr__(self):
-        return '%s' % self._var
+        return b'<DRSRelation>:%s' % self._var.to_string()
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1550,14 +1578,8 @@ class DRSRelation(AbstractDRSRelation):
         """Converts this instance into a string."""
         return self._var.to_string()
 
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
-    ##
-    def to_unicode(self):
-        """Converts this instance into a string."""
-        return self._var.to_string().decode('utf-8')
-
     def rename(self, drsVar):
-        if isinstance(drsVar, str):
+        if isinstance(drsVar, (str, unicode)):
             drsVar = DRSVar(drsVar)
         elif not isinstance(drsVar, DRSVar):
             raise TypeError('DRSRelation expects DRSVar')
@@ -1568,7 +1590,7 @@ class AbstractDRSCond(Showable):
     """Abstract DRS Condition"""
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(unicode(self))
 
     def _set_accessible(self, d):
         raise NotImplementedError
@@ -1679,7 +1701,7 @@ class Rel(AbstractDRSCond):
             drsRefs = [drsRefs]
         elif not iterable_type_check(drsRefs, AbstractDRSRef):
             raise TypeError('Rel expects DRS')
-        if isinstance(drsRel, str):
+        if isinstance(drsRel, (str, unicode)):
             drsRel = DRSRelation(drsRel)
         if not isinstance(drsRel, AbstractDRSRelation):
             raise TypeError('Rel expects DRSRelation')
@@ -1687,7 +1709,13 @@ class Rel(AbstractDRSCond):
         self._refs = drsRefs
 
     def __repr__(self):
-        return '%s(%s)' % (repr(self._rel), ','.join([repr(x) for x in self._refs]))
+        return b'<Rel>:%s' % self
+
+    def __str__(self):
+        return b'%s(%s)' % (str(self._rel), ','.join([str(x) for x in self._refs]))
+
+    def __unicode__(self):
+        return u'%s(%s)' % (unicode(self._rel), ','.join([unicode(x) for x in self._refs]))
 
     def __ne__(self, other):
         return type(self) != type(other) or self._rel != other._rel or not compare_lists_eq(self._refs, other._refs)
@@ -1813,10 +1841,10 @@ class Rel(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            return self._rel.to_unicode() + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')\n'
+            return unicode(self._rel) + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')\n'
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self._rel.to_unicode() + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
-        return u'Rel (' + self._rel.to_unicode() + u') (' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
+            return unicode(self._rel) + u'(' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
+        return u'Rel (' + unicode(self._rel) + u') (' + ','.join([x.var.show(notation) for x in self._refs]) + u')'
 
 
 class Neg(AbstractDRSCond):
@@ -1833,7 +1861,13 @@ class Neg(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return 'not %s' % repr(self._drs)
+        return b'<Neg>:%s' % self
+
+    def __str__(self):
+        return safe_utf8_encode(Showable.opNeg) + str(self._drs)
+
+    def __unicode__(self):
+        return u'%s%s' % (Showable.opNeg, unicode(self._drs))
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -1977,7 +2011,13 @@ class Imp(AbstractDRSCond):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return '%s => %s' % (repr(self._drsA), repr(self._drsB))
+        return b'<Imp>:%s' % self
+
+    def __str__(self):
+        return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opImp), str(self._drsB))
+
+    def __unicode__(self):
+        return u'%s %s %s' % (unicode(self._drsA), Showable.opImp, unicode(self._drsB))
 
     def _set_accessible(self, d):
         return self._drsA._set_accessible(d) and self._drsB._set_accessible(self._drsA)
@@ -2158,7 +2198,13 @@ class Or(AbstractDRSCond):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
     def __repr__(self):
-        return '%s or %s' % (repr(self._drsA), repr(self._drsB))
+        return b'<Or>:%s' % self
+
+    def __str__(self):
+        return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opOr), str(self._drsB))
+
+    def __unicode__(self):
+        return u'%s %s %s' % (unicode(self._drsA), Showable.opOr, unicode(self._drsB))
 
     def _set_accessible(self, d):
         return self._drsA._set_accessible(d) and self._drsB._set_accessible(d)
@@ -2331,7 +2377,13 @@ class Prop(AbstractDRSCond):
         return type(self) == type(other) and self._ref == other._ref and self._drs == other._drs
 
     def __repr__(self):
-        return '%s: %s' % (repr(self._ref), repr(self._drs))
+        return b'<Prop>:%s' % self
+
+    def __unicode__(self):
+        return '%s: %s' % (unicode(self._ref), unicode(self._drs))
+
+    def __str__(self):
+        return b'%s: %s' % (str(self._ref), str(self._drs))
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -2493,7 +2545,13 @@ class Diamond(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return '<>%s' % repr(self._drs)
+        return b'<Diamond>:%s' % self
+
+    def __unicode__(self):
+        return u'%s%s' % (Showable.opDiamond, unicode(self._drs))
+
+    def __str__(self):
+        return b'%s%s' % (safe_utf8_encode(Showable.opDiamond), str(self._drs))
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)
@@ -2637,7 +2695,13 @@ class Box(AbstractDRSCond):
         return type(self) == type(other) and self._drs == other._drs
 
     def __repr__(self):
-        return '#%s' % repr(self._drs)
+        return b'<Box>:%s' % self
+
+    def __unicode__(self):
+        return u'%s%s' % (Showable.opBox, unicode(self._drs))
+
+    def __str__(self):
+        return b'%s%s' % (safe_utf8_encode(Showable.opBox), str(self._drs))
 
     def _set_accessible(self, d):
         return self._drs._set_accessible(d)

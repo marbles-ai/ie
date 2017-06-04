@@ -1,3 +1,4 @@
+from __future__ import unicode_literals, print_function
 import os
 import pickle
 import unittest
@@ -53,7 +54,7 @@ class ParserTest(unittest.TestCase):
         pt = parse_ccgtype(r'(S/NP)\NP')
         self.assertIsNotNone(pt)
         self.assertEqual(3, len(pt))
-        pt = parse_ccgtype('((N/(S\NP))\(N/(S\NP)))/NP')
+        pt = parse_ccgtype(r'((N/(S\NP))\(N/(S\NP)))/NP')
         self.assertIsNotNone(pt)
         self.assertEqual(3, len(pt))
 
@@ -70,7 +71,7 @@ class ParserTest(unittest.TestCase):
                 self.assertLessEqual(len(pt), 3)
 
     def test4_DerivationWithWildcards(self):
-        txt = '''(<T NP 0 1> (<T N 0 2> (<T N 1 2> (<L N/N CD CD Five N/N>) (<L N NNS NNS things N>) )
+        txt = r'''(<T NP 0 1> (<T N 0 2> (<T N 1 2> (<L N/N CD CD Five N/N>) (<L N NNS NNS things N>) )
         (<T N\N 0 1> (<T S[dcl]/NP 1 2> (<T S[X]/(S[X]\NP) 0 1> (<L NP PRP PRP you NP>) )
         (<T (S[dcl]\NP)/NP 0 2> (<L (S[dcl]\NP)/(S[b]\NP) MD MD can (S[dcl]\NP)/(S[b]\NP)>) (<T (S[b]\NP)/NP 0 2>
         (<L ((S[b]\NP)/PP)/NP VB VB do ((S[b]\NP)/PP)/NP>) (<T (S[X]\NP)\((S[X]\NP)/PP) 0 1> (<T PP 0 2> (<T PP 0 2>

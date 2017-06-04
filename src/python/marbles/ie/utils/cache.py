@@ -1,21 +1,26 @@
 """A thread safe cache."""
 
+from __future__ import unicode_literals, print_function
 from collections import MutableMapping
 from threading import Lock
 import pickle
+from marbles import safe_utf8_encode, safe_utf8_decode, future_string, native_string
 
 
 class ConstString(object):
     """String which is shared as a key and value part of a cache."""
     def __init__(self, s=None):
-        self._s = str(s) if s is not None else ''
+        self._s = future_string(s) if s is not None else ''
         self._h = hash(self._s)
 
     def __str__(self):
-        return self._s
+        return safe_utf8_encode(self._s)
+
+    def __unicode__(self):
+        return safe_utf8_decode(self._s)
 
     def __repr__(self):
-        return self._s
+        return native_string(self._s)
 
     def __hash__(self):
         return self._h

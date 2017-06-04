@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals, print_function
 import unittest
-
+from marbles import future_string
 from marbles.ie.ccg2drs import Ccg2Drs
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
@@ -10,7 +11,7 @@ from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 class ExecTest(unittest.TestCase):
 
     def test1_Wsj0001_2(self):
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 1 2>
     (<T NP 0 1>
@@ -64,10 +65,10 @@ class ExecTest(unittest.TestCase):
             '<PushOp>:(Vinken, N, NNP)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(be, (S[dcl]\NP)/NP, VBZ)',
+            '<PushOp>:(be, (S[dcl]\\NP)/NP, VBZ)',
             '<PushOp>:(chairman, N, NN)',
             '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
             '<PushOp>:(Elsevier, N/N, NNP)',
             '<PushOp>:(N.V, N, NNP)',
             '<ExecOp>:(2, FA N)',
@@ -82,9 +83,9 @@ class ExecTest(unittest.TestCase):
             '<ExecOp>:(2, FA NP)',
             '<ExecOp>:(2, RP NP[conj])',
             '<ExecOp>:(2, RCONJ NP)',
-            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
             '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
             '<ExecOp>:(2, BA S[dcl])',
             '<PushOp>:(., ., .)',
             '<ExecOp>:(2, LP S[dcl])',
@@ -116,7 +117,7 @@ class ExecTest(unittest.TestCase):
         self.assertEquals(ccg.lexque[11].head, 6)   # group -> N.V
 
     def test2_Wsj0037_37(self):
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 1 2>
     (<T NP 0 2>
@@ -223,7 +224,7 @@ class ExecTest(unittest.TestCase):
     def test3_Wsj0002_1(self):
         # Rudolph Agnew, 55 years old and former chairman of Consolidated Gold Fields PLC, was named a nonexecutive
         # director of this British industrial conglomerate.
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 1 2>
     (<T NP 0 2>
@@ -310,7 +311,10 @@ class ExecTest(unittest.TestCase):
   (<L . . . . .>)
 )'''
         pt = parse_ccg_derivation(txt)
-        pt_old = pt_to_utf8(parse_ccg_derivation_old(txt), True)
+        if future_string == unicode:
+            pt_old = parse_ccg_derivation_old(txt)
+        else:
+            pt_old = pt_to_utf8(parse_ccg_derivation_old(txt), True)
         actual = repr(pt)
         expected = repr(pt_old)
         self.assertEquals(expected, actual)
@@ -329,14 +333,14 @@ class ExecTest(unittest.TestCase):
             '<PushOp>:(years, N, NNS)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(old, (S[adj]\NP)\NP, JJ)',
-            '<ExecOp>:(2, BA S[adj]\NP)',
+            '<PushOp>:(old, (S[adj]\\NP)\\NP, JJ)',
+            '<ExecOp>:(2, BA S[adj]\\NP)',
             '<PushOp>:(and, conj, CC)',
             '<PushOp>:(former, N/N, JJ)',
             '<PushOp>:(chairman, N, NN)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
             '<PushOp>:(Consolidated, N/N, NNP)',
             '<PushOp>:(Gold, N/N, NNP)',
             '<PushOp>:(Fields, N/N, NNP)',
@@ -345,22 +349,22 @@ class ExecTest(unittest.TestCase):
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
             '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, CONJ_TC S[adj]\NP[conj])',
-            '<ExecOp>:(2, RCONJ S[adj]\NP)',
-            '<ExecOp>:(1, L_UNARY_TC NP\NP)',
+            '<ExecOp>:(2, CONJ_TC S[adj]\\NP[conj])',
+            '<ExecOp>:(2, RCONJ S[adj]\\NP)',
+            '<ExecOp>:(1, L_UNARY_TC NP\\NP)',
             '<ExecOp>:(2, BA NP)',
             '<PushOp>:(,, ,, ,)',
             '<ExecOp>:(2, LP NP)',
-            '<PushOp>:(be, (S[dcl]\NP)/(S[pss]\NP), VBD)',
-            '<PushOp>:(name, (S[pss]\NP)/NP, VBN)',
+            '<PushOp>:(be, (S[dcl]\\NP)/(S[pss]\\NP), VBD)',
+            '<PushOp>:(name, (S[pss]\\NP)/NP, VBN)',
             '<PushOp>:(a, NP[nb]/N, DT)',
             '<PushOp>:(nonexecutive, N/N, JJ)',
             '<PushOp>:(director, N, NN)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(of, (NP\NP)/NP, IN)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
             '<PushOp>:(this, NP[nb]/N, DT)',
             '<PushOp>:(british, N/N, JJ)',
             '<PushOp>:(industrial, N/N, JJ)',
@@ -368,10 +372,10 @@ class ExecTest(unittest.TestCase):
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, FA NP\NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
             '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[pss]\NP)',
-            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, FA S[pss]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
             '<ExecOp>:(2, BA S[dcl])',
             '<PushOp>:(., ., .)',
             '<ExecOp>:(2, LP S[dcl])',
@@ -379,7 +383,7 @@ class ExecTest(unittest.TestCase):
         self.assertListEqual(expected, actual)
 
     def test4_Wsj0999_11(self):
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 0 2>
     (<T S[dcl] 1 2>
@@ -517,7 +521,7 @@ class ExecTest(unittest.TestCase):
         self.assertListEqual(expected, actual)
 
     def test5_EasySRL_04_1850(self):
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 1 2>
     (<T NP 0 2>
@@ -615,23 +619,23 @@ class ExecTest(unittest.TestCase):
             '<ExecOp>:(2, LP N)',
             '<ExecOp>:(2, FA N)',
             '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(however, (S\NP)/(S\NP), RB)',
+            '<PushOp>:(however, (S\\NP)/(S\\NP), RB)',
             '<PushOp>:(,, ,, ,)',
-            '<PushOp>:(strongly, (S\NP)/(S\NP), RB)',
-            '<ExecOp>:(2, R_UNARY_TC ((S\NP)/(S\NP))\((S\NP)/(S\NP)))',
-            '<ExecOp>:(2, BA (S\NP)/(S\NP))',
-            '<PushOp>:(believe, (S[dcl]\NP)/S[em], VBZ)',
+            '<PushOp>:(strongly, (S\\NP)/(S\\NP), RB)',
+            '<ExecOp>:(2, R_UNARY_TC ((S\\NP)/(S\\NP))\((S\\NP)/(S\\NP)))',
+            '<ExecOp>:(2, BA (S\\NP)/(S\\NP))',
+            '<PushOp>:(believe, (S[dcl]\\NP)/S[em], VBZ)',
             '<PushOp>:(that, S[em]/S[dcl], IN)',
             '<PushOp>:(the, NP/N, DT)',
             '<PushOp>:(strike, N, NN)',
             '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(will, (S\NP)/(S\NP), MD)',
-            '<PushOp>:(be, (S[b]\NP)/(S[pss]\NP), VB)',
-            '<PushOp>:(settle, S[pss]\NP, VBN)',
-            '<ExecOp>:(2, FA S[b]\NP)',
-            '<PushOp>:(before, ((S\NP)\(S\NP))/S[dcl], IN)',
+            '<PushOp>:(will, (S\\NP)/(S\\NP), MD)',
+            '<PushOp>:(be, (S[b]\\NP)/(S[pss]\\NP), VB)',
+            '<PushOp>:(settle, S[pss]\\NP, VBN)',
+            '<ExecOp>:(2, FA S[b]\\NP)',
+            '<PushOp>:(before, ((S\\NP)\(S\\NP))/S[dcl], IN)',
             '<PushOp>:(there, NP[thr], EX)',
-            '<PushOp>:(be, (S[dcl]\NP[thr])/NP, VBZ)',
+            '<PushOp>:(be, (S[dcl]\\NP[thr])/NP, VBZ)',
             '<PushOp>:(any, NP/N, DT)',
             '<PushOp>:(lasting, N/N, JJ)',
             '<PushOp>:(effect, N/PP, NN)',
@@ -650,17 +654,17 @@ class ExecTest(unittest.TestCase):
             '<PushOp>:(force, N/PP, NN)',
             '<ExecOp>:(2, FC N/PP)',
             '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, R_UNARY_TC NP\NP)',
+            '<ExecOp>:(2, R_UNARY_TC NP\\NP)',
             '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\NP[thr])',
+            '<ExecOp>:(2, FA S[dcl]\\NP[thr])',
             '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, FA (S\NP)\(S\NP))',
-            '<ExecOp>:(2, BA S[b]\NP)',
-            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, FA (S\\NP)\\(S\\NP))',
+            '<ExecOp>:(2, BA S[b]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
             '<ExecOp>:(2, BA S[dcl])',
             '<ExecOp>:(2, FA S[em])',
-            '<ExecOp>:(2, FA S[dcl]\NP)',
-            '<ExecOp>:(2, FA S[dcl]\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
             '<ExecOp>:(2, BA S[dcl])',
             '<PushOp>:(., ., .)',
             '<ExecOp>:(2, LP S[dcl])',

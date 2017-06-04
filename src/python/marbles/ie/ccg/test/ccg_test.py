@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals, print_function
 import os
 import unittest
 
+from marbles.ie.ccg import datapath
 from marbles.ie.ccg import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
     RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
 from marbles.ie.ccg2drs import Ccg2Drs, PushOp, ExecOp
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg.datapath import DATAPATH
 
 
 class CcgTest(unittest.TestCase):
@@ -103,7 +104,7 @@ class CcgTest(unittest.TestCase):
         self.assertTrue(CAT_Sem == Category.from_cache('S[em]'))
 
     def test6_Wsj0001_2(self):
-        txt = '''
+        txt = r'''
 (<T S[dcl] 0 2>
   (<T S[dcl] 1 2>
     (<T NP 0 1>
@@ -411,7 +412,7 @@ class CcgTest(unittest.TestCase):
 
     # Test disabled for the moment
     def __test9A_Parser(self):
-        filename = os.path.join(DATAPATH, 'parse_ccg_derivation_failed.dat')
+        filename = os.path.join(datapath.DATAPATH, 'parse_ccg_derivation_failed.dat')
         if os.path.exists(filename):
             success = 0
             with open(filename, 'r') as fd:

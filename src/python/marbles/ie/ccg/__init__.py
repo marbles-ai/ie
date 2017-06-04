@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """CCG Categories, Rules, and CCGBANK parser"""
+from __future__ import unicode_literals, print_function
+from marbles import safe_utf8_encode, safe_utf8_decode, native_string, future_string
 import re
 import os
 from marbles.ie.utils.cache import Cache, Freezable
 from marbles.ie.utils.vmap import Dispatchable
-from datapath import DATA_PATH
+import datapath
+
 
 ISCONJMASK = 0x00000001
 FEATURE_CONJ = 0x00000002
@@ -321,7 +324,7 @@ class Category(Freezable):
             self._splitsig = '', '', ''
             self._features = FUNCTOR_RETURN_PREP_CHECKED | FUNCTOR_RETURN_MOD_CHECKED
         else:
-            if isinstance(signature, str):
+            if isinstance(signature, (str, unicode)):
                 self._signature, self._features = extract_features(signature)
                 self._features |= features
                 self._features |= ISCONJMASK if 'conj' in signature else 0
@@ -334,10 +337,13 @@ class Category(Freezable):
 
     ## @cond
     def __str__(self):
-        return self._signature
+        return safe_utf8_encode(self._signature)
+
+    def __unicode__(self):
+        return safe_utf8_decode(self._signature)
 
     def __repr__(self):
-        return self._signature
+        return str(self)
 
     def __eq__(self, other):
         # I have deliberately not used self.isconj in this test.
@@ -351,7 +357,7 @@ class Category(Freezable):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(future_string(self))
     ## @endcond
 
     @classmethod
@@ -536,7 +542,7 @@ class Category(Freezable):
         cls._use_cache = 0
         pairs = {}
         for cat in cats:
-            if isinstance(cat, str):
+            if isinstance(cat, (str, unicode)):
                 cat = Category(cat)
             stk = [cat]
             while len(stk) != 0:
@@ -1036,7 +1042,7 @@ class Category(Freezable):
 CAT_EMPTY = Category()
 CAT_EMPTY.freeze()
 try:
-    Category.load_cache(os.path.join(DATA_PATH, 'categories.dat'))
+    Category.load_cache(os.path.join(datapath.DATA_PATH, 'categories.dat'))
     # Need these for finalize_cache()
     CAT_PP = Category.from_cache('PP')
     CAT_NP = Category.from_cache('NP')
@@ -1122,22 +1128,25 @@ class Rule(Dispatchable):
 
     ## @cond
     def __repr__(self):
-        return self._name
+        return str(self)
 
     def __str__(self):
-        return self._name
+        return safe_utf8_encode(self._name)
+
+    def __unicode__(self):
+        return safe_utf8_decode(self._name)
 
     def __eq__(self, other):
-        return isinstance(other, Rule) and str(self) == str(other)
+        return isinstance(other, Rule) and future_string(self) == future_string(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        return isinstance(other, Rule) and str(self) < str(other)
+        return isinstance(other, Rule) and future_string(self) < future_string(other)
 
     def __le__(self, other):
-        return isinstance(other, Rule) and str(self) <= str(other)
+        return isinstance(other, Rule) and future_string(self) <= future_string(other)
 
     def __gt__(self, other):
         return not self.__le__(other)
@@ -1146,7 +1155,7 @@ class Rule(Dispatchable):
         return not self.__lt__(other)
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(future_string(self))
     ## @endcond
 
     @classmethod
@@ -1607,10 +1616,13 @@ class POS(Freezable):
         return hash(self._tag)
 
     def __str__(self):
-        return self._tag
+        return safe_utf8_encode(self._tag)
+
+    def __unicode__(self):
+        return safe_utf8_decode(self._tag)
 
     def __repr__(self):
-        return self._tag
+        return str(self)
 
     @property
     def tag(self):

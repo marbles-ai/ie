@@ -1,5 +1,7 @@
+from __future__ import unicode_literals, print_function
 from utils import iterable_type_check, compare_lists_eq
 import re
+from marbles import safe_utf8_decode, safe_utf8_encode
 
 
 ## @defgroup showtypes Show notation
@@ -190,10 +192,10 @@ class AbstractDRSVar(Showable):
         raise NotImplementedError
 
     def __str__(self):
-        return self.to_string()
+        return safe_utf8_encode(self.to_string())
 
     def __unicode__(self):
-        return self.to_string().decode('utf-8')
+        return safe_utf8_decode(self.to_string())
 
     ## @property name
     @property
@@ -218,7 +220,7 @@ class DRSVar(AbstractDRSVar):
             self._idx = idx if len(m.group(2)) == 0 or idx != 0 else int(m.group(2))
 
     def __repr__(self):
-        return 'Var(%s)' % self.to_string()
+        return '<DRSVar>:%s' % self.to_string()
 
     def __eq__(self, other):
         return type(self) == type(other) and self.to_string() == other.to_string()
@@ -276,7 +278,7 @@ class DRSConst(DRSVar):
         super(DRSConst, self).__init__(*args, **kwargs)
 
     def __repr__(self):
-        return 'Const(%s)' % self.to_string()
+        return '<DRSConst>:%s' % self.to_string()
 
     def increase_new(self):
         return DRSConst(self._name, self._idx)
@@ -303,7 +305,7 @@ class LambdaDRSVar(AbstractDRSVar):
         return type(self) == type(other) and other._var == self._var and compare_lists_eq(other._set, self._set)
 
     def __repr__(self):
-        return 'LambdaVar(%s,%s)' % (self._var.to_string(), self._set)
+        return '<LambdaVar>:%s' % self.show(SHOW_LINEAR)
 
     def __hash__(self):
         return hash(self._var) ^ hash(len(self._set))
@@ -358,8 +360,8 @@ class LambdaDRSVar(AbstractDRSVar):
             A unicode string.
         """
         if len(self._set) == 0:
-            return unicode(self)
-        return unicode(self) + u'(' + u','.join([unicode(x) for x in self._set]) + u')'
+            return unicode(self._var)
+        return unicode(self._var) + u'(' + u','.join([unicode(x) for x in self._set]) + u')'
 
     def to_string(self):
         return self._var.to_string()

@@ -1,3 +1,4 @@
+from __future__ import unicode_literals, print_function
 from utils import iterable_type_check
 from common import Showable
 from common import SHOW_BOX
@@ -10,6 +11,7 @@ from pysmt.typing import REAL, FunctionType
 from pysmt.exceptions import SolverReturnedUnknownResultError
 from pysmt.environment import get_env
 import os
+from marbles import future_string
 
 
 z3name = "z3"
@@ -34,8 +36,8 @@ class FOLConversionError(Exception):
     pass
 
 
-FOLVar = str
-FOLPred = str
+FOLVar = future_string
+FOLPred = future_string
 
 
 class FOLForm(Showable):

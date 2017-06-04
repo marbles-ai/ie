@@ -1,3 +1,4 @@
+from __future__ import unicode_literals, print_function
 import drt
 from ccg import Category, CAT_NP, CAT_PP, CAT_VP, CAT_VPdcl, CAT_VPb, CAT_VPto, CAT_AP, CAT_Sany, CAT_Sadj
 from kb import google_search
@@ -5,10 +6,14 @@ import wikipedia
 import re
 import collections
 import os
+from marbles import safe_utf8_encode, safe_utf8_decode, future_string, native_string
 
 
 # Remove extra info from wikipedia topic
 _WTOPIC = re.compile(r'http://.*/(?P<topic>[^/]+(\([^)]+\))?)')
+
+# Rate limit wiki requests
+wikipedia.set_rate_limiting(rate_limit=True)
 
 
 class DocProp(object):
@@ -21,15 +26,32 @@ class DocProp(object):
         return True
 
 
+class Wikidata(object):
+    def __init__(self, page):
+        self.title = page.title
+        self.summary = page.summary
+        # TODO: filter wikipedia categories
+        self.categories = page.categories
+        self.pageid = page.pageid
+        self.url = page.url
+
+
 class Constituent(object):
     """A constituent is a sentence span with an category."""
     def __init__(self, category, span, vntype):
         self.span = span
         self.category = category
-        self.vntype = vntype
+        self.vntype = safe_utf8_decode(vntype)
+        self.wiki_data = None
+
+    def __unicode__(self):
+        return self.vntype + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
 
     def __repr__(self):
-        return self.vntype + '(' + ' '.join([x.word for x in self.span]) + ')'
+        return str(self)
 
     def __eq__(self, other):
         return self.span == other.span
@@ -64,8 +86,8 @@ class Constituent(object):
             return 'TO'
         elif category == CAT_AP:
             return 'ADJP'
-        elif category != CAT_Sadj and category == CAT_Sany:
-            return category.signature
+        #elif category != CAT_Sadj and category == CAT_Sany:
+        #    return category.signature
         return None
 
     def get_head(self):
@@ -75,39 +97,67 @@ class Constituent(object):
         for lex in self.span:
             if lex.head != lex.idx and lex.head in indexes:
                 hd.remove(lex.idx)
+        if len(hd) != 1:
+            pass
         assert len(hd) == 1
         return self.span.sentence[hd.pop()]
+
+    def set_wiki_entry(self, page):
+        self.wiki_data = Wikidata(page)
 
     def search_wikipedia(self, max_results=1):
         """Find a wikipedia topic from this span.
 
         Returns: A wikipedia topic.
         """
-        txt = self.span.text
-        result = wikipedia.search(txt, results=max_results)
-        if result is None:
-            # Get suggestions from wikipedia
-            query = wikipedia.suggest(txt)
-            if query is not None:
-                result = wikipedia.search(query, results=max_results)
-                if result is not None:
-                    return result
-            if result is None:
-                # Try google search - hopefully will fix up spelling or ignore irrelevent words
-                scraper = google_search.GoogleScraper()
-                urls = scraper.search(txt, 'wikipedia.com')
+        retry = True
+        attempts = 0
+        while retry:
+            try:
+                txt = self.span.text
                 topics = []
-                seen = set()
-                for u in urls:
-                    m = _WTOPIC.match(u)
-                    if m is not None:
-                        t = m.group('topic')
-                        if t not in seen:
-                            seen.add(t)
-                            topics.append(wikipedia.search(t.replace('_', ' ')))
-                # FIXME: need a more thorough method for handling ambiguous results.
-                return wikipedia.search(topics[0], results=max_results) if len(topics) != 0 else None
-        return result
+                result = wikipedia.search(txt, results=max_results)
+                if result is not None:
+                    for t in result:
+                        wr = wikipedia.page(title=t)
+                        if wr is not None:
+                            topics.append(wr)
+
+                if len(topics) == 0:
+                    # Get suggestions from wikipedia
+                    query = wikipedia.suggest(txt)
+                    if query is not None:
+                        result = wikipedia.page(query)
+                        if result is not None:
+                            return result
+                    if result is None:
+                        # Try google search - hopefully will fix up spelling or ignore irrelevent words
+                        scraper = google_search.GoogleScraper()
+                        urls = scraper.search(txt, 'wikipedia.com')
+                        topics = []
+                        seen = set()
+                        for u in urls:
+                            m = _WTOPIC.match(u)
+                            if m is not None:
+                                t = m.group('topic')
+                                if t not in seen:
+                                    seen.add(t)
+                                    wr = wikipedia.page(title=t.replace('_', ' '))
+                                    if wr:
+                                        topics.append(wr)
+                                        if len(topics) >= max_results:
+                                            break
+                        return topics if len(topics) != 0 else None
+                return topics
+            except wikipedia.exceptions.DisambiguationError as e:
+                # TODO: disambiguation
+                retry = False
+            except wikipedia.exceptions.HTTPTimeoutError as e:
+                attempts += 1
+                retry = attempts <= 3
+
+        return None
+
 
 class UnboundSentence(object):
     """A sentence with no bound to a discourse."""
@@ -145,12 +195,19 @@ class IndexSpan(object):
         self._sent = sentence
         if indexes is None:
             self._indexes = []
+        elif isinstance(indexes, set):
+            self._indexes = sorted(indexes)
         else:
             self._indexes = sorted(set([x for x in indexes]))
 
+    def __unicode__(self):
+        return unicode(self.get_drs())
+
+    def __str__(self):
+        return str(self.get_drs())
+
     def __repr__(self):
-        d = self.get_drs()
-        return d.show(drt.common.SHOW_LINEAR).encode('utf-8')
+        return str(self.get_drs())
 
     def __eq__(self, other):
         return len(self) == len(other) and len(set(self._indexes).intersection(other._indexes)) == len(self)
@@ -230,9 +287,7 @@ class IndexSpan(object):
         """Union two spans."""
         if other is None or len(other) == 0:
             return self
-        u = set(self._indexes)
-        self._indexes = sorted(u.union(other._indexes))
-        return self
+        return IndexSpan(self._sent, set(self._indexes).union(other._indexes))
 
     def add(self, idx):
         """Add an index to the span."""
@@ -245,18 +300,13 @@ class IndexSpan(object):
         """Remove other from this span."""
         if other is None or len(other) == 0:
             return self
-        u = set(self._indexes)
-        self._indexes = sorted(u.difference(other._indexes))
-        return self
+        return IndexSpan(self._sent, set(self._indexes).difference(other._indexes))
 
     def intersection(self, other):
         """Find common span."""
         if other is None or len(other) == 0:
-            self._indexes = []
-            return self
-        u = set(self._indexes)
-        self._indexes = sorted(u.intersection(other._indexes))
-        return self
+            return IndexSpan(self._sent)
+        return IndexSpan(self._sent, set(self._indexes).intersection(other._indexes))
 
     def subspan(self, required, excluded=0):
         """Refine the span with `required` and `excluded` criteria's.
@@ -279,8 +329,9 @@ class IndexSpan(object):
         conds = []
         refs = []
         for tok in self:
-            conds.extend(tok.drs.conditions)
-            refs.extend(tok.drs.referents)
+            if tok.drs:
+                conds.extend(tok.drs.conditions)
+                refs.extend(tok.drs.referents)
         return drt.drs.DRS(refs, conds)
 
     def get_constituents(self, category_filter=None, heads_only=True):
@@ -311,39 +362,45 @@ class IndexSpan(object):
             return filter(lambda x: x.get_head().idx in idxs, self._sent.get_constituents())
         return filter(lambda x: len(idxs.intersection(x.span.get_indexes())) != 0, self._sent.get_constituents())
 
-    def get_subspan_from_wiki_search(self, search_result, max_results=1):
-        """Get a subspan from a wikpedia search result."""
+    def get_subspan_from_wiki_search(self, search_result, max_results=0):
+        """Get a subspan from a wikpedia search result.
+
+        Args:
+            search_result: The result of a wikipedia.search().
+            max_results: If zero return a IndexSpan, else return a list of IndexSpan.
+
+        Returns:
+            A IndexSpan instance or a list of IndexSpan instances.
+        """
         spans = {}
         # FIXME: rank using statistical model based on context
         for result in search_result:
             title = result.title.split(' ')
-            idxs = []
+            idxs = set()
             words = {}
             for lex in self:
                 for nm in title:
                     nml = nm.lower()
-                    p1 = os.path.commonprefix(lex.word.lower(), nml)
-                    p2 = os.path.commonprefix(lex.stem.lower(), nml)
+                    p1 = os.path.commonprefix([lex.word.lower(), nml])
+                    p2 = os.path.commonprefix([lex.stem.lower(), nml])
                     if (len(p1) - len(p2)) >= 0:
                         if len(p1) >= (len(nml)/2):
-                            idxs.append(lex.idx)
+                            idxs.add(lex.idx)
                     elif len(p2) > len(p1) and len(p2) >= (len(nml)/2):
-                        idxs.append(lex.idx)
+                        idxs.add(lex.idx)
             idxs = sorted(idxs)
             if len(idxs) >= 2:
-                idxs = sorted(idxs)
-                idxs = range(idxs[0], idxs[-1]+1)
+                idxs = [x for x in range(idxs[0], idxs[-1]+1)]
             spans.setdefault(len(idxs), [])
             spans[len(idxs)].append(IndexSpan(self._sent, idxs))
 
         # Order by size
         ranked_spans = []
-        for v in sorted(spans.iterkeys()):
-            ranked_spans.extend(v)
+        for k in reversed(sorted(spans.iterkeys())):
+            ranked_spans.extend(spans[k])
         if len(ranked_spans) == 0:
             return None
-        return ranked_spans[0] if max_results == 1 else ranked_spans[0:max_results]
-
+        return ranked_spans[0] if max_results == 0 else ranked_spans[0:max_results]
 
 
 class Document(DocProp):

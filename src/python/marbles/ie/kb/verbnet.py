@@ -1,7 +1,9 @@
 """Original code at https://github.com/eci-store/verbnet-gl.git"""
+from __future__ import unicode_literals, print_function
 import os
 import bs4
 import re
+from marbles import future_string, native_string, safe_utf8_decode, safe_utf8_encode
 
 
 VERBNET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'vnxml')
@@ -62,16 +64,21 @@ class VerbClass(object):
                            for sub_soup in soup.SUBCLASSES.find_all("VNSUBCLASS", recursive=False)]
 
     def __str__(self):
-        return "<VerbClass \"%s\" roles=%s frames=%s subclasses=%s members=%s>" \
+        return safe_utf8_encode("<VerbClass \"%s\" roles=%s frames=%s subclasses=%s members=%s>" \
             % (self.ID, len(self.themroles), len(self.frames),
-               len(self.subclasses), len(self.members))
+               len(self.subclasses), len(self.members)))
+
+    def __unicode__(self):
+        return safe_utf8_decode("<VerbClass \"%s\" roles=%s frames=%s subclasses=%s members=%s>" \
+                                % (self.ID, len(self.themroles), len(self.frames),
+                                   len(self.subclasses), len(self.members)))
 
     def __repr__(self):
-        return str(self.ID) + "\n" + str([mem.__repr__() for mem in self.members]) \
-               + "\nThemRoles: " + str(self.themroles) \
-               + "\nNames: " + str(self.names) \
-               + "\nFrames: " + str(self.frames) \
-               + "\nSubclasses: " + str(self.subclasses)
+        return native_string(future_string(self.ID) + "\n" + future_string([repr(mem) for mem in self.members]) \
+               + "\nThemRoles: " + future_string(self.themroles) \
+               + "\nNames: " + future_string(self.names) \
+               + "\nFrames: " + future_string(self.frames) \
+               + "\nSubclasses: " + future_string(self.subclasses))
 
 
 class Member(object):
@@ -85,7 +92,7 @@ class Member(object):
         self.grouping = soup.get('grouping')
 
     def __repr__(self):
-        return "<Member %s %s %s>" % (self.name, self.wn, self.grouping)
+        return native_string("<Member %s %s %s>" % (self.name, self.wn, self.grouping))
 
 
 class Frame(object):
@@ -101,10 +108,10 @@ class Frame(object):
         self.predicates = [Predicate(p) for p in soup.SEMANTICS.find_all("PRED")]
 
     def __repr__(self):
-        return "\nDescription: " + str(self.description) + \
-               "\nExamples: " + str(self.examples) + \
-               "\nSyntax: " + str(self.syntax) + \
-               "\nPredicates: " + str(self.predicates) + "\n"
+        return native_string("\nDescription: " + future_string(self.description) + \
+               "\nExamples: " + future_string(self.examples) + \
+               "\nSyntax: " + future_string(self.syntax) + \
+               "\nPredicates: " + future_string(self.predicates) + "\n")
 
     @staticmethod
     def _get_syntax(soup):
@@ -115,7 +122,8 @@ class Frame(object):
         # if we find a missing pos
         for role in roles:
             if role.pos is None:
-                print "Warning: empty pos in %s" % role
+                # FIXME: should log this
+                print("Warning: empty pos in %s" % role)
         return roles
 
 
@@ -131,9 +139,15 @@ class ThematicRole(object):
 
     def __str__(self):
         if self.sel_restrictions.is_empty():
-            return self.role_type
+            return safe_utf8_encode(self.role_type)
         else:
-            return "%s / %s" % (self.role_type, self.sel_restrictions)
+            return safe_utf8_encode("%s / %s" % (self.role_type, self.sel_restrictions))
+
+    def __unicode__(self):
+        if self.sel_restrictions.is_empty():
+            return safe_utf8_decode(self.role_type)
+        else:
+            return safe_utf8_decode("%s / %s" % (self.role_type, self.sel_restrictions))
 
     def html(self):
         def role(text): return "<span class=role>%s</span>" % text
@@ -153,10 +167,13 @@ class Predicate(object):
         self.args = [(arg.get('type'), arg.get('value')) for arg in args]
 
     def __str__(self):
-        return "%s(%s)" % (self.value, ', '.join([at[1] for at in self.args]))
+        return safe_utf8_encode("%s(%s)" % (self.value, ', '.join([at[1] for at in self.args])))
+
+    def __unicode__(self):
+        return safe_utf8_decode("%s(%s)" % (self.value, ', '.join([at[1] for at in self.args])))
 
     def __repr__(self):
-        return "Value: " + str(self.value) + " -- " + str(self.args)
+        return native_string("Value: " + future_string(self.value) + " -- " + future_string(self.args))
 
     def find_arguments(self, arg):
         """Return all arguments in self.args where arg matches one of the argument's
@@ -185,9 +202,12 @@ class SyntacticRole(object):
                 self.restrictions = SelectionalRestrictions(soup.SELRESTRS)
 
     def __str__(self):
-        return "<SyntacticRole pos=%s value=%s restrictions=%s>" \
-            % (self.pos, self.value, self.restrictions)
+        return safe_utf8_encode("<SyntacticRole pos=%s value=%s restrictions=%s>" \
+                                % (self.pos, self.value, self.restrictions))
 
+    def __unicode__(self):
+        return safe_utf8_decode("<SyntacticRole pos=%s value=%s restrictions=%s>" \
+                                % (self.pos, self.value, self.restrictions))
 
 class Restrictions(object):
 
@@ -200,9 +220,15 @@ class Restrictions(object):
 
     def __str__(self):
         if self.is_empty():
-            return '()'
+            return safe_utf8_encode('()')
         op = ' & ' if self.logic == 'and' else ' | '
-        return "(%s)" % op.join([str(s) for s in self.restrictions])
+        return safe_utf8_encode("(%s)" % op.join([future_string(s) for s in self.restrictions]))
+
+    def __unicode__(self):
+        if self.is_empty():
+            return safe_utf8_decode('()')
+        op = ' & ' if self.logic == 'and' else ' | '
+        return safe_utf8_decode("(%s)" % op.join([s for s in self.restrictions]))
 
     def is_empty(self):
         return self.restrictions == []
@@ -263,7 +289,10 @@ class Restriction(object):
         self.srtype = soup.get('type')
 
     def __str__(self):
-        return "%s%s" % (self.srvalue, self.srtype)
+        return safe_utf8_encode("%s%s" % (self.srvalue, self.srtype))
+
+    def __unicode__(self):
+        return safe_utf8_decode("%s%s" % (self.srvalue, self.srtype))
 
 
 VERBNETDB = VerbnetDB()

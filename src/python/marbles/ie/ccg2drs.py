@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """CCG to DRS Production Generator"""
 
+from __future__ import unicode_literals, print_function
 import collections
 import inflect
 import re
@@ -18,6 +19,7 @@ from marbles.ie.kb.verbnet import VERBNETDB
 from marbles.ie.parse import parse_drs
 from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from marbles.ie.doc import UnboundSentence, IndexSpan, Constituent
+from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 
 ## @{
 ## @ingroup gconst
@@ -341,10 +343,13 @@ def strip_apostrophe_s(word):
     if len(word) > 2:
         if word.endswith("'s"):
             return word[0:-2]
+        elif isinstance(word, unicode):
+            if word.endswith(u"’s"):
+                return word.replace(u"’s", u'')
         else:
-            uword = word.decode('utf-8')
+            uword = safe_utf8_decode(word)
             if uword.endswith(u"’s"):
-                return uword.replace(u"’s", u'').encode('utf-8')
+                return safe_utf8_encode(uword.replace(u"’s", u''))
     return word
 
 
@@ -370,7 +375,7 @@ class Lexeme(object):
             'drs': 'none' if not self.drs
                           else reduce(lambda s, kv: s.replace(*kv),
                                       {Showable.opNeg:u'!', Showable.opImp:u' -> ',
-                                       Showable.opOr:u' or '}.iteritems(), self.drs.show(SHOW_SET)).encode('utf-8'),
+                                       Showable.opOr:u' or '}.iteritems(), self.drs.show(SHOW_SET)),
             'category': self.category.signature
         }
 
@@ -418,14 +423,17 @@ class Lexeme(object):
                 stem = word.lower().rstrip(self._Punct)
                 if self.pos in POS_LIST_VERB or self.pos == POS_GERUND:
                     # FIXME: move to python 3 so its all unicode
-                    self.stem = self._wnl.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
+                    if isinstance(stem, unicode):
+                        self.stem = self._wnl.lemmatize(stem, pos='v')
+                    else:
+                        self.stem = self._wnl.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
                 else:
                     self.stem = stem
 
     def __repr__(self):
         if self.drs:
-            return '<Lexeme>:(%s, %s, %s)' % (self.word, self.drs.show(SHOW_LINEAR).encode('utf-8'), self.category)
-        return '<Lexeme>:(%s, %s, %s)' % (self.word, self.stem, self.category)
+            return b'<Lexeme>:(%s, %s, %s)' % (safe_utf8_encode(self.word), self.drs, self.category)
+        return b'<Lexeme>:(%s, %s, %s)' % (safe_utf8_encode(self.word), self.stem, self.category)
 
     @property
     def ispunct(self):
@@ -816,7 +824,6 @@ class Lexeme(object):
                         # Discard conditions
                         conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
                                       Rel('.ROLE', [refs[0], refs[2]])])
-                        sentence.attributes.append((refs[2], refs[1]))
                     else:
                         conds.append(Rel('.EVENT', [refs[0]]))
                         pred = zip(refs[1:], self._EventPredicates)
@@ -874,8 +881,6 @@ class Lexeme(object):
                     d = DrsProduction([], self.refs, span=span)
                 else:
                     self.mask |= RT_ATTRIBUTE
-                    for r in refs[1:]:
-                        sentence.attributes.append((r, refs[0]))
                     self.drs = DRS([], [Rel(self.stem, refs[0])])
                     d = DrsProduction([], self.refs, span=span)
 
@@ -927,7 +932,7 @@ class PushOp(AbstractOperand):
         self.lexeme = lexeme
 
     def __repr__(self):
-        return '<PushOp>:(%s, %s, %s)' % (self.lexeme.stem, self.lexeme.category, self.lexeme.pos)
+        return b'<PushOp>:(%s, %s, %s)' % (safe_utf8_encode(self.lexeme.stem), self.lexeme.category, self.lexeme.pos)
 
     @property
     def category(self):
@@ -946,7 +951,7 @@ class ExecOp(AbstractOperand):
         self.op_range = op_range
 
     def __repr__(self):
-        return '<ExecOp>:(%d, %s %s)' % (len(self.sub_ops), self.rule, self.category)
+        return b'<ExecOp>:(%d, %s %s)' % (len(self.sub_ops), self.rule, self.category)
 
     @property
     def category(self):
@@ -1219,9 +1224,13 @@ class Ccg2Drs(UnboundSentence):
                 vntype = Constituent.vntype_from_category(d.category)
 
             if vntype is not None:
+                '''
                 if vntype != 'ADJP' and d.category.extract_unify_atoms(False)[-1] == CAT_Sany:
                     # TODO: move identification of event constituents to post compose_drs()
-                    r = d.get_unify_scopes(False)[-1]
+                    if isinstance(d, FunctorProduction):
+                        r = d.get_unify_scopes(False)[-1]
+                    else:
+                        r = d.lambda_refs[0]
                     span = IndexSpan(d.span.sentence)
                     for lex in d.span:
                         if 0 != (lex.mask & (RT_EVENT | RT_EVENT_MOD)):
@@ -1230,6 +1239,8 @@ class Ccg2Drs(UnboundSentence):
                     c = Constituent(d.category, span, vntype)
                 else:
                     c = Constituent(d.category, d.span, vntype)
+                '''
+                c = Constituent(d.category, d.span, vntype)
 
                 while len(self.constituents) != 0 and self.constituents[-1].vntype == c.vntype \
                         and self.constituents[-1] in c:
@@ -1290,14 +1301,51 @@ class Ccg2Drs(UnboundSentence):
             d = d.apply_null_left().unify()
         self.final_prod = d
 
-        # Finalize constituents
-        for c in self.constituents:
+        # Finalize NP constituents
+        to_remove = set()
+        self.constituents = sorted(self.constituents)
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
+            # FIXME: rank wikipedia search results
+            if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
+                            x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
+                            x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
+                to_remove.add(i)
+                continue
+            elif c.get_head().category != CAT_NOUN:
+                continue
+
             result = c.search_wikipedia()
             if result is not None:
                 subspan = c.span.get_subspan_from_wiki_search(result)
                 if subspan == c.span:
-                    c.set_wiki_entry(result)
-        self.constituents = sorted(self.constituents)
+                    c.set_wiki_entry(result[0])
+                else:
+                    dspan = c.span.difference(subspan)
+                    if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN,
+                                                        CAT_PREPOSITION, CAT_ADJECTIVE] or
+                                        x.category.test_returns_entity_modifier() or
+                                        x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
+                                        x.pos in [POS_PREPOSITION, POS_DETERMINER], dspan)):
+                        c.set_wiki_entry(result[0])
+                    elif all(map(lambda x: x.pos in [POS_PROPER_NOUN, POS_PROPER_NOUN_S], dspan)):
+                        # Need to search page for these words
+                        summary = result[0].summary.lower()
+                        if all(map(lambda x: x.stem.lower() in summary, dspan)):
+                            c.set_wiki_entry(result[0])
+                        else:
+                            content = result[0].content
+                            if all(map(lambda x: x.stem.lower() in content, dspan)):
+                                c.set_wiki_entry(result[0])
+
+        # Remove irrelevent entries
+        if len(to_remove) != 0:
+            filtered_constituents = []
+            for i in range(len(self.constituents)):
+                if i not in to_remove:
+                    filtered_constituents.append(self.constituents[i])
+            self.constituents = filtered_constituents
+
         # If a constituent head and its category is N/N or a noun modifier and it is an RT_ATTRIBUTE
         # then all direct descendents are also attributes
         for c in self.constituents:
@@ -1653,7 +1701,8 @@ def process_ccg_pt(pt, options=0):
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
     ccg = Ccg2Drs(options | CO_FAST_RENAME)
-    pt = pt_to_utf8(pt)
+    if future_string != unicode:
+        pt = pt_to_utf8(pt)
     ccg.build_execution_sequence(pt)
     ccg.create_drs()
     ccg.final_rename()

@@ -1,5 +1,6 @@
+from __future__ import unicode_literals, print_function
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var, compare_lists_eq
-from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
+from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG, Showable
 from common import LambdaDRSVar
 from drs import AbstractDRSRef, DRSRef, LambdaDRSRef, AbstractDRSCond, AbstractDRS, LambdaTuple
 from drs import LambdaDRS, Merge, DRS
@@ -8,6 +9,7 @@ from drs import Rel, Neg, Imp, Or, Diamond, Box, Prop
 from drs import get_new_drsrefs
 import networkx as nx
 import weakref
+from marbles import safe_utf8_decode, safe_utf8_encode, native_string, future_string
 
 
 PVar = int
@@ -228,16 +230,16 @@ class MAP(object):
         return self._v1 if idx == 0 else self._v2
 
     def __str__(self):
-        return '(%i, %i)' % (self._v1, self._v2)
+        return b'(%i, %i)' % (self._v1, self._v2)
 
     def __repr__(self):
-        return 'MAP(%i, %i)' % (self._v1, self._v2)
+        return b'<MAP>:(%i, %i)' % (self._v1, self._v2)
 
     def __unicode__(self):
         return u'(%i, %i)' % (self._v1, self._v2)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(unicode(self))
 
     def swap(self):
         """Swap map members."""
@@ -269,7 +271,7 @@ class PDRSRef(DRSRef):
         super(PDRSRef,self).__init__(drsVar)
 
     def __repr__(self):
-        return 'PDRSRef(%s)' % self._var
+        return b'<PDRSRef>:%s' % self._var
 
     def _has_antecedent(self, drs, conds):
         return False
@@ -296,7 +298,7 @@ class LambdaPDRSRef(LambdaDRSRef):
         super(LambdaPDRSRef,self).__init__(lambdaVar, pos)
 
     def __repr__(self):
-        return 'LambdaPDRSRef(%s,%i)' % (self._var.var, self._pos)
+        return b'<LambdaPDRSRef>:(%s,%i)' % (self._var.var, self._pos)
 
     def _has_antecedent(self, drs, conds):
         return False
@@ -332,7 +334,7 @@ class PRef(AbstractDRSRef):
         return type(self) == type(other) and self._plabel == other._plabel and self._ref == other._ref
 
     def __repr__(self):
-        return 'PRef(%i,%s)' % (self._plabel, repr(self._ref))
+        return b'<PRef>:(%i,%s)' % (self._plabel, self._ref)
 
     @property
     def isresolved(self):
@@ -698,7 +700,7 @@ class LambdaPDRS(AbstractPDRS):
         return type(self) == type(other) and self._var == other._var and self._pos == other._pos
 
     def __repr__(self):
-        return 'LambdaPDRS(%s,%i)' % (self._var, self._pos)
+        return b'LambdaPDRS(%s,%i)' % (self._var, self._pos)
 
     def _isproper_subdrsof(self, d):
         """Help for isproper"""
@@ -873,9 +875,6 @@ class GenericMerge(AbstractPDRS):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
-
-    def __repr__(self):
-        return 'GMerge(%s,%s)' % (repr(self._drsA), repr(self._drsB))
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
@@ -1089,7 +1088,13 @@ class AMerge(GenericMerge):
         super(AMerge, self).__init__(drsA, drsB)
 
     def __repr__(self):
-        return 'AMerge(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+        return b'<AMerge>:%s' % self
+
+    def __unicode__(self):
+        return '%s %s %s' % (unicode(self._drsA), Showable.opAMerge, unicode(self._drsB))
+
+    def __str__(self):
+        return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opAMerge), str(self._drsB))
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isPresupPDRS</a>.
     ##
@@ -1149,7 +1154,13 @@ class PMerge(GenericMerge):
         super(PMerge, self).__init__(drsA, drsB)
 
     def __repr__(self):
-        return 'PMerge(%s,%s)' % (repr(self._drsA), repr(self._drsB))
+        return b'<PMerge>:%s' % self
+
+    def __unicode__(self):
+        return '%s %s %s' % (unicode(self._drsA), Showable.opPMerge, unicode(self._drsB))
+
+    def __str__(self):
+        return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opPMerge), str(self._drsB))
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs">/Data/DRS/Properties.hs:isPresupPDRS</a>.
     ##
@@ -1255,7 +1266,13 @@ class PDRS(AbstractPDRS):
                and compare_lists_eq(self._conds, other._conds)
 
     def __repr__(self):
-        return 'PDRS(%i,%s,%s)' % (self._label, repr(self._refs), repr(self._conds))
+        return b'<PDRS>:%s' % self
+
+    def __unicode__(self):
+        return self.show(SHOW_LINEAR)
+
+    def __str__(self):
+        return safe_utf8_encode(self.show(SHOW_LINEAR))
 
     def _isproper_subdrsof(self, gd):
         """Help for isproper"""
@@ -1779,7 +1796,13 @@ class PCond(AbstractDRSCond, IPDRSCond):
         return type(self) == type(other) and self._plabel == other._plabel and self._cond == other._cond
 
     def __repr__(self):
-        return 'PCond(%i,%s)' % (self._plabel, repr(self._cond))
+        return b'<PCond>:%s' % self
+
+    def __unicode__(self):
+        return u'(%i,%s)' % (self._plabel, unicode(self._cond))
+
+    def __str__(self):
+        return b'(%i,%s)' % (self._plabel, str(self._cond))
 
     def _set_accessible(self, d):
         # Pass down to member condition

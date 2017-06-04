@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 """CCG Model"""
 
+from __future__ import unicode_literals, print_function
 import os
 import re
 
-from datapath import DATA_PATH
-from marbles.ie.ccg import Category, CAT_Sadj, CAT_CONJ, CAT_Sany
+from marbles.ie.ccg import Category, CAT_Sadj, CAT_CONJ, CAT_Sany, datapath
 from marbles.ie.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.drs import DRSRef
 from marbles.ie.utils.cache import Cache
+from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 
 
 class FunctorTemplateGeneration(object):
@@ -61,9 +62,9 @@ class FunctorTemplate(object):
 
     def __repr__(self):
         """Return the model as a string."""
-        return self._clean_category.signature + ':' + self.__str__()
+        return native_string(self._clean_category.signature + ':' + future_string(self))
 
-    def __str__(self):
+    def _get_str(self):
         """Return the model as a string."""
         line = []
         for i in range(len(self.constructor_rule)):
@@ -85,6 +86,12 @@ class FunctorTemplate(object):
         else:
             line.append(self.final_ref.var.to_string())
         return ''.join(line)
+
+    def __str__(self):
+        return safe_utf8_encode(self._get_str())
+
+    def __unicode__(self):
+        return safe_utf8_decode(self._get_str())
 
     @property
     def constructor_rule(self):
@@ -393,12 +400,12 @@ class Model(object):
         Remarks:
             Used to load templates from a file.
         """
-        if isinstance(cat, str):
+        if isinstance(cat, (str, unicode)):
             cat = Category(cat)
         elif not isinstance(cat, Category):
             raise TypeError('Model.build_template() expects signature or Category')
         if final_atom:
-            if isinstance(final_atom, str):
+            if isinstance(final_atom, (str, unicode)):
                 final_atom = Category(final_atom)
             elif not isinstance(final_atom, Category):
                 raise TypeError('Model.build_template() expects signature or Category')
@@ -432,11 +439,11 @@ class Model(object):
         Remarks:
             Used to load unary rules from a file.
         """
-        if isinstance(result, str):
+        if isinstance(result, (str, unicode)):
             result = Category(result)
         elif not isinstance(result, Category):
             raise TypeError('Model.build_unary_rule() expects signature or Category result')
-        if isinstance(argument, str):
+        if isinstance(argument, (str, unicode)):
             argument = Category(argument)
         elif not isinstance(argument, Category):
             raise TypeError('Model.build_unary_rule() expects signature or Category argument')
@@ -471,8 +478,8 @@ class Model(object):
         return None
 
     def infer_template(self, category):
-        category = category.remove_conj_feature()
         """Attempt to build a template from existing templates if possible."""
+        category = category.remove_conj_feature()
         if category.isfunctor and not self.issupported(category):
             catArg = category.argument_category()
             catArgArg = catArg.argument_category()
@@ -503,11 +510,11 @@ class Model(object):
         return None
 
     def lookup_unary(self, result, argument):
-        if isinstance(result, str):
+        if isinstance(result, (str, unicode)):
             result = Category(result)
         elif not isinstance(result, Category):
             raise TypeError('Model.lookup_unary() expects signature or Category result')
-        if isinstance(argument, str):
+        if isinstance(argument, (str, unicode)):
             argument = Category(argument)
         elif not isinstance(argument, Category):
             raise TypeError('Model.lookup_unary() expects signature or Category argument')
@@ -552,7 +559,7 @@ class Model(object):
 ## @cond
 # Run scripts/make_functor_templates.py to create templates file
 try:
-    _tcache = Model.load_templates(os.path.join(DATA_PATH, 'functor_templates.dat'))
+    _tcache = Model.load_templates(os.path.join(datapath.DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap

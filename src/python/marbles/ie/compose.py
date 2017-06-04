@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Compositional DRT"""
 
+from __future__ import unicode_literals, print_function
 import weakref
 import collections
 from marbles.ie.drt.common import SHOW_LINEAR, DRSConst, DRSVar
@@ -12,6 +13,7 @@ from marbles.ie.ccg import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_
     RL_TC_CONJ
 from marbles.ie.drt.utils import iterable_type_check, intersect, union, union_inplace, remove_dups, rename_var
 from marbles.ie.doc import IndexSpan
+from marbles import safe_utf8_decode, safe_utf8_encode, native_string, future_string
 
 ## @{
 ## @ingroup gconst
@@ -294,17 +296,23 @@ class DrsProduction(AbstractProduction):
         self._span = span
 
     def __repr__(self):
-        lr = [r.var.to_string() for r in self.lambda_refs]
+        return str(self)
+
+    def __unicode__(self):
+        lr = [unicode(r.var) for r in self.lambda_refs]
         if self._span is not None and len(self._span) != 0:
             # Span repr include DRS representation
-            fn = repr(self.span)
+            fn = unicode(self.span)
         else:
-            fn = 'f(' + ','.join([u.var.to_string() for u in self.universe]) + '| ' + \
-                 ','.join([v.var.to_string() for v in self.freerefs]) + ')'
+            fn = u'f(' + ','.join([unicode(u.var) for u in self.universe]) + u'| ' + \
+                 u','.join([unicode(v.var) for v in self.freerefs]) + u')'
         if len(lr) == 0:
             return fn
         #    return self.drs.show(SHOW_LINEAR).encode('utf-8')
-        return 'λ' + 'λ'.join(lr) + '.' + fn
+        return u'λ' + u'λ'.join(lr) + u'.' + fn
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
 
     def get_raw_variables(self):
         """Get the variables. Both free and bound referents are returned.
@@ -395,10 +403,16 @@ class ProductionList(AbstractProduction):
         self._compList = compList
 
     def __repr__(self):
-        lr = [r.var.to_string() for r in self.lambda_refs]
+        return str(self)
+
+    def __unicode__(self):
+        lr = [unicode(r.var) for r in self.lambda_refs]
         if len(lr) == 0:
-            return '[' + ';'.join([repr(x) for x in self._compList]) + ']'
-        return 'λ' + 'λ'.join(lr) + '.[' + ';'.join([repr(x) for x in self._compList]) + ']'
+            return u'[' + ';'.join([unicode(x) for x in self._compList]) + u']'
+        return u'λ' + u'λ'.join(lr) + u'.[' + u';'.join([unicode(x) for x in self._compList]) + u']'
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
 
     def get_raw_variables(self):
         u = self.lambda_refs
@@ -570,7 +584,7 @@ class ProductionList(AbstractProduction):
         universe = []
         for d in ml:
             assert d.span is None or d.span.sentence is sentence
-            span.union(d.span)
+            span = span.union(d.span)
             universe.extend(d._universe)
             freerefs.extend(d._freerefs)
 
@@ -619,29 +633,35 @@ class FunctorProduction(AbstractProduction):
             self._outer = None
 
     def _repr_helper1(self, i):
-        s = 'λ' + chr(i)
+        s = u'λ' + unichr(i)
         if self._comp is not None and self._comp.isfunctor:
             s = self._comp._repr_helper1(i+1) + s
         return s
 
     def _repr_helper2(self, i):
-        v = chr(i)
-        r = ','.join([x.var.to_string() for x in self._lambda_refs.referents])
+        v = unichr(i)
+        r = u','.join([unicode(x.var) for x in self._lambda_refs.referents])
         if self._comp is not None:
             if self._comp.isfunctor:
                 s = self._comp._repr_helper2(i+1)
             else:
                 s = repr(self._comp)
             if self._category.isarg_right:
-                return '%s;%s(%s)' % (s, v, r)
+                return u'%s;%s(%s)' % (s, v, r)
             else:
-                return '%s(%s);%s' % (v, r, s)
+                return u'%s(%s);%s' % (v, r, s)
         else:
-            return '%s(%s)' % (v, r)
+            return u'%s(%s)' % (v, r)
+
+    def __unicode__(self):
+        return self._repr_helper1(ord(u'P')) + ''.join([u'λ'+unicode(v.var) for v in self.lambda_refs]) \
+               + u'.<' + self._repr_helper2(ord(u'P')) + u'>'
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
 
     def __repr__(self):
-        return self._repr_helper1(ord('P')) + ''.join(['λ'+v.var.to_string() for v in self.lambda_refs]) \
-               + '.<' + self._repr_helper2(ord('P')) + '>'
+        return str(self)
 
     def _get_variables(self, u):
         if self._comp is not None:
