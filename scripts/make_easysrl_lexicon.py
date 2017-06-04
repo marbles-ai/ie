@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals, print_function
 import os
 import re
 import sys
@@ -15,6 +16,7 @@ sys.path.insert(0, pypath)
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import extract_lexicon_from_pt
 from marbles.ie.ccg import Category
+from marbles import safe_utf8_encode
 
 
 def die(s):
@@ -102,15 +104,15 @@ if __name__ == '__main__':
 
     rtdict = {}
     for idx in range(len(dictionary)):
-        fname = chr(idx+0x41)
+        fname = unichr(idx+0x41)
         filepath = os.path.join(easysrl_path, 'az', fname + '.txt')
         with open(filepath, 'w') as fd:
             d = dictionary[idx]
             for k, v in d.iteritems():
-                fd.write('<predicate name=\'%s\'>\n' % k)
+                fd.write(b'<predicate name=\'%s\'>\n' % safe_utf8_encode(k))
                 for x in v[0]:
-                    fd.write(x)
-                    fd.write('\n')
+                    fd.write(safe_utf8_encode(x))
+                    fd.write(b'\n')
                     nc = x.split(':')
                     if len(nc) == 2:
                         c = Category.from_cache(Category(nc[1].strip()).clean(True))
@@ -125,9 +127,9 @@ if __name__ == '__main__':
                         else:
                             rtdict[rt] = {c: [nc[0]]}
                 for x in v[1]:
-                    fd.write('sentence id: ' + x)
-                    fd.write('\n')
-                fd.write('</predicate>\n')
+                    fd.write(b'sentence id: ' + safe_utf8_encode(x))
+                    fd.write(b'\n')
+                fd.write(b'</predicate>\n')
             # Free up memory
             dictionary[idx] = None
             d = None
@@ -136,11 +138,11 @@ if __name__ == '__main__':
         filepath = os.path.join(easysrl_path, 'rt', fname + '.txt')
         with open(filepath, 'w') as fd:
             for c, vs in cdict.iteritems():
-                fd.write('<category signature=\'%s\'>\n' % c.signature)
+                fd.write(b'<category signature=\'%s\'>\n' % safe_utf8_encode(c))
                 for v in vs:
                     fd.write(v)
-                    fd.write('\n')
-                fd.write('</category>\n\n')
+                    fd.write(b'\n')
+                fd.write(b'</category>\n\n')
 
 
 

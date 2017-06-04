@@ -21,6 +21,7 @@ from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmet
 from marbles.ie.doc import UnboundSentence, IndexSpan, Constituent
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 
+
 ## @{
 ## @ingroup gconst
 ## @defgroup reftypes DRS Referent Types
@@ -734,6 +735,7 @@ class Lexeme(object):
             if isverb and template.isfinalevent:
                 conds = []
                 vncond = None
+                vnclasses = []
                 try:
                     vnclasses = [] if no_vn else VERBNETDB.name_index[self.stem]
                     if len(vnclasses) == 1:
@@ -1721,7 +1723,8 @@ def pt_to_ccgbank(pt, fmt=True):
     Returns:
         A string
     """
-    pt = pt_to_utf8(pt)
+    if future_string != unicode:
+        pt = pt_to_utf8(pt)
     ccg = Ccg2Drs()
     ccg.build_execution_sequence(pt)
     s = ccg.get_predarg_ccgbank(fmt)
@@ -1739,7 +1742,8 @@ def extract_predarg_categories_from_pt(pt, lst=None):
         A list of Category instances.
     """
     global _PredArgIdx
-    pt = pt_to_utf8(pt)
+    if future_string != unicode:
+        pt = pt_to_utf8(pt)
     if lst is None:
         lst = []
 
@@ -1764,6 +1768,20 @@ def extract_predarg_categories_from_pt(pt, lst=None):
     return lst
 
 
+class TestSentence(UnboundSentence):
+    def __init__(self, lst):
+        self.lst = lst
+
+    def __len__(self):
+        return len(self.lst)
+
+    def at(self, i):
+        return self.lst[i]
+
+    def get_constituents(self):
+        raise []
+
+
 ## @ingroup gfn
 def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
     """Extract the lexicon and templates from a CCG parse tree.
@@ -1775,7 +1793,9 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
     Returns:
         A dictionary of functor instances.
     """
-    pt = pt_to_utf8(pt)
+
+    if future_string != unicode:
+        pt = pt_to_utf8(pt)
     if dictionary is None:
         dictionary = map(lambda x: {}, [None]*26)
     if uid is None:
@@ -1803,7 +1823,7 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             template = lexeme.get_template()
             if template is None:
                 continue
-            fn = lexeme.get_production(UnboundSentence([lexeme]))
+            fn = lexeme.get_production(TestSentence([lexeme]))
             if lexeme.drs is None or len(fn.lambda_refs) == 1:
                 continue
 
@@ -1820,7 +1840,7 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
                     lst[0].add(c)
                     lst[1].add(uid)
                 else:
-                    dictionary[idx][lexeme.stem] = [{c}, {uid}]
+                    dictionary[idx][lexeme.stem] = [set(c), set(uid)]
 
     return dictionary
 

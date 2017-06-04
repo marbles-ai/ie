@@ -381,9 +381,9 @@ class Model(object):
             for k, v in self._TEMPLATES:
                 final_atom = v.final_atom
                 if final_atom != Category(k).extract_unify_atoms(False)[-1]:
-                    fd.write('%s,  %s\n' % (v.predarg_category.signature, v.final_atom))
+                    fd.write(b'%s,  %s\n' % (v.predarg_category, v.final_atom))
                 else:
-                    fd.write('%s\n' % v.predarg_category)
+                    fd.write(b'%s\n' % v.predarg_category)
 
     @classmethod
     def build_template(cls, cat, final_atom=None, construct_empty=False):
