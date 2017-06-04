@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals, print_function
 import datetime
 import os
 import sys
@@ -16,6 +17,7 @@ from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.ccg import Category
 from marbles.ie.utils.cache import Cache
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles import safe_utf8_encode, future_string
 
 
 #from marbles.ie.parse import parse_ccg_derivation
@@ -61,8 +63,8 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
                 pt = parse_ccg_derivation(ccgbank)
                 extract_predarg_categories_from_pt(pt, rules)
             except Exception as e:
-                failed_parse.append('CCGBANK: ' + ccgbank.strip())
-                failed_parse.append('Error: ' + str(e))
+                failed_parse.append(safe_utf8_encode('CCGBANK: ' + ccgbank.strip()))
+                failed_parse.append(safe_utf8_encode('Error: %s' % e))
 
     progress = (progress / 10) * 1000
     for predarg in rules:
@@ -76,11 +78,11 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
                 dict[catkey.signature] = template
             elif verify:
                 f1 = dict[catkey.signature]
-                t1 = str(f1)
-                t2 = str(template)
+                t1 = future_string(f1)
+                t2 = future_string(template)
                 assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.predarg_category, predarg)
         except Exception as e:
-            failed_rules.append(str(predarg) + ': ' + str(e))
+            failed_rules.append(safe_utf8_encode('%s: %s' % (predarg, e)))
             # DEBUG ?
             if False:
                 try:
@@ -93,7 +95,7 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
     if len(failed_parse) != 0:
         print('Warning: ldc - %d parses failed' % (len(failed_parse)/2))
         with open(os.path.join(outdir, 'parse_ccg_derivation_failed.dat'), 'w') as fd:
-            fd.write('\n'.join(failed_parse))
+            fd.write(b'\n'.join(failed_parse))
         if verbose:
             for x, m in failed_parse:
                 print(m)
@@ -101,7 +103,7 @@ def build_from_ldc_ccgbank(dict, outdir, verbose=False, verify=True):
     if len(failed_rules) != 0:
         print('Warning: ldc - %d rules failed' % len(failed_rules))
         with open(os.path.join(outdir, 'functor_ldc_templates_failed.dat'), 'w') as fd:
-            fd.write('\n'.join(failed_rules))
+            fd.write(b'\n'.join(failed_rules))
         if verbose:
             for m in failed_rules:
                 print(m)
@@ -148,7 +150,7 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
                 t2 = str(template)
                 assert t1 == t2, 'verify failed\n  t1=%s\n  t2=%s\n  f1=%s\n  f2=%s' % (t1, t2, f1.predarg_category, predarg)
         except Exception as e:
-            failed_rules.append(str(predarg) + ': ' + str(e))
+            failed_rules.append(safe_utf8_encode('%s: %s' % (predarg, e)))
             # DEBUG ?
             if False:
                 try:
@@ -161,7 +163,7 @@ def build_from_easysrl(dict, outdir, modelPath, verbose=False, verify=True):
     if len(failed_rules) != 0:
         print('Warning: easysrl - %d rules failed' % len(failed_rules))
         with open(os.path.join(outdir, 'functor_easysrl_templates_failed.dat'), 'w') as fd:
-            fd.write('\n'.join(failed_rules))
+            fd.write(b'\n'.join(failed_rules))
         if verbose:
             for m in failed_rules:
                 print(m)
@@ -207,7 +209,7 @@ if __name__ == "__main__":
     if options.verbose:
         print('The following %d categories were processed correctly...' % len(dict))
         for k, v in dict.iteritems():
-            print('%s: %s' % (k, str(v)))
+            print('%s: %s' % (k, v))
 
     if len(dict) != 0:
         Category.initialize_cache([Category(k) for k, v in dict.iteritems()])
