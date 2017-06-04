@@ -6,14 +6,17 @@
     http://bl.ocks.org/nbremer/f9dacd23eece9d23669c
 */
 
+// Let's fill half the screen
 var displayWidth = $(window).innerWidth()/2;
 var mobileWidth = (displayWidth > 500 ? false : true);
-//var mobileWidth = true;
 
+var globalColor = "#1d1ca3";
+
+// Margins in all directions (buffer space)
 var margin = {top: 10,
               bottom: 10,
-              right: 50,
-              left: 50};
+              right: 10,
+              left: 10};
 
 var width = Math.min(displayWidth, 800) - margin.left - margin.right;
 
@@ -30,53 +33,53 @@ var wrapper = svg.append("g").attr("class", "chordWrapper")
                                 (width / 2 + margin.left) +
                                 "," +
                                 (height / 2 + margin.top) +
-                                ")");;
+                                ")");
 
 var outerRadius = Math.min(width, height) / 2 - (mobileWidth ? 80 : 100);
 
 var innerRadius = outerRadius * 0.95;
 
-var opacityDefault = 0.7;
+var opacityDefault = 0.8;
 
 var opacityLow = 0.02;
 
 var pullOutSize = (mobileWidth ? 20 : 50);
 
 // Titles
-var titleWrapper = svg.append("g").attr("class", "chordTitleWrapper");
-var titleOffset = mobileWidth ? 15 : 40;
-var titleSeparate = mobileWidth ? 30 : 0;
+// var titleWrapper = svg.append("g").attr("class", "chordTitleWrapper");
+// var titleOffset = mobileWidth ? 15 : 40;
+// var titleSeparate = mobileWidth ? 30 : 0;
 
 // Title in the top-left
-titleWrapper.append("text")
-    .attr("class", "title left")
-    .style("font-size", mobileWidth ? "12px" : "20px")
-    .attr("x", (width / 2 + margin.left - outerRadius - titleSeparate))
-    .attr("y", titleOffset)
-    .text("News Sources");
-
-titleWrapper.append("line")
-    .attr("class", "titleLine left")
-    .attr("x1", (width / 2 + margin.left - outerRadius - titleSeparate) * 0.6)
-    .attr("x2", (width / 2 + margin.left - outerRadius - titleSeparate) * 1.4)
-    .attr("y1", titleOffset + 8)
-    .attr("y2", titleOffset + 8);
-
-titleWrapper.append("text")
-    .attr("class", "right right")
-    .style("font-size", mobileWidth ? "12px" : "20px")
-    .attr("x", (width / 2 + margin.left + outerRadius + titleSeparate))
-    .attr("y", titleOffset)
-    .text("Marbles");
-
-titleWrapper.append("line")
-    .attr("class", "titleLine right")
-    .attr("x1", (width / 2 + margin.left - outerRadius - titleSeparate) * 0.6 +
-                (outerRadius + titleSeparate) * 2.0)
-    .attr("x2", (width / 2 + margin.left - outerRadius - titleSeparate) * 1.4 +
-                (outerRadius + titleSeparate) * 2.0)
-    .attr("y1", titleSeparate + 8)
-    .attr("y2", titleSeparate + 8);
+// titleWrapper.append("text")
+//     .attr("class", "title left")
+//     .style("font-size", mobileWidth ? "12px" : "20px")
+//     .attr("x", (width / 2 + margin.left - outerRadius - titleSeparate))
+//     .attr("y", titleOffset)
+//     .text("Sources");
+//
+// titleWrapper.append("line")
+//     .attr("class", "titleLine left")
+//     .attr("x1", (width / 2 + margin.left - outerRadius - titleSeparate) * 0.6)
+//     .attr("x2", (width / 2 + margin.left - outerRadius - titleSeparate) * 1.4)
+//     .attr("y1", titleOffset + 8)
+//     .attr("y2", titleOffset + 8);
+//
+// titleWrapper.append("text")
+//     .attr("class", "right right")
+//     .style("font-size", mobileWidth ? "12px" : "20px")
+//     .attr("x", (width / 2 + margin.left + outerRadius + titleSeparate))
+//     .attr("y", titleOffset)
+//     .text("Information");
+//
+// titleWrapper.append("line")
+//     .attr("class", "titleLine right")
+//     .attr("x1", (width / 2 + margin.left - outerRadius - titleSeparate) * 0.6 +
+//                 (outerRadius + titleSeparate) * 2.0)
+//     .attr("x2", (width / 2 + margin.left - outerRadius - titleSeparate) * 1.4 +
+//                 (outerRadius + titleSeparate) * 2.0)
+//     .attr("y1", titleSeparate + 8)
+//     .attr("y2", titleSeparate + 8);
 
 // Animations
 var defs = wrapper.append("defs");
@@ -89,21 +92,22 @@ var linearGradient = defs.append("linearGradient")
     .attr("y2", "0")
     .attr("spreadMethod", "reflect");
 
-linearGradient.append("animate")
-    .attr("attributeName", "x1")
-    .attr("values", "0%;100%")
-    .attr("dur", "7s")
-    .attr("repeatCount", "indefinite");
-
-linearGradient.append("animate")
-    .attr("attributeName", "x2")
-    .attr("values", "100%;200%")
-    .attr("dur", "7s")
-    .attr("repeatCount", "indefinite")
+// linearGradient.append("animate")
+//     .attr("attributeName", "x1")
+//     .attr("values", "0%;100%")
+//     .attr("dur", "7s")
+//     .attr("repeatCount", "indefinite");
+//
+// linearGradient.append("animate")
+//     .attr("attributeName", "x2")
+//     .attr("values", "100%;200%")
+//     .attr("dur", "7s")
+//     .attr("repeatCount", "indefinite")
 
 linearGradient.append("stop")
     .attr("offset", "5%")
-    .attr("stop-color", "#E8E8E8");
+//    .attr("stop-color", "#E8E8E8");
+    .attr("stop-color", "#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "45%")
@@ -113,42 +117,52 @@ linearGradient.append("stop")
 linearGradient.append("stop")
     .attr("offset", "55%")
     //.attr("stop-color", "#A3A3A3");
-    .attr("stop-color", "#a37b05");
+    //.attr("stop-color", "#a37b05");
+    .attr("stop-color", "#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "95%")
-    .attr("stop-color", "#E8E8E8");
+    //.attr("stop-color", "#E8E8E8");
+    .attr("stop-color", "#1d1ca3");
 
 
 /*
     Set the first set of Names (before "") to the Marbles
     Set the second set of Names (between "", "") to the Sources
  */
-var Names = [ // Class 1
-             "Marble 1 (Macron)",
-             "Marble 2 (LePen)",
-             "Marble 3 (Trump)",
-             "Marble 4 (Health Care)",
-             "Marble 5 (Climate Change)",
-             "Marble 6 (Bill Nye)",
-             "Marble 7 (Apple)",
-             "Marble 8 (Patriarchy)",
-             "Marble 9 (Chem Trails)",
-            "Marble 10 (Russia)",
-            "Marble 11 (Syria)",
-            "Marble 12 (orange juice)",
-            "Other",
-            // Class 2
-            "",
-            "New York Times",
-            "CNN",
-            "Fox News",
-            "Breitbart",
-            "Speigel",
-            "BBC",
-            "The Onion",
-            ""
-            ];
+var Information = [
+    "Marble 1 (Macron)",
+    "Marble 2 (LePen)",
+    "Marble 3 (Trump)",
+    "Marble 4 (Health Care)",
+    "Marble 5 (Climate Change)",
+    "Marble 6 (Bill Nye)",
+    "Marble 7 (Apple)",
+    "Marble 8 (Patriarchy)",
+    "Marble 9 (Chem Trails)",
+    "Marble 10 (Russia)",
+    "Marble 11 (Syria)",
+    "Marble 12 (orange juice)",
+    "Other"
+];
+
+var DELIMITER = [
+    ""
+];
+
+var Sources = [
+    "New York Times",
+    "CNN",
+    "Fox News",
+    "Breitbart",
+    "Speigel",
+    "BBC",
+    "The Onion",
+];
+
+var Names = Information.concat(DELIMITER).concat(Sources).concat(DELIMITER);
+
+console.log("Names: " + Names);
 
 var respondents = 17533; // The number that make up the whole group
 
@@ -212,60 +226,74 @@ var g = wrapper.selectAll("g.group")
     .on("mouseout", fade(opacityDefault));
     //.on("mouseclick", function())
 
-g.append("path")
-    .style("stroke", function(d, i){
-        return (Names[i] === "" ? "none" : "#00A1DE");
-    })
-    .style("fill", function(d, i){
-        return (Names[i] === "" ? "none" : "auto");
-    })
-    .attr("d", arc)
-    .attr("transform", function(d, i){
-        d.pullOutSize = pullOutSize * (d.startAngle + 0.001 > Math.PI ? -1 : 1);
-        return "translate(" + d.pullOutSize + ',' + 0 + ")";
-    });
+function redraw(){
+    strokePath();
+    appendNames();
+    drawInnerChords();
+}
 
-// Append Names
-g.append("text")
-    .each(function(d){
-        d.angle = ((d.startAngle + d.endAngle) / 2) + offset;
-    })
-    .attr("dy", ".35em")
-    .attr("class", "titles")
-    .style("font-size", mobileWidth ? "8px" : "10px")
-    .attr("text-anchor", function(d){
-        return d.angle > Math.PI ? "end" : null;
-    })
-    .attr("transform", function(d, i){
-        var c = arc.centroid(d);
-        return "translate(" + (c[0] + d.pullOutSize) + "," + c[1] + ")"
-            + "rotate(" + (d.angle * 180 / Math.PI - 90) + ")"
-            + "translate(" + 20 + ",0)"
-            + (d.angle > Math.PI ? "rotate(180)" : "")
-    })
-    .text(function(d, i){
-        return Names[i];
-    })
-     .call(wrapChord, 100);
+redraw();
 
+function strokePath() {
+    g.append("path")
+        .style("stroke", function (d, i) {
+            return (Names[i] === "" ? "none" : "#00A1DE");
+        })
+        .style("fill", function (d, i) {
+            return (Names[i] === "" ? "none" : "auto");
+        })
+        .attr("d", arc)
+        .attr("transform", function (d, i) {
+            d.pullOutSize = pullOutSize * (d.startAngle + 0.001 > Math.PI ? -1 : 1);
+            return "translate(" + d.pullOutSize + ',' + 0 + ")";
+        });
+}
+
+function appendNames() {
+
+    // Append Names
+    g.append("text")
+        .each(function (d) {
+            d.angle = ((d.startAngle + d.endAngle) / 2) + offset;
+        })
+        .attr("dy", ".35em")
+        .attr("class", "titles")
+        .style("font-size", mobileWidth ? "8px" : "10px")
+        .attr("text-anchor", function (d) {
+            return d.angle > Math.PI ? "end" : null;
+        })
+        .attr("transform", function (d, i) {
+            var c = arc.centroid(d);
+            return "translate(" + (c[0] + d.pullOutSize) + "," + c[1] + ")"
+                + "rotate(" + (d.angle * 180 / Math.PI - 90) + ")"
+                + "translate(" + 20 + ",0)"
+                + (d.angle > Math.PI ? "rotate(180)" : "")
+        })
+        .text(function (d, i) {
+            return Names[i];
+        })
+        .call(wrapChord, 100);
+}
+
+function drawInnerChords() {
 // Draw Inner Chords
-wrapper.selectAll("path.chord")
-    .data(chord.chords)
-    .enter().append("path")
-    .attr("class", "chord")
-    // Set this to None
-    .style("stroke", "blue")
-    .style("fill", "url(#animatedGradient)")
-    .style("opacity", function(d){
-        return (Names[d.source.index] === "" ? 0 : opacityDefault);
-    })
-    .style("pointer-events", function(d, i){
-        return (Names[d.source.index] === "" ? "none": "auto");
-    })
-    .attr("d", path)
-    .on("mouseover", fadeOnChord)
-    .on("mouseout", fade(opacityDefault));
-
+    wrapper.selectAll("path.chord")
+        .data(chord.chords)
+        .enter().append("path")
+        .attr("class", "chord")
+        // Set this to None
+        .style("stroke", "none"/*"blue"*/)
+        .style("fill", "url(#animatedGradient)")
+        .style("opacity", function (d) {
+            return (Names[d.source.index] === "" ? 0 : opacityDefault);
+        })
+        .style("pointer-events", function (d, i) {
+            return (Names[d.source.index] === "" ? "none" : "auto");
+        })
+        .attr("d", path)
+        .on("mouseover", fadeOnChord)
+        .on("mouseout", fade(opacityDefault));
+}
 
 // Other functions
 function startAngle(d){
