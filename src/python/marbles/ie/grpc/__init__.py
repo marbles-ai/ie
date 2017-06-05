@@ -4,7 +4,7 @@ import grpc
 import os
 import time
 from subprocess import call
-from marbles import PROJDIR, USE_DEVEL_PATH
+from marbles import PROJDIR, safe_utf8_encode, safe_utf8_decode, future_string
 
 
 ## EasySRL gRPC service port
@@ -108,9 +108,11 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
         infer_future = client.infer.future(request, timeout)
         # FIXME: Need to add error reporting to Response structure.
         response = infer_future.result()
+    if future_string == unicode:
+        isUnicode = True
     if isinstance(response.msg, unicode):
-        return response.msg if isUnicode else response.msg.encode('utf-8')
-    return response.msg if not isUnicode else response.msg.decode('utf-8')
+        return response.msg if isUnicode else safe_utf8_encode(response.msg)
+    return response.msg if not isUnicode else safe_utf8_decode(response.msg)
 
 
 class CcgParserService:
@@ -124,9 +126,9 @@ class CcgParserService:
             logger: Optional python logger.
             workdir: Optional path to daemon if in release mode.
         """
-        self.workdir = workdir if workdir else os.getcwd()
+        self.workdir = safe_utf8_encode(workdir) if workdir else os.getcwd()
         self.grpc_stop_onclose = False
-        self.daemon_name = daemon
+        self.daemon_name = safe_utf8_encode(daemon)
         self.logger = logger
         try:
             # Check if easyxxx service has started. If not start it.

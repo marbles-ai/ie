@@ -11,7 +11,7 @@ from pysmt.typing import REAL, FunctionType
 from pysmt.exceptions import SolverReturnedUnknownResultError
 from pysmt.environment import get_env
 import os
-from marbles import future_string
+from marbles import future_string, safe_utf8_encode
 
 
 z3name = "z3"
@@ -49,9 +49,6 @@ class FOLForm(Showable):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
-
-    def __repr__(self):
-        return self.__str__()
 
     def show(self, notation):
         if notation == SHOW_BOX:

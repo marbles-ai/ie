@@ -1823,7 +1823,7 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             template = lexeme.get_template()
             if template is None:
                 continue
-            fn = lexeme.get_production(TestSentence([lexeme]))
+            fn = lexeme.get_production(TestSentence([lexeme]), options=CO_NO_VERBNET)
             if lexeme.drs is None or len(fn.lambda_refs) == 1:
                 continue
 
@@ -1834,13 +1834,13 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             rel = DRSRelation(lexeme.stem)
             c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, lexeme.drs.conditions)
             if len(c) == 1:
-                c = repr(c[0]) + ': ' + template.predarg_category.signature
+                c = future_string(c[0]) + ': ' + template.predarg_category.signature
                 if lexeme.stem in dictionary:
                     lst = dictionary[idx][lexeme.stem]
                     lst[0].add(c)
                     lst[1].add(uid)
                 else:
-                    dictionary[idx][lexeme.stem] = [set(c), set(uid)]
+                    dictionary[idx][lexeme.stem] = [set([c]), set(uid)]
 
     return dictionary
 

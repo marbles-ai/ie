@@ -1,7 +1,7 @@
 from __future__ import unicode_literals, print_function
 from utils import iterable_type_check, compare_lists_eq
 import re
-from marbles import safe_utf8_decode, safe_utf8_encode
+from marbles import safe_utf8_decode, safe_utf8_encode, future_string
 
 
 ## @defgroup showtypes Show notation
@@ -191,12 +191,6 @@ class AbstractDRSVar(Showable):
     def idx(self):
         raise NotImplementedError
 
-    def __str__(self):
-        return safe_utf8_encode(self.to_string())
-
-    def __unicode__(self):
-        return safe_utf8_decode(self.to_string())
-
     ## @property name
     @property
     def name(self):
@@ -219,8 +213,11 @@ class DRSVar(AbstractDRSVar):
             self._name = m.group(1)
             self._idx = idx if len(m.group(2)) == 0 or idx != 0 else int(m.group(2))
 
-    def __repr__(self):
-        return '<DRSVar>:%s' % self.to_string()
+    def __str__(self):
+        return safe_utf8_encode(self.to_string())
+
+    def __unicode__(self):
+        return safe_utf8_decode(self.to_string())
 
     def __eq__(self, other):
         return type(self) == type(other) and self.to_string() == other.to_string()
@@ -277,9 +274,6 @@ class DRSConst(DRSVar):
     def __init__(self, *args, **kwargs):
         super(DRSConst, self).__init__(*args, **kwargs)
 
-    def __repr__(self):
-        return '<DRSConst>:%s' % self.to_string()
-
     def increase_new(self):
         return DRSConst(self._name, self._idx)
 
@@ -298,14 +292,17 @@ class LambdaDRSVar(AbstractDRSVar):
         self._var = drsVar
         self._set = drsVarSet
 
+    def __str__(self):
+        return safe_utf8_encode(self.show(SHOW_LINEAR))
+
+    def __unicode__(self):
+        return self.show(SHOW_LINEAR)
+
     def __ne__(self, other):
         return type(self) != type(other) or other._var != self._var or not compare_lists_eq(other._set, self._set)
 
     def __eq__(self, other):
         return type(self) == type(other) and other._var == self._var and compare_lists_eq(other._set, self._set)
-
-    def __repr__(self):
-        return '<LambdaVar>:%s' % self.show(SHOW_LINEAR)
 
     def __hash__(self):
         return hash(self._var) ^ hash(len(self._set))

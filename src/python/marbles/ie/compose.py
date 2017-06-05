@@ -295,9 +295,6 @@ class DrsProduction(AbstractProduction):
         self._universe = universe
         self._span = span
 
-    def __repr__(self):
-        return str(self)
-
     def __unicode__(self):
         lr = [unicode(r.var) for r in self.lambda_refs]
         if self._span is not None and len(self._span) != 0:
@@ -401,9 +398,6 @@ class ProductionList(AbstractProduction):
         elif not isinstance(compList, collections.deque):
             compList = collections.deque(compList)
         self._compList = compList
-
-    def __repr__(self):
-        return str(self)
 
     def __unicode__(self):
         lr = [unicode(r.var) for r in self.lambda_refs]
@@ -645,7 +639,7 @@ class FunctorProduction(AbstractProduction):
             if self._comp.isfunctor:
                 s = self._comp._repr_helper2(i+1)
             else:
-                s = repr(self._comp)
+                s = unicode(self._comp)
             if self._category.isarg_right:
                 return u'%s;%s(%s)' % (s, v, r)
             else:
@@ -659,9 +653,6 @@ class FunctorProduction(AbstractProduction):
 
     def __str__(self):
         return safe_utf8_encode(self.__unicode__())
-
-    def __repr__(self):
-        return str(self)
 
     def _get_variables(self, u):
         if self._comp is not None:
@@ -1497,7 +1488,7 @@ class FunctorProduction(AbstractProduction):
         assert self._comp is not None
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(g)))
+            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord('P')+self._get_position()), future_string(g)))
 
         # Ensure names do not conflict. Need to execute at outer scope so all variables are covered.
         # Try to keep var subscripts increasing left to right.
@@ -1584,7 +1575,7 @@ class FunctorProduction(AbstractProduction):
         self.clear()
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('          := %s' % repr(c))
+            print('          := %s' % future_string(c))
 
         return c
 
@@ -1636,7 +1627,7 @@ class PropProduction(FunctorProduction):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (repr(self.outer_scope), chr(ord('P')+self._get_position()), repr(d)))
+            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord('P')+self._get_position()), future_string(d)))
         if isinstance(d, ProductionList):
             d = d.unify()
         '''
@@ -1652,7 +1643,7 @@ class PropProduction(FunctorProduction):
             self.clear()
             d.set_lambda_refs(lr)
             if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-                print('          := %s' % repr(d))
+                print('          := %s' % future_string(d))
             return d
         lr = self._lambda_refs.referents
         lr.extend(d._universe)
@@ -1662,6 +1653,6 @@ class PropProduction(FunctorProduction):
         self.clear()
         dd.set_lambda_refs(lr)
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('          := %s' % repr(dd))
+            print('          := %s' % future_string(dd))
         return dd
 

@@ -30,9 +30,6 @@ class LambdaTuple(object):
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other._var and self._pos == other._pos
 
-    def __repr__(self):
-        return b'<LambdaTuple>:%s' % self
-
     def __unicode__(self):
         return u'(%s,%i)' % (unicode(self._var), self._pos)
 
@@ -546,9 +543,6 @@ class LambdaDRS(AbstractDRS):
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other._var and self._pos == other._pos
 
-    def __repr__(self):
-        return b'<LambdaDRS>:s' % self
-
     def __unicode__(self):
         return u'(%s,%i)' % (unicode(self._var), self._pos)
 
@@ -693,9 +687,6 @@ class DRS(AbstractDRS):
     def __eq__(self, other):
         return type(self) == type(other) and compare_lists_eq(self._refs, other._refs) \
                and compare_lists_eq(self._conds, other._conds)
-
-    def __repr__(self):
-        return b'<DRS>:%s' % self
 
     def _set_accessible(self, d):
         if self._accessible_drs is None:
@@ -1038,9 +1029,6 @@ class Merge(AbstractDRS):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
-
-    def __repr__(self):
-        return b'<Merge>:%s' % self
 
     def __unicode__(self):
         return '%s %s %s' % (safe_utf8_decode(self._drsA), Showable.opMerge, safe_utf8_decode(self._drsB))
@@ -1432,9 +1420,6 @@ class LambdaDRSRef(AbstractDRSRef):
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other.var and self._pos == other._pos
 
-    def __repr__(self):
-        return b'<LambdaDRSRef>:%s' % self
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         """Adds a trailing integer to the referent to make it unique."""
@@ -1461,9 +1446,6 @@ class DRSRef(AbstractDRSRef):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other.var
-
-    def __repr__(self):
-        return b'<DRSRef>:%s' % self.var.to_string()
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1535,9 +1517,6 @@ class LambdaDRSRelation(AbstractDRSRelation):
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other._var and self._idx == other._idx
 
-    def __repr__(self):
-        return b'<LambdaDRSRelation>:(%s,%i)' % (self.to_string(), self._idx)
-
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
         u.add(LambdaTuple(self._var, self._pos))
@@ -1564,9 +1543,6 @@ class DRSRelation(AbstractDRSRelation):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other._var
-
-    def __repr__(self):
-        return b'<DRSRelation>:%s' % self._var.to_string()
 
     # Helper for DRS.get_lambda_tuples()
     def _lambda_tuple(self, u):
@@ -1707,9 +1683,6 @@ class Rel(AbstractDRSCond):
             raise TypeError('Rel expects DRSRelation')
         self._rel = drsRel
         self._refs = drsRefs
-
-    def __repr__(self):
-        return b'<Rel>:%s' % self
 
     def __str__(self):
         return b'%s(%s)' % (str(self._rel), ','.join([str(x) for x in self._refs]))
@@ -1860,9 +1833,6 @@ class Neg(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._drs == other._drs
 
-    def __repr__(self):
-        return b'<Neg>:%s' % self
-
     def __str__(self):
         return safe_utf8_encode(Showable.opNeg) + str(self._drs)
 
@@ -2009,9 +1979,6 @@ class Imp(AbstractDRSCond):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
-
-    def __repr__(self):
-        return b'<Imp>:%s' % self
 
     def __str__(self):
         return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opImp), str(self._drsB))
@@ -2197,9 +2164,6 @@ class Or(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._drsA == other._drsA and self._drsB == other._drsB
 
-    def __repr__(self):
-        return b'<Or>:%s' % self
-
     def __str__(self):
         return b'%s %s %s' % (str(self._drsA), safe_utf8_encode(Showable.opOr), str(self._drsB))
 
@@ -2376,9 +2340,6 @@ class Prop(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._ref == other._ref and self._drs == other._drs
 
-    def __repr__(self):
-        return b'<Prop>:%s' % self
-
     def __unicode__(self):
         return '%s: %s' % (unicode(self._ref), unicode(self._drs))
 
@@ -2544,9 +2505,6 @@ class Diamond(AbstractDRSCond):
     def __eq__(self, other):
         return type(self) == type(other) and self._drs == other._drs
 
-    def __repr__(self):
-        return b'<Diamond>:%s' % self
-
     def __unicode__(self):
         return u'%s%s' % (Showable.opDiamond, unicode(self._drs))
 
@@ -2693,9 +2651,6 @@ class Box(AbstractDRSCond):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._drs == other._drs
-
-    def __repr__(self):
-        return b'<Box>:%s' % self
 
     def __unicode__(self):
         return u'%s%s' % (Showable.opBox, unicode(self._drs))

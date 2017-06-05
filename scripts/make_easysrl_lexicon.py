@@ -16,7 +16,7 @@ sys.path.insert(0, pypath)
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import extract_lexicon_from_pt
 from marbles.ie.ccg import Category
-from marbles import safe_utf8_encode
+from marbles import safe_utf8_encode, safe_utf8_decode
 
 
 def die(s):
@@ -26,7 +26,7 @@ def die(s):
 
 def print_progress(progress, tick=1, done=False):
     progress += 1
-    if (progress / tick) >= 79 or done:
+    if (progress / tick) > 79 or done:
         sys.stdout.write('.\n')
         sys.stdout.flush()
         return 0
@@ -89,6 +89,7 @@ if __name__ == '__main__':
 
             try:
                 # CCG parser is Java so output is UTF-8.
+                ccgbank = safe_utf8_decode(ccgbank)
                 pt = parse_ccg_derivation(ccgbank)
                 s = sentence_from_pt(pt).strip()
             except Exception:

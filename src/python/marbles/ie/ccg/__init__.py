@@ -711,6 +711,8 @@ class Category(Freezable):
         ops_cache[self._OP_REMOVE_CONJ_FEATURE] = self.from_cache(self.remove_conj_feature())
         ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
         ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
+        if self.extract_unify_atoms(False) is None:
+            pass
         ops_cache[self._OP_EXTRACT_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
         ops_cache[self._OP_RESULT_CAT] = self.result_category()
         ops_cache[self._OP_ARG_CAT] = self.argument_category()
@@ -745,8 +747,11 @@ class Category(Freezable):
             newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.signature)))
         else:
             newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
-        while not newcat.isfunctor and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
+        while not newcat.isfunctor and len(newcat.signature) >= 2 \
+                and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
             newcat = Category(newcat.signature[1:-1])
+        if len(newcat.signature) == 0:
+            pass
         return newcat if not deep else Category.from_cache(newcat.signature)
 
     def complete_tags(self, tag=900):
@@ -877,7 +882,9 @@ class Category(Freezable):
         Remarks:
             This method is used to create a marbles.ie.drt.compose.FunctorProduction from a category.
         """
-        if self.isatom:
+        if self.isempty:
+            return []
+        elif self.isatom:
             return [[self]] if follow else [self]
         elif self.isfunctor:
             if self._ops_cache is not None:
