@@ -22,3 +22,10 @@ def safe_utf8_decode(s):
 
 native_string = str
 future_string = unicode
+
+
+class Properties(object):
+    """Global properties used by sub-modules"""
+    # Exception rate limit. Exceptions of the same type, from same caller and line number are
+    # are rate limited to 1 every `exception_rlimit` seconds.
+    exception_rlimit = 2.0
