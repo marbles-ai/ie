@@ -2,6 +2,7 @@ from __future__ import unicode_literals, print_function
 import logging
 import inspect
 import time
+import sys
 from marbles import Properties
 
 
@@ -23,18 +24,32 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
         self.last_update_time = time.time()
 
     def find_caller(self):
+        if sys.exc_info()[2]:
+            return sys.exc_info()[2].tb_frame.f_code.co_filename, sys.exc_info()[2].tb_lineno
         frmrec = inspect.stack()[2]
         return frmrec[1:4]
 
     def exception(self, msg, *args, **kwargs):
-        """Logs an exception with rate limiting."""
+        """Logs an exception with rate limiting when form the same exception source. Arguments are the same as for
+        logger function of the same name except one extra keyword argument allows extra information to be used to
+        determine the exception source.
+
+        Args:
+            msg: The error message
+            rlimitby: Extra keyword argument to uniquely define the exception source. The default is file name, line
+                number, and exception type.
+        """
         if self.rlimit > 0:
+            extra_args = map(lambda y: y[1], filter(lambda x: x[0] == 'rlimitby', kwargs.iteritems()))
             exc_info = filter(lambda x: x[0] == 'exc_info' and isinstance(x[1], Exception), kwargs.iteritems())
+            kwargs = dict(filter(lambda x: x[0] != 'rlimitby', kwargs.iteritems()))
+            extra = ''.join(extra_args)
             caller = self.find_caller()
             if len(exc_info) == 0:
-                callerid = "%s:%s" % (caller[0], caller[1])
+                callerid = "%s:%s:%s" % (caller[0], caller[1], extra)
             else:
-                callerid = "%s:%s:%d" % (type(exc_info[0][1]).__name__, caller[0], caller[1])
+                callerid = "%s:%s:%d:%s" % (type(exc_info[0][1]).__name__, caller[0], caller[1], extra)
+            del caller  # prevent GC issues - see traceback source
 
             tmnew = time.time()
 

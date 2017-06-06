@@ -105,6 +105,37 @@ class LogTest(unittest.TestCase):
             'exception3'
         ]
         self.assertListEqual(expected, handler.buffer)
+        handler.buffer = []
+        logger.debug('debug')
+        for i in range(3):
+            try:
+                raise Exception('x%d' % i)
+            except Exception as e:
+                logger.exception('exception%d' % (1+i), exc_info=e)
+            if i == 1:
+                time.sleep(3.0)
+        expected = [
+            'debug',
+            'exception1',
+            'exception3'
+        ]
+        self.assertListEqual(expected, handler.buffer)
+        handler.buffer = []
+        logger.debug('debug')
+        for i in range(3):
+            try:
+                raise Exception('x%d' % i)
+            except Exception as e:
+                logger.exception('exception%d' % (1+i), exc_info=e, rlimitby='x%d' % i)
+            if i == 1:
+                time.sleep(3.0)
+        expected = [
+            'debug',
+            'exception1',
+            'exception2',
+            'exception3'
+        ]
+        self.assertListEqual(expected, handler.buffer)
 
 
 if __name__ == '__main__':
