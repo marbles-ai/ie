@@ -6,7 +6,15 @@ import wikipedia
 import re
 import collections
 import os
-from marbles import safe_utf8_encode, safe_utf8_decode, future_string, native_string
+import logging
+import requests
+import time
+from marbles import safe_utf8_encode, safe_utf8_decode
+from marbles.log import ExceptionRateLimitedLogAdaptor
+
+
+_actual_logger = logging.getLogger(__name__)
+_logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
 
 
 # Remove extra info from wikipedia topic
@@ -34,6 +42,16 @@ class Wikidata(object):
         self.categories = page.categories
         self.pageid = page.pageid
         self.url = page.url
+
+
+def safe_wikipage(query):
+    global _logger
+    try:
+        return wikipedia.page(title=query)
+    except wikipedia.PageError as e:
+        _logger.warning('wikipedia.page(%s) - %s', query, str(e))
+
+    return None
 
 
 class Constituent(object):
@@ -105,11 +123,12 @@ class Constituent(object):
     def set_wiki_entry(self, page):
         self.wiki_data = Wikidata(page)
 
-    def search_wikipedia(self, max_results=1):
+    def search_wikipedia(self, max_results=1, google=True):
         """Find a wikipedia topic from this span.
 
         Returns: A wikipedia topic.
         """
+        global _logger
         retry = True
         attempts = 0
         while retry:
@@ -117,9 +136,9 @@ class Constituent(object):
                 txt = self.span.text
                 topics = []
                 result = wikipedia.search(txt, results=max_results)
-                if result is not None:
+                if result is not None and len(result) != 0:
                     for t in result:
-                        wr = wikipedia.page(title=t)
+                        wr = safe_wikipage(t)
                         if wr is not None:
                             topics.append(wr)
 
@@ -127,14 +146,30 @@ class Constituent(object):
                     # Get suggestions from wikipedia
                     query = wikipedia.suggest(txt)
                     if query is not None:
-                        result = wikipedia.page(query)
+                        result = safe_wikipage(query)
                         if result is not None:
-                            return result
-                    if result is None:
+                            return [result]
+                    if google and (result is None or len(result) == 0):
                         # Try google search - hopefully will fix up spelling or ignore irrelevent words
                         scraper = google_search.GoogleScraper()
-                        urls = scraper.search(txt, 'wikipedia.com')
-                        topics = []
+                        spell, urls = scraper.search(txt, 'wikipedia.com')
+                        if spell is not None:
+                            result = wikipedia.search(txt, results=max_results)
+                            if result is not None and len(result) != 0:
+                                for t in result:
+                                    wr = safe_wikipage(t)
+                                    if wr is not None:
+                                        topics.append(wr)
+
+                            if len(topics) == 0:
+                                # Get suggestions from wikipedia
+                                query = wikipedia.suggest(txt)
+                                if query is not None:
+                                    result = safe_wikipage(query)
+                                    if result is not None and len(result) != 0:
+                                        return [result]
+                            else:
+                                return topics
                         seen = set()
                         for u in urls:
                             m = _WTOPIC.match(u)
@@ -142,19 +177,25 @@ class Constituent(object):
                                 t = m.group('topic')
                                 if t not in seen:
                                     seen.add(t)
-                                    wr = wikipedia.page(title=t.replace('_', ' '))
+                                    wr = safe_wikipage(t.replace('_', ' '))
                                     if wr:
                                         topics.append(wr)
                                         if len(topics) >= max_results:
                                             break
-                        return topics if len(topics) != 0 else None
-                return topics
+                return topics if len(topics) != 0 else None
+            except requests.exceptions.ConnectionError as e :
+                attempts += 1
+                retry = attempts <= 3
+                _logger.exception(exc_info=e)
+                time.sleep(0.25)
             except wikipedia.exceptions.DisambiguationError as e:
                 # TODO: disambiguation
                 retry = False
             except wikipedia.exceptions.HTTPTimeoutError as e:
                 attempts += 1
                 retry = attempts <= 3
+                _logger.exception(exc_info=e)
+                time.sleep(0.25)
 
         return None
 
@@ -210,7 +251,7 @@ class IndexSpan(object):
         return str(self.get_drs())
 
     def __eq__(self, other):
-        return len(self) == len(other) and len(set(self._indexes).intersection(other._indexes)) == len(self)
+        return other and len(self) == len(other) and len(set(self._indexes).intersection(other._indexes)) == len(self)
 
     def __ne__(self, other):
         return not self.__eq__(other)

@@ -866,7 +866,9 @@ class Lexeme(object):
 
             elif self.ispreposition:
                 if template.construct_empty:
-                    d = DrsProduction([], [], span=span)
+                    # Make sure we have one freeref. For functors it is a bad idea to use an empty DrsProduction
+                    # as the spans can be deleted by ProductionList.flatten().
+                    d = DrsProduction([], [refs[0]], span=span)
                 else:
                     self.drs = DRS([], [Rel(self.stem, refs)])
                     d = DrsProduction([], self.refs, span=span)
@@ -898,7 +900,9 @@ class Lexeme(object):
 
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
-                        d = DrsProduction([], [], span=span)
+                        # Make sure we have one freeref. For functors it is a bad idea to use an empty DrsProduction
+                        # as the spans can be deleted by ProductionList.flatten().
+                        d = DrsProduction([], [self.refs[0]], span=span)
                     elif self.pos == POS_MODAL:
                         self.mask |= RT_EVENT_MOD
                         self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
@@ -1322,7 +1326,7 @@ class Ccg2Drs(UnboundSentence):
                 subspan = c.span.get_subspan_from_wiki_search(result)
                 if subspan == c.span:
                     c.set_wiki_entry(result[0])
-                else:
+                elif subspan:
                     dspan = c.span.difference(subspan)
                     if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN,
                                                         CAT_PREPOSITION, CAT_ADJECTIVE] or
