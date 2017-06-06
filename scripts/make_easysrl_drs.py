@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals, print_function
 import os
 import re
 import sys
@@ -17,6 +18,7 @@ from marbles.ie.ccg2drs import process_ccg_pt, pt_to_ccgbank
 from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.drt.drs import DRS
+from marbles import safe_utf8_encode
 
 
 def die(s):
@@ -59,7 +61,7 @@ if __name__ == '__main__':
 
     failed_parse = 0
     failed_ccg2drs = []
-    start = 0
+    start = 119
     progress = -1
     for fn in allfiles:
         idx = idsrch.match(fn)
@@ -92,27 +94,29 @@ if __name__ == '__main__':
                 pccg = pt_to_ccgbank(pt)
             except Exception:
                 failed_parse += 1
+                raise
                 continue
 
             try:
                 d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
                 assert d is not None
                 assert isinstance(d, DRS)
-                d = d.show(SHOW_LINEAR).encode('utf-8').strip()
+                d = d.show(SHOW_LINEAR).strip()
             except Exception as e:
                 print(e)
                 failed_ccg2drs.append((name, i, ccgbank))
+                raise
                 continue
 
             with open(os.path.join(easysrl_path, idx, 'drs_%s_%04d.dat' % (idx, i)), 'w') as fd:
-                fd.write('<sentence>\n')
-                fd.write(s)
-                fd.write('\n</sentence>\n<drs>\n')
-                fd.write(d)
-                fd.write('\n</drs>\n<predarg>\n')
-                fd.write(pccg)
-                fd.write('\n')
-                fd.write('</predarg>\n')
+                fd.write(b'<sentence>\n')
+                fd.write(safe_utf8_encode(s))
+                fd.write(b'\n</sentence>\n<drs>\n')
+                fd.write(safe_utf8_encode(d))
+                fd.write(b'\n</drs>\n<predarg>\n')
+                fd.write(safe_utf8_encode(pccg))
+                fd.write(b'\n')
+                fd.write(b'</predarg>\n')
 
     if failed_parse != 0:
         print('%d derivations failed to parse' % failed_parse)
