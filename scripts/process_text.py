@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import unicode_literals, print_function
 import os
 import re
 import sys
@@ -13,6 +14,7 @@ datapath = os.path.join(pypath, 'marbles', 'ie', 'drt')
 sys.path.insert(0, pypath)
 
 from marbles.ie import grpc
+from marbles import safe_utf8_encode
 
 
 def die(s):
@@ -118,7 +120,6 @@ if __name__ == '__main__':
     wordsep = options.wordsep or '-'
     outfile = options.outfile or None
     daemon = options.daemon or 'easysrl'
-    daemon_port = grpc.EASYSRL_PORT if daemon == 'easysrl' else grpc.EASYCCG_PORT
 
     if len(args) == 0:
         die('missing filename')
@@ -126,20 +127,8 @@ if __name__ == '__main__':
     if daemon not in ['easysrl', 'easyccg']:
         die('daemon must be easysrl or easyccg')
 
-    svc_cmd = None
-    progress = 0
-    try:
-        # Check if service has started. If not start it.
-        stub, _ = grpc.get_client_transport('localhost', daemon_port)
-        ccg = grpc.ccg_parse(stub, '')
-    except Exception:
-        # Not started
-        call([os.path.join(projdir, 'scripts', 'start_server.sh'), daemon])
-        time.sleep(4)   # Give it some time to lock session access
-        stub, _ = grpc.get_client_transport('localhost', daemon_port)
-        # Call asynchronously - will wait until default session is created
-        ccg = grpc.ccg_parse(stub, '', timeout=120)
-        svc_cmd = os.path.join(projdir, 'scripts', 'stop_server.sh')
+    svc = grpc.CcgParserService(daemon)
+    stub = svc.open_client()
 
     try:
         sessionId = grpc.DEFAULT_SESSION
@@ -179,8 +168,8 @@ if __name__ == '__main__':
                     sentence = process_ccg_pt(pt, ops)
                     d = sentence.get_drs()
                     fol, _ = d.to_fol()
-                    fol = unicode(fol).encode('utf-8')
-                    drs = d.show(SHOW_LINEAR).encode('utf-8')
+                    fol = unicode(fol)
+                    drs = d.show(SHOW_LINEAR)
                     constituents = ''
                     for c in sentence.get_constituents():
                         constituents += c.vntype + '(' + c.span.text + ') '
@@ -216,28 +205,28 @@ if __name__ == '__main__':
             else:
                 with open(outfile, 'w') as fd:
                     if html:
-                        fd.write(html)
-                        fd.write('\n')
+                        fd.write(safe_utf8_encode(html))
+                        fd.write(b'\n')
                     if ccg:
-                        fd.write('<ccg>\n')
-                        fd.write(ccg.strip())
-                        fd.write('\n</ccg>\n')
+                        fd.write(b'<ccg>\n')
+                        fd.write(safe_utf8_encode(ccg.strip()))
+                        fd.write(b'\n</ccg>\n')
                     if pccg:
-                        fd.write('<predarg>\n')
-                        fd.write(pccg)
-                        fd.write('\n</predarg>\n')
+                        fd.write(b'<predarg>\n')
+                        fd.write(safe_utf8_encode(pccg))
+                        fd.write(b'\n</predarg>\n')
                     if drs:
-                        fd.write('<drs>\n')
+                        fd.write(b'<drs>\n')
                         fd.write(drs)
-                        fd.write('\n</drs>\n')
+                        fd.write(b'\n</drs>\n')
                     if fol:
-                        fd.write('<fol>\n')
-                        fd.write(fol)
-                        fd.write('\n</fol>\n')
+                        fd.write(b'<fol>\n')
+                        fd.write(safe_utf8_encode(fol))
+                        fd.write(b'\n</fol>\n')
                     if constituents:
-                        fd.write('<constituents>\n')
-                        fd.write(constituents)
-                        fd.write('\n</constituents>\n')
+                        fd.write(b'<constituents>\n')
+                        fd.write(safe_utf8_encode(constituents))
+                        fd.write(b'\n</constituents>\n')
 
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
@@ -245,7 +234,4 @@ if __name__ == '__main__':
             with open(outfile, 'w') as fd:
                 process_file(stub, fd, args, titleSrch, wordsep, sessionId)
     finally:
-        if svc_cmd is not None:
-            # Stop service
-            stub = None
-            call([svc_cmd, daemon])
+        svc.shutdown()
