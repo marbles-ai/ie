@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals, print_function
 import datetime
 import os
 import sys
@@ -26,6 +27,7 @@ terminate = False
 
 
 from marbles import newsfeed as nf
+from marbles.log import ExceptionRateLimitedLogAdaptor
 
 
 class AWSResources:
@@ -57,15 +59,13 @@ class NewsSource(object):
 class ReaderArchiver(object):
     """RSS/Atom reader archive service."""
 
-    def __init__(self, aws, sources, logger, browser, rlimit=0):
+    def __init__(self, aws, sources, logger, browser):
         self.browser = browser
         self.aws = aws
         self.sources = sources
         self.bucket_cache = set()
         self.hash_cache = {}
-        self.error_cache = {}
         self.logger = logger
-        self.rlimit = rlimit
 
     def close(self):
         self.browser.close()
@@ -96,15 +96,6 @@ class ReaderArchiver(object):
         vk_sort = sorted(self.hash_cache.items(), key=lambda x: x[1])
         vk_sort.reverse()
         self.hash_cache = dict(iterable=vk_sort[0:(limit>>1)])
-
-    def retire_error_cache(self, limit):
-        """Retire least recently used in error cache."""
-        if limit <= len(self.error_cache):
-            return
-        # Each value is a timestamp floating point
-        vk_sort = sorted(self.error_cache.items(), key=lambda x: x[1])
-        vk_sort.reverse()
-        self.error_cache = dict(iterable=vk_sort[0:(limit>>1)])
 
     def refresh(self):
         global terminate
@@ -140,6 +131,7 @@ class ReaderArchiver(object):
         for a in articles:
             if terminate:
                 return
+            hash = ''
             try:
                 arc = a.archive(src.scraper)
                 bucket, objname = a.get_aws_s3_names(arc['content'])
@@ -203,16 +195,8 @@ class ReaderArchiver(object):
                 raise
 
             except Exception as e:
-                # Rate limit errors to the same article id. This avoids flooding the log files.
-                if self.rlimit > 0:
-                    tmnew = time.time()
-                    tmold = self.error_cache.setdefault(a.entry.id, tmnew)
-                    if (tmnew - tmold) >= self.rlimit:
-                        self.error_cache[a.entry.id] = tmnew
-                        self.logger.exception('Exception caught', exc_info=e)
-                else:
-                    self.logger.exception('Exception caught', exc_info=e)
-
+                # Exception source defined by file-name:line-number:exeption-class:hash
+                self.logger.exception('Exception caught', exc_info=e, rlimitby=hash)
                 errors += 1
 
             wait(1)
@@ -262,13 +246,11 @@ def run_daemon(archivers, logger):
             logger.info('HUP received, refreshing all articles')
             # Clearing will force rebuild of caches
             for arc in archivers:
-                arc.retire_error_cache(0)   # clears error cache
                 arc.retire_hash_cache(0)    # clears hash cache
                 arc.clear_bucket_cache()
 
         for arc in archivers:
             arc.read_all(ignore_read)
-            arc.retire_error_cache(4096)
             arc.retire_hash_cache(4096)
             if terminate:
                 break
@@ -327,8 +309,10 @@ if __name__ == '__main__':
     # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
     log_level=getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
-    logger = logging.getLogger('service.' + svc_name)
-    logger.setLevel(log_level)
+    root_logger = logging.getLogger('marbles')
+    root_logger.setLevel(log_level)
+    actual_logger = logging.getLogger('marbles.svc.' + svc_name)
+    logger = ExceptionRateLimitedLogAdaptor(actual_logger)
 
     console_handler = None
     if options.log_file:
@@ -337,12 +321,12 @@ if __name__ == '__main__':
         if not options.daemonize:
             console_handler = logging.StreamHandler()   # Log to console
             init_log_handler(console_handler, log_level)
-            logger.addHandler(console_handler)
+            root_logger.addHandler(console_handler)
         log_handler = watchtower.CloudWatchLogHandler(log_group='core-nlp-services',
                                                       use_queues=False, # Does not shutdown if True
                                                       create_log_group=False)
     init_log_handler(log_handler, log_level)
-    logger.addHandler(log_handler)
+    root_logger.addHandler(log_handler)
     queue_name = args[0] if len(args) != 0 else None
     archivers = []
 
