@@ -1,23 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import datetime
+from __future__ import unicode_literals, print_function
 import os
 import sys
 import logging
 from optparse import OptionParser
 import boto3
-import StringIO
-import json
 import time
 import watchtower
 import requests
-import base64
 import daemon
 import signal
 import lockfile
-from subprocess import call
 from nltk.tokenize import sent_tokenize
-from marbles.ie import grpc
 
 
 # Modify python path if in development mode
@@ -30,6 +25,12 @@ else:
     # Only set when in devel tree
     projdir = None
 terminate = False
+
+
+from marbles.ie import grpc
+from marbles.ie import grpc
+from marbles.log import ExceptionRateLimitedLogAdaptor
+
 
 
 class Resources:
@@ -59,65 +60,66 @@ class Resources:
 class CcgParser(object):
     """CCG Parser handler"""
 
-    def __init__(self, res, logger, rlimit=0):
+    def __init__(self, res, logger):
         self.res = res
-        self.error_cache = {}
         self.logger = logger
-        self.rlimit = rlimit
-
-    def log_exception(self, e):
-        # Rate limit errors to avoid flooding the log files.
-        if self.rlimit > 0:
-            tmnew = time.time()
-            tmold = self.error_cache.setdefault(hash, tmnew)
-            if (tmnew - tmold) >= self.rlimit:
-                self.error_cache[hash(e)] = tmnew
-                self.logger.exception('Exception caught', exc_info=e)
-        else:
-            self.logger.exception('Exception caught', exc_info=e)
 
     def run(self):
         # Process messages by printing out body and optional author name
-        for message in self.news_queue.receive_messages(MessageAttributeNames=['All']):
+        for message in self.res.news_queue.receive_messages(MessageAttributeNames=['All']):
             # Attributes will be passed onto next queue
-            msg_attrib = message.message_attributes
+            attributes = message.message_attributes
+            body = message.body
+            retry = 3
+            ccgbank = None
+            title = body['title']
+            paragraphs_in = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
+            paragraphs_out = []
+            for p in paragraphs_in:
+                sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
+                paragraphs_out.append(sentences)
 
-            try:
-                body = json.loads(message.body, encoding='utf-8')
-                ccgbank = grpc.ccg_parse(self.stub, body['title'], grpc.DEFAULT_SESSION)
-                pt = parse_ccg_derivation(ccgbank)
-                ccg = process_ccg_pt(pt)
+            result = {}
+            while retry:
+                try:
+                    ccgbank = grpc.ccg_parse(self.res.stub, title, grpc.DEFAULT_SESSION)
+                    pt = parse_ccg_derivation(ccgbank)
+                    ccg = process_ccg_pt(pt)
+                    result['title']['lexemes'] = [x.get_json() for x in ccg.get_span()]
+                    result['title']['constituents'] = [c.get_json() for c in ccg.constituents]
+                    ccgpara = []
+                    result['paragraphs'] = ccgpara
+                    for sentences in paragraphs_out:
+                        ccgsent = []
+                        ccgpara.append(ccgsent)
+                        for s in sentences:
+                            ccgbank = grpc.ccg_parse(self.res.stub, s, grpc.DEFAULT_SESSION)
+                            pt = parse_ccg_derivation(ccgbank)
+                            ccg = process_ccg_pt(pt)
+                            ccgentry = {}
+                            ccgentry['lexemes'] = [x.get_json() for x in ccg.get_span()]
+                            ccgentry['constituents'] = [c.get_json() for c in ccg.constituents]
+                            ccgsent.append(ccgentry)
+                    break   # exit while
+                except requests.exceptions.ConnectionError as e:
+                    time.sleep(0.25)
+                    retry -= 1
+                    self.logger.exception(exc_info=e)
+                except Exception as e:
+                    # After X reads AWS sends the item to the dead letter queue.
+                    # X is configurable in AWS console.
+                    retry = 0
+                    self.logger.exception(exc_info=e, rlimitby=attributes['hash'])
 
-                ccgbody = {}
-                ccgbody['story'] = {'title': [x.get_json() for x in ccg.get_span()]}
-                paragraphs = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
-                ccgbody['story'] = {'paragraphs': []}
-                for p in paragraphs:
-                    sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
-                    sp = []
-                    for s in sentences:
-                        ccgbank = grpc.ccg_parse(self.stub, s, grpc.DEFAULT_SESSION)
-                        pt = parse_ccg_derivation(ccgbank)
-                        ccg = process_ccg_pt(pt)
-                        ccgbody = {}
-                        sp.append([x.get_json() for x in ccg.get_span()])
-
-
-            except Exception as e:
-                self.log_exception(e, hash)
-                # After X reads AWS sends the item to the dead letter queue.
-                # X is configurable in AWS console.
-
-
-
-        # Print out the body and author (if set)
-            print('Hello, {0}!{1}'.format(message.body, author_text))
+            # retry == 0 indicates failure
+            if retry == 0:
+                continue
 
             # Let the queue know that the message is processed
             message.delete()
-
-        response = self.res.sqs.send_message(QueueUrl=self.res.news_queue_url, DelaySeconds=0,
-                                             MessageAttributes=attributes, MessageBody=data)
+            if self.res.news_queue:
+                response = self.res.news_queue(MessageAttributes=attributes,
+                                               MessageBody=result)
 
 
 hup_recv = 0
@@ -163,6 +165,8 @@ def run_daemon(parsers, logger):
         if hup_signaled:
             logger.info('HUP received, refreshing')
 
+        for ccg in parsers:
+            ccg.run()
 
     logger.info('TERM received, exited daemon run loop')
 
@@ -217,9 +221,11 @@ if __name__ == '__main__':
 
     # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
-    log_level=getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
-    logger = logging.getLogger('service.' + svc_name)
-    logger.setLevel(log_level)
+    log_level = getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
+    root_logger = logging.getLogger('marbles')
+    root_logger.setLevel(log_level)
+    actual_logger = logging.getLogger('marbles.svc.' + svc_name)
+    logger = ExceptionRateLimitedLogAdaptor(actual_logger)
 
     console_handler = None
     if options.log_file:
@@ -228,12 +234,12 @@ if __name__ == '__main__':
         if not options.daemonize:
             console_handler = logging.StreamHandler()   # Log to console
             init_log_handler(console_handler, log_level)
-            logger.addHandler(console_handler)
+            root_logger.addHandler(console_handler)
         log_handler = watchtower.CloudWatchLogHandler(log_group='core-nlp-services',
                                                       use_queues=False, # Does not shutdown if True
                                                       create_log_group=False)
     init_log_handler(log_handler, log_level)
-    logger.addHandler(log_handler)
+    root_logger.addHandler(log_handler)
     queue_name = args[0] if len(args) != 0 else None
     parsers = []
     ccgdaemon = None

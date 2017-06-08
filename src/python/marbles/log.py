@@ -29,13 +29,12 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
         frmrec = inspect.stack()[2]
         return frmrec[1:4]
 
-    def exception(self, msg, *args, **kwargs):
+    def exception(self, *args, **kwargs):
         """Logs an exception with rate limiting when form the same exception source. Arguments are the same as for
         logger function of the same name except one extra keyword argument allows extra information to be used to
         determine the exception source.
 
         Args:
-            msg: The error message
             rlimitby: Extra keyword argument to uniquely define the exception source. The default is file name, line
                 number, and exception type.
         """
@@ -67,5 +66,5 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
                     return
             else:
                 self.error_cache[callerid] = tmnew
-        super(ExceptionRateLimitedLogAdaptor, self).exception(msg, *args, **kwargs)
+        super(ExceptionRateLimitedLogAdaptor, self).exception(*args, **kwargs)
 

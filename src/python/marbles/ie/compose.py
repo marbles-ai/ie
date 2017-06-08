@@ -33,6 +33,8 @@ CO_ADD_STATE_PREDICATES = 0x0020
 CO_NO_VERBNET = 0x0040
 ## Fast Renaming
 CO_FAST_RENAME = 0x0080
+## Disable wikipedia search for constituents
+CO_NO_WIKI_SEARCH = 0x0100
 
 ## @}
 

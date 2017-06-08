@@ -43,6 +43,15 @@ class Wikidata(object):
         self.pageid = page.pageid
         self.url = page.url
 
+    def get_json(self):
+        return {
+            'title': self.title,
+            'summary': self.summary,
+            'page_categories': self.categories,
+            'pageid': self.pageid,
+            'url': self.url
+        }
+
 
 def safe_wikipage(query):
     global _logger
@@ -61,6 +70,16 @@ class Constituent(object):
         self.category = category
         self.vntype = safe_utf8_decode(vntype)
         self.wiki_data = None
+
+    def get_json(self):
+        result = {
+            'span': self.span.get_indexes(),
+            'category': self.category.signature,
+            'vntype': self.vntype
+        }
+        if self.wiki_data:
+            result['wiki'] = self.wiki_data.get_json()
+        return result
 
     def __unicode__(self):
         return self.vntype + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
@@ -183,10 +202,10 @@ class Constituent(object):
                                         if len(topics) >= max_results:
                                             break
                 return topics if len(topics) != 0 else None
-            except requests.exceptions.ConnectionError as e :
+            except requests.exceptions.ConnectionError as e:
                 attempts += 1
                 retry = attempts <= 3
-                _logger.exception(exc_info=e)
+                _logger.exception('Constituent.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
             except wikipedia.exceptions.DisambiguationError as e:
                 # TODO: disambiguation
@@ -194,7 +213,7 @@ class Constituent(object):
             except wikipedia.exceptions.HTTPTimeoutError as e:
                 attempts += 1
                 retry = attempts <= 3
-                _logger.exception(exc_info=e)
+                _logger.exception('Constituent.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
 
         return None

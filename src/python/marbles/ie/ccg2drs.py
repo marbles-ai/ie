@@ -10,7 +10,7 @@ from nltk.stem import wordnet as wn
 from marbles.ie.ccg import *
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.compose import ProductionList, FunctorProduction, DrsProduction, \
-    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME
+    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from marbles.ie.drt.drs import get_new_drsrefs
@@ -1319,6 +1319,9 @@ class Ccg2Drs(UnboundSentence):
                 to_remove.add(i)
                 continue
             elif c.get_head().category != CAT_NOUN:
+                continue
+
+            if 0 != (self.options & CO_NO_WIKI_SEARCH):
                 continue
 
             result = c.search_wikipedia()
