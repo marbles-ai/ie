@@ -4,6 +4,7 @@
 from __future__ import unicode_literals, print_function
 import os
 import re
+import logging
 
 from marbles.ie.ccg import Category, CAT_Sadj, CAT_CONJ, CAT_Sany, datapath
 from marbles.ie.compose import FunctorProduction, DrsProduction, PropProduction
@@ -11,6 +12,9 @@ from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.drs import DRSRef
 from marbles.ie.utils.cache import Cache
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
+
+
+_logger = logging.getLogger()
 
 
 class FunctorTemplateGeneration(object):
@@ -486,9 +490,10 @@ class Model(object):
             catResult = category.result_category()
             if category.istype_raised and (self.issupported(catResult) or catResult.isatom) \
                     and (self.issupported(catArgArg) or catArgArg.isatom):
+                global _logger
                 # If the catgeory is type raised then check if result type exists and build now.
                 # TODO: This should be sent to a log
-                print('Adding type-raised category %s to TEMPLATES' % category.signature)
+                _logger.info('Adding type-raised category %s to TEMPLATES' % category.signature)
                 # Template categories contain predarg info so build new from these
                 if catResult.isfunctor:
                     catResult = self.lookup(catResult).predarg_category.complete_tags()

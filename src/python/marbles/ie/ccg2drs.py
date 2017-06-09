@@ -574,10 +574,12 @@ class Lexeme(object):
             conds.append(Rel(c.relation, map(lambda x: nvrs[x.var.to_string()], c.referents)))
         refs = map(lambda x: nvrs[x.var.to_string()], sample[0].referents)
         self.drs = DRS(refs, conds)
-        self.refs = [v for k, v in nvrs]
         d = DrsProduction(self.drs.universe, self.drs.freerefs, span=span)
         d.set_lambda_refs(map(lambda x: nvrs[x.var.to_string()], sample[2]))
-        #self.refs = d.variables
+        # refs[0] is always the final_ref (atom)
+        self.refs = d.lambda_refs
+        xtra = filter(lambda x: x not in self.refs, nvrs.itervalues())
+        self.refs.extend(xtra)
         return d
 
     def _get_noun_drs(self, span):

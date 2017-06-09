@@ -81,6 +81,10 @@ class TestAWS(unittest.TestCase):
         logger = logging.getLogger(__name__)
         logger.addHandler(logging.NullHandler())
         self.state = MockedState(logger)
+        self.svc = grpc.CcgParserService(daemon='easysrl', logger=self.state.logger)
+
+    def tearDown(self):
+        self.svc.shutdown()
 
     @mock_s3
     @mock_sqs
@@ -153,8 +157,8 @@ class TestAWS(unittest.TestCase):
         s3.create_bucket(Bucket='marbles-ai-feeds-hash')
 
         # Create marbles resources
-        svc = grpc.CcgParserService(daemon='easysrl', logger=self.state.logger)
-        stub = svc.open_client()
+        stub = self.svc.open_client()
+        # AwsNewsQueueWriterResources is a subset of these so can share
         awsres = aws.AwsNewsQueueReaderResources(stub, 'default-queue', 'default-queue')
 
         # Write to news_queue

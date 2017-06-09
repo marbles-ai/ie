@@ -8,6 +8,7 @@ import base64
 import json
 import time
 import logging
+import regex as re  # Has better support for unicode
 from nltk.tokenize import sent_tokenize
 from marbles.ie import grpc
 from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
@@ -238,7 +239,7 @@ class AwsNewsQueueWriter(object):
                     # Send the message to our queue
                     response = self.aws.news_queue.send_message(MessageAttributes=attributes,
                                                                 MessageBody=data)
-                    self.logger.debug('Sent s3(%s) -> msg(%s)', hash, response['MessageId'])
+                    self.logger.debug('Sent hash(%s) -> news_queue(%s)', hash, response['MessageId'])
 
                 # Update hash cache
                 self.hash_cache[hash] = self.state.time()
@@ -256,6 +257,10 @@ class AwsNewsQueueWriter(object):
 
             self.state.wait(1)
 
+# r'\p{P}' is too broad
+_UPUNCT = re.compile(r'([,:;\u00a1\u00a7\u00b6\u00b7\u00bf])', re.UNICODE)
+_UDQUOTE = re.compile(r'["\u2033\u2034\u2036\u2037\u201c\u201d]', re.UNICODE)
+_USQUOTE = re.compile(r"\u2032([^\u2032\u2035]+)\u2035", re.UNICODE)
 
 class AwsNewsQueueReader(object):
     """CCG Parser handler"""
@@ -271,10 +276,13 @@ class AwsNewsQueueReader(object):
 
     def run(self):
         """Process messages."""
+        global _USQUOTE, _UDQUOTE, _UPUNCT
 
         for message in receive_messages(self.aws.news_queue, MessageAttributeNames=['All']):
             # Attributes will be passed onto next queue
+            self.logger.debug('Received news_queue(%s)', message.message_id)
             attributes = message.message_attributes
+            mhash = attributes['hash']['StringValue']
             body = json.loads(message.body)
             retry = 3
             ccgbank = None
@@ -303,7 +311,10 @@ class AwsNewsQueueReader(object):
                         ccgsent = []
                         ccgpara.append(ccgsent)
                         for s in sentences:
-                            ccgbank = grpc.ccg_parse(self.aws.stub, s, grpc.DEFAULT_SESSION)
+                            smod = _USQUOTE.sub(r" ' \1 ' ", s).replace('\u2019', "'")
+                            smod = _UDQUOTE.sub(r' " ', smod)
+                            smod = _UPUNCT.sub(r' \1 ', smod)
+                            ccgbank = grpc.ccg_parse(self.aws.stub, smod, grpc.DEFAULT_SESSION)
                             pt = parse_ccg_derivation(ccgbank)
                             ccg = process_ccg_pt(pt, options=self.options)
                             ccgentry = {}
@@ -321,20 +332,47 @@ class AwsNewsQueueReader(object):
                     # After X reads AWS sends the item to the dead letter queue.
                     # X is configurable in AWS console.
                     retry = 0
-                    self.logger.exception('AwsNewsQueueReader.run', exc_info=e,
-                                          rlimitby=attributes['hash']['StringValue'])
+                    self.logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
                     if self.state.pass_on_exceptions:
                         raise
 
                 if self.state.terminate:
+                    retry = 0
                     break
 
             # retry == 0 indicates failure
             if retry == 0:
                 continue
 
-            # Let the queue know that the message is processed
-            message.delete()
-            if self.aws.news_queue:
-                response = self.aws.news_queue(MessageAttributes=attributes,
-                                               MessageBody=result)
+
+            try:
+                # Let the queue know that the message is processed
+                message.delete()
+                if self.aws.ccg_queue:
+                    ireduce = -1
+                    iorig = len(result['paragraphs'])
+
+                    while True:
+                        strm = StringIO.StringIO()
+                        # Add indent so easier to debug
+                        json.dump(result, strm, indent=2)
+                        data = strm.getvalue()
+                        if len(data) >= 200*1024:
+                            para = result['paragraphs']
+                            ireduce = max([1, (len(para) * 200 * 1024)/ len(data)])
+                            ireduce = min([len(para)-1, ireduce])
+                            result['paragraphs'] = para[0:ireduce]
+                        else:
+                            break
+
+                        if len(result['paragraphs']) <= 1:
+                            break
+
+                    if ireduce >= 0:
+                        self.logger.warning('Hash(%s) ccg paragraphs reduced from %d to %d' % (mhash, iorig, ireduce))
+                    response = self.aws.ccg_queue.send_message(MessageAttributes=attributes, MessageBody=data)
+                    self.logger.debug('Sent hash(%s) -> ccg_queue(%s)', mhash, response['MessageId'])
+            except Exception as e:
+                self.logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
+                if self.state.pass_on_exceptions:
+                    raise

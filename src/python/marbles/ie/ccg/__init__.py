@@ -1062,7 +1062,6 @@ except Exception as e:
     CAT_NP = Category.from_cache('NP')
     CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
     CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
-    print(e)
 
 CAT_NUM = Category.from_cache('N[num]')
 CAT_NPconj = Category.from_cache('NP[conj]')

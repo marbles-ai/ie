@@ -29,19 +29,21 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
         frmrec = inspect.stack()[2]
         return frmrec[1:4]
 
-    def exception(self, *args, **kwargs):
+    def exception(self, msg, *args, **kwargs):
         """Logs an exception with rate limiting when form the same exception source. Arguments are the same as for
-        logger function of the same name except one extra keyword argument allows extra information to be used to
-        determine the exception source.
+        logger function of the same name except one extra keyword argument allows extra information to be used to determine the exception source.
+
+        Logging form teh same exeception source is ratelimited
 
         Args:
+            msg: The error message
             rlimitby: Extra keyword argument to uniquely define the exception source. The default is file name, line
                 number, and exception type.
         """
         if self.rlimit > 0:
             extra_args = map(lambda y: y[1], filter(lambda x: x[0] == 'rlimitby', kwargs.iteritems()))
             exc_info = filter(lambda x: x[0] == 'exc_info' and isinstance(x[1], Exception), kwargs.iteritems())
-            kwargs = dict(filter(lambda x: x[0] != 'rlimitby', kwargs.iteritems()))
+            kwargs = dict(filter(lambda x: x[0] != 'rlimitby' and isinstance(x[1], Exception), kwargs.iteritems()))
             extra = ''.join(extra_args)
             caller = self.find_caller()
             if len(exc_info) == 0:
@@ -66,5 +68,5 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
                     return
             else:
                 self.error_cache[callerid] = tmnew
-        super(ExceptionRateLimitedLogAdaptor, self).exception(*args, **kwargs)
+        super(ExceptionRateLimitedLogAdaptor, self).exception(msg, *args, **kwargs)
 

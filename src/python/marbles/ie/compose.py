@@ -562,7 +562,7 @@ class ProductionList(AbstractProduction):
         sentence = None
         for i in reversed(range(len(ml))):
             d = ml[i]
-            if d.span:
+            if d.span is not None:
                 sentence = d.span.sentence
             rn = universe.intersection(d.universe)
             if len(rn) != 0:
@@ -575,12 +575,12 @@ class ProductionList(AbstractProduction):
             universe = universe.union(d.universe)
 
         # Merge indexes
-        span = IndexSpan(sentence)
+        span = IndexSpan(sentence) if sentence is not None else None
         freerefs = []
         universe = []
         for d in ml:
             assert d.span is None or d.span.sentence is sentence
-            span = span.union(d.span)
+            span = span.union(d.span) if span is not None else None
             universe.extend(d._universe)
             freerefs.extend(d._freerefs)
 
