@@ -21,3 +21,5 @@ requests
 setuptools
 wheel
 python_daemon
+mock
+regex

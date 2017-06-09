@@ -38,3 +38,4 @@ feedgen
 watchtower
 requests
 python_daemon
+regex
