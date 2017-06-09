@@ -21,12 +21,15 @@ _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
 
 class ServiceState(object):
     def __init__(self, logger=None):
-        self.terminate = False
         self.pass_on_exceptions = False
         if logger is not None and not isinstance(logger, ExceptionRateLimitedLogAdaptor):
             self.logger = ExceptionRateLimitedLogAdaptor(logger)
         else:
             self.logger = logger
+
+    @property
+    def terminate(self):
+        return False
 
     def wait(self, seconds):
         time.sleep(seconds)
@@ -144,6 +147,7 @@ class AwsNewsQueueWriter(object):
         """Retire least recently used in hash cache."""
         if limit >= len(self.hash_cache):
             return
+        self.logger.info('Retiring hash cache, current-size=%d, required-size=%d', len(self.hash_cache), limit)
         # Each value is a timestamp floating point
         vk_sort = sorted(self.hash_cache.items(), key=lambda x: x[1])
         vk_sort.reverse()
