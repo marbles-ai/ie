@@ -15,6 +15,8 @@ from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.ccg2drs import process_ccg_pt
 from marbles.log import ExceptionRateLimitedLogAdaptor
+
+
 _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
 #python -m nltk.downloader punkt
 
@@ -261,10 +263,12 @@ class AwsNewsQueueWriter(object):
 
             self.state.wait(1)
 
+
 # r'\p{P}' is too broad
 _UPUNCT = re.compile(r'([,:;\u00a1\u00a7\u00b6\u00b7\u00bf])', re.UNICODE)
 _UDQUOTE = re.compile(r'["\u2033\u2034\u2036\u2037\u201c\u201d]', re.UNICODE)
 _USQUOTE = re.compile(r"\u2032([^\u2032\u2035]+)\u2035", re.UNICODE)
+
 
 class AwsNewsQueueReader(object):
     """CCG Parser handler"""
@@ -293,6 +297,7 @@ class AwsNewsQueueReader(object):
             title = body['title']
             paragraphs_in = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
             paragraphs_out = []
+            # Use NLTK to split paragraphs into sentences.
             for p in paragraphs_in:
                 sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
                 paragraphs_out.append(sentences)
@@ -315,6 +320,7 @@ class AwsNewsQueueReader(object):
                         ccgsent = []
                         ccgpara.append(ccgsent)
                         for s in sentences:
+                            # EasyXXX does not handle these
                             smod = _USQUOTE.sub(r" ' \1 ' ", s).replace('\u2019', "'")
                             smod = _UDQUOTE.sub(r' " ', smod)
                             smod = _UPUNCT.sub(r' \1 ', smod)
