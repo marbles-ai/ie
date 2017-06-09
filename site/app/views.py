@@ -1,5 +1,21 @@
 from flask import render_template
+from flask import jsonify
 from app import app
+import logging
+#import wordcloud
+
+i = 0
+
+# For now, let's use this for examples
+def getGlobalCount():
+    global i
+    i = i + 1
+    return i - 1
+
+# Generates a wordcloud background
+def generate_background():
+    print "Generating a new background"
+#    wordcloud.generate_wordcloud()
 
 @app.route('/')
 @app.route('/index')
@@ -7,29 +23,12 @@ def index():
     return render_template('index.html',
                            title='Home')
 
-@app.route('/demo')
-def demo():
-    return render_template('demo.html',
-                           title='Demo')
+@app.route('/getData', methods= ['GET'])
+def stuff():
+    i = getGlobalCount()
+    return jsonify(article="Article: "+ str(i), content="Content: " + str(i))
 
-@app.route('/fakenews')
-def fakenews():
-    return render_template('fakenews.html',
-                           title='Fake News')
-
-@app.route('/contact')
-def contact():
-    return render_template('contact.html',
-                           title='Contact')
-
-# @app.route('/submit', methods=['GET', 'OPTIONS'])
-# def submit():
-#     sent = request.args.get('textarea')
-#     print "Got: ", sent
-#     return sent + " returned!!"
-
-
-# @app.route('/signin')
-# def signin():
-#     return render_template('signin.html',
-#                            title='Sign In')
+@app.route('/getBackground', methods= ['GET'])
+def background():
+    background_name = generate_background()
+    return jsonify(background=background_name)
