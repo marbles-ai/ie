@@ -151,10 +151,11 @@ if __name__ == '__main__':
             signal.signal(signal.SIGALRM, alarm_handler)
             signal.alarm(seconds)
             if not terminate:
-                # FIXME: We have a race condition here. If SIGTERM arrives just before the pause call we miss it for secs.
+                # FIXME: We have a race condition here.
+                # If SIGTERM arrives just before the pause call we miss it for `seconds`.
                 # A second SIGTERM will help
                 signal.pause()
-            state.logger.debug('Continue')
+            self.logger.debug('Continue')
 
     # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
