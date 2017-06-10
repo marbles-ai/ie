@@ -102,7 +102,8 @@ if __name__ == '__main__':
     parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
     parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default),easyccg]')
     parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
-    parser.add_option('-N', '--no-verbnet', action='store_true', dest='no_vn', default=False, help='disable verbnet, default is enabled')
+    parser.add_option('-N', '--no-vn', action='store_true', dest='no_vn', default=False, help='disable verbnet, default is enabled')
+    parser.add_option('-I', '--no-wp', action='store_true', dest='no_wp', default=False, help='disable wikipedia, default is enabled')
     parser.add_option('-W', '--word-vars', action='store_true', dest='wordvars', default=False, help='Use word names for variables, default is disabled')
     parser.add_option('-s', '--wordsep', type='string', action='store', dest='wordsep', help='book mode word separator, defaults to hyphen')
     parser.add_option('-t', '--title', type='string', action='store', dest='title', help='book mode title regex, defaults to \'\s*[A-Z][-A-Z\s\.]*$\'')
@@ -111,7 +112,7 @@ if __name__ == '__main__':
 
     # Delay imports so help text can be dislayed without loading model
     from marbles.ie.ccg2drs import process_ccg_pt, pt_to_ccgbank
-    from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
+    from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES, CO_NO_WIKI_SEARCH
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     #from marbles.ie.parse import parse_ccg_derivation
     from marbles.ie.drt.common import SHOW_LINEAR
@@ -163,6 +164,7 @@ if __name__ == '__main__':
 
                 ops = CO_BUILD_STATES if options.wordvars else CO_ADD_STATE_PREDICATES
                 ops |= CO_NO_VERBNET if options.no_vn else 0
+                ops |= CO_NO_WIKI_SEARCH if options.no_wp else 0
 
                 try:
                     sentence = process_ccg_pt(pt, ops)
