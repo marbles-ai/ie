@@ -1320,7 +1320,7 @@ class Ccg2Drs(UnboundSentence):
         self.final_prod = d
 
         # Finalize NP constituents
-       r to_remove = set()
+        to_remove = set()
         self.constituents = sorted(self.constituents)
         vp = None
         for i in range(len(self.constituents)):
