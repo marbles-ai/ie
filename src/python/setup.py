@@ -6,6 +6,26 @@ import os
 projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from setuptools import setup, find_packages
+from setuptools.command.develop import develop
+from setuptools.command.install import install
+import nltk
+
+
+class PostDevelopCommand(develop):
+    """Post-installation for development mode."""
+    def run(self):
+        # PUT YOUR PRE-INSTALL SCRIPT HERE or CALL A FUNCTION
+        develop.run(self)
+        # PUT YOUR POST-INSTALL SCRIPT HERE or CALL A FUNCTION
+
+class PostInstallCommand(install):
+    """Post-installation for installation mode."""
+    def run(self):
+        # PUT YOUR PRE-INSTALL SCRIPT HERE or CALL A FUNCTION
+        install.run(self)
+        # PUT YOUR POST-INSTALL SCRIPT HERE or CALL A FUNCTION
+        nltk.download('wordnet')
+        nltk.download('punkt')
 
 
 setup(
@@ -44,6 +64,14 @@ setup(
         'watchtower',
         'requests',
     ],
+    scripts=[
+        'services/ccgparser/ccgparser.py',
+        'services/newsreader/newsreader.py'
+    ],
+    cmdclass={
+        'develop': PostDevelopCommand,
+        'install': PostInstallCommand,
+    },
     include_package_data=True,
     zip_safe=False,
     # If we split into newsfeed and ie then this is required
