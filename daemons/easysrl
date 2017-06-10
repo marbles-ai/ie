@@ -10,7 +10,7 @@ shift
 VERSION="0.1.0"
 
 [ -e $ESRLPATH/build/libs/easysrl-${VERSION}-standalone.jar ] || die "$ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar missing, run gradle build"
-[ -e $PROJROOT/build/libs/ie-${VERSION}.jar ] || die "$PROJROOT/build/libs/ie-$VERSION.jar missing, run gradle build"
+#[ -e $PROJROOT/build/libs/ie-${VERSION}.jar ] || die "$PROJROOT/build/libs/ie-$VERSION.jar missing, run gradle build"
 [ -e $ESRLPATH/model/text/categories ] || die "$ESRLPATH/model/text missing, run scripts/extract_lfs.sh"
 
 EXEC="java -jar $ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar --model $ESRLPATH/model/text --daemonize -l 250 $*"

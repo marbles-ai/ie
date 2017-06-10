@@ -18,6 +18,7 @@ class PostDevelopCommand(develop):
         develop.run(self)
         # PUT YOUR POST-INSTALL SCRIPT HERE or CALL A FUNCTION
 
+
 class PostInstallCommand(install):
     """Post-installation for installation mode."""
     def run(self):
@@ -63,6 +64,8 @@ setup(
         'feedgen',
         'watchtower',
         'requests',
+        'python_daemon',
+        'regex'
     ],
     scripts=[
         'services/ccgparser/ccgparser.py',
