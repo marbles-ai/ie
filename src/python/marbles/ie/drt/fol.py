@@ -187,8 +187,8 @@ class Neg(FOLForm):
 class Rel(FOLForm):
     """A relation"""
     def __init__(self, folPred, folVars):
-        if not isinstance(folPred, FOLVar) or not iterable_type_check(folVars, FOLVar):
-            raise TypeError
+        if not isinstance(folPred, FOLVar) and not iterable_type_check(folVars, FOLVar):
+            raise TypeError('Expected type FOLVar')
         self._pred = folPred.decode('utf-8')
         self._vars = [v.decode('utf-8') for v in folVars]
 
