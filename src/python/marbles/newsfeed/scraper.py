@@ -230,9 +230,11 @@ class Article(object):
                     thumbnail = i
                 media.append(d)
             content['media'] = {
-                'content': media,
-                'thumbnail': thumbnail
+                'content': media
             }
+            if thumbnail >= 0:
+                content['media']['thumbnail'] = thumbnail
+
 
         return content
 

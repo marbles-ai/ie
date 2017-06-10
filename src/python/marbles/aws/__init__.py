@@ -9,6 +9,7 @@ import json
 import time
 import logging
 import regex as re  # Has better support for unicode
+import mimetypes
 from nltk.tokenize import sent_tokenize
 from marbles.ie import grpc
 from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
@@ -233,11 +234,18 @@ class AwsNewsQueueWriter(object):
                                 'DataType': 'String',
                                 'StringValue': b64media
                             }
-                            attributes['media_type'] = {
-                                'DataType': 'String',
-                                'StringValue': media['type']
-                            }
-                            arc['media']['thumbnail64'] = b64media
+                            if 'type' in d['content']:
+                                attributes['media_type'] = {
+                                    'DataType': 'String',
+                                    'StringValue': d['content']['type']
+                                }
+                            else:
+                                # Infer type
+                                mtype, _ = mimetypes.guess_type(media['url'])
+                                attributes['media_type'] = {
+                                    'DataType': 'String',
+                                    'StringValue': mtype
+                                }
                         except requests.ConnectionError as e:
                             # Non critical error - can happen when replaying old stories
                             self.logger.warning('Media not found - %s', str(e))

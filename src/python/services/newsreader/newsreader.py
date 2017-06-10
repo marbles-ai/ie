@@ -136,9 +136,9 @@ if __name__ == '__main__':
     # Delay import so help is displayed quickly
     from marbles.aws import AwsNewsQueueWriterResources, AwsNewsQueueWriter, ServiceState
 
-    class NRServiceState(ServiceState):
+    class NWServiceState(ServiceState):
         def __init__(self, *args, **kwargs):
-            super(NRServiceState, self).__init__(*args, **kwargs)
+            super(NWServiceState, self).__init__(*args, **kwargs)
 
         @property
         def terminate(self):
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     root_logger.addHandler(log_handler)
     queue_name = args[0] if len(args) != 0 else None
     archivers = []
-    state = NRServiceState(logger)
+    state = NWServiceState(logger)
 
     rundir = os.path.abspath(options.rundir or os.path.join(thisdir, 'run'))
     if options.daemonize:
@@ -190,7 +190,6 @@ if __name__ == '__main__':
             print('%s is not a directory' % rundir)
             sys.exit(1)
         print('Starting service')
-        logger.info('Service started')
         context = daemon.DaemonContext(working_directory=thisdir,
                                        umask=0o022,
                                        pidfile=lockfile.FileLock(os.path.join(rundir, svc_name)),
@@ -203,6 +202,7 @@ if __name__ == '__main__':
         hup_recv = 1 if options.force_read else 0
         try:
             with context:
+                logger.info('Service started')
                 with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
                     fd.write(str(os.getpid()))
                 # When running as a daemon delay creation of headless browsers else they will
@@ -219,22 +219,18 @@ if __name__ == '__main__':
         except Exception as e:
             logger.exception('Exception caught', exc_info=e)
 
-    elif not options.oneshot:
+    else:
         logger.info('Service started')
-        archivers = init_archivers(queue_name, state)
         try:
+            archivers = init_archivers(queue_name, state)
             ignore_read = not options.force_read
-            while True:
+            while not terminate:
                 for arc in archivers:
                     arc.read_all(ignore_read)
                 ignore_read = True
+                terminate = options.oneshot
         except KeyboardInterrupt:
             pass
-    else:
-        logger.info('Service started')
-        archivers = init_archivers(queue_name, state)
-        for arc in archivers:
-            arc.read_all(not options.force_read)
 
     logger.info('Closing headless browsers')
     try:

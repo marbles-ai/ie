@@ -28,98 +28,7 @@ terminate = False
 
 
 from marbles.ie import grpc
-from marbles.ie import grpc
 from marbles.log import ExceptionRateLimitedLogAdaptor
-
-
-
-class Resources:
-    """AWS and gRPC resources."""
-
-    def __init__(self, stub, news_queue_name, ccg_queue_name=None):
-        global projdir, thisdir
-        self.s3 = boto3.resource('s3')
-        self.sqs = boto3.resource('sqs')
-        self.stub = stub
-        if news_queue_name == 'default-queue':
-            resp = self.sqs.get_queue_by_name(QueueName='marbles-ai-rss-aggregator')
-        else:
-            resp = self.sqs.get_queue_by_name(QueueName=news_queue_name)
-        self.news_queue = resp
-
-        if ccg_queue_name:
-            if ccg_queue_name == 'default-queue':
-                resp = self.sqs.get_queue_by_name(QueueName='marbles-ai-discourse-logic')
-            else:
-                resp = self.sqs.get_queue_by_name(QueueName=ccg_queue_name)
-            self.ccg_queue = resp
-        else:
-            self.ccg_queue = None
-
-
-class CcgParser(object):
-    """CCG Parser handler"""
-
-    def __init__(self, res, logger):
-        self.res = res
-        self.logger = logger
-
-    def run(self):
-        # Process messages by printing out body and optional author name
-        for message in self.res.news_queue.receive_messages(MessageAttributeNames=['All']):
-            # Attributes will be passed onto next queue
-            attributes = message.message_attributes
-            body = message.body
-            retry = 3
-            ccgbank = None
-            title = body['title']
-            paragraphs_in = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
-            paragraphs_out = []
-            for p in paragraphs_in:
-                sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
-                paragraphs_out.append(sentences)
-
-            result = {}
-            while retry:
-                try:
-                    ccgbank = grpc.ccg_parse(self.res.stub, title, grpc.DEFAULT_SESSION)
-                    pt = parse_ccg_derivation(ccgbank)
-                    ccg = process_ccg_pt(pt)
-                    result['title']['lexemes'] = [x.get_json() for x in ccg.get_span()]
-                    result['title']['constituents'] = [c.get_json() for c in ccg.constituents]
-                    ccgpara = []
-                    result['paragraphs'] = ccgpara
-                    for sentences in paragraphs_out:
-                        ccgsent = []
-                        ccgpara.append(ccgsent)
-                        for s in sentences:
-                            ccgbank = grpc.ccg_parse(self.res.stub, s, grpc.DEFAULT_SESSION)
-                            pt = parse_ccg_derivation(ccgbank)
-                            ccg = process_ccg_pt(pt)
-                            ccgentry = {}
-                            ccgentry['lexemes'] = [x.get_json() for x in ccg.get_span()]
-                            ccgentry['constituents'] = [c.get_json() for c in ccg.constituents]
-                            ccgsent.append(ccgentry)
-                    break   # exit while
-                except requests.exceptions.ConnectionError as e:
-                    time.sleep(0.25)
-                    retry -= 1
-                    self.logger.exception(exc_info=e)
-                except Exception as e:
-                    # After X reads AWS sends the item to the dead letter queue.
-                    # X is configurable in AWS console.
-                    retry = 0
-                    self.logger.exception(exc_info=e, rlimitby=attributes['hash'])
-
-            # retry == 0 indicates failure
-            if retry == 0:
-                continue
-
-            # Let the queue know that the message is processed
-            message.delete()
-            if self.res.news_queue:
-                response = self.res.news_queue(MessageAttributes=attributes,
-                                               MessageBody=result)
 
 
 hup_recv = 0
@@ -140,19 +49,7 @@ def alarm_handler(signum, frame):
     pass
 
 
-def wait(secs):
-    global terminate
-    logger.debug('Pausing for %s seconds', secs)
-    signal.signal(signal.SIGALRM, alarm_handler)
-    signal.alarm(secs)
-    if not terminate:
-        # FIXME: We have a race condition here. If SIGTERM arrives just before the pause call we miss it for secs.
-        # A second SIGTERM will help
-        signal.pause()
-    logger.debug('Continue')
-
-
-def run_daemon(parsers, logger):
+def run_daemon(parsers, state):
     global hup_recv, terminate
     count = 0
     while not terminate:
@@ -168,6 +65,8 @@ def run_daemon(parsers, logger):
         for ccg in parsers:
             ccg.run()
 
+        state.wait(5*60)    # Wait 5 mins
+
     logger.info('TERM received, exited daemon run loop')
 
 
@@ -177,11 +76,11 @@ def init_log_handler(log_handler, log_level):
     log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
                                                datefmt='%Y-%m-%dT%H:%M:%S%z'))
 
-def init_service(ccgdaemon, news_queue_name, ccg_queue_name, logger):
+def init_service(grpc_daemon, news_queue_name, ccg_queue_name, state):
     # If we run multiple threads then each thread needs its own resources (S3, SQS etc).
-    res = Resources(ccgdaemon.open_client(), news_queue_name, ccg_queue_name)
+    res = AwsNewsQueueReaderResources(grpc_daemon.open_client(), news_queue_name, ccg_queue_name)
     return [
-        CcgParser(res, logger)
+        AwsNewsQueueReader(res, state, CO_NO_WIKI_SEARCH)
     ]
 
 
@@ -196,12 +95,39 @@ if __name__ == '__main__':
                       help='Run as a daemon.')
     parser.add_option('-r', '--rundir', type='string', action='store', dest='rundir',
                       help='Run directory')
-    parser.add_option('-d', '--ccg-daemon', type='string', action='store', dest='ccgdaemon',
-                      help='CCG daemon name, [easysrl (default),easyccg]')
+    parser.add_option('-g', '--grpc-daemon', type='string', action='store', dest='grpc_daemon',
+                      help='gRPC daemon name, [easysrl (default),easyccg]')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
-    ccgdaemon_name = options.ccgdaemon or 'easysrl'
+    # Delay import so help is displayed quickly without loading model.
+    from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader, ServiceState
+    from marbles.ie.compose import CO_NO_WIKI_SEARCH
+
+
+    class NRServiceState(ServiceState):
+        def __init__(self, *args, **kwargs):
+            super(NRServiceState, self).__init__(*args, **kwargs)
+
+        @property
+        def terminate(self):
+            global terminate
+            return terminate
+
+        def wait(self, seconds):
+            global terminate
+            self.logger.debug('Pausing for %s seconds', seconds)
+            signal.signal(signal.SIGALRM, alarm_handler)
+            signal.alarm(seconds)
+            if not terminate:
+                # FIXME: We have a race condition here.
+                # If SIGTERM arrives just before the pause call we miss it for `seconds`.
+                # A second SIGTERM will help
+                signal.pause()
+            self.logger.debug('Continue')
+
+
+    grpc_daemon_name = options.grpc_daemon or 'easysrl'
     news_queue_name = 'default-queue'
     ccg_queue_name = news_queue_name
     if len(args) == 1:
@@ -213,11 +139,6 @@ if __name__ == '__main__':
     else:
         parser.print_usage()
         sys.exit(1)
-
-    # Delay imports so help text can be dislayed without loading model
-    from marbles.ie.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES
-    from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-    from marbles.ie.ccg2drs import process_ccg_pt
 
     # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -242,7 +163,8 @@ if __name__ == '__main__':
     root_logger.addHandler(log_handler)
     queue_name = args[0] if len(args) != 0 else None
     parsers = []
-    ccgdaemon = None
+    grpc_daemon = None
+    state = NRServiceState(logger)
 
     rundir = os.path.abspath(options.rundir or os.path.join(thisdir, 'run'))
     if options.daemonize:
@@ -262,26 +184,25 @@ if __name__ == '__main__':
                                        })
 
         try:
-            logger.info('Service started')
-            ccgdaemon = grpc.CcgParserService(ccgdaemon_name, logger=logger, workdir=thisdir)
-            parsers = init_service(ccgdaemon, news_queue_name, ccg_queue_name, logger)
+            grpc_daemon = grpc.CcgParserService(grpc_daemon_name, logger=logger, workdir=thisdir)
+            parsers = init_service(grpc_daemon, news_queue_name, ccg_queue_name, state)
             with context:
+                logger.info('Service started')
                 with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
                     fd.write(str(os.getpid()))
-                run_daemon(parsers, logger)
+                run_daemon(parsers, state)
 
         except Exception as e:
             logger.exception('Exception caught', exc_info=e)
 
     else:
         try:
+            grpc_daemon = grpc.CcgParserService(daemon=grpc_daemon_name, logger=logger, workdir=thisdir)
+            parsers = init_service(grpc_daemon, news_queue_name, ccg_queue_name, state)
             logger.info('Service started')
-            ccgdaemon = grpc.CcgParserService(ccgdaemon_name, logger=logger, workdir=thisdir)
-            parsers = init_service(ccgdaemon, news_queue_name, ccg_queue_name, logger)
             while True:
                 for ccg in parsers:
                     ccg.run()
-                ignore_read = True
 
         except KeyboardInterrupt:
             pass
@@ -290,10 +211,8 @@ if __name__ == '__main__':
             logger.exception('Exception caught', exc_info=e)
 
     try:
-        for ccg in parsers:
-            pass
-        if ccgdaemon:
-            ccgdaemon.shutdown()
+        if grpc_daemon is not None:
+            grpc_daemon.shutdown()
     except Exception as e:
         logger.exception('Exception caught', exc_info=e)
 
