@@ -271,6 +271,8 @@ CAT_VPto = Category.from_cache(r'S[to]\NP')
 # Copular verb
 CAT_COPULAR = [Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)'),
                Category.from_cache(r'(S[b]\NP)/(S[adj]\NP)')]
+# EasySRL prepositions
+CAT_ESRL_PP = Category.from_cache(r'(NP\NP)/NP')
 # CAT_AP
 # Adjectival phrase
 CAT_AP = Category.from_cache(r'S[adj]\NP')
@@ -1114,14 +1116,16 @@ class Ccg2Drs(UnboundSentence):
         # Forward application.
         d = stk.pop()   # arg1
         fn = stk.pop()  # arg0
-        stk.append(self._update_constituents(fn.apply(d)))
+        prevcat = fn.category
+        stk.append(self._update_constituents(fn.apply(d), prevcat))
 
     @dispatchmethod(dispatchmap, RL_BA)
     def _dispatch_ba(self, op, stk):
         # Backward application.
         fn = stk.pop()   # arg1
         d = stk.pop()    # arg0
-        stk.append(self._update_constituents(fn.apply(d)))
+        prevcat = fn.category
+        stk.append(self._update_constituents(fn.apply(d), prevcat))
 
     @dispatchmethod(dispatchmap, RL_FC, RL_FX)
     def _dispatch_fc(self, op, stk):
@@ -1202,9 +1206,9 @@ class Ccg2Drs(UnboundSentence):
             d.push_left(stk.pop())
         if d.contains_functor:
             # Bit of a hack, flatten() gets rid of empty productions
-            stk.append(self._update_constituents(d.flatten().unify()))
+            stk.append(self._update_constituents(d.flatten().unify(), d.category))
         else:
-            stk.append(self._update_constituents(d.unify()))
+            stk.append(self._update_constituents(d.unify(), d.category))
 
     @default_dispatchmethod(dispatchmap)
     def _dispatch_default(self, op, stk):
@@ -1221,7 +1225,7 @@ class Ccg2Drs(UnboundSentence):
         method = self.dispatchmap.lookup(op.rule)
         method(self, op, stk)
 
-    def _update_constituents(self, d):
+    def _update_constituents(self, d, cat_before_rule):
         if isinstance(d, (FunctorProduction, DrsProduction)):
             if d.category == CAT_NP:
                 refs = set()
@@ -1229,7 +1233,13 @@ class Ccg2Drs(UnboundSentence):
                     refs = refs.union(lex.refs)
                 vntype = Constituent.vntype_from_category(d.category) if len(refs) == 1 else None
             else:
-                vntype = Constituent.vntype_from_category(d.category)
+                if cat_before_rule is CAT_ESRL_PP:
+                    vntype = CAT_PP.signature
+                    if Constituent(d.category, d.span, vntype).get_head().pos != POS_PREPOSITION:
+                        vntype = None
+                else:
+                    vntype = Constituent.vntype_from_category(d.category)
+
 
             if vntype is not None:
                 '''
@@ -1310,16 +1320,21 @@ class Ccg2Drs(UnboundSentence):
         self.final_prod = d
 
         # Finalize NP constituents
-        to_remove = set()
+       r to_remove = set()
         self.constituents = sorted(self.constituents)
+        vp = None
         for i in range(len(self.constituents)):
             c = self.constituents[i]
+            if vp is not None:
+                vp.span = vp.span.difference(c.span)
             # FIXME: rank wikipedia search results
             if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
                             x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
                             x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
                 to_remove.add(i)
                 continue
+            elif c.vntype == 'VP':
+                vp = c
             elif c.get_head().category != CAT_NOUN:
                 continue
 

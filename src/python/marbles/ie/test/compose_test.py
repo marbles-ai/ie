@@ -7,7 +7,8 @@ import unittest
 from marbles import future_string, native_string
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import process_ccg_pt, Ccg2Drs
-from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_FAST_RENAME
+from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, \
+    CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
@@ -170,7 +171,7 @@ class ComposeTest(unittest.TestCase):
             (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
