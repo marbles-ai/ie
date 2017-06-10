@@ -257,7 +257,7 @@ class ComposeTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -329,7 +329,7 @@ class ComposeTest(unittest.TestCase):
 )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -493,7 +493,7 @@ class ComposeTest(unittest.TestCase):
         (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -524,7 +524,7 @@ class ComposeTest(unittest.TestCase):
         (<L N NNS NNS rates N>) ) ) ) ) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -547,7 +547,7 @@ class ComposeTest(unittest.TestCase):
         ) ) ) ) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -663,7 +663,7 @@ class ComposeTest(unittest.TestCase):
 '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -719,7 +719,7 @@ class ComposeTest(unittest.TestCase):
             (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -734,7 +734,7 @@ class ComposeTest(unittest.TestCase):
             (<L N NN NN corner. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -766,7 +766,7 @@ class ComposeTest(unittest.TestCase):
         (<L . . . . .>) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         s = ccg.get_drs().show(SHOW_LINEAR)
