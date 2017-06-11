@@ -980,15 +980,17 @@ class Category(Freezable):
             True if a functor and it returns a modifier category.
         """
         # Cache result
-        if 0 == (self._features & FUNCTOR_RETURN_MOD_CHECKED):
+        features = self._features
+        if 0 == (features & FUNCTOR_RETURN_MOD_CHECKED):
             result = self
             while not result.isatom:
                 result = result.result_category()
                 if result.ismodifier:
-                    self._features |= FUNCTOR_RETURN_MOD
+                    features |= FUNCTOR_RETURN_MOD
                     break
-            self._features |= FUNCTOR_RETURN_MOD_CHECKED
-        return 0 != (self._features & FUNCTOR_RETURN_MOD)
+            features |= FUNCTOR_RETURN_MOD_CHECKED
+            self._features = features
+        return 0 != (features & FUNCTOR_RETURN_MOD)
 
     def test_return(self, result_category, exact=True):
         """Test if the functor returns result_category.
@@ -1010,9 +1012,10 @@ class Category(Freezable):
             True if a functor and it returns a CAT_PP category.
         """
         # Cache result
-        if 0 == (self._features & FUNCTOR_RETURN_PREP_CHECKED):
+        features = self._features
+        if 0 == (features & FUNCTOR_RETURN_PREP_CHECKED):
             if self == CAT_POSSESSIVE_ARGUMENT or self == CAT_POSSESSIVE_PRONOUN:
-                self._features |= FUNCTOR_RETURN_PREP
+                features |= FUNCTOR_RETURN_PREP
             else:
                 result = self
                 ismod = False
@@ -1020,9 +1023,10 @@ class Category(Freezable):
                     ismod = result.ismodifier   # but not a (PP|PP)|$
                     result = result.result_category()
                 if not ismod and result == CAT_PP:
-                    self._features |= FUNCTOR_RETURN_PREP
-            self._features |= FUNCTOR_RETURN_PREP_CHECKED
-        return 0 != (self._features & FUNCTOR_RETURN_PREP)
+                    features |= FUNCTOR_RETURN_PREP
+            features |= FUNCTOR_RETURN_PREP_CHECKED
+            self._features = features
+        return 0 != (features & FUNCTOR_RETURN_PREP)
 
     def test_returns_entity_modifier(self):
         """Test if the functor returns any of: (NP|NP)$, (PP|PP)$, (NP|PP)$, (PP|NP)$.
@@ -1031,16 +1035,23 @@ class Category(Freezable):
             True if a functor and it returns a CAT_PP category.
         """
         # Cache result
-        if 0 == (self._features & FUNCTOR_RETURN_ENTITY_MOD_CHECKED):
+        # Even though we don't do any locking this function is still threadsafe in that worst case
+        # the caching doesnt work because of overwriting self._features. Eventually it will work
+        # though and then its set forever. In addition we call this function when we add categories
+        # to the category cache so it should always be set.
+        features = self._features
+        if 0 == (features & FUNCTOR_RETURN_ENTITY_MOD_CHECKED):
             result = self
             while not result.isatom:
                 new_result = result.result_category()
                 if new_result.isatom and new_result in [CAT_PP, CAT_NP] \
                         and result.argument_category() in [CAT_NP, CAT_PP]:
-                    self._features |= FUNCTOR_RETURN_ENTITY_MOD
+                    features |= FUNCTOR_RETURN_ENTITY_MOD
+                    break
                 result = new_result
-            self._features |= FUNCTOR_RETURN_ENTITY_MOD_CHECKED
-        return 0 != (self._features & FUNCTOR_RETURN_ENTITY_MOD)
+            features |= FUNCTOR_RETURN_ENTITY_MOD_CHECKED
+            self._features = features
+        return 0 != (features & FUNCTOR_RETURN_ENTITY_MOD)
 
 
 ## @cond

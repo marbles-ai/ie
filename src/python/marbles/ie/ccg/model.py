@@ -608,7 +608,8 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1025\NP_2025)\(S[adj]_1025\NP_2025)', r'S_1025/S[dcl]_1025'))
     _rcache.addinit(Model.build_unary_rule(r'(S[X]_1026\NP_2026)\(S[X]_1026\NP_2026)', r'S_1026/S[dcl]_1026'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1027', r'N_1027'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_1028'))
+    # TODO: Makes sense for appositives <NP, NP>. Need to check if other usages exist.
+    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_2028'))
     # Wildcards incur more string processing so cover main rules
     _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[pss]_2030\NP_1030'))
     _rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))
@@ -631,7 +632,7 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'((S[pss]_3048\NP_2048)_3048/((S_3048\NP_2048)_3048\(S_3048\NP_2048)_3048)_1048)_3048', r'(S[pss]_3048\NP_2048)_3048'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_3049\NP_2049)_3049/((S_3049\NP_2049)_3049\(S_3049\NP_2049)_3049)_1049)_3049', r'(S[b]_3049\NP_2049)_3049'))
     _rcache.addinit(Model.build_unary_rule(r'((S[ng]_3050\NP_2050)_3050/((S_3050\NP_2050)_3050\(S_3050\NP_2050)_3050)_1050)_3050', r'(S[ng]_3050\NP_2050)_3050'))
-    _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_1051)'))
+    _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_2051)'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', r'(S_1052\NP_2052)/(S_1052\NP_2052)'))
     _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', r'S_1053\NP_2053'))
     _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1054\NP_2054)\(S[dcl]_1054\NP_2054)', r'S_1054\NP_2054'))
@@ -656,6 +657,7 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'NP_1073\NP_1073', r'S[pss]_2073\NP_1073'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1074\NP_1074', r'S[adj]_2074\NP_1074'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1075\NP_1075', r'S[dcl]_2075\NP_1075'))
+
     _rcache.addinit(Model.build_unary_rule(r'NP_1076\NP_1076', r'S[ng]_2076\NP_1076'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1077\NP_1077', r'S_2077\NP_1077'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1078\NP_1078', r'S_2078/NP_1078'))
