@@ -1022,7 +1022,7 @@ class Ccg2Drs(UnboundSentence):
     def _mark_if_adjunct(self, ucat, d):
         # ucat is the unary type change catgory
         # d is the result of the type change
-        if ucat.result_category().ismodifier and ucat.argument_category().simplify() == CAT_S_NP:
+        if ucat.test_returns_entity_modifier() and ucat.argument_category().simplify() == CAT_S_NP:
             # Mark clausal adjunct
             for lex in d.span:
                 lex.mask |= RT_ADJUNCT
@@ -1407,7 +1407,7 @@ class Ccg2Drs(UnboundSentence):
                     advp = c
                     iadvp = i
                 continue
-            elif c.vntype == 'VP':
+            elif c.vntype in ['VP', 'S_INF', 'TO']:
                 vp = c
                 ivp = i
                 continue

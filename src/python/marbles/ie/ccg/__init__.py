@@ -1029,10 +1029,10 @@ class Category(Freezable):
         return 0 != (features & FUNCTOR_RETURN_PREP)
 
     def test_returns_entity_modifier(self):
-        """Test if the functor returns any of: (NP|NP)$, (PP|PP)$, (NP|PP)$, (PP|NP)$.
+        """Test if the functor returns any of: (N|N)$, (NP|NP)$, (PP|PP)$, (NP|PP)$, (PP|NP)$.
 
         Returns:
-            True if a functor and it returns a CAT_PP category.
+            True if a functor and it returns a entity modifier category.
         """
         # Cache result
         # Even though we don't do any locking this function is still threadsafe in that worst case
@@ -1044,8 +1044,8 @@ class Category(Freezable):
             result = self
             while not result.isatom:
                 new_result = result.result_category()
-                if new_result.isatom and new_result in [CAT_PP, CAT_NP] \
-                        and result.argument_category() in [CAT_NP, CAT_PP]:
+                if new_result.isatom and new_result in [CAT_PP, CAT_NP, CAT_N] \
+                        and result.argument_category() in [CAT_NP, CAT_PP, CAT_N]:
                     features |= FUNCTOR_RETURN_ENTITY_MOD
                     break
                 result = new_result
