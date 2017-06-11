@@ -90,6 +90,9 @@ class Constituent(object):
     def __repr__(self):
         return str(self)
 
+    def __hash__(self):
+        return hash(self.span)
+
     def __eq__(self, other):
         return self.span == other.span
 
@@ -130,12 +133,18 @@ class Constituent(object):
     def get_head(self):
         """Get the head lexeme of the constituent."""
         indexes = set(self.span.get_indexes())
+
+        # Handle singular case
+        if len(indexes) == 1:
+            return self.span[0]
+
         hd = set(indexes)
         for lex in self.span:
             if lex.head != lex.idx and lex.head in indexes:
                 hd.remove(lex.idx)
-        if len(hd) != 1:
-            pass
+        if len(hd) == 0:
+            return None
+        # We don't support multiple heads
         assert len(hd) == 1
         return self.span.sentence[hd.pop()]
 
@@ -270,12 +279,21 @@ class IndexSpan(object):
         return str(self.get_drs())
 
     def __eq__(self, other):
-        return other and len(self) == len(other) and len(set(self._indexes).intersection(other._indexes)) == len(self)
+        return other is not None and self.sentence is other.sentence and len(self) == len(other) \
+               and len(set(self._indexes).intersection(other._indexes)) == len(self)
+
+    def __hash__(self):
+        h = hash(id(self.sentence))
+        for i in self._indexes:
+            h = h ^ hash(i)
+        return h
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
+        if self.sentence is not other.sentence:
+            return id(self.sentence) < id(other.sentence)
         for i, j in zip(self._indexes, other._indexes):
             if i == j:
                 continue
@@ -283,6 +301,8 @@ class IndexSpan(object):
         return len(self) < len(other)
 
     def __gt__(self, other):
+        if self.sentence is not other.sentence:
+            return id(self.sentence) > id(other.sentence)
         for i, j in zip(self._indexes, other._indexes):
             if i == j:
                 continue
@@ -299,7 +319,7 @@ class IndexSpan(object):
         return len(self._indexes)
 
     def __getitem__(self, i):
-        return self._sent.at(i)
+        return self._sent.at(self._indexes[i])
 
     def __iter__(self):
         for k in self._indexes:
@@ -379,6 +399,16 @@ class IndexSpan(object):
             A IndexSpan instance.
         """
         return IndexSpan(self._sent, filter(lambda i: 0 != (self[i].mask & required) and 0 == (self[i].mask & excluded), self._indexes))
+
+    def fullspan(self):
+        """Return the span which is a superset of this span but where the indexes are contiguous.
+
+        Returns:
+            A IndexSpan instance.
+        """
+        if len(self._indexes) <= 1:
+            return self
+        return IndexSpan(self._sent, [x for x in range(self._indexes[0], self._indexes[-1]+1)])
 
     def get_drs(self):
         """Get a DRS view of the span.

@@ -30,16 +30,21 @@ RT_PROPERNAME    = 0x0000000000000001
 RT_ENTITY        = 0x0000000000000002
 RT_EVENT         = 0x0000000000000004
 RT_LOCATION      = 0x0000000000000008
-RT_DATE          = 0x0000000000000010
-RT_WEEKDAY       = 0x0000000000000020
-RT_MONTH         = 0x0000000000000040
-RT_HUMAN         = 0x0000000000000080
-RT_ANAPHORA      = 0x0000000000000100
-RT_NUMBER        = 0x0000000000000200
-RT_UNION         = 0x0000000000000400
-RT_NEGATE        = 0x0000000000000800
-RT_EVENT_MOD     = 0x0000000000001000
-RT_ATTRIBUTE     = 0x0000000000002000
+RT_DIRECTION     = 0x0000000000000010
+RT_DATE          = 0x0000000000000020
+RT_WEEKDAY       = 0x0000000000000040
+RT_MONTH         = 0x0000000000000080
+RT_HUMAN         = 0x0000000000000100
+RT_ANAPHORA      = 0x0000000000000200
+RT_NUMBER        = 0x0000000000000400
+RT_UNION         = 0x0000000000000800
+RT_NEGATE        = 0x0000000000001000
+# Adjunct
+RT_EVENT_MOD     = 0x0000000000002000
+RT_ATTRIBUTE     = 0x0000000000004000
+# Clausal Adjucts - adverbial phrases
+RT_ADJUNCT       = 0x0000000000008000
+RT_PP            = 0x0000000000010000
 
 RT_RELATIVE      = 0x8000000000000000
 RT_PLURAL        = 0x4000000000000000
@@ -273,6 +278,8 @@ CAT_COPULAR = [Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)'),
                Category.from_cache(r'(S[b]\NP)/(S[adj]\NP)')]
 # EasySRL prepositions
 CAT_ESRL_PP = Category.from_cache(r'(NP\NP)/NP')
+CAT_PP_ADVP = Category.from_cache(r'((S\NP)\(S\NP))/NP')
+CAT_VP_MOD = Category.from_cache(r'(S\NP)\(S\NP)')
 # CAT_AP
 # Adjectival phrase
 CAT_AP = Category.from_cache(r'S[adj]\NP')
@@ -1012,6 +1019,15 @@ class Ccg2Drs(UnboundSentence):
         # Required by UnboundSentence
         return self.constituents[i]
 
+    def _mark_if_adjunct(self, ucat, d):
+        # ucat is the unary type change catgory
+        # d is the result of the type change
+        if ucat.result_category().ismodifier and ucat.argument_category().simplify() == CAT_S_NP:
+            # Mark clausal adjunct
+            for lex in d.span:
+                lex.mask |= RT_ADJUNCT
+
+    @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
         if len(op.sub_ops) == 2:
@@ -1021,6 +1037,7 @@ class Ccg2Drs(UnboundSentence):
                 unary = MODEL.infer_unary(op.category)
             assert unary is not None
             fn = self.rename_vars(unary.get())
+            ucat = fn.category
             fn.set_options(self.options)
             d2 = stk.pop()
             d1 = stk.pop()
@@ -1039,9 +1056,11 @@ class Ccg2Drs(UnboundSentence):
                 unary = MODEL.infer_unary(op.category)
             assert unary is not None
             fn = self.rename_vars(unary.get())
+            ucat = fn.category
             fn.set_options(self.options)
             stk.append(fn)
             self._dispatch_ba(op, stk)
+        self._mark_if_adjunct(ucat, stk[-1])
 
     @dispatchmethod(dispatchmap, RL_TCR_UNARY)
     def _dispatch_runary(self, op, stk):
@@ -1057,6 +1076,7 @@ class Ccg2Drs(UnboundSentence):
         '''
         assert unary is not None
         fn = self.rename_vars(unary.get())
+        ucat = fn.category
         fn.set_options(self.options)
         stk.append(fn)
         self._dispatch_ba(op, stk)
@@ -1067,6 +1087,7 @@ class Ccg2Drs(UnboundSentence):
         nlst.push_right(stk.pop())
         nlst.push_right(stk.pop())
         stk.append(nlst.flatten().unify())
+        self._mark_if_adjunct(ucat, stk[-1])
 
     @dispatchmethod(dispatchmap, RL_TC_CONJ)
     def _dispatch_tcconj(self, op, stk):
@@ -1230,13 +1251,19 @@ class Ccg2Drs(UnboundSentence):
             if d.category == CAT_NP:
                 refs = set()
                 for lex in d.span:
-                    refs = refs.union(lex.refs)
+                    # Adverbial phrases are removed from NP's at a later point
+                    if 0 == (lex.mask & (RT_ADJUNCT | RT_PP)):
+                        refs = refs.union(lex.refs)
                 vntype = Constituent.vntype_from_category(d.category) if len(refs) == 1 else None
             else:
                 if cat_before_rule is CAT_ESRL_PP:
                     vntype = CAT_PP.signature
                     if Constituent(d.category, d.span, vntype).get_head().pos != POS_PREPOSITION:
                         vntype = None
+                elif cat_before_rule is CAT_PP_ADVP and d.category is CAT_VP_MOD and not d.span.isempty:
+                    hd = Constituent(d.category, d.span, 'ADVP').get_head()
+                    if hd.pos == POS_PREPOSITION and hd.stem in ['for']:
+                        vntype = 'ADVP'
                 else:
                     vntype = Constituent.vntype_from_category(d.category)
 
@@ -1259,6 +1286,9 @@ class Ccg2Drs(UnboundSentence):
                     c = Constituent(d.category, d.span, vntype)
                 '''
                 c = Constituent(d.category, d.span, vntype)
+                if vntype == 'PP':
+                    for lex in d.span:
+                        lex.mask |= RT_PP
 
                 while len(self.constituents) != 0 and self.constituents[-1].vntype == c.vntype \
                         and self.constituents[-1] in c:
@@ -1319,22 +1349,68 @@ class Ccg2Drs(UnboundSentence):
             d = d.apply_null_left().unify()
         self.final_prod = d
 
+        # Fixup phrases containing clausal adjuncts
+        adjuncts = []
+        for i in range(len(self.constituents)):
+            cnp = self.constituents[i]
+            indexes = []
+            for lex in cnp.span:
+                if 0 != (lex.mask & RT_ADJUNCT):
+                    indexes.append(lex.idx)
+            if len(indexes) != 0:
+                cadvp = Constituent(CAT_NP_NP, IndexSpan(cnp.span.sentence, indexes), 'ADVP')
+                dspan = cnp.span.difference(cadvp.span)
+                if dspan.isempty:
+                    if cnp.category != CAT_NP:
+                        self.constituents[i] = cadvp
+                else:
+                    cnp.span = dspan
+                    adjuncts.append(cadvp)
+
+        if len(adjuncts):
+            self.constituents.extend(adjuncts)
+
         # Finalize NP constituents
         to_remove = set()
-        self.constituents = sorted(self.constituents)
+        self.constituents = sorted(set(self.constituents))
         vp = None
+        ivp = 0
+        advp = None
+        iadvp = 0
+        allspan = IndexSpan(self)
         for i in range(len(self.constituents)):
             c = self.constituents[i]
+            allspan = allspan.union(c.span)
             if vp is not None:
                 vp.span = vp.span.difference(c.span)
+                if vp.span.isempty:
+                    to_remove.add(ivp)
+                    vp = None
             # FIXME: rank wikipedia search results
             if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
                             x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
                             x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
                 to_remove.add(i)
                 continue
+            elif c.vntype == 'ADVP':
+                if advp:
+                    if c in advp:
+                        to_remove.add(i)
+                    elif advp in c:
+                        to_remove.add(iadvp)
+                        advp = c
+                        iadvp = i
+                    else:
+                        advp = c
+                        iadvp = i
+                else:
+                    advp = c
+                    iadvp = i
+                continue
             elif c.vntype == 'VP':
                 vp = c
+                ivp = i
+                continue
             elif c.get_head().category != CAT_NOUN:
                 continue
 
@@ -1371,6 +1447,50 @@ class Ccg2Drs(UnboundSentence):
                 if i not in to_remove:
                     filtered_constituents.append(self.constituents[i])
             self.constituents = filtered_constituents
+
+        # Handle missed VP's such as (S[dcl]\S[dcl])\NP - ..., researchers reported.
+        remaining = self.get_span().difference(allspan)
+        resort = False
+        if not remaining.isempty:
+            extra = {}
+            for lex in remaining:
+                if lex.head in remaining:
+                    extra.setdefault(lex.head, []).append(lex.idx)
+            if len(extra) != 0:
+                for k, v in extra.iteritems():
+                    head = self.lexque[k]
+                    if head.isverb:
+                        self.constituents.append(Constituent(head.category, IndexSpan(self, v), 'VP'))
+                resort = True
+
+        # Split VP's that accidently got combined.
+        split_vps = []
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
+            if c.vntype == 'VP':
+                cindexes = c.span.get_indexes()
+                findexes = c.span.fullspan().get_indexes()
+                splits = []
+                while len(cindexes) != 0:
+                    contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
+                    contig = Constituent(c.category, IndexSpan(self, contig_span), 'VP')
+                    # A None value indicates the head is not in the constituents span
+                    if contig.get_head() is not None:
+                        contig.category = contig.get_head().category
+                        splits.append(contig)
+                    cnew = IndexSpan(self, set(cindexes).difference(contig_span))
+                    cindexes = cnew.get_indexes()
+                    findexes = cnew.fullspan().get_indexes()
+                if len(splits) >= 1:
+                    self.constituents[i] = splits[0]
+                    split_vps.extend(splits[1:])
+
+        if len(split_vps) != 0:
+            resort = True
+            self.constituents.extend(split_vps)
+
+        if resort:
+            self.constituents = sorted(self.constituents)
 
         # If a constituent head and its category is N/N or a noun modifier and it is an RT_ATTRIBUTE
         # then all direct descendents are also attributes
@@ -1663,9 +1783,11 @@ class Ccg2Drs(UnboundSentence):
                     assert unary is not None
                     template = unary.template
                     nlst = collections.deque()
-                    nlst.append(stk.pop())
                     nlst.append('%s(<T %s %d %d>' % (indent, op.category, 1, 2))
-                    nlst.append(stk.pop())
+                    b = stk.pop()
+                    a = stk.pop()
+                    nlst.append(a)
+                    nlst.append(b)
                     nlst.append('%s  (<L %s %s %s %s %s>)' % (indent, template.clean_category, 'UNARY', 'UNARY',
                                                               '.UNARY', template.predarg_category.signature))
                     nlst.append('%s)' % indent)

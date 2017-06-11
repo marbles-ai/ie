@@ -663,6 +663,8 @@ class ComposeTest(unittest.TestCase):
 '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
@@ -1263,6 +1265,59 @@ class ComposeTest(unittest.TestCase):
         s = sentence_from_pt(pt)
         print(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test9_VPcordination(self):
+        # I was early yesterday and late today
+        txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBD VBD was S[dcl]\NP>)
+        (<T (S\NP)\(S\NP) 0 2> (<T (S\NP)\(S\NP) 1 2>
+        (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) JJ JJ early ((S\NP)\(S\NP))/((S\NP)\(S\NP))>)
+        (<L (S\NP)\(S\NP) NN NN yesterday (S\NP)\(S\NP)>) ) (<T ((S\NP)\(S\NP))\((S\NP)\(S\NP)) 1 2>
+        (<L conj CC CC and conj>) (<T (S\NP)\(S\NP) 1 2>
+        (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) JJ JJ late ((S\NP)\(S\NP))/((S\NP)\(S\NP))>)
+        (<L (S\NP)\(S\NP) NN NN today (S\NP)\(S\NP)>) ) ) ) ) )'''
+        # 00 <PushOp>:(i, NP, PRP)
+        # 01 <PushOp>:(be, S[dcl]\NP, VBD)
+        # 02 <PushOp>:(early, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
+        # 03 <PushOp>:(yesterday, (S\NP)\(S\NP), NN)
+        # 04 <ExecOp>:(2, FA (S\NP)\(S\NP))
+        # 05 <PushOp>:(and, conj, CC)
+        # 06 <PushOp>:(late, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
+        # 07 <PushOp>:(today, (S\NP)\(S\NP), NN)
+        # 08 <ExecOp>:(2, FA (S\NP)\(S\NP))
+        # 09 <ExecOp>:(2, R_UNARY_TC ((S\NP)\(S\NP))\((S\NP)\(S\NP)))
+        # 10 <ExecOp>:(2, BA (S\NP)\(S\NP))
+        # 11 <ExecOp>:(2, BA S[dcl]\NP)
+        # 12 <ExecOp>:(2, BA S[dcl])
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        d = builder.get_drs()
+        self.assertIsNotNone(d)
+        print(d)
+
+    def test9_ApposExtraposition(self):
+        # Factory inventories fell 0.1% in September , the first decline since February 1987.
+        #
+        # [x1,e2,x3,x4,x5| factory(x1),inventories(x1),fell(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,x6),0.1%(x6),
+        # in(e2,x4),September(x3),first(x4),decline(x4),since(x4,x5),February(x5),1987(x5),.NUM(x5)]
+        #
+        # should be in(e2, x3)
+        txt = r'''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NN NN Factory N/N>) (<L N NNS NNS inventories N>) ) )
+        (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBD VBD fell (S[dcl]\NP)/PP>) (<L PP CD CD 0.1% PP>) )
+        (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN in ((S\NP)\(S\NP))/NP>) (<T NP 0 2> (<T NP 0 1>
+        (<L N NNP NNP September N>) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 0 2>
+        (<T N 1 2> (<L N/N JJ JJ first N/N>) (<L N NN NN decline N>) ) (<T N\N 0 2> (<L (N\N)/NP IN IN since (N\N)/NP>)
+        (<T NP 0 1> (<T N 0 2> (<L N NNP NNP February N>) (<L N\N CD CD 1987. N\N>) ) ) ) ) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        print(s)
+        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        d = builder.get_drs()
         self.assertIsNotNone(d)
         print(d)
 
