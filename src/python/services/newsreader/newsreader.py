@@ -14,6 +14,7 @@ import watchtower
 import requests
 import base64
 import daemon
+import daemon.pidfile
 import signal
 import lockfile
 
@@ -123,12 +124,12 @@ if __name__ == '__main__':
                       help='Logging file, defaults to console or AWS CloudWatch when running as a daemon.')
     parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
                       help='Run as a daemon. Ignored with -X option.')
-    parser.add_option('-r', '--rundir', type='string', action='store', dest='rundir',
-                      help='Run directory')
     parser.add_option('-R', '--force-read', action='store_true', dest='force_read', default=False,
                       help='Force read.')
     parser.add_option('-X', '--one-shot', action='store_true', dest='oneshot', default=False,
                       help='Exit after first sync completes.')
+    parser.add_option('-p', '--pid-file', type='string', action='store', dest='pid_file',
+                      help='PID lock file, defaults to directory containing daemon.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
@@ -182,7 +183,13 @@ if __name__ == '__main__':
     archivers = []
     state = NWServiceState(logger)
 
-    rundir = os.path.abspath(options.rundir or os.path.join(thisdir, 'run'))
+    if options.pid_file is None:
+        rundir = os.path.join(thisdir, 'run')
+        pid_file = os.path.join(rundir, svc_name + '.pid')
+    else:
+        pid_file = os.path.abspath(options.pid_file)
+        rundir = os.path.dirname(pid_file)
+
     if options.daemonize:
         if not os.path.exists(rundir):
             os.makedirs(rundir, 0o777)
@@ -190,9 +197,10 @@ if __name__ == '__main__':
             print('%s is not a directory' % rundir)
             sys.exit(1)
         print('Starting service')
+
         context = daemon.DaemonContext(working_directory=thisdir,
                                        umask=0o022,
-                                       pidfile=lockfile.FileLock(os.path.join(rundir, svc_name)),
+                                       pidfile=daemon.pidfile.PIDLockFile(pid_file),
                                        signal_map = {
                                            signal.SIGTERM: term_handler,
                                            signal.SIGHUP:  hup_handler,
@@ -203,8 +211,6 @@ if __name__ == '__main__':
         try:
             with context:
                 logger.info('Service started')
-                with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
-                    fd.write(str(os.getpid()))
                 # When running as a daemon delay creation of headless browsers else they will
                 # be parented to the console. Also if we change uid or gid then the browsers
                 # start under the same credentials.
@@ -243,7 +249,7 @@ if __name__ == '__main__':
     logging.shutdown()
     if options.daemonize:
         try:
-            os.remove(os.path.join(rundir, svc_name + '.pid'))
+            os.remove(pid_file)
         except:
             pass
 
