@@ -332,6 +332,7 @@ class ComposeTest(unittest.TestCase):
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
+        ccg.resolve_proper_names()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)

@@ -36,12 +36,19 @@ class DocProp(object):
 
 class Wikidata(object):
     def __init__(self, page):
-        self.title = page.title
-        self.summary = page.summary
-        # TODO: filter wikipedia categories
-        self.categories = page.categories
-        self.pageid = page.pageid
-        self.url = page.url
+        if page is not None:
+            self.title = page.title
+            self.summary = page.summary
+            # TODO: filter wikipedia categories
+            self.categories = page.categories
+            self.pageid = page.pageid
+            self.url = page.url
+        else:
+            self.title = None
+            self.summary = None
+            self.categories = None
+            self.pageid = None
+            self.url = None
 
     def get_json(self):
         return {
@@ -51,6 +58,16 @@ class Wikidata(object):
             'pageid': self.pageid,
             'url': self.url
         }
+
+    @classmethod
+    def from_json(self, data):
+        wd = Wikidata(None)
+        wd.title = data['title']
+        wd.summary = data['summary']
+        wd.categories = data['page_categories']
+        wd.pageid = data['pageid']
+        wd.url = data['url']
+        return wd
 
 
 def safe_wikipage(query):
@@ -68,7 +85,7 @@ class Constituent(object):
     def __init__(self, category, span, vntype):
         self.span = span
         self.category = category
-        self.vntype = safe_utf8_decode(vntype)
+        self.vntype = safe_utf8_decode(vntype) if vntype is not None else None
         self.wiki_data = None
 
     def get_json(self):
@@ -80,6 +97,15 @@ class Constituent(object):
         if self.wiki_data:
             result['wiki'] = self.wiki_data.get_json()
         return result
+
+    @classmethod
+    def from_json(self, data, sentence):
+        c = Constituent(None, None, None)
+        c.category = Category.from_cache(data['category'])
+        c.vntype = data['vntype']
+        c.span = IndexSpan(sentence, data['span'])
+        if 'wiki' in data:
+            c.wiki_data = Wikidata.from_json(data['wiki'])
 
     def __unicode__(self):
         return self.vntype + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
@@ -228,7 +254,7 @@ class Constituent(object):
         return None
 
 
-class UnboundSentence(object):
+class UnboundSentence(collections.Sequence):
     """A sentence with no bound to a discourse."""
 
     def __getitem__(self, slice_i_j):
@@ -256,7 +282,7 @@ class UnboundSentence(object):
         raise NotImplementedError
 
 
-class IndexSpan(object):
+class IndexSpan(collections.Sequence):
     """View of a discourse."""
     def __init__(self, sentence, indexes=None):
         if not isinstance(sentence, UnboundSentence):

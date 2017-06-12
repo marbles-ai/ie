@@ -15,6 +15,7 @@ from marbles.ie.drt.utils import iterable_type_check, intersect, union, union_in
 from marbles.ie.doc import IndexSpan
 from marbles import safe_utf8_decode, safe_utf8_encode, native_string, future_string
 
+# FIXME: these should be defined in ccg2drs, not here.
 ## @{
 ## @ingroup gconst
 ## @defgroup ccg2drs_const CCG to DRS Constants
@@ -35,6 +36,8 @@ CO_NO_VERBNET = 0x0040
 CO_FAST_RENAME = 0x0080
 ## Disable wikipedia search for constituents
 CO_NO_WIKI_SEARCH = 0x0100
+## Keep punctuation
+CO_KEEP_PUNCT = 0x0200
 
 ## @}
 

@@ -10,7 +10,7 @@ from nltk.stem import wordnet as wn
 from marbles.ie.ccg import *
 from marbles.ie.ccg.model import MODEL
 from marbles.ie.compose import ProductionList, FunctorProduction, DrsProduction, \
-    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME, CO_NO_WIKI_SEARCH
+    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME, CO_NO_WIKI_SEARCH, CO_KEEP_PUNCT
 from marbles.ie.drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from marbles.ie.drt.drs import get_new_drsrefs
@@ -1431,7 +1431,8 @@ class Ccg2Drs(UnboundSentence):
                                         x.pos in [POS_PREPOSITION, POS_DETERMINER], dspan)):
                         c.set_wiki_entry(result[0])
                     elif all(map(lambda x: x.pos in [POS_PROPER_NOUN, POS_PROPER_NOUN_S], dspan)):
-                        # Need to search page for these words
+                        # FIXME: This is not a good strategy. For example Consolidated-Gold-Fields *PLC*.
+                        # Search page for these words
                         summary = result[0].summary.lower()
                         if all(map(lambda x: x.stem.lower() in summary, dspan)):
                             c.set_wiki_entry(result[0])
@@ -1515,51 +1516,79 @@ class Ccg2Drs(UnboundSentence):
     def resolve_proper_names(self):
         """Merge proper names."""
 
-        # find spans of nouns with same referent
-        spans = []
-        lastref = DRSRef('$$$$')
-        startIdx = -1
-        endIdx = -1
-        for i in range(len(self.lexque)):
-            lexeme = self.lexque[i]
-            if lexeme.refs is None or len(lexeme.refs) == 0:
-                ref = DRSRef('$$$$')
-            else:
-                ref = lexeme.refs[0]
+        if 0 == (self.options & CO_KEEP_PUNCT):
+            to_remove = IndexSpan(self, filter(lambda i: self.lexque[i].drs is None or self.lexque[i].drs.isempty,
+                                               range(len(self.lexque))))
+        else:
+            to_remove = IndexSpan(self)
 
-            if startIdx >= 0:
-                if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
-                        (lexeme.word == '&' and (i+1) < len(self.lexque) and self.lexque[i+1].isproper_noun)):
-                    endIdx = i
-                    continue
-                else:
-                    if startIdx != endIdx:
-                        spans.append((startIdx, endIdx))
-                    startIdx = -1
-
-            if lexeme.isproper_noun:
-                startIdx = i
-                endIdx = i
-                lastref = ref
-
-        if startIdx >= 0:
-            spans.append((startIdx, endIdx))
-
-        for s, e in spans:
-            lexeme = self.lexque[s]
-            ref = lexeme.refs[0]
-            names = [lexeme.stem]
-            fca = lexeme.drs.find_condition(Rel(lexeme.stem, [ref]))
-            if fca is None:
+        for c in self.constituents:
+            c.span = c.span.difference(to_remove)
+            if c.span.isempty:
                 continue
-            for i in range(s+1, e+1):
-                lexeme = self.lexque[i]
-                fc = lexeme.drs.find_condition(Rel(self.lexque[i].stem, [ref]))
-                if fc is not None:
-                    names.append(self.lexque[i].stem)
-                    lexeme.drs.remove_condition(fc)
-            nm = '-'.join(names)
-            fca.cond.relation.rename(nm)
+            if c.vntype == 'NP' and c.get_head().isproper_noun:
+                spans = []
+                lastref = DRSRef('$$$$')
+                startIdx = -1
+                endIdx = -1
+                for i in range(len(c.span)):
+                    lexeme = c.span[i]
+                    if lexeme.refs is None or len(lexeme.refs) == 0:
+                        ref = DRSRef('$$$$')
+                    else:
+                        ref = lexeme.refs[0]
+
+                    if startIdx >= 0:
+                        if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
+                                (lexeme.word == '&' and (i+1) < len(c.span) and c.span[i+1].isproper_noun)):
+                            endIdx = i
+                            continue
+                        else:
+                            if startIdx != endIdx:
+                                spans.append((startIdx, endIdx))
+                            startIdx = -1
+
+                    if lexeme.isproper_noun:
+                        startIdx = i
+                        endIdx = i
+                        lastref = ref
+
+                if startIdx >= 0:
+                    spans.append((startIdx, endIdx))
+
+                for s, e in spans:
+                    lexeme = c.span[s]
+                    ref = lexeme.refs[0]
+                    word = '-'.join([c.span[i].word for i in range(s, e+1)])
+                    stem = '-'.join([c.span[i].stem for i in range(s, e+1)])
+                    fca = lexeme.drs.find_condition(Rel(lexeme.stem, [ref]))
+                    if fca is None:
+                        continue
+                    fca.cond.relation.rename(stem)
+                    lexeme.stem = stem
+                    lexeme.word = word
+                    to_remove = to_remove.union(IndexSpan(self, [c.span[i].idx for i in range(s+1, e+1)]))
+
+        if not to_remove.isempty:
+            self.constituents = filter(lambda x: not x.span.isempty,
+                                       map(lambda c: Constituent(c.category, c.span.difference(to_remove), c.vntype),
+                                           self.constituents))
+            # Remove lexemes and remap indexes.
+            idxs_to_del = set(to_remove.get_indexes())
+
+            # Python 2.x does not support nonlocal keyword for the closure
+            class context:
+                i = 0
+            def counter():
+                idx = context.i
+                context.i += 1
+                return idx
+
+            idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
+            for c in self.constituents:
+                c.span = IndexSpan(self, map(lambda y: idxmap[y],
+                                             filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
+            self.lexque = map(lambda y: self.lexque[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
 
     def get_drs(self):
         refs = []
