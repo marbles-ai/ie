@@ -67,7 +67,7 @@ start() {
         fi
     fi
     pushd $DAEMONROOT 2>/dev/null >/dev/null
-    ./$DAEMON -d $*
+    ./$DAEMON -d -p $PIDFILE $*
     popd 2>/dev/null 1>/dev/null
     exit 0
 }
@@ -87,19 +87,15 @@ refresh() {
 
 
 check() {
-	if [ -e ${DAEMONROOT}/run -a "x`ls ${DAEMONROOT}/run/*.pid 2>/dev/null`" != "x" ]; then
-		echo "  The following services are listed in the run cache:"
-		for svc in ${DAEMONROOT}/run/*.pid; do
-			PID="$(cat $svc)"
-			svcnm="`echo $(basename $svc) | sed 's/\.pid$//g'`"
-			if kill -0 $PID &>/dev/null; then
-				echo "    $svcnm running"
-			else
-				echo "    $svcnm has a pid file but is not running"
-			fi
-		done
+    if [ -e $PIDFILE ]; then
+        PID="$(cat $PIDFILE)"
+        if kill -0 $PID &>/dev/null; then
+            echo "  $SVCNAME running"
+        else
+            echo "  $SVCNAME has a pid file but is not running"
+        fi
 	else
-		echo "  No services currently running."
+		echo "  $SVCNAME not running."
 	fi
 	exit 0
 }
@@ -111,7 +107,16 @@ pushd `dirname $1` 2>/dev/null >/dev/null
 DAEMONROOT=`pwd`
 popd 2>/dev/null 1>/dev/null
 DAEMON=`basename $1`
-PIDFILE="${DAEMONROOT}/run/`basename $1 | sed 's/\.[a-zA-Z0-9]*$//g'`.pid"
+SVCNAME="`basename $1 | sed 's/\.[a-zA-Z0-9]*$//g'`"
+
+if [ "x$UID" == "x0" ]; then
+    PIDFILE="/var/run/${SVCNAME}.pid"
+    echo "Using root credentials - pidfile is $PIDFILE"
+else
+    PIDFILE="${DAEMONROOT}/run/${SVCNAME}.pid"
+    echo "Using local credentials - pidfile is $PIDFILE"
+fi
+
 CMD=$2
 shift 2
 
