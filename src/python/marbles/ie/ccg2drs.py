@@ -780,19 +780,22 @@ class Lexeme(object):
 
                     if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
                         conds.append(Rel('.EVENT', [refs[0]]))
+                        pred = zip(refs[1:], self._EventPredicates)
+                        for v, e in pred[0:2]:
+                            conds.append(Rel(e, [refs[0], v]))
+                        self.mask |= RT_EVENT
                         self.vnclasses = vnclasses
-
-                    # passive case
-                    if len(refs) > 1:
+                        self.drs = DRS([refs[0]], conds)
+                    elif len(refs) > 1:
+                        # passive case
                         self.mask |= RT_EVENT_MOD
                         conds.append(Rel('.MOD', [refs[0], refs[-1]]))
-
-                    self.drs = DRS([], conds)
+                        self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
 
                 elif self.category == CAT_MODAL_PAST:
                     self.mask |= RT_EVENT_MOD
-                    conds.append(Rel('.MODAL', [refs[0]]))
+                    conds.append(Rel('.MOD', [refs[0]]))
                     self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
 
@@ -1247,6 +1250,7 @@ class Ccg2Drs(UnboundSentence):
         method(self, op, stk)
 
     def _update_constituents(self, d, cat_before_rule):
+        vntype = None
         if isinstance(d, (FunctorProduction, DrsProduction)):
             if d.category == CAT_NP:
                 refs = set()
@@ -1269,26 +1273,10 @@ class Ccg2Drs(UnboundSentence):
 
 
             if vntype is not None:
-                '''
-                if vntype != 'ADJP' and d.category.extract_unify_atoms(False)[-1] == CAT_Sany:
-                    # TODO: move identification of event constituents to post compose_drs()
-                    if isinstance(d, FunctorProduction):
-                        r = d.get_unify_scopes(False)[-1]
-                    else:
-                        r = d.lambda_refs[0]
-                    span = IndexSpan(d.span.sentence)
-                    for lex in d.span:
-                        if 0 != (lex.mask & (RT_EVENT | RT_EVENT_MOD)):
-                            span.add(lex.idx)
-                    assert len(span) != 0
-                    c = Constituent(d.category, span, vntype)
-                else:
-                    c = Constituent(d.category, d.span, vntype)
-                '''
                 c = Constituent(d.category, d.span, vntype)
-                if vntype == 'PP':
-                    for lex in d.span:
-                        lex.mask |= RT_PP
+                #if vntype == 'PP':
+                    #for lex in d.span:
+                    #    lex.mask |= RT_PP
 
                 while len(self.constituents) != 0 and self.constituents[-1].vntype == c.vntype \
                         and self.constituents[-1] in c:
@@ -1861,6 +1849,14 @@ class Ccg2Drs(UnboundSentence):
         # TODO: support span with start and length
         return IndexSpan(self, range(len(self.lexque)))
 
+    def get_constituent_tree(self):
+        tree = collections.deque()
+
+        CN = []
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
+            CN.append(c)
+
 
 
 ## @ingroup gfn
@@ -2010,12 +2006,9 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, lexeme.drs.conditions)
             if len(c) == 1:
                 c = future_string(c[0]) + ': ' + template.predarg_category.signature
-                if lexeme.stem in dictionary:
-                    lst = dictionary[idx][lexeme.stem]
-                    lst[0].add(c)
-                    lst[1].add(uid)
-                else:
-                    dictionary[idx][lexeme.stem] = [set([c]), set(uid)]
+                lst = dictionary[idx].setdefault(lexeme.stem, [set(), set()])
+                lst[0].add(c)
+                lst[1].add(uid)
 
     return dictionary
 
