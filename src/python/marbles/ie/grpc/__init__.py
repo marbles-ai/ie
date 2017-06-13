@@ -3,8 +3,8 @@ from google.protobuf import empty_pb2
 import grpc
 import os
 import time
-from subprocess import call
-from marbles import PROJDIR, safe_utf8_encode, safe_utf8_decode, future_string
+import subprocess
+from marbles import PROJDIR, USE_DEVEL_PATH, safe_utf8_encode, safe_utf8_decode, future_string
 
 
 ## EasySRL gRPC service port
@@ -118,7 +118,7 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
 class CcgParserService:
     """Ccg Parser Service"""
 
-    def __init__(self, daemon, logger=None, workdir=None):
+    def __init__(self, daemon, logger=None, workdir=None, jarfile=None, modeldir=None):
         """Create a CCG Parse Service.
 
         Args:
@@ -130,6 +130,7 @@ class CcgParserService:
         self.grpc_stop_onclose = False
         self.daemon_name = safe_utf8_encode(daemon)
         self.logger = logger
+        self.child = None
         try:
             # Check if easyxxx service has started. If not start it.
             self.grpc_stub, _ = get_client_transport('localhost', self.daemon_port)
@@ -137,14 +138,18 @@ class CcgParserService:
         except Exception:
             # Not started
             if self.logger:
-               self.logger.info('Starting %s gRPC daemon', self.daemon_name)
-            if PROJDIR:
-                call([os.path.join(PROJDIR, 'scripts', 'start_server.sh'),
-                      daemon])
+                self.logger.info('Starting %s gRPC daemon', self.daemon_name)
+
+            if USE_DEVEL_PATH and modeldir is None and jarfile is None:
+                subprocess.call([os.path.join(PROJDIR, 'scripts', 'start_server.sh'), daemon])
+            elif modeldir is not None and jarfile is not None:
+                log_file = os.path.join(workdir, self.daemon_name + '.log')
+                self.child = subprocess.Popen(['/usr/bin/java', '-jar', jarfile, '--model', modeldir,
+                                                '--daemonize', '-l', '250'],
+                                              stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
+                os.kill(self.child.pid, 0)
             else:
-                # When installed we expect mservice.sh is in path
-                call(['mservice.sh',
-                      os.path.join(self.workdir, daemon + '.sh'), 'start', '-d'])
+                raise ValueError('CcgParserService.__init__() requires model and jar or neither')
             time.sleep(4)   # Give it some time to lock session access
             self.stub, _ = get_client_transport('localhost', self.daemon_port)
             # Call asynchronously - will wait until default session is created
@@ -170,11 +175,10 @@ class CcgParserService:
         if self.grpc_stop_onclose:
             if self.logger:
                 self.logger.info('Stopping %s gRPC daemon', self.daemon_name)
-            if PROJDIR:
-                call([os.path.join(PROJDIR, 'scripts', 'stop_server.sh'),
-                      self.daemon_name])
+            if self.child is None:
+                subprocess.call([os.path.join(PROJDIR, 'scripts', 'stop_server.sh'),
+                                 self.daemon_name])
             else:
-                call(['mservice.sh',
-                      os.path.join(self.workdir, self.daemon_name + '.sh'), 'stop'])
+                self.child.terminate()
 
 
