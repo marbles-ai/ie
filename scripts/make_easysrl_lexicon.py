@@ -54,6 +54,7 @@ if __name__ == '__main__':
     # Get files
     ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
     dirlist1 = sorted(os.listdir(ldcpath))
+    #dirlist1 = ['ccg_derivation00.txt']
     for fname in dirlist1:
         if 'ccg_derivation' not in fname:
             continue
@@ -98,6 +99,7 @@ if __name__ == '__main__':
 
             uid = '%s-%04d' % (idx, i)
             try:
+                #dictionary[0-25][stem][set([c]), set(uid)]
                 dictionary = extract_lexicon_from_pt(pt, dictionary, uid=uid)
             except Exception as e:
                 print(e)
@@ -110,6 +112,7 @@ if __name__ == '__main__':
         with open(filepath, 'w') as fd:
             d = dictionary[idx]
             for k, v in d.iteritems():
+                # k == stem, v = [set([c]), set(uid)]
                 fd.write(b'<predicate name=\'%s\'>\n' % safe_utf8_encode(k))
                 for x in v[0]:
                     fd.write(safe_utf8_encode(x))
@@ -130,7 +133,7 @@ if __name__ == '__main__':
                 for x in v[1]:
                     fd.write(b'sentence id: ' + safe_utf8_encode(x))
                     fd.write(b'\n')
-                fd.write(b'</predicate>\n')
+                fd.write(b'</predicate>\n\n')
             # Free up memory
             dictionary[idx] = None
             d = None
