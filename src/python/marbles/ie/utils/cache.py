@@ -7,9 +7,25 @@ import pickle
 from marbles import safe_utf8_encode, safe_utf8_decode, future_string, native_string
 
 
-class ConstString(object):
+class Freezable(object):
+    """Frozen objects require strict equality based on instance id."""
+    def __init__(self):
+        self._freeze = False
+
+    @property
+    def isfrozen(self):
+        """Test if a cache entry is frozen."""
+        return self._freeze
+
+    def freeze(self, frozen=True):
+        """Freeze a cache entry so equality requires same object id."""
+        self._freeze = frozen
+
+
+class ConstString(Freezable):
     """String which is shared as a key and value part of a cache."""
     def __init__(self, s=None):
+        super(ConstString, self).__init__()
         self._s = future_string(s) if s is not None else ''
         self._h = hash(self._s)
 
@@ -26,10 +42,10 @@ class ConstString(object):
         return self._h
 
     def __eq__(self, other):
-        return other._s == self._s
+        return self is other if self.isfrozen and other.isfrozen else other._s == self._s
 
     def __ne__(self, other):
-        return other._s != self._s
+        return self is not other if self.isfrozen and other.isfrozen else other._s != self._s
 
     def __lt__(self, other):
         return self._s < other._s
@@ -43,20 +59,9 @@ class ConstString(object):
     def __ge__(self, other):
         return self._s >= other._s
 
-
-class Freezable(object):
-    """Frozen objects require strict equality based on instance id."""
-    def __init__(self):
-        self._freeze = False
-
     @property
-    def isfrozen(self):
-        """Test if a cache entry is frozen."""
-        return self._freeze
-
-    def freeze(self, frozen=True):
-        """Freeze a cache entry so equality requires same object id."""
-        self._freeze = frozen
+    def signature(self):
+        return self._s
 
 
 class Cache(MutableMapping):
