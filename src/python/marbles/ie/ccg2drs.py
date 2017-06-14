@@ -10,8 +10,7 @@ from nltk.stem import wordnet as wn
 from ccg import *
 from ccg.model import MODEL
 import constituent_types
-from compose import ProductionList, FunctorProduction, DrsProduction, \
-    DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME, CO_NO_WIKI_SEARCH, CO_KEEP_PUNCT
+from compose import ProductionList, FunctorProduction, DrsProduction, DrsComposeError, identity_functor
 from drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
 from drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from drt.drs import get_new_drsrefs
@@ -21,43 +20,7 @@ from parse import parse_drs
 from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from doc import UnboundSentence, IndexSpan, Constituent
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
-
-
-## @{
-## @ingroup gconst
-## @defgroup reftypes DRS Referent Types
-
-RT_PROPERNAME    = 0x0000000000000001
-RT_ENTITY        = 0x0000000000000002
-RT_EVENT         = 0x0000000000000004
-RT_LOCATION      = 0x0000000000000008
-RT_DIRECTION     = 0x0000000000000010
-RT_DATE          = 0x0000000000000020
-RT_WEEKDAY       = 0x0000000000000040
-RT_MONTH         = 0x0000000000000080
-RT_HUMAN         = 0x0000000000000100
-RT_ANAPHORA      = 0x0000000000000200
-RT_NUMBER        = 0x0000000000000400
-RT_UNION         = 0x0000000000000800
-RT_NEGATE        = 0x0000000000001000
-# Adjunct
-RT_EVENT_ATTRIB  = 0x0000000000002000
-RT_EVENT_MODAL   = 0x0000000000002000
-RT_ATTRIBUTE     = 0x0000000000004000
-# Clausal Adjucts - adverbial phrases
-RT_ADJUNCT       = 0x0000000000008000
-RT_PP            = 0x0000000000010000
-
-RT_RELATIVE      = 0x8000000000000000
-RT_PLURAL        = 0x4000000000000000
-RT_MALE          = 0x2000000000000000
-RT_FEMALE        = 0x1000000000000000
-RT_1P            = 0x0800000000000000
-RT_2P            = 0x0400000000000000
-RT_3P            = 0x0200000000000000
-## @}
-
-
+from constants import *
 
 
 ## @cond
@@ -1304,15 +1267,11 @@ class Ccg2Drs(UnboundSentence):
                 if 0 != (lex.mask & RT_ADJUNCT):
                     indexes.append(lex.idx)
             if len(indexes) != 0:
-                cadvp = Constituent(CAT_NP_NP, IndexSpan(cnp.span.sentence, indexes),
-                                    constituent_types.CONSTITUENT_ADVP)
-                dspan = cnp.span.difference(cadvp.span)
-                if dspan.isempty:
-                    if cnp.category != CAT_NP:
-                        constituents[i] = cadvp
-                else:
+                advp = IndexSpan(cnp.span.sentence, indexes)
+                dspan = cnp.span.difference(advp)
+                if not dspan.isempty:
                     cnp.span = dspan
-                    adjuncts.append(cadvp)
+                    adjuncts.append(Constituent(cnp.category, advp, constituent_types.CONSTITUENT_ADVP))
 
         if len(adjuncts):
             constituents.extend(adjuncts)
@@ -1339,7 +1298,7 @@ class Ccg2Drs(UnboundSentence):
                             x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
                 to_remove.add(i)
                 continue
-            elif c.vntype is constituent_types.CONSTITUENT_ADVP:
+            elif 0 != (c.get_head().mask & RT_ADJUNCT):
                 if advp:
                     if c in advp:
                         to_remove.add(i)

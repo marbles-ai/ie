@@ -4,42 +4,13 @@
 from __future__ import unicode_literals, print_function
 import weakref
 import collections
-from marbles.ie.drt.common import SHOW_LINEAR, DRSConst, DRSVar
-from marbles.ie.drt.drs import AbstractDRS, DRS, DRSRef, Prop, Rel
-from marbles.ie.drt.drs import get_new_drsrefs
-from marbles.ie.ccg import Category, CAT_EMPTY, CAT_NP, CAT_CONJ, CAT_PPNP, CAT_ADJECTIVE, \
-    RL_RPASS, RL_LPASS, RL_FA, RL_BA, RL_BC, RL_FC, RL_BX, RL_FX, RL_BS, RL_BXS, RL_FS, RL_FXS, RL_GFC, RL_GFX, \
-    RL_GBC, RL_GBX, RL_TYPE_RAISE, RL_RNUM, RL_RCONJ, RL_LCONJ, \
-    RL_TC_CONJ
-from marbles.ie.drt.utils import iterable_type_check, intersect, union, union_inplace, remove_dups, rename_var
-from marbles.ie.doc import IndexSpan
-from marbles import safe_utf8_decode, safe_utf8_encode, native_string, future_string
-
-# FIXME: these should be defined in ccg2drs, not here.
-## @{
-## @ingroup gconst
-## @defgroup ccg2drs_const CCG to DRS Constants
-
-## Compose option: remove propositions containing single referent in the subordinate DRS.
-CO_REMOVE_UNARY_PROPS = 0x0001
-## Compose option: print derivations to stdout during production
-CO_PRINT_DERIVATION = 0x0002
-## Compose option: verify signature during production
-CO_VERIFY_SIGNATURES = 0x0004
-## Build state slots
-CO_BUILD_STATES = 0x0010
-## Add state predicates
-CO_ADD_STATE_PREDICATES = 0x0020
-## Disable Verbnet
-CO_NO_VERBNET = 0x0040
-## Fast Renaming
-CO_FAST_RENAME = 0x0080
-## Disable wikipedia search for constituents
-CO_NO_WIKI_SEARCH = 0x0100
-## Keep punctuation
-CO_KEEP_PUNCT = 0x0200
-
-## @}
+from drt.drs import AbstractDRS, DRS, DRSRef
+from drt.drs import get_new_drsrefs
+from ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
+from drt.utils import iterable_type_check, intersect, union, remove_dups
+from doc import IndexSpan
+from marbles import safe_utf8_encode, future_string
+from constants import *
 
 
 class DrsComposeError(Exception):
