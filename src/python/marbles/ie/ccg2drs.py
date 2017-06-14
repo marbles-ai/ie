@@ -18,7 +18,7 @@ from drt.utils import remove_dups, union, complement, intersect
 from kb.verbnet import VERBNETDB
 from parse import parse_drs
 from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from doc import UnboundSentence, IndexSpan, Constituent
+from sentence import UnboundSentence, IndexSpan, Constituent
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 from constants import *
 
