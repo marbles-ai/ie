@@ -193,9 +193,7 @@ class Constituent(object):
         Returns:
             A Constituent instance or None if the root constituent.
         """
-        if self.chead >= 0:
-            return self.span.sentence.get_constituent_at(self.chead)
-        return None
+        return self.span.sentence.get_constituent_at(self.chead)
 
     def set_wiki_entry(self, page):
         self.wiki_data = Wikidata(page)
@@ -304,6 +302,18 @@ class UnboundSentence(collections.Sequence):
     def get_constituent_at(self, i):
         """Get the constituent at index i."""
         raise NotImplementedError
+
+    def get_constituent_tree(self):
+        """Get the constituent tree as an adjacency list of lists."""
+        raise NotImplementedError
+
+    def print_constituent_tree(self, ctree, level=0):
+        """Print the constituent tree."""
+        indent = '' if level == 0 else ' ' * level
+        c = self.get_constituent_at(ctree[0])
+        print('%s%02d%s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
+        for nd in ctree[1]:
+            self.print_constituent_tree(nd, level+3)
 
 
 class IndexSpan(collections.Sequence):

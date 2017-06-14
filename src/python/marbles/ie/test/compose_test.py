@@ -28,6 +28,12 @@ def dprint(*args, **kwargs):
         print(*args, **kwargs)
 
 
+def dprint_constituent_tree(ccg, ctree):
+    global _PRINT
+    if _PRINT:
+        ccg.print_constituent_tree(ctree)
+
+
 class ComposeTest(unittest.TestCase):
 
     def __test1_Compose(self):
@@ -249,7 +255,6 @@ class ComposeTest(unittest.TestCase):
         x = [
             'NP(Rudolph-Agnew)',
             'NP(55 years)',
-            'ADJP(55 years old)',
             'ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)',
             'NP(former chairman)',
             'NP(Consolidated-Gold-Fields-PLC)',
@@ -260,9 +265,19 @@ class ComposeTest(unittest.TestCase):
         ]
         dprint(' '.join(s))
         self.assertListEqual(x, s)
-        x = (0, [(3, [(2, [(1, [])])]), (6, [(7, []), (8, [(9, [])])])])
+        # 5 VP(was named)
+        #   0 NP(Rudolph-Agnew)
+        #     2 ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)
+        #       1 NP(55 years)
+        #       3 NP(former chairman)
+        #         4 NP(Consolidated-Gold-Fields-PLC)
+        #   6 NP(a nonexecutive director)
+        #     7 PP(of this British industrial conglomerate)
+        #       8 NP(this British industrial conglomerate)
+        x = (5, [(0, [(2, [(1, []), (3, [(4, [])])])]), (6, [(7, [(8, [])])])])
         a = ccg.get_constituent_tree()
-        self.assertListEqual(x, a)
+        dprint_constituent_tree(ccg, a)
+        self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1

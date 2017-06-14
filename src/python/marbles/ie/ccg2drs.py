@@ -1005,7 +1005,6 @@ class Ccg2Drs(UnboundSentence):
                 lex.mask |= RT_ADJUNCT
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
-    @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
         if len(op.sub_ops) == 2:
             assert len(stk) >= 2
@@ -1069,8 +1068,6 @@ class Ccg2Drs(UnboundSentence):
     @dispatchmethod(dispatchmap, RL_TC_CONJ)
     def _dispatch_tcconj(self, op, stk):
         # Special type change rules. See section 3.7-3.8 of LDC 2005T13 manual.
-        # These rules are required to process the CCG conversion of the Penn Treebank.
-        # They are not required for EasySRL or EasyCCG.
         if len(op.sub_ops) == 2:
             fn = self.rename_vars(safe_create_empty_functor(op.category))
             if op.sub_ops[0].category == CAT_CONJ:
@@ -1298,7 +1295,7 @@ class Ccg2Drs(UnboundSentence):
                             x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
                 to_remove.add(i)
                 continue
-            elif 0 != (c.get_head().mask & RT_ADJUNCT):
+            elif c.vntype is not constituent_types.CONSTITUENT_NP and 0 != (c.get_head().mask & RT_ADJUNCT):
                 if advp:
                     if c in advp:
                         to_remove.add(i)
@@ -1480,6 +1477,7 @@ class Ccg2Drs(UnboundSentence):
         self.constituents = self._refine_constituents(self.constituents)
 
         # And finally set constituent heads
+        # Lexme head index is always in constituent so use it map between the two.
         i2c = {}
         for i in range(len(self.constituents)):
             c = self.constituents[i]
@@ -1487,7 +1485,6 @@ class Ccg2Drs(UnboundSentence):
             assert lexhd.idx not in i2c
             i2c[lexhd.idx] = i
 
-        croot = -1
         for i in range(len(self.constituents)):
             c = self.constituents[i]
             lexhd = c.get_head()
@@ -1496,10 +1493,7 @@ class Ccg2Drs(UnboundSentence):
             else:
                 while lexhd.head not in i2c and lexhd.head != lexhd.idx:
                     lexhd = self.lexque[lexhd.head]
-                if lexhd.head not in i2c:
-                    assert croot < 0
-                    croot = i
-                else:
+                if lexhd.head in i2c:
                     c.chead = i2c[lexhd.head]
 
     def get_vn_frames(self):
@@ -1575,9 +1569,9 @@ class Ccg2Drs(UnboundSentence):
             # Python 2.x does not support nonlocal keyword for the closure
             class context:
                 i = 0
-            def counter():
+            def counter(inc=1):
                 idx = context.i
-                context.i += 1
+                context.i += inc
                 return idx
 
             # Remove constituents and remap indexes.
@@ -1884,24 +1878,19 @@ class Ccg2Drs(UnboundSentence):
         if len(self.constituents) == 0:
             return []
 
-        adj = [list() for x in self.constituents]
-        root = -1
+        # Each node is a tuple (constituency index, [adjacency tuples])
+        nodes = [(i, []) for i in range(len(self.constituents))] # create empty
+        seen = [[] for i in range(len(self.constituents))]
+        root = 0
         for i in range(len(self.constituents)):
-            c = self.constituents[i]
-            if c.chead >= 0:
-                adj[c.chead].append(i)
+            nd = self.constituents[i]
+            if nd.chead != i:
+                if i not in seen[nd.chead]:
+                    nodes[nd.chead][1].append(nodes[i])
+                    seen[nd.chead].append(i)
             else:
-                root = i
-
-        tree = (root, [])
-        stk = [tree]
-        while len(stk) != 0:
-            T = stk.pop()
-            aT = adj[T[0]]
-            for i in aT:
-                stk.append((i, []))
-                T[1].append(stk[-1])
-        return tree
+                root = nd.chead
+        return nodes[root]
 
 
 ## @ingroup gfn
