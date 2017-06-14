@@ -28,7 +28,7 @@ terminate = False
 
 
 from marbles import newsfeed as nf
-from marbles.log import ExceptionRateLimitedLogAdaptor
+from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
 
 
 class NewsSource(object):
@@ -93,9 +93,8 @@ def run_daemon(archivers, state):
 
 def init_log_handler(log_handler, log_level):
     log_handler.setLevel(log_level)
-    # Make some attempt to comply with RFC5424
-    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
-                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+    set_log_format(log_handler)
+
 
 def init_archivers(queue_name, state):
     # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
