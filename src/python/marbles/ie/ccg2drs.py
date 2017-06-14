@@ -7,18 +7,19 @@ import inflect
 import re
 from nltk.stem import wordnet as wn
 
-from marbles.ie.ccg import *
-from marbles.ie.ccg.model import MODEL
-from marbles.ie.compose import ProductionList, FunctorProduction, DrsProduction, \
+from ccg import *
+from ccg.model import MODEL
+import constituent_types
+from compose import ProductionList, FunctorProduction, DrsProduction, \
     DrsComposeError, identity_functor, CO_NO_VERBNET, CO_FAST_RENAME, CO_NO_WIKI_SEARCH, CO_KEEP_PUNCT
-from marbles.ie.drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
-from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
-from marbles.ie.drt.drs import get_new_drsrefs
-from marbles.ie.drt.utils import remove_dups, union, complement, intersect
-from marbles.ie.kb.verbnet import VERBNETDB
-from marbles.ie.parse import parse_drs
-from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from marbles.ie.doc import UnboundSentence, IndexSpan, Constituent
+from drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
+from drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
+from drt.drs import get_new_drsrefs
+from drt.utils import remove_dups, union, complement, intersect
+from kb.verbnet import VERBNETDB
+from parse import parse_drs
+from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
+from doc import UnboundSentence, IndexSpan, Constituent
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 
 
@@ -40,7 +41,8 @@ RT_NUMBER        = 0x0000000000000400
 RT_UNION         = 0x0000000000000800
 RT_NEGATE        = 0x0000000000001000
 # Adjunct
-RT_EVENT_MOD     = 0x0000000000002000
+RT_EVENT_ATTRIB  = 0x0000000000002000
+RT_EVENT_MODAL   = 0x0000000000002000
 RT_ATTRIBUTE     = 0x0000000000004000
 # Clausal Adjucts - adverbial phrases
 RT_ADJUNCT       = 0x0000000000008000
@@ -63,7 +65,7 @@ RT_3P            = 0x0200000000000000
 __pron = [
     # 1st person singular
     ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN|RT_1P),
-    ('me',      '([x1],[])',    '([],[i(x1),.OBJ(x1)])', RT_HUMAN|RT_1P),
+    ('me',      '([x1],[])',    '([],[i(x1)])', RT_HUMAN|RT_1P),
     ('myself',  '([x1],[])',    '([],[i(x1),.REFLEX(x1)])', RT_HUMAN|RT_1P),
     ('mine',    '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
     ('my',      '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
@@ -75,8 +77,8 @@ __pron = [
     # 3rd person singular
     ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
     ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('him',     '([x1],[])',    '([],[he(x1),.OBJ(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('her',     '([x1],[])',    '([],[she(x1),.OBJ(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('him',     '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('her',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     ('himself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
     ('herself', '([x1],[])',    '([],[she(x1),.REFLEX(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     ('hisself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
@@ -84,7 +86,7 @@ __pron = [
     ('hers',    '([x2],[])',    '([],[she(x1),.POSS(x1,x2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     # 1st person plural
     ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('us',      '([x1],[])',    '([],[we(x1),.OBJ(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('us',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('ourself', '([x1],[])',    '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('ourselves','([x1],[])',   '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('ours',    '([x2],[])',    '([],[we(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_1P),
@@ -93,7 +95,7 @@ __pron = [
     ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
     ('they',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('them',    '([x1],[])',    '([],[they(x1),.OBJ(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('them',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('themself','([x1],[])',    '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('themselves','([x1],[])',  '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('theirs',  '([x2],[])',    '([],[they(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_3P),
@@ -291,6 +293,11 @@ CAT_MODAL_PAST = Category.from_cache(r'(S[dcl]\NP)/(S[pt]\NP)')
 CAT_IF_THEN = Category.from_cache(r'(S/S)/S[dcl]')
 
 POS_POSSESSIVE = POS.from_cache('POS')
+
+FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM
+FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
+CAT_VPMODX = Category.from_cache(r'(S[X]\NP)/(S[X]\NP)')
+CAT_VPX = Category.from_cache(r'S[X]\NP')
 ## @endcond
 
 
@@ -775,23 +782,28 @@ class Lexeme(object):
                 except Exception:
                     conds.append(Rel(self.stem, [refs[0]]))
                     pass
-                if (self.category.iscombinator and self.category.has_any_features(FEATURE_PSS | FEATURE_TO)) \
-                        or self.category.ismodifier:
+                rcat = self.category.test_return_and_get(CAT_VPMODX, False)
+                if rcat is not None and rcat.argument_category().has_any_features(FEATURE_VARG) \
+                        and rcat.result_category().has_any_features(FEATURE_VRES):
+                    conds.append(Rel('.EVENT', [refs[0]]))
+                    pred = zip(refs[1:], self._EventPredicates)
+                    for v, e in pred[0:2]:
+                        conds.append(Rel(e, [refs[0], v]))
+                    self.mask |= RT_EVENT
+                    self.vnclasses = vnclasses
+                    self.drs = DRS([refs[0]], conds)
+                    d = DrsProduction([], self.refs, span=span)
 
-                    if not self.category.ismodifier and self.category.has_all_features(FEATURE_TO | FEATURE_DCL):
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                        self.vnclasses = vnclasses
-
-                    # passive case
+                elif rcat is not None and (rcat.has_any_features(FEATURE_PSS | FEATURE_TO) or rcat.ismodifier):
                     if len(refs) > 1:
-                        self.mask |= RT_EVENT_MOD
+                        # passive case
+                        self.mask |= RT_EVENT_ATTRIB
                         conds.append(Rel('.MOD', [refs[0], refs[-1]]))
-
-                    self.drs = DRS([], conds)
+                        self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
 
                 elif self.category == CAT_MODAL_PAST:
-                    self.mask |= RT_EVENT_MOD
+                    self.mask |= RT_EVENT_MODAL
                     conds.append(Rel('.MODAL', [refs[0]]))
                     self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
@@ -914,8 +926,10 @@ class Lexeme(object):
                         # Make sure we have one freeref. For functors it is a bad idea to use an empty DrsProduction
                         # as the spans can be deleted by ProductionList.flatten().
                         d = DrsProduction([], [self.refs[0]], span=span)
+                        # Having a DRS prevents deletion of TO constituent
+                        self.drs = DRS([], [])
                     elif self.pos == POS_MODAL:
-                        self.mask |= RT_EVENT_MOD
+                        self.mask |= RT_EVENT_MODAL
                         self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
                         d = DrsProduction([], self.refs, span=span)
                     else:
@@ -1245,8 +1259,10 @@ class Ccg2Drs(UnboundSentence):
         """
         method = self.dispatchmap.lookup(op.rule)
         method(self, op, stk)
-
+        
     def _update_constituents(self, d, cat_before_rule):
+        vntype = None
+
         if isinstance(d, (FunctorProduction, DrsProduction)):
             if d.category == CAT_NP:
                 refs = set()
@@ -1254,47 +1270,199 @@ class Ccg2Drs(UnboundSentence):
                     # Adverbial phrases are removed from NP's at a later point
                     if 0 == (lex.mask & (RT_ADJUNCT | RT_PP)):
                         refs = refs.union(lex.refs)
-                vntype = Constituent.vntype_from_category(d.category) if len(refs) == 1 else None
+                vntype = constituent_types.CONSTITUENT_NP if len(refs) == 1 else None
+            elif cat_before_rule is CAT_ESRL_PP:
+                vntype = constituent_types.Typeof[CAT_PP.signature]
+                if Constituent(d.category, d.span, vntype).get_head().pos != POS_PREPOSITION:
+                    vntype = None
+            elif cat_before_rule is CAT_PP_ADVP and d.category is CAT_VP_MOD and not d.span.isempty:
+                hd = Constituent(d.category, d.span, constituent_types.CONSTITUENT_ADVP).get_head()
+                if hd.pos == POS_PREPOSITION and hd.stem in ['for']:
+                    vntype = constituent_types.CONSTITUENT_ADVP
             else:
-                if cat_before_rule is CAT_ESRL_PP:
-                    vntype = CAT_PP.signature
-                    if Constituent(d.category, d.span, vntype).get_head().pos != POS_PREPOSITION:
-                        vntype = None
-                elif cat_before_rule is CAT_PP_ADVP and d.category is CAT_VP_MOD and not d.span.isempty:
-                    hd = Constituent(d.category, d.span, 'ADVP').get_head()
-                    if hd.pos == POS_PREPOSITION and hd.stem in ['for']:
-                        vntype = 'ADVP'
-                else:
-                    vntype = Constituent.vntype_from_category(d.category)
-
+                vntype = Constituent.vntype_from_category(d.category)
 
             if vntype is not None:
-                '''
-                if vntype != 'ADJP' and d.category.extract_unify_atoms(False)[-1] == CAT_Sany:
-                    # TODO: move identification of event constituents to post compose_drs()
-                    if isinstance(d, FunctorProduction):
-                        r = d.get_unify_scopes(False)[-1]
-                    else:
-                        r = d.lambda_refs[0]
-                    span = IndexSpan(d.span.sentence)
-                    for lex in d.span:
-                        if 0 != (lex.mask & (RT_EVENT | RT_EVENT_MOD)):
-                            span.add(lex.idx)
-                    assert len(span) != 0
-                    c = Constituent(d.category, span, vntype)
-                else:
-                    c = Constituent(d.category, d.span, vntype)
-                '''
                 c = Constituent(d.category, d.span, vntype)
-                if vntype == 'PP':
-                    for lex in d.span:
-                        lex.mask |= RT_PP
+                #if vntype is constituent_types.CONSTITUENT_NP:
+                    #for lex in d.span:
+                    #    lex.mask |= RT_PP
 
-                while len(self.constituents) != 0 and self.constituents[-1].vntype == c.vntype \
+                while len(self.constituents) != 0 and self.constituents[-1].vntype is c.vntype \
                         and self.constituents[-1] in c:
                     self.constituents.pop()
                 self.constituents.append(c)
         return d
+    
+    def _refine_constituents(self, constituents):
+        # Fixup phrases containing clausal adjuncts
+        adjuncts = []
+        for i in range(len(constituents)):
+            cnp = constituents[i]
+            indexes = []
+            for lex in cnp.span:
+                if 0 != (lex.mask & RT_ADJUNCT):
+                    indexes.append(lex.idx)
+            if len(indexes) != 0:
+                cadvp = Constituent(CAT_NP_NP, IndexSpan(cnp.span.sentence, indexes),
+                                    constituent_types.CONSTITUENT_ADVP)
+                dspan = cnp.span.difference(cadvp.span)
+                if dspan.isempty:
+                    if cnp.category != CAT_NP:
+                        constituents[i] = cadvp
+                else:
+                    cnp.span = dspan
+                    adjuncts.append(cadvp)
+
+        if len(adjuncts):
+            constituents.extend(adjuncts)
+
+        # Finalize NP constituents
+        to_remove = set()
+        constituents = sorted(set(constituents))
+        vp = None
+        ivp = 0
+        advp = None
+        iadvp = 0
+        allspan = IndexSpan(self)
+        for i in range(len(constituents)):
+            c = constituents[i]
+            allspan = allspan.union(c.span)
+            if vp is not None:
+                vp.span = vp.span.difference(c.span)
+                if vp.span.isempty:
+                    to_remove.add(ivp)
+                    vp = None
+            # FIXME: rank wikipedia search results
+            if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
+                            x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
+                            x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
+                to_remove.add(i)
+                continue
+            elif c.vntype is constituent_types.CONSTITUENT_ADVP:
+                if advp:
+                    if c in advp:
+                        to_remove.add(i)
+                    elif advp in c:
+                        to_remove.add(iadvp)
+                        advp = c
+                        iadvp = i
+                    else:
+                        advp = c
+                        iadvp = i
+                else:
+                    advp = c
+                    iadvp = i
+                continue
+            elif c.vntype in [constituent_types.CONSTITUENT_VP, constituent_types.CONSTITUENT_SINF,
+                              constituent_types.CONSTITUENT_TO]:
+                if vp is not None and i == ivp+1 and vp.vntype is not constituent_types.CONSTITUENT_TO:
+                    vhd = vp.get_head()
+                    chd = c.get_head()
+                    if chd.refs[0] == vhd.refs[0] and (chd.head == vhd.idx or vhd.head == chd.idx):
+                        # Merge
+                        vp.span = vp.span.union(c.span)
+                        c.span.clear()
+                        to_remove.add(i)
+                        if vhd.head == chd.idx:
+                            vp.vntype = c.vntype
+                        continue
+                vp = c
+                ivp = i
+                continue
+            elif c.get_head().category != CAT_NOUN:
+                continue
+
+            if 0 != (self.options & CO_NO_WIKI_SEARCH):
+                continue
+
+            result = c.search_wikipedia()
+            if result is not None:
+                subspan = c.span.get_subspan_from_wiki_search(result)
+                if subspan == c.span:
+                    c.set_wiki_entry(result[0])
+                elif subspan:
+                    dspan = c.span.difference(subspan)
+                    if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN,
+                                                        CAT_PREPOSITION, CAT_ADJECTIVE] or
+                            x.category.test_returns_entity_modifier() or
+                                    x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
+                                    x.pos in [POS_PREPOSITION, POS_DETERMINER], dspan)):
+                        c.set_wiki_entry(result[0])
+                    elif all(map(lambda x: x.pos in [POS_PROPER_NOUN, POS_PROPER_NOUN_S], dspan)):
+                        # FIXME: This is not a good strategy. For example Consolidated-Gold-Fields *PLC*.
+                        # Search page for these words
+                        summary = result[0].summary.lower()
+                        if all(map(lambda x: x.stem.lower() in summary, dspan)):
+                            c.set_wiki_entry(result[0])
+                        else:
+                            content = result[0].content
+                            if all(map(lambda x: x.stem.lower() in content, dspan)):
+                                c.set_wiki_entry(result[0])
+
+        # Remove irrelevent entries
+        if len(to_remove) != 0:
+            filtered_constituents = []
+            for i in range(len(constituents)):
+                if i not in to_remove:
+                    filtered_constituents.append(constituents[i])
+            constituents = filtered_constituents
+
+        # Handle missed VP's such as (S[dcl]\S[dcl])\NP - ..., researchers reported.
+        remaining = self.get_span().difference(allspan)
+        resort = False
+        if not remaining.isempty:
+            extra = {}
+            for lex in remaining:
+                if lex.head in remaining:
+                    extra.setdefault(lex.head, []).append(lex.idx)
+            if len(extra) != 0:
+                for k, v in extra.iteritems():
+                    head = self.lexque[k]
+                    if head.isverb:
+                        constituents.append(Constituent(head.category, IndexSpan(self, v),
+                                                             constituent_types.CONSTITUENT_VP))
+                resort = True
+
+        # Split VP's that accidently got combined.
+        split_vps = []
+        for i in range(len(constituents)):
+            c = constituents[i]
+            if c.vntype is constituent_types.CONSTITUENT_VP:
+                cindexes = c.span.get_indexes()
+                findexes = c.span.fullspan().get_indexes()
+                splits = []
+                while len(cindexes) != 0:
+                    contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
+                    contig = Constituent(c.category, IndexSpan(self, contig_span), constituent_types.CONSTITUENT_VP)
+                    # A None value indicates the head is not in the constituents span
+                    if contig.get_head() is not None:
+                        contig.category = contig.get_head().category
+                        splits.append(contig)
+                    cnew = IndexSpan(self, set(cindexes).difference(contig_span))
+                    cindexes = cnew.get_indexes()
+                    findexes = cnew.fullspan().get_indexes()
+                if len(splits) >= 1:
+                    constituents[i] = splits[0]
+                    split_vps.extend(splits[1:])
+
+        if len(split_vps) != 0:
+            resort = True
+            constituents.extend(split_vps)
+
+        if resort:
+            constituents = sorted(constituents)
+
+        # If a constituent head and its category is N/N or a noun modifier and it is an RT_ATTRIBUTE
+        # then all direct descendents are also attributes
+        for c in constituents:
+            hd = c.get_head()
+            if 0 != (hd.mask & RT_ATTRIBUTE) and (hd.category in [CAT_ADJECTIVE, CAT_AP]
+                                                  or hd.category.test_returns_entity_modifier()):
+                for lex in c.span:
+                    lex.mask |= RT_ATTRIBUTE
+
+        return constituents
 
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
@@ -1349,158 +1517,31 @@ class Ccg2Drs(UnboundSentence):
             d = d.apply_null_left().unify()
         self.final_prod = d
 
-        # Fixup phrases containing clausal adjuncts
-        adjuncts = []
-        for i in range(len(self.constituents)):
-            cnp = self.constituents[i]
-            indexes = []
-            for lex in cnp.span:
-                if 0 != (lex.mask & RT_ADJUNCT):
-                    indexes.append(lex.idx)
-            if len(indexes) != 0:
-                cadvp = Constituent(CAT_NP_NP, IndexSpan(cnp.span.sentence, indexes), 'ADVP')
-                dspan = cnp.span.difference(cadvp.span)
-                if dspan.isempty:
-                    if cnp.category != CAT_NP:
-                        self.constituents[i] = cadvp
-                else:
-                    cnp.span = dspan
-                    adjuncts.append(cadvp)
+        # Refine constituents
+        self.constituents = self._refine_constituents(self.constituents)
 
-        if len(adjuncts):
-            self.constituents.extend(adjuncts)
-
-        # Finalize NP constituents
-        to_remove = set()
-        self.constituents = sorted(set(self.constituents))
-        vp = None
-        ivp = 0
-        advp = None
-        iadvp = 0
-        allspan = IndexSpan(self)
+        # And finally set constituent heads
+        i2c = {}
         for i in range(len(self.constituents)):
             c = self.constituents[i]
-            allspan = allspan.union(c.span)
-            if vp is not None:
-                vp.span = vp.span.difference(c.span)
-                if vp.span.isempty:
-                    to_remove.add(ivp)
-                    vp = None
-            # FIXME: rank wikipedia search results
-            if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
-                            x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
-                            x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)):
-                to_remove.add(i)
-                continue
-            elif c.vntype == 'ADVP':
-                if advp:
-                    if c in advp:
-                        to_remove.add(i)
-                    elif advp in c:
-                        to_remove.add(iadvp)
-                        advp = c
-                        iadvp = i
-                    else:
-                        advp = c
-                        iadvp = i
-                else:
-                    advp = c
-                    iadvp = i
-                continue
-            elif c.vntype in ['VP', 'S_INF', 'TO']:
-                vp = c
-                ivp = i
-                continue
-            elif c.get_head().category != CAT_NOUN:
-                continue
+            lexhd = c.get_head()
+            assert lexhd.idx not in i2c
+            i2c[lexhd.idx] = i
 
-            if 0 != (self.options & CO_NO_WIKI_SEARCH):
-                continue
-
-            result = c.search_wikipedia()
-            if result is not None:
-                subspan = c.span.get_subspan_from_wiki_search(result)
-                if subspan == c.span:
-                    c.set_wiki_entry(result[0])
-                elif subspan:
-                    dspan = c.span.difference(subspan)
-                    if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN,
-                                                        CAT_PREPOSITION, CAT_ADJECTIVE] or
-                                        x.category.test_returns_entity_modifier() or
-                                        x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
-                                        x.pos in [POS_PREPOSITION, POS_DETERMINER], dspan)):
-                        c.set_wiki_entry(result[0])
-                    elif all(map(lambda x: x.pos in [POS_PROPER_NOUN, POS_PROPER_NOUN_S], dspan)):
-                        # FIXME: This is not a good strategy. For example Consolidated-Gold-Fields *PLC*.
-                        # Search page for these words
-                        summary = result[0].summary.lower()
-                        if all(map(lambda x: x.stem.lower() in summary, dspan)):
-                            c.set_wiki_entry(result[0])
-                        else:
-                            content = result[0].content
-                            if all(map(lambda x: x.stem.lower() in content, dspan)):
-                                c.set_wiki_entry(result[0])
-
-        # Remove irrelevent entries
-        if len(to_remove) != 0:
-            filtered_constituents = []
-            for i in range(len(self.constituents)):
-                if i not in to_remove:
-                    filtered_constituents.append(self.constituents[i])
-            self.constituents = filtered_constituents
-
-        # Handle missed VP's such as (S[dcl]\S[dcl])\NP - ..., researchers reported.
-        remaining = self.get_span().difference(allspan)
-        resort = False
-        if not remaining.isempty:
-            extra = {}
-            for lex in remaining:
-                if lex.head in remaining:
-                    extra.setdefault(lex.head, []).append(lex.idx)
-            if len(extra) != 0:
-                for k, v in extra.iteritems():
-                    head = self.lexque[k]
-                    if head.isverb:
-                        self.constituents.append(Constituent(head.category, IndexSpan(self, v), 'VP'))
-                resort = True
-
-        # Split VP's that accidently got combined.
-        split_vps = []
+        croot = -1
         for i in range(len(self.constituents)):
             c = self.constituents[i]
-            if c.vntype == 'VP':
-                cindexes = c.span.get_indexes()
-                findexes = c.span.fullspan().get_indexes()
-                splits = []
-                while len(cindexes) != 0:
-                    contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
-                    contig = Constituent(c.category, IndexSpan(self, contig_span), 'VP')
-                    # A None value indicates the head is not in the constituents span
-                    if contig.get_head() is not None:
-                        contig.category = contig.get_head().category
-                        splits.append(contig)
-                    cnew = IndexSpan(self, set(cindexes).difference(contig_span))
-                    cindexes = cnew.get_indexes()
-                    findexes = cnew.fullspan().get_indexes()
-                if len(splits) >= 1:
-                    self.constituents[i] = splits[0]
-                    split_vps.extend(splits[1:])
-
-        if len(split_vps) != 0:
-            resort = True
-            self.constituents.extend(split_vps)
-
-        if resort:
-            self.constituents = sorted(self.constituents)
-
-        # If a constituent head and its category is N/N or a noun modifier and it is an RT_ATTRIBUTE
-        # then all direct descendents are also attributes
-        for c in self.constituents:
-            hd = c.get_head()
-            if 0 != (hd.mask & RT_ATTRIBUTE) and (hd.category in [CAT_ADJECTIVE, CAT_AP]
-                                                  or hd.category.test_returns_entity_modifier()):
-                for lex in c.span:
-                    lex.mask |= RT_ATTRIBUTE
+            lexhd = c.get_head()
+            if lexhd.head in i2c:
+                c.chead = i2c[lexhd.head]
+            else:
+                while lexhd.head not in i2c and lexhd.head != lexhd.idx:
+                    lexhd = self.lexque[lexhd.head]
+                if lexhd.head not in i2c:
+                    assert croot < 0
+                    croot = i
+                else:
+                    c.chead = i2c[lexhd.head]
 
     def get_vn_frames(self):
         i2c = {}
@@ -1517,7 +1558,7 @@ class Ccg2Drs(UnboundSentence):
         """Merge proper names."""
 
         if 0 == (self.options & CO_KEEP_PUNCT):
-            to_remove = IndexSpan(self, filter(lambda i: self.lexque[i].drs is None or self.lexque[i].drs.isempty,
+            to_remove = IndexSpan(self, filter(lambda i: self.lexque[i].drs is None or self.lexque[i].ispunct,
                                                range(len(self.lexque))))
         else:
             to_remove = IndexSpan(self)
@@ -1526,7 +1567,7 @@ class Ccg2Drs(UnboundSentence):
             c.span = c.span.difference(to_remove)
             if c.span.isempty:
                 continue
-            if c.vntype == 'NP' and c.get_head().isproper_noun:
+            if c.vntype is constituent_types.CONSTITUENT_NP and c.get_head().isproper_noun:
                 spans = []
                 lastref = DRSRef('$$$$')
                 startIdx = -1
@@ -1557,7 +1598,9 @@ class Ccg2Drs(UnboundSentence):
                     spans.append((startIdx, endIdx))
 
                 for s, e in spans:
-                    lexeme = c.span[s]
+                    # Preserve heads
+                    ctmp = Constituent(c.category, c.span[s:e+1], c.vntype)
+                    lexeme = ctmp.get_head()
                     ref = lexeme.refs[0]
                     word = '-'.join([c.span[i].word for i in range(s, e+1)])
                     stem = '-'.join([c.span[i].stem for i in range(s, e+1)])
@@ -1567,15 +1610,9 @@ class Ccg2Drs(UnboundSentence):
                     fca.cond.relation.rename(stem)
                     lexeme.stem = stem
                     lexeme.word = word
-                    to_remove = to_remove.union(IndexSpan(self, [c.span[i].idx for i in range(s+1, e+1)]))
+                    to_remove = to_remove.union(IndexSpan(self, filter(lambda y: y != lexeme.idx, [x.idx for x in ctmp.span])))
 
         if not to_remove.isempty:
-            self.constituents = filter(lambda x: not x.span.isempty,
-                                       map(lambda c: Constituent(c.category, c.span.difference(to_remove), c.vntype),
-                                           self.constituents))
-            # Remove lexemes and remap indexes.
-            idxs_to_del = set(to_remove.get_indexes())
-
             # Python 2.x does not support nonlocal keyword for the closure
             class context:
                 i = 0
@@ -1584,11 +1621,33 @@ class Ccg2Drs(UnboundSentence):
                 context.i += 1
                 return idx
 
+            # Remove constituents and remap indexes.
+            context.i = 0
+            self.constituents = map(lambda c: Constituent(c.category, c.span.difference(to_remove), c.vntype, c.chead),
+                                    self.constituents)
+            idxs_to_del = set(filter(lambda i: self.constituents[i].span.isempty, range(len(self.constituents))))
+            if len(idxs_to_del) != 0:
+                idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.constituents)))
+                self.constituents = map(lambda y: self.constituents[y], filter(lambda x: idxmap[x] >= 0,
+                                                                               range(len(idxmap))))
+                for c in self.constituents:
+                    if c.chead >= 0:
+                        c.chead = idxmap[c.chead]
+                        assert c.chead >= 0
+
+            # Remove lexemes and remap indexes.
+            context.i = 0
+            idxs_to_del = set(to_remove.get_indexes())
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
             for c in self.constituents:
                 c.span = IndexSpan(self, map(lambda y: idxmap[y],
                                              filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
             self.lexque = map(lambda y: self.lexque[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
+            for i in range(len(self.lexque)):
+                lexeme = self.lexque[i]
+                lexeme.idx = i
+                lexeme.head = idxmap[lexeme.head]
+                assert lexeme.head >= 0
 
     def get_drs(self):
         refs = []
@@ -1861,6 +1920,29 @@ class Ccg2Drs(UnboundSentence):
         # TODO: support span with start and length
         return IndexSpan(self, range(len(self.lexque)))
 
+    def get_constituent_tree(self):
+        """Get the constituent tree as an adjacency list of lists."""
+        if len(self.constituents) == 0:
+            return []
+
+        adj = [list() for x in self.constituents]
+        root = -1
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
+            if c.chead >= 0:
+                adj[c.chead].append(i)
+            else:
+                root = i
+
+        tree = (root, [])
+        stk = [tree]
+        while len(stk) != 0:
+            T = stk.pop()
+            aT = adj[T[0]]
+            for i in aT:
+                stk.append((i, []))
+                T[1].append(stk[-1])
+        return tree
 
 
 ## @ingroup gfn
@@ -2010,12 +2092,9 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
             c = filter(lambda x: isinstance(x, Rel) and x.relation == rel, lexeme.drs.conditions)
             if len(c) == 1:
                 c = future_string(c[0]) + ': ' + template.predarg_category.signature
-                if lexeme.stem in dictionary:
-                    lst = dictionary[idx][lexeme.stem]
-                    lst[0].add(c)
-                    lst[1].add(uid)
-                else:
-                    dictionary[idx][lexeme.stem] = [set([c]), set(uid)]
+                di = dictionary[idx].setdefault(lexeme.stem, {})
+                si = di.setdefault(c, set())
+                si.add(uid)
 
     return dictionary
 

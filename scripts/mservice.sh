@@ -66,9 +66,10 @@ start() {
             die "Service is already running."
         fi
     fi
-    pushd $DAEMONROOT 2>/dev/null >/dev/null
-    ./$DAEMON -d -p $PIDFILE $*
-    popd 2>/dev/null 1>/dev/null
+    $DAEMONROOT/$DAEMON -d -p $PIDFILE $*
+    #pushd $DAEMONROOT 2>/dev/null >/dev/null
+    #./$DAEMON -d -p $PIDFILE $*
+    #popd 2>/dev/null 1>/dev/null
     exit 0
 }
 

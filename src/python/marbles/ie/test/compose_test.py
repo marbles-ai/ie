@@ -20,8 +20,16 @@ def dexpr(s):
     return parse_drs(s, 'nltk')
 
 
+_PRINT = True
+
+def dprint(*args, **kwargs):
+    global _PRINT
+    if _PRINT:
+        print(*args, **kwargs)
+
+
 class ComposeTest(unittest.TestCase):
-    
+
     def __test1_Compose(self):
         # λP.[x|me(x),own(x,y)];P(y)
         fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
@@ -63,8 +71,62 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
 
+    def test1_BoyGirl1(self):
+        txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN boy N>) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[to]\NP) VBZ VBZ wants (S[dcl]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/NP VB VB believe (S[b]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<L N NN NN girl N>) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.resolve_proper_names()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        x = '[x1,e2,e3,x4| boy(x1),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
+        self.assertEqual(x, s)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        s = ' '.join(s)
+        dprint(s)
+        self.assertEqual('NP(boy) VP(wants) TO(to) S_INF(believe) NP(girl)', s)
+
+    def test1_BoyGirl2(self):
+        txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN boy N>) ) (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[b]\NP) MD MD will (S[dcl]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/(S[to]\NP) VB VB want (S[b]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/NP VB VB believe (S[b]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>)
+        (<L N NN NN girl N>) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.resolve_proper_names()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        x = '[x1,e2,e3,x4| boy(x1),will(e2),.MODAL(e2),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
+        self.assertEqual(x, s)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        s = ' '.join(s)
+        dprint(s)
+        self.assertEqual('NP(boy) VP(will want) TO(to) S_INF(believe) NP(girl)', s)
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -171,17 +233,36 @@ class ComposeTest(unittest.TestCase):
             (<L N/N JJ JJ industrial N_51/N_51>) (<L N NN NN conglomerate N>) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
+        ccg.resolve_proper_names()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
-        s = ''
+        dprint(s)
+        s = []
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        x = [
+            'NP(Rudolph-Agnew)',
+            'NP(55 years)',
+            'ADJP(55 years old)',
+            'ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)',
+            'NP(former chairman)',
+            'NP(Consolidated-Gold-Fields-PLC)',
+            'VP(was named)',
+            'NP(a nonexecutive director)',
+            'PP(of this British industrial conglomerate)',
+            'NP(this British industrial conglomerate)'
+        ]
+        dprint(' '.join(s))
+        self.assertListEqual(x, s)
+        x = (0, [(3, [(2, [(1, [])])]), (6, [(7, []), (8, [(9, [])])])])
+        a = ccg.get_constituent_tree()
+        self.assertListEqual(x, a)
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -263,11 +344,11 @@ class ComposeTest(unittest.TestCase):
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test2_Wsj0001_2(self):
         # Mr. Vinken is chairman of Elsevier N.V. , the Dutch publishing group .
@@ -336,11 +417,11 @@ class ComposeTest(unittest.TestCase):
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test2_Wsj0003_1(self):
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
@@ -500,11 +581,11 @@ class ComposeTest(unittest.TestCase):
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test2_Wsj0004_1(self):
         # Yields on money-market mutual funds continued to slide, amid signs that portfolio managers expect further
@@ -531,7 +612,7 @@ class ComposeTest(unittest.TestCase):
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
 
     def test2_Wsj0004_1_EasySRL(self):
         # Same sentence as test12_Wsj0004_1() but parse tree generated by EasySRL rather than LDC.
@@ -554,11 +635,11 @@ class ComposeTest(unittest.TestCase):
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test2_Wsj0012_1(self):
         txt = r'''
@@ -665,18 +746,18 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test3_ParseEasySrl(self):
         # Welcome to MerryWeather High
@@ -773,11 +854,11 @@ class ComposeTest(unittest.TestCase):
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         s = ccg.get_drs().show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
         s = ''
         for c in ccg.constituents:
-            s += c.vntype + '(' + c.span.text + ') '
-        print(s.strip())
+            s += c.vntype.signature + '(' + c.span.text + ') '
+        dprint(s.strip())
 
     def test5_ProperNouns1(self):
         #txt = '''(<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP J.P. N/N>) (<L N NNP NNP Bolduc N>) ) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 1> (<T N 1 2> (<L N/N NN NN vice N/N>) (<T N 0 2> (<L N/PP NN NN chairman N/PP>) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NNP NNP W.R. (N/N)/(N/N)>) (<L N/N NNP NNP Grace N/N>) ) (<T N 1 2> (<L N/N CC CC & N/N>) (<T N 0 2> (<L N NNP NNP Co. N>) (<L , , , , ,>) ) ) ) ) (<T NP\NP 0 2> (<L (NP\NP)/(S[dcl]\NP) WDT WDT which (NP\NP)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBZ VBZ holds (S[dcl]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) CD CD 83.4 (N/N)/(N/N)>) (<L N/N NN NN % N/N>) ) (<T N 0 2> (<L N/PP NN NN interest N/PP>) (<T PP 0 2> (<L PP/NP IN IN in PP/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<T N 1 2> (<L N/N JJ JJ energy-services N/N>) (<L N NN NN company N>) ) ) ) ) ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2> (<L , , , , ,>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[pss]\NP) VBD VBD was (S[dcl]\NP)/(S[pss]\NP)>) (<T S[pss]\NP 0 2> (<L (S[pss]\NP)/NP VBN VBN elected (S[pss]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN director N>) ) ) ) ) ) ) ) ) (<L . . . . .>) ) ) ) ) ) ) '''
@@ -871,7 +952,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
 
     def test5_ProperNouns2(self):
         txt=r'''
@@ -996,7 +1077,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         s = d.show(SHOW_LINEAR)
-        print(s)
+        dprint(s)
 
     def test6_Pronouns(self):
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2> (<L ((S[dcl]\NP)/PP)/NP VBD VBD leased ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN car N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ my NP/(N/PP)>) (<T N/PP 0 2> (<L N/PP NN NN friend N/PP>) (<T (N/PP)\(N/PP) 0 2> (<L ((N/PP)\(N/PP))/NP IN IN for ((N/PP)\(N/PP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N CD CD $5 N>) (<T N\N 0 2> (<L (N\N)/N DT DT a (N\N)/N>) (<L N NN NN month. N>) ) ) ) ) ) ) ) ) )'''
@@ -1158,40 +1239,40 @@ class ComposeTest(unittest.TestCase):
             pt = parse_ccg_derivation(t)
             self.assertIsNotNone(pt)
             s = sentence_from_pt(pt)
-            print(s)
+            dprint(s)
             d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
             self.assertIsNotNone(d)
-            print(d)
+            dprint(d)
 
     def test5_AT1(self):
         txt = r'''(<T S[dcl] 1 2> (<T S/S 0 2> (<L (S/S)/NP IN IN At (S/S)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<L N NN NN minimum, N>) ) ) (<T S[dcl] 1 2> (<L NP PRP PRP we NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[to]\NP) VBP VBP need (S[dcl]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2> (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2> (<L (S[b]\NP)/NP VB VB get (S[b]\NP)/NP>) (<T NP 0 2> (<L NP/N DT DT this NP/N>) (<L N NN NN right. N>) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test5_AT2(self):
         txt = r'''(<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 0 2> (<L N NN NN world N>) (<T N\N 0 2> (<L (N\N)/NP IN IN at (N\N)/NP>) (<T NP 0 1> (<L N NN NN large. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test6_Gerund1(self):
         txt = r'''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T S/S 0 1> (<T S[ng]\NP 0 2> (<T (S[ng]\NP)/PP 0 2> (<L ((S[ng]\NP)/PP)/NP VBG VBG Presenting ((S[ng]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NNS NNS IMF’s N/N>) (<T N 1 2> (<L N/N JJ JJ annual N/N>) (<T N 0 2> (<L N/PP NN NN healthcheck N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) (<T PP 0 2> (<T PP 0 2> (<L PP/NP IN IN alongside PP/NP>) (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP George N/N>) (<L N NNP NNP Osborne N>) ) ) ) (<L , , , , ,>) ) ) ) (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Lagarde N>) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2> (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<T N 0 2> (<L N/PP NNS NNS risks N/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN outlook N>) ) ) ) ) ) ) ) ) (<L , , , , ,>) ) (<T S\S 0 2> (<L (S\S)/PP VBG VBG including (S\S)/PP>) (<T PP 0 2> (<L PP/NP IN IN from PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N NN NN housing N/N>) (<L N NN NN market N>) ) ) ) ) ) (<L , , , , ,>) ) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC but conj>) (<T S[dcl] 1 2> (<L NP PRP PRP she NP>) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD was (S[dcl]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB generally (S[adj]\NP)/(S[adj]\NP)>) (<L S[adj]\NP JJ JJ positive. S[adj]\NP>) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test7_AdjPhrase1(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N PRP$ PRP$ Your NP/N>) (<T N 1 2> (<L N/N NN NN apple N/N>) (<L N NN NN pie N>) ) ) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBZ VBZ smells S[dcl]\NP>) (<T (S\NP)\(S\NP) 1 2> (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) RB RB very ((S\NP)\(S\NP))/((S\NP)\(S\NP))>) (<L (S\NP)\(S\NP) JJ JJ tempting. (S\NP)\(S\NP)>) ) ) )'''
@@ -1215,10 +1296,10 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test8_CopularToBe1(self):
         # I am sorry
@@ -1227,10 +1308,10 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test8_NonCopularToBe1(self):
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
@@ -1241,10 +1322,10 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test8_NonCopularToBe2(self):
         # I am really sorry
@@ -1254,20 +1335,20 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test9_Verbnet1(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Jim N>) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[to]\NP) VBZ VBZ likes (S[dcl]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2> (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB jump (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN over PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN dog. N>) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test9_VPcordination(self):
         # I was early yesterday and late today
@@ -1294,11 +1375,11 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         d = builder.get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def test9_ApposExtraposition(self):
         # Factory inventories fell 0.1% in September , the first decline since February 1987.
@@ -1316,11 +1397,11 @@ class ComposeTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
-        print(s)
+        dprint(s)
         builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         d = builder.get_drs()
         self.assertIsNotNone(d)
-        print(d)
+        dprint(d)
 
     def testA1_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
@@ -1361,34 +1442,34 @@ class ComposeTest(unittest.TestCase):
                 start = 50
                 ccgbank = lines[i]
                 hdr = '%s-%04d' % (name, i)
-                print(hdr)
+                dprint(hdr)
                 try:
                     pt = parse_ccg_derivation(ccgbank)
                 except Exception:
                     failed_parse.append(hdr)
                     continue
                 self.assertIsNotNone(pt)
-                print(sentence_from_pt(pt))
+                dprint(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 try:
                     d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
                     assert d is not None
                     s = d.show(SHOW_LINEAR).encode('utf-8')
-                    print(s)
+                    dprint(s)
                 except Exception as e:
                     raise
-                    print(e)
+                    dprint(e)
                     failed_ccg2drs.append(hdr)
                     continue
 
         if failed_parse != 0:
-            print('%d derivations failed to parse' % len(failed_parse))
+            dprint('%d derivations failed to parse' % len(failed_parse))
             for x in failed_parse:
-                print('  ' + x)
+                dprint('  ' + x)
         if len(failed_ccg2drs) != 0:
-            print('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
+            dprint('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
             for x in failed_ccg2drs:
-                print('  ' + x)
+                dprint('  ' + x)
 
         self.assertEqual(len(failed_ccg2drs), 0)
         self.assertEqual(len(failed_parse), 0)
@@ -1427,35 +1508,35 @@ class ComposeTest(unittest.TestCase):
                     # These rules have an error in the ccgbank
                     continue
                 hdr = hdr.strip()
-                print(hdr)
+                dprint(hdr)
                 try:
                     pt = parse_ccg_derivation(ccgbank)
                 except Exception:
                     failed_parse.append(hdr)
                     continue
                 self.assertIsNotNone(pt)
-                print(sentence_from_pt(pt))
+                dprint(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 try:
                     d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
                     assert d is not None
                     s = d.show(SHOW_LINEAR).encode('utf-8')
-                    print(s)
+                    dprint(s)
                 except Exception as e:
                     raise
-                    print(e)
+                    dprint(e)
                     failed_ccg2drs.append(hdr)
                     continue
 
         if len(failed_parse) != 0:
-            print('%d derivations failed to parse' % len(failed_parse))
+            dprint('%d derivations failed to parse' % len(failed_parse))
             for e in failed_parse:
-                print('  ' + e)
+                dprint('  ' + e)
 
         if len(failed_ccg2drs) != 0:
-            print('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
+            dprint('%d derivations failed to convert to DRS' % len(failed_ccg2drs))
             for e in failed_parse:
-                print('  ' + e)
+                dprint('  ' + e)
 
         self.assertEqual(len(failed_ccg2drs), 0)
         self.assertEqual(len(failed_parse), 0)

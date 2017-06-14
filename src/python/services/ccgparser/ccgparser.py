@@ -5,15 +5,10 @@ import os
 import sys
 import logging
 from optparse import OptionParser
-import boto3
-import time
 import watchtower
-import requests
 import daemon
 import daemon.pidfile
 import signal
-import lockfile
-from nltk.tokenize import sent_tokenize
 
 
 # Modify python path if in development mode
@@ -84,7 +79,7 @@ def init_service(grpc_daemon, news_queue_name, ccg_queue_name, state):
         AwsNewsQueueReader(res, state, CO_NO_WIKI_SEARCH)
     ]
 
-
+#-jar $ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar --model $ESRLPATH/model/text
 if __name__ == '__main__':
     usage = 'Usage: %prog [options] [news-queue-name [ccg-queue-name]] '
     parser = OptionParser(usage)
@@ -98,6 +93,10 @@ if __name__ == '__main__':
                       help='gRPC daemon name, [easysrl (default),easyccg]')
     parser.add_option('-p', '--pid-file', type='string', action='store', dest='pid_file',
                       help='PID lock file, defaults to directory containing daemon.')
+    parser.add_option('-j', '--jar', type='string', action='store', dest='jar_file',
+                      help='Jar file. Must be combined with -m.')
+    parser.add_option('-m', '--model', type='string', action='store', dest='model_dir',
+                      help='Model folder. Must be combined with -m.')
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
     (options, args) = parser.parse_args()
@@ -174,6 +173,21 @@ if __name__ == '__main__':
         pid_file = os.path.abspath(options.pid_file)
         rundir = os.path.dirname(pid_file)
 
+    model_dir = None
+    jar_file = None
+    if options.model_dir is not None and options.jar_file is not None:
+        jar_file = os.path.abspath(options.jar_file)
+        model_dir = os.path.abspath(options.model_dir)
+        if not os.path.isdir(model_dir):
+            print('%s is not a directory' % model_dir)
+            sys.exit(1)
+        elif not os.path.isfile(jar_file):
+            print('%s is not a file' % jar_file)
+            sys.exit(1)
+    elif options.model_dir is not None or options.jar_file is not None:
+        print('-j|--jar option must be combined with -m|--model option')
+        sys.exit(1)
+
     if options.daemonize:
         if not os.path.exists(rundir):
             os.makedirs(rundir, 0o777)
@@ -190,9 +204,15 @@ if __name__ == '__main__':
                                            signal.SIGALRM: alarm_handler,
                                        })
 
+        started = False
         try:
-            grpc_daemon = grpc.CcgParserService(grpc_daemon_name, logger=logger, workdir=thisdir)
+            grpc_daemon = grpc.CcgParserService(grpc_daemon_name,
+                                                logger=logger,
+                                                workdir=thisdir,
+                                                modeldir=model_dir,
+                                                jarfile=jar_file)
             parsers = init_service(grpc_daemon, news_queue_name, ccg_queue_name, state)
+            started = True
             with context:
                 logger.info('Service started')
                 with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
@@ -200,11 +220,17 @@ if __name__ == '__main__':
                 run_daemon(parsers, state)
 
         except Exception as e:
+            if not started:
+                print('An error occured starting service')
             logger.exception('Exception caught', exc_info=e)
 
     else:
         try:
-            grpc_daemon = grpc.CcgParserService(daemon=grpc_daemon_name, logger=logger, workdir=thisdir)
+            grpc_daemon = grpc.CcgParserService(daemon=grpc_daemon_name,
+                                                logger=logger,
+                                                workdir=thisdir,
+                                                modeldir=model_dir,
+                                                jarfile=jar_file)
             parsers = init_service(grpc_daemon, news_queue_name, ccg_queue_name, state)
             logger.info('Service started')
             while True:
