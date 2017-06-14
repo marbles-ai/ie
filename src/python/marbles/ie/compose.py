@@ -8,7 +8,7 @@ from drt.drs import AbstractDRS, DRS, DRSRef
 from drt.drs import get_new_drsrefs
 from ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
 from drt.utils import iterable_type_check, intersect, union, remove_dups
-from doc import IndexSpan
+from sentence import IndexSpan
 from marbles import safe_utf8_encode, future_string
 from constants import *
 
