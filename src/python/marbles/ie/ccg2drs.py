@@ -260,6 +260,7 @@ POS_POSSESSIVE = POS.from_cache('POS')
 FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM
 FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
 CAT_VPMODX = Category.from_cache(r'(S[X]\NP)/(S[X]\NP)')
+CAT_VP_MODX = Category.from_cache(r'(S[X]\NP)\(S[X]\NP)')
 CAT_VPX = Category.from_cache(r'S[X]\NP')
 ## @endcond
 
@@ -1241,6 +1242,10 @@ class Ccg2Drs(UnboundSentence):
                     vntype = constituent_types.CONSTITUENT_ADVP
             else:
                 vntype = Constituent.vntype_from_category(d.category)
+                if vntype is None and cat_before_rule.argument_category().remove_features() == CAT_N \
+                        and (cat_before_rule.test_return(CAT_VPMODX) or cat_before_rule.test_return(CAT_VP_MODX)):
+                    # (S\NP)/(S\NP)/N[X]
+                    vntype = constituent_types.CONSTITUENT_NP
 
             if vntype is not None:
                 c = Constituent(d.category, d.span, vntype)
@@ -1285,10 +1290,12 @@ class Ccg2Drs(UnboundSentence):
             c = constituents[i]
             allspan = allspan.union(c.span)
             if vp is not None:
-                vp.span = vp.span.difference(c.span)
-                if vp.span.isempty:
-                    to_remove.add(ivp)
-                    vp = None
+                if c.vntype not in [constituent_types.CONSTITUENT_VP, constituent_types.CONSTITUENT_SINF,
+                                constituent_types.CONSTITUENT_TO] or i != (ivp+1):
+                    vp.span = vp.span.difference(c.span)
+                    if vp.span.isempty:
+                        to_remove.add(ivp)
+                        vp = None
             # FIXME: rank wikipedia search results
             if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
                             x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
