@@ -1,6 +1,7 @@
 from __future__ import unicode_literals, print_function
 import drt
-from ccg import Category, CAT_NP, CAT_PP, CAT_VP, CAT_VPdcl, CAT_VPb, CAT_VPto, CAT_AP, CAT_Sany, CAT_Sadj
+from ccg import Category, CAT_NP, CAT_PP, CAT_VP, CAT_VPdcl, CAT_VPb, CAT_VPto, CAT_AP, \
+    CAT_Sany, CAT_Sadj, CAT_VP, CAT_ADVERB
 from kb import google_search
 import wikipedia
 import re
@@ -9,6 +10,8 @@ import os
 import logging
 import requests
 import time
+import constituent_types
+import utils.cache
 from marbles import safe_utf8_encode, safe_utf8_decode
 from marbles.log import ExceptionRateLimitedLogAdaptor
 
@@ -82,17 +85,22 @@ def safe_wikipage(query):
 
 class Constituent(object):
     """A constituent is a sentence span with an category."""
-    def __init__(self, category, span, vntype):
+    def __init__(self, category, span, vntype, chead=-1):
+        if not isinstance(category, Category) or not isinstance(span, IndexSpan) \
+                or not isinstance(vntype, utils.cache.ConstString):
+            raise TypeError('Constituent.__init__() bad argument')
         self.span = span
         self.category = category
-        self.vntype = safe_utf8_decode(vntype) if vntype is not None else None
+        self.vntype = vntype
         self.wiki_data = None
+        self.chead = chead
 
     def get_json(self):
         result = {
             'span': self.span.get_indexes(),
             'category': self.category.signature,
-            'vntype': self.vntype
+            'vntype': self.vntype.signature,
+            'chead': self.chead
         }
         if self.wiki_data:
             result['wiki'] = self.wiki_data.get_json()
@@ -102,13 +110,14 @@ class Constituent(object):
     def from_json(self, data, sentence):
         c = Constituent(None, None, None)
         c.category = Category.from_cache(data['category'])
-        c.vntype = data['vntype']
+        c.vntype = constituent_types.Typeof[data['vntype']]
         c.span = IndexSpan(sentence, data['span'])
+        c.chead = data['chead']
         if 'wiki' in data:
             c.wiki_data = Wikidata.from_json(data['wiki'])
 
     def __unicode__(self):
-        return self.vntype + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
+        return self.vntype.signature + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
 
     def __str__(self):
         return safe_utf8_encode(self.__unicode__())
@@ -144,20 +153,24 @@ class Constituent(object):
     def vntype_from_category(cls, category):
         if category in [CAT_PP, CAT_NP]:
             return category.signature
-        elif category == CAT_VPdcl and not category.simplify().ismodifier:
-            return 'VP'
+        elif category in [CAT_VPdcl, CAT_VP]:
+            return constituent_types.CONSTITUENT_VP
         elif category == CAT_VPb:
-            return 'S_INF'
+            return constituent_types.CONSTITUENT_SINF
         elif category == CAT_VPto:
-            return 'TO'
+            return constituent_types.CONSTITUENT_TO
         elif category == CAT_AP:
-            return 'ADJP'
+            return constituent_types.CONSTITUENT_ADJP
         #elif category != CAT_Sadj and category == CAT_Sany:
         #    return category.signature
         return None
 
     def get_head(self):
-        """Get the head lexeme of the constituent."""
+        """Get the head lexeme of the constituent.
+
+        Returns:
+            A Lexeme instance.
+        """
         indexes = set(self.span.get_indexes())
 
         # Handle singular case
@@ -173,6 +186,16 @@ class Constituent(object):
         # We don't support multiple heads
         assert len(hd) == 1
         return self.span.sentence[hd.pop()]
+
+    def get_chead(self):
+        """Get the head constituent.
+
+        Returns:
+            A Constituent instance or None if the root constituent.
+        """
+        if self.chead >= 0:
+            return self.span.sentence.get_constituent_at(self.chead)
+        return None
 
     def set_wiki_entry(self, page):
         self.wiki_data = Wikidata(page)
@@ -259,7 +282,8 @@ class UnboundSentence(collections.Sequence):
 
     def __getitem__(self, slice_i_j):
         if isinstance(slice_i_j, slice):
-            return IndexSpan(self, [i for i in range(slice_i_j)])
+            indexes = [i for i in range(len(self))]
+            return IndexSpan(self, indexes[slice_i_j])
         return self.at(slice_i_j)
 
     def __iter__(self):
@@ -345,6 +369,8 @@ class IndexSpan(collections.Sequence):
         return len(self._indexes)
 
     def __getitem__(self, i):
+        if isinstance(i, slice):
+            return IndexSpan(self._sent, self._indexes[i])
         return self._sent.at(self._indexes[i])
 
     def __iter__(self):
@@ -380,6 +406,10 @@ class IndexSpan(collections.Sequence):
     @property
     def isempty(self):
         return len(self._indexes) == 0
+
+    def clear(self):
+        """Make the span empty."""
+        self._indexes = []
 
     def get_indexes(self):
         """Get the list of indexes in this span."""
