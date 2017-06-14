@@ -356,14 +356,38 @@ class ComposeTest(unittest.TestCase):
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
+        ccg.resolve_proper_names()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = ''
+        s = []
         for c in ccg.constituents:
-            s += c.vntype.signature + '(' + c.span.text + ') '
-        dprint(s.strip())
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        x = [
+            'NP(Pierre-Vinken)',
+            'NP(61 years)',
+            'ADJP(61 years old)',
+            'VP(will join)',
+            'NP(the board)',
+            'PP(as a nonexecutive director)',
+            'NP(a nonexecutive director)',
+            'NP(Nov. 29)'
+        ]
+        dprint(' '.join(s))
+        self.assertListEqual(x, s)
+        # 03 VP(will join)
+        #    00 NP(Pierre-Vinken)
+        #       02 ADJP(61 years old)
+        #          01 NP(61 years)
+        #    04 NP(the board)
+        #    05 PP(as a nonexecutive director)
+        #       06 NP(a nonexecutive director)
+        #    07 NP(Nov. 29)
+        x = (3, [(0, [(2, [(1, [])])]), (4, []), (5, [(6, [])]), (7, [])])
+        a = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, a)
+        self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0001_2(self):
         # Mr. Vinken is chairman of Elsevier N.V. , the Dutch publishing group .

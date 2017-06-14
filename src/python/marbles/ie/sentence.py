@@ -151,8 +151,10 @@ class Constituent(object):
 
     @classmethod
     def vntype_from_category(cls, category):
-        if category in [CAT_PP, CAT_NP]:
-            return category.signature
+        if category == CAT_NP:
+            return constituent_types.CONSTITUENT_NP
+        elif category == CAT_PP:
+            return constituent_types.CONSTITUENT_PP
         elif category in [CAT_VPdcl, CAT_VP]:
             return constituent_types.CONSTITUENT_VP
         elif category == CAT_VPb:
@@ -184,6 +186,8 @@ class Constituent(object):
         if len(hd) == 0:
             return None
         # We don't support multiple heads
+        if len(hd) != 1:
+            pass
         assert len(hd) == 1
         return self.span.sentence[hd.pop()]
 
@@ -313,7 +317,7 @@ class UnboundSentence(collections.Sequence):
         c = self.get_constituent_at(ctree[0])
         print('%s%02d%s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
         for nd in ctree[1]:
-            self.print_constituent_tree(nd, level+3)
+            self.print_constituent_tree(nd, level+2)
 
 
 class IndexSpan(collections.Sequence):
