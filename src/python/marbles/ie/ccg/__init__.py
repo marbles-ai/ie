@@ -9,14 +9,24 @@ from marbles.ie.utils.vmap import Dispatchable
 import datapath
 
 
-ISCONJMASK = 0x00000001
+ISCONJMASK   = 0x00000001
 FEATURE_CONJ = 0x00000002
-FEATURE_ADJ = 0x00000004
-FEATURE_PSS = 0x00000008
-FEATURE_NG = 0x00000010
-FEATURE_EM = 0x00000020
-FEATURE_DCL = 0x00000040
-FEATURE_TO = 0x00000080
+FEATURE_ADJ  = 0x00000004
+FEATURE_PSS  = 0x00000008
+FEATURE_NG   = 0x00000010
+FEATURE_EM   = 0x00000020
+FEATURE_DCL  = 0x00000040
+FEATURE_TO   = 0x00000080
+FEATURE_B    = 0x00000100
+FEATURE_BEM  = 0x00000100
+FEATURE_ASUP = 0x00000200
+FEATURE_FOR  = 0x00000400
+FEATURE_POSS = 0x00000800
+FEATURE_PT   = 0x00001000
+FEATURE_Q    = 0x00002000
+FEATURE_WQ   = 0x00004000
+FEATURE_QEM  = 0x00008000
+FEATURE_INV  = 0x00010000
 FUNCTOR_RETURN_PREP_CHECKED = 0x80000000
 FUNCTOR_RETURN_PREP = 0x40000000
 FUNCTOR_RETURN_MOD_CHECKED = 0x20000000
@@ -138,6 +148,16 @@ def extract_features(signature):
     features |= FEATURE_EM if '[em]' in signature else 0
     features |= FEATURE_DCL if '[dcl]' in signature else 0
     features |= FEATURE_TO if '[to]' in signature else 0
+    features |= FEATURE_B if '[b]' in signature else 0
+    features |= FEATURE_BEM if '[bem]' in signature else 0
+    features |= FEATURE_ASUP if '[asup]' in signature else 0
+    features |= FEATURE_FOR if '[for]' in signature else 0
+    features |= FEATURE_POSS if '[poss]' in signature else 0
+    features |= FEATURE_PT if '[pt]' in signature else 0
+    features |= FEATURE_Q if '[q]' in signature else 0
+    features |= FEATURE_WQ if '[wq]' in signature else 0
+    features |= FEATURE_QEM if '[qem]' in signature else 0
+    features |= FEATURE_INV if '[inv]' in signature else 0
     return signature, features
 
 ## @ingroup gfn
@@ -473,6 +493,10 @@ class Category(Freezable):
             sigs.append(r'(S\NP)/((S\NP)\PP)')
             sigs.append(r'(S\NP)\PP')
             sigs.append(r'(S\NP)\((S\NP)/PP)')
+
+            # wildcards
+            sigs.append(r'S[X]\NP')
+            sigs.append(r'(S[X]\NP)/(S[X]\NP)')
             sigs = set(sigs)
 
             pairs = [(x, Category(x)) for x in filter(lambda s: len(s) != 0 and s[0] != '#',
@@ -929,7 +953,8 @@ class Category(Freezable):
                    or (self == CAT_Sto and other == CAT_Sb) \
                    or (self == CAT_Sb and other == CAT_Sto) \
                    or (self == CAT_Sdcl and other == CAT_Sem) \
-                   or (self == CAT_Sem and other == CAT_Sdcl)
+                   or (self == CAT_Sem and other == CAT_Sdcl) \
+                   or self == CAT_SX or other == CAT_SX
         return False
 
     def can_unify(self, other):
@@ -992,19 +1017,6 @@ class Category(Freezable):
             self._features = features
         return 0 != (features & FUNCTOR_RETURN_MOD)
 
-    def test_return(self, result_category, exact=True):
-        """Test if the functor returns result_category.
-
-        Args:
-            exact: If True then use equality test else use can_unify() test.
-
-        Returns:
-            True if a functor and it returns a category matching result_category.
-        """
-        return (exact and self == result_category) or \
-               (not exact and self.can_unify(result_category)) or \
-               self.result_category().test_return(result_category, exact)
-
     def test_returns_preposition(self):
         """Test if the functor returns a preposition.
 
@@ -1053,6 +1065,35 @@ class Category(Freezable):
             self._features = features
         return 0 != (features & FUNCTOR_RETURN_ENTITY_MOD)
 
+    def test_return(self, result_category, exact=True):
+        """Test if the functor matches result_category or if it returns a category that matches result_category.
+        The wildcard feature [X] can be used to match.
+
+        Args:
+            exact: If True then use equality test else use can_unify() test.
+
+        Returns:
+            True if a functor and it returns a category matching result_category.
+        """
+        return self.test_return_and_get(result_category, exact) is not None
+
+    def test_return_and_get(self, result_category, exact=True):
+        """Test if the functor matches result_category or if it returns a category that matches result_category. If
+        True then return the matching category else return None. The wildcard feature [X] can be used to match.
+
+        Args:
+            exact: If True then use equality test else use can_unify() test.
+
+        Returns:
+            A category matching result_category.
+        """
+        # FIXME: Don't need recursion - use extract_unify_atoms(True)
+        if (exact and self == result_category) or (not exact and self.can_unify(result_category)):
+            return self
+        elif self.isatom:
+            return None
+        return self.result_category().test_return_and_get(result_category, exact)
+
 
 ## @cond
 # Load cache after we have created the Category class
@@ -1098,6 +1139,7 @@ CAT_Sq = Category.from_cache('S[q]')
 CAT_Sb = Category.from_cache('S[b]')
 CAT_Sto = Category.from_cache('S[to]')
 CAT_Swq = Category.from_cache('S[wq]')
+CAT_SX = Category.from_cache('S[X]')    # wildcard
 CAT_ADVERB = Category.from_cache(r'(S\NP)\(S\NP)')
 CAT_S = Category.from_cache('S')
 CAT_ADJECTIVE = Category.from_cache('N/N')
