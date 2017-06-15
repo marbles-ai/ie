@@ -434,7 +434,7 @@ class Lexeme(object):
     @property
     def isadverb(self):
         """Test if the word attached to this lexeme is an adverb."""
-        return self.category in [CAT_ADVERB, CAT_ADVERB2]
+        return self.category == CAT_ADVERB
 
     @property
     def isverb(self):
@@ -1218,7 +1218,7 @@ class Ccg2Drs(UnboundSentence):
         # d is the result of the type change
         if ucat.argument_category().simplify() == CAT_S_NP \
                 and (ucat.test_returns_entity_modifier() or ucat.test_return(CAT_ADVERB, exact=True)
-                     or ucat.test_return(CAT_ADVERB2, exact=True)):
+                     or ucat.test_return(CAT_MODAL, exact=True)):
             # Mark clausal adjunct
             for lex in d.span:
                 lex.mask |= RT_ADJUNCT
