@@ -34,6 +34,12 @@ def dprint_constituent_tree(ccg, ctree):
         ccg.print_constituent_tree(ctree)
 
 
+def dprint_dependency_tree(ccg, dtree):
+    global _PRINT
+    if _PRINT:
+        ccg.print_dependency_tree(dtree)
+
+
 class ComposeTest(unittest.TestCase):
 
     def __test1_Compose(self):
@@ -104,7 +110,7 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         s = ' '.join(s)
         dprint(s)
-        self.assertEqual('NP(boy) VP(wants) TO(to) S_INF(believe) NP(girl)', s)
+        self.assertEqual('NP(boy) VP(wants) S_INF(to believe) NP(girl)', s)
 
     def test1_BoyGirl2(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN boy N>) ) (<T S[dcl]\NP 0 2>
@@ -132,7 +138,7 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         s = ' '.join(s)
         dprint(s)
-        self.assertEqual('NP(boy) VP(will want) TO(to) S_INF(believe) NP(girl)', s)
+        self.assertEqual('NP(boy) S_INF(will want) S_INF(to believe) NP(girl)', s)
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -353,6 +359,8 @@ class ComposeTest(unittest.TestCase):
             (<L N[num] CD CD 29 N[num]>) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
@@ -368,7 +376,7 @@ class ComposeTest(unittest.TestCase):
             'NP(Pierre-Vinken)',
             'NP(61 years)',
             'ADJP(61 years old)',
-            'VP(will join)',
+            'S_INF(will join)',
             'NP(the board)',
             'PP(as a nonexecutive director)',
             'NP(a nonexecutive director)',
@@ -448,6 +456,8 @@ class ComposeTest(unittest.TestCase):
     (<L . . . . .>)
 )'''
         pt = parse_ccg_derivation(txt)
+        s = sentence_from_pt(pt)
+        dprint(s)
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
@@ -457,10 +467,29 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = ''
+        s = []
         for c in ccg.constituents:
-            s += c.vntype.signature + '(' + c.span.text + ') '
-        dprint(s.strip())
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        x = [
+            'NP(Mr.-Vinken)',
+            'VP(is)',
+            'NP(chairman)',
+            'PP(of Elsevier-N.V. the Dutch publishing group)',
+            'NP(Elsevier-N.V.)',
+            'NP(the Dutch publishing group)',
+        ]
+        dprint(' '.join(s))
+        self.assertListEqual(x, s)
+        # 01 VP(is)
+        #    00 NP(Mr.-Vinken)
+        #    02 NP(chairman)
+        #       03 PP(of Elsevier N.V. the Dutch publishing group)
+        #          04 NP(Elsevier N.V.)
+        #             05 NP(the Dutch publishing group)
+        x = (1, [(0, []), (2, [(3, [(4, [(5, [])])])])])
+        a = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, a)
+        self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0003_1(self):
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
@@ -613,6 +642,8 @@ class ComposeTest(unittest.TestCase):
         (<T S[dcl]\S[dcl] 1 2> (<L , , , , ,>) (<T S[dcl]\S[dcl] 1 2> (<T NP 0 1> (<L N NNS NNS researchers N>) )
         (<L (S[dcl]\S[dcl])\NP VBD VBD reported (S[dcl]\S[dcl]_8)\NP_9>) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
+        s = sentence_from_pt(pt)
+        dprint(s)
         self.assertIsNotNone(pt)
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
@@ -621,10 +652,47 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = ''
+        s = []
         for c in ccg.constituents:
-            s += c.vntype.signature + '(' + c.span.text + ') '
-        dprint(s.strip())
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        x = [
+            'NP(A form)',
+            'PP(of asbestos)',
+            'NP(asbestos)',
+            'ADVP(once used to make Kent cigarette filters)', # MARKED VP
+            'NP(Kent cigarette filters)',
+            'VP(has caused)',
+            'NP(a high percentage)',
+            'PP(of cancer deaths)',
+            'NP(cancer deaths)',
+            'PP(among a group of workers)',
+            'NP(a group)',
+            'NP(workers)',
+            'ADVP(exposed to it more than 30 years ago)',
+            'NP(researchers)',
+            'VP(reported)',
+        ]
+        dprint(' '.join(s))
+        self.assertListEqual(x, s)
+        # 14 VP(reported.)
+        #    05 VP(has caused)
+        #       00 NP(A form)
+        #          01 PP(of asbestos)
+        #             02 NP(asbestos)
+        #          03 ADVP(once used to make Kent cigarette filters)
+        #             04 NP(Kent cigarette filters)
+        #       06 NP(a high percentage)
+        #          07 PP(of cancer deaths)
+        #             08 NP(cancer deaths)
+        #          09 PP(among a group of workers)
+        #             10 NP(a group)
+        #                11 NP(workers)
+        #                   12 ADVP(exposed to it more than 30 years ago)
+        #    13 NP(reserchers)
+        x = (14, [(5, [(0, [(1, [(2, [])]), (3, [(4, [])])]), (6, [(7, [(8, [])]), (9, [(10, [(11, [(12, [])])])])])]), (13,[])])
+        a = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, a)
+        self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0004_1(self):
         # Yields on money-market mutual funds continued to slide, amid signs that portfolio managers expect further
@@ -789,14 +857,19 @@ class ComposeTest(unittest.TestCase):
         ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
+        ccg.resolve_proper_names()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
+        dtree = ccg.get_dependency_tree()
+        dprint_dependency_tree(ccg, dtree)
         s = ''
         for c in ccg.constituents:
             s += c.vntype.signature + '(' + c.span.text + ') '
         dprint(s.strip())
+        ctree = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, ctree)
 
     def test3_ParseEasySrl(self):
         # Welcome to MerryWeather High

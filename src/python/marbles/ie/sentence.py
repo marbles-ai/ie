@@ -345,7 +345,7 @@ class UnboundSentence(collections.Sequence):
         seen = [[] for i in range(len(self))]
         root = 0
         for i in range(len(self)):
-            nd = self.at[i]
+            nd = self.at(i)
             if nd.head != i:
                 if i not in seen[nd.head]:
                     nodes[nd.head][1].append(nodes[i])
@@ -358,7 +358,7 @@ class UnboundSentence(collections.Sequence):
         """Print the constituent tree."""
         indent = '' if level == 0 else ' ' * level
         lex = self.at(dtree[0])
-        print('%s%02d %4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
+        print('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self.print_dependency_tree(nd, level+3)
 

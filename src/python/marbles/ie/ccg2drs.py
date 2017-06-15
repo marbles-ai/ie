@@ -1004,6 +1004,7 @@ class Ccg2Drs(UnboundSentence):
             # Mark clausal adjunct
             for lex in d.span:
                 lex.mask |= RT_ADJUNCT
+            self.constituents.append(Constituent(d.category, d.span.clone(), constituent_types.CONSTITUENT_ADVP))
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
@@ -1233,7 +1234,7 @@ class Ccg2Drs(UnboundSentence):
                         refs = refs.union(lex.refs)
                 vntype = constituent_types.CONSTITUENT_NP if len(refs) == 1 else None
             elif cat_before_rule is CAT_ESRL_PP:
-                vntype = constituent_types.Typeof[CAT_PP.signature]
+                vntype = constituent_types.CONSTITUENT_PP
                 if Constituent(d.category, d.span, vntype).get_head().pos != POS_PREPOSITION:
                     vntype = None
             elif cat_before_rule is CAT_PP_ADVP and d.category is CAT_VP_MOD and not d.span.isempty:
@@ -1247,7 +1248,9 @@ class Ccg2Drs(UnboundSentence):
                     # (S\NP)/(S\NP)/N[X]
                     vntype = constituent_types.CONSTITUENT_NP
 
-            if vntype is not None:
+            if vntype is not None and vntype not in [constituent_types.CONSTITUENT_VP,
+                                                     constituent_types.CONSTITUENT_SINF,
+                                                     constituent_types.CONSTITUENT_TO]:
                 c = Constituent(d.category, d.span, vntype)
                 #if vntype is constituent_types.CONSTITUENT_NP:
                     #for lex in d.span:
@@ -1260,10 +1263,27 @@ class Ccg2Drs(UnboundSentence):
         return d
     
     def _refine_constituents(self):
+
+        # Add verb phrases
+        verbrefs = {}
+        for lex in self.lexque:
+            # TODO: Add compose option to allow VP visibility in adjuncts
+            if 0 != (lex.mask & RT_EVENT) and 0 == (lex.mask & RT_ADJUNCT):
+                verbrefs.setdefault(lex.refs[0], []).append(lex.idx)
+        for lex in self.lexque:
+            if 0 != (lex.mask & (RT_EVENT_MODAL | RT_EVENT_ATTRIB)) or lex.category == CAT_INFINITIVE:
+                if lex.refs[0] in verbrefs:
+                    verbrefs[lex.refs[0]].append(lex.idx)
+        for r, idxs in verbrefs.iteritems():
+            category = self.lexque[idxs[0]].category
+            vntype = constituent_types.CONSTITUENT_SINF if category.test_return(CAT_VPb) \
+                        else constituent_types.CONSTITUENT_VP
+            self.constituents.append(Constituent(category, IndexSpan(self, idxs), vntype))
+
+        constituents = sorted(set(self.constituents))
+
         # Fixup phrases containing clausal adjuncts
-        constituents = sorted(self.constituents)
         adjuncts = []
-        verbrefs =  {}
         for i in range(len(constituents)):
             c = constituents[i]
             # Split ADVP - not sure if this is required anymore
@@ -1276,13 +1296,6 @@ class Ccg2Drs(UnboundSentence):
                     adjuncts.append(Constituent(c.category, advp, constituent_types.CONSTITUENT_ADVP))
                 elif c.vntype == constituent_types.CONSTITUENT_VP:
                     c.vntype = constituent_types.CONSTITUENT_ADVP
-                    
-            if c.vntype in [constituent_types.CONSTITUENT_TO, constituent_types.CONSTITUENT_SINF,
-                            constituent_types.CONSTITUENT_VP]:
-                # Only keep lexemes with the same atomic referent
-                ratom = c.get_head().refs[0]
-                indexes = filter(lambda i: self.lexque[i].refs[0] == ratom, c.span.get_indexes())
-                c.span = IndexSpan(self, indexes)
 
         if len(adjuncts):
             constituents.extend(adjuncts)
@@ -1290,22 +1303,12 @@ class Ccg2Drs(UnboundSentence):
         # Finalize NP constituents, split VP's
         to_remove = set()
         constituents = sorted(set(constituents))
-        vp = None
-        ivp = 0
         advp = None
         iadvp = 0
         allspan = IndexSpan(self)
         for i in range(len(constituents)):
             c = constituents[i]
             allspan = allspan.union(c.span)
-            if vp is not None:
-                if c.vntype not in [constituent_types.CONSTITUENT_VP,
-                                    constituent_types.CONSTITUENT_SINF] \
-                        or i != (ivp+1) or vp.vntype == constituent_types.CONSTITUENT_TO:
-                    vp.span = vp.span.difference(c.span)
-                    if vp.span.isempty:
-                        to_remove.add(ivp)
-                        vp = None
             # FIXME: rank wikipedia search results
             if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN, CAT_PREPOSITION] or
                             x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
@@ -1327,23 +1330,7 @@ class Ccg2Drs(UnboundSentence):
                     advp = c
                     iadvp = i
                 continue
-            elif c.vntype in [constituent_types.CONSTITUENT_VP, constituent_types.CONSTITUENT_SINF,
-                              constituent_types.CONSTITUENT_TO]:
-                if vp is not None and i == ivp+1 and vp.vntype is not constituent_types.CONSTITUENT_TO:
-                    vhd = vp.get_head()
-                    chd = c.get_head()
-                    if chd.refs[0] == vhd.refs[0] and (chd.head == vhd.idx or vhd.head == chd.idx):
-                        # Merge
-                        vp.span = vp.span.union(c.span)
-                        c.span.clear()
-                        to_remove.add(i)
-                        if vhd.head == chd.idx:
-                            vp.vntype = c.vntype
-                        continue
-                vp = c
-                ivp = i
-                continue
-            elif c.get_head().category != CAT_NOUN:
+            elif c.vntype is not constituent_types.CONSTITUENT_NP:
                 continue
 
             if 0 != (self.options & CO_NO_WIKI_SEARCH):
@@ -1375,40 +1362,9 @@ class Ccg2Drs(UnboundSentence):
 
         # Remove irrelevent entries
         if len(to_remove) != 0:
-            filtered_constituents = []
-            for i in range(len(constituents)):
-                if i not in to_remove:
-                    filtered_constituents.append(constituents[i])
+            filtered_constituents = [constituents[i] for i in
+                                     filter(lambda k: k not in to_remove, range(len(constituents)))]
             constituents = filtered_constituents
-
-        # Handle missed VP's such as (S[dcl]\S[dcl])\NP - ..., researchers reported.
-        remaining = self.get_span().difference(allspan)
-        if not remaining.isempty:
-            extra = {}
-            for lex in remaining:
-                if lex.head in remaining:
-                    extra.setdefault(lex.head, []).append(lex.idx)
-            if len(extra) != 0:
-                for k, v in extra.iteritems():
-                    head = self.lexque[k]
-                    if head.isverb:
-                        constituents.append(Constituent(head.category, IndexSpan(self, v),
-                                                             constituent_types.CONSTITUENT_VP))
-                constituents = sorted(set(constituents))
-
-        # Check modals got assigned to verbs
-        verbrefs =  {}
-        for i in range(len(constituents)):
-            c = constituents[i]
-            if c.vntype != constituent_types.CONSTITUENT_TO:
-                ratom = c.get_head().refs[0]
-                assert ratom not in verbrefs
-                verbrefs[ratom] = i
-        for lex in self.lexque:
-            if 0 != (lex.mask & (RT_EVENT_MODAL | RT_EVENT_ATTRIB)):
-                if lex.refs[0] in verbrefs:
-                    i = verbrefs[lex.refs[0]]
-                    self.constituents[i].span.add(lex.idx)
 
         # Split VP's that accidently got combined.
         split_vps = []
@@ -1417,6 +1373,8 @@ class Ccg2Drs(UnboundSentence):
             if c.vntype is constituent_types.CONSTITUENT_VP:
                 cindexes = c.span.get_indexes()
                 findexes = c.span.fullspan().get_indexes()
+                if len(cindexes) == len(findexes):
+                    continue
                 splits = []
                 while len(cindexes) != 0:
                     contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
