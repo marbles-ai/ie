@@ -4,7 +4,7 @@
 from __future__ import unicode_literals, print_function
 import collections
 import inflect
-import re
+import itertools
 from nltk.stem import wordnet as wn
 
 from ccg import *
@@ -1581,12 +1581,25 @@ class Ccg2Drs(UnboundSentence):
             # Remove lexemes and remap indexes.
             context.i = 0
             idxs_to_del = set(to_remove.get_indexes())
+
+            # Find the sentence head
+            sentence_head = 0
+            while self.lexque[sentence_head].head != sentence_head:
+                sentence_head = self.lexque[sentence_head].head
+
+            # Only allow deletion if it has a single child, otherwise we get multiple sentence heads
+            if sentence_head in idxs_to_del and len(filter(lambda lex: lex.head == sentence_head, self.lexque)) != 2:
+                idxs_to_del.remove(sentence_head)
+
             # Reparent heads marked for deletion
-            for lex in self.lexque:
+            for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self.lexque):
                 lasthead = -1
                 while lex.head in idxs_to_del and lex.head != lasthead:
                     lasthead = lex.head
                     lex.head = self.lexque[lex.head].head
+                if lex.head in idxs_to_del:
+                    # New head for sentence
+                    lex.head = lex.idx
 
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
             for c in self.constituents:
