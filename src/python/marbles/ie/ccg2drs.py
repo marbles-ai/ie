@@ -1583,8 +1583,11 @@ class Ccg2Drs(UnboundSentence):
             idxs_to_del = set(to_remove.get_indexes())
             # Reparent heads marked for deletion
             for lex in self.lexque:
-                while lex.head in idxs_to_del:
+                lasthead = -1
+                while lex.head in idxs_to_del and lex.head != lasthead:
+                    lasthead = lex.head
                     lex.head = self.lexque[lex.head].head
+
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
             for c in self.constituents:
                 c.span = IndexSpan(self, map(lambda y: idxmap[y],
