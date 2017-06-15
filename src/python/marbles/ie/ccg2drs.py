@@ -1259,26 +1259,35 @@ class Ccg2Drs(UnboundSentence):
                 self.constituents.append(c)
         return d
     
-    def _refine_constituents(self, constituents):
+    def _refine_constituents(self):
         # Fixup phrases containing clausal adjuncts
+        constituents = sorted(self.constituents)
         adjuncts = []
+        verbrefs =  {}
         for i in range(len(constituents)):
-            cnp = constituents[i]
-            indexes = []
-            for lex in cnp.span:
-                if 0 != (lex.mask & RT_ADJUNCT):
-                    indexes.append(lex.idx)
+            c = constituents[i]
+            # Split ADVP - not sure if this is required anymore
+            indexes = filter(lambda i: 0 != (self.lexque[i].mask & RT_ADJUNCT), c.span.get_indexes())
             if len(indexes) != 0:
-                advp = IndexSpan(cnp.span.sentence, indexes)
-                dspan = cnp.span.difference(advp)
+                advp = IndexSpan(self, indexes)
+                dspan = c.span.difference(advp)
                 if not dspan.isempty:
-                    cnp.span = dspan
-                    adjuncts.append(Constituent(cnp.category, advp, constituent_types.CONSTITUENT_ADVP))
+                    c.span = dspan
+                    adjuncts.append(Constituent(c.category, advp, constituent_types.CONSTITUENT_ADVP))
+                elif c.vntype == constituent_types.CONSTITUENT_VP:
+                    c.vntype = constituent_types.CONSTITUENT_ADVP
+                    
+            if c.vntype in [constituent_types.CONSTITUENT_TO, constituent_types.CONSTITUENT_SINF,
+                            constituent_types.CONSTITUENT_VP]:
+                # Only keep lexemes with the same atomic referent
+                ratom = c.get_head().refs[0]
+                indexes = filter(lambda i: self.lexque[i].refs[0] == ratom, c.span.get_indexes())
+                c.span = IndexSpan(self, indexes)
 
         if len(adjuncts):
             constituents.extend(adjuncts)
 
-        # Finalize NP constituents
+        # Finalize NP constituents, split VP's
         to_remove = set()
         constituents = sorted(set(constituents))
         vp = None
@@ -1290,8 +1299,9 @@ class Ccg2Drs(UnboundSentence):
             c = constituents[i]
             allspan = allspan.union(c.span)
             if vp is not None:
-                if c.vntype not in [constituent_types.CONSTITUENT_VP, constituent_types.CONSTITUENT_SINF,
-                                constituent_types.CONSTITUENT_TO] or i != (ivp+1):
+                if c.vntype not in [constituent_types.CONSTITUENT_VP,
+                                    constituent_types.CONSTITUENT_SINF] \
+                        or i != (ivp+1) or vp.vntype == constituent_types.CONSTITUENT_TO:
                     vp.span = vp.span.difference(c.span)
                     if vp.span.isempty:
                         to_remove.add(ivp)
@@ -1373,7 +1383,6 @@ class Ccg2Drs(UnboundSentence):
 
         # Handle missed VP's such as (S[dcl]\S[dcl])\NP - ..., researchers reported.
         remaining = self.get_span().difference(allspan)
-        resort = False
         if not remaining.isempty:
             extra = {}
             for lex in remaining:
@@ -1385,7 +1394,21 @@ class Ccg2Drs(UnboundSentence):
                     if head.isverb:
                         constituents.append(Constituent(head.category, IndexSpan(self, v),
                                                              constituent_types.CONSTITUENT_VP))
-                resort = True
+                constituents = sorted(set(constituents))
+
+        # Check modals got assigned to verbs
+        verbrefs =  {}
+        for i in range(len(constituents)):
+            c = constituents[i]
+            if c.vntype != constituent_types.CONSTITUENT_TO:
+                ratom = c.get_head().refs[0]
+                assert ratom not in verbrefs
+                verbrefs[ratom] = i
+        for lex in self.lexque:
+            if 0 != (lex.mask & (RT_EVENT_MODAL | RT_EVENT_ATTRIB)):
+                if lex.refs[0] in verbrefs:
+                    i = verbrefs[lex.refs[0]]
+                    self.constituents[i].span.add(lex.idx)
 
         # Split VP's that accidently got combined.
         split_vps = []
@@ -1398,8 +1421,7 @@ class Ccg2Drs(UnboundSentence):
                 while len(cindexes) != 0:
                     contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
                     contig = Constituent(c.category, IndexSpan(self, contig_span), constituent_types.CONSTITUENT_VP)
-                    # A None value indicates the head is not in the constituents span
-                    if contig.get_head() is not None:
+                    if 0 != (contig.get_head().mask & RT_EVENT):
                         contig.category = contig.get_head().category
                         splits.append(contig)
                     cnew = IndexSpan(self, set(cindexes).difference(contig_span))
@@ -1410,11 +1432,11 @@ class Ccg2Drs(UnboundSentence):
                     split_vps.extend(splits[1:])
 
         if len(split_vps) != 0:
-            resort = True
             constituents.extend(split_vps)
+            constituents = sorted(set(constituents))
 
-        if resort:
-            constituents = sorted(constituents)
+        # And finally remove any constituent that contains only punctuation
+        constituents = filter(lambda x: len(x.span) != 1 or not x.span[0].ispunct, constituents)
 
         # If a constituent head and its category is N/N or a noun modifier and it is an RT_ATTRIBUTE
         # then all direct descendents are also attributes
@@ -1424,8 +1446,7 @@ class Ccg2Drs(UnboundSentence):
                                                   or hd.category.test_returns_entity_modifier()):
                 for lex in c.span:
                     lex.mask |= RT_ATTRIBUTE
-
-        return constituents
+        self.constituents = constituents
 
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
@@ -1481,7 +1502,7 @@ class Ccg2Drs(UnboundSentence):
         self.final_prod = d
 
         # Refine constituents
-        self.constituents = self._refine_constituents(self.constituents)
+        self._refine_constituents()
 
         # And finally set constituent heads
         # Lexme head index is always in constituent so use it map between the two.
@@ -1489,6 +1510,8 @@ class Ccg2Drs(UnboundSentence):
         for i in range(len(self.constituents)):
             c = self.constituents[i]
             lexhd = c.get_head()
+            if lexhd.idx in i2c:
+                pass
             assert lexhd.idx not in i2c
             i2c[lexhd.idx] = i
 
@@ -1598,6 +1621,10 @@ class Ccg2Drs(UnboundSentence):
             # Remove lexemes and remap indexes.
             context.i = 0
             idxs_to_del = set(to_remove.get_indexes())
+            # Reparent heads marked for deletion
+            for lex in self.lexque:
+                while lex.head in idxs_to_del:
+                    lex.head = self.lexque[lex.head].head
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
             for c in self.constituents:
                 c.span = IndexSpan(self, map(lambda y: idxmap[y],
@@ -1879,25 +1906,6 @@ class Ccg2Drs(UnboundSentence):
         """
         # TODO: support span with start and length
         return IndexSpan(self, range(len(self.lexque)))
-
-    def get_constituent_tree(self):
-        """Get the constituent tree as an adjacency list of lists."""
-        if len(self.constituents) == 0:
-            return []
-
-        # Each node is a tuple (constituency index, [adjacency tuples])
-        nodes = [(i, []) for i in range(len(self.constituents))] # create empty
-        seen = [[] for i in range(len(self.constituents))]
-        root = 0
-        for i in range(len(self.constituents)):
-            nd = self.constituents[i]
-            if nd.chead != i:
-                if i not in seen[nd.chead]:
-                    nodes[nd.chead][1].append(nodes[i])
-                    seen[nd.chead].append(i)
-            else:
-                root = nd.chead
-        return nodes[root]
 
 
 ## @ingroup gfn
