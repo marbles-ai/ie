@@ -434,7 +434,7 @@ class Lexeme(object):
     @property
     def isadverb(self):
         """Test if the word attached to this lexeme is an adverb."""
-        return self.category == CAT_ADVERB
+        return self.category in [CAT_ADVERB, CAT_ADVERB2]
 
     @property
     def isverb(self):
@@ -997,15 +997,6 @@ class Ccg2Drs(UnboundSentence):
         # Required by UnboundSentence
         return self.constituents[i]
 
-    def _mark_if_adjunct(self, ucat, d):
-        # ucat is the unary type change catgory
-        # d is the result of the type change
-        if ucat.test_returns_entity_modifier() and ucat.argument_category().simplify() == CAT_S_NP:
-            # Mark clausal adjunct
-            for lex in d.span:
-                lex.mask |= RT_ADJUNCT
-            self.constituents.append(Constituent(d.category, d.span.clone(), constituent_types.CONSTITUENT_ADVP))
-
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
         if len(op.sub_ops) == 2:
@@ -1221,7 +1212,18 @@ class Ccg2Drs(UnboundSentence):
         """
         method = self.dispatchmap.lookup(op.rule)
         method(self, op, stk)
-        
+
+    def _mark_if_adjunct(self, ucat, d):
+        # ucat is the unary type change catgory
+        # d is the result of the type change
+        if ucat.argument_category().simplify() == CAT_S_NP \
+                and (ucat.test_returns_entity_modifier() or ucat.test_return(CAT_ADVERB, exact=True)
+                     or ucat.test_return(CAT_ADVERB2, exact=True)):
+            # Mark clausal adjunct
+            for lex in d.span:
+                lex.mask |= RT_ADJUNCT
+            self.constituents.append(Constituent(d.category, d.span.clone(), constituent_types.CONSTITUENT_ADVP))
+
     def _update_constituents(self, d, cat_before_rule):
         vntype = None
 

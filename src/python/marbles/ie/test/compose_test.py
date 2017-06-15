@@ -864,10 +864,10 @@ class ComposeTest(unittest.TestCase):
         dprint(s)
         dtree = ccg.get_dependency_tree()
         dprint_dependency_tree(ccg, dtree)
-        s = ''
+        s = []
         for c in ccg.constituents:
-            s += c.vntype.signature + '(' + c.span.text + ') '
-        dprint(s.strip())
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        dprint(' '.join(s))
         ctree = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, ctree)
 
