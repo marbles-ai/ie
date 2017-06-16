@@ -151,8 +151,10 @@ class Constituent(object):
 
     @classmethod
     def vntype_from_category(cls, category):
-        if category in [CAT_PP, CAT_NP]:
-            return category.signature
+        if category == CAT_NP:
+            return constituent_types.CONSTITUENT_NP
+        elif category == CAT_PP:
+            return constituent_types.CONSTITUENT_PP
         elif category in [CAT_VPdcl, CAT_VP]:
             return constituent_types.CONSTITUENT_VP
         elif category == CAT_VPb:
@@ -184,6 +186,8 @@ class Constituent(object):
         if len(hd) == 0:
             return None
         # We don't support multiple heads
+        if len(hd) != 1:
+            pass
         assert len(hd) == 1
         return self.span.sentence[hd.pop()]
 
@@ -193,9 +197,7 @@ class Constituent(object):
         Returns:
             A Constituent instance or None if the root constituent.
         """
-        if self.chead >= 0:
-            return self.span.sentence.get_constituent_at(self.chead)
-        return None
+        return self.span.sentence.get_constituent_at(self.chead)
 
     def set_wiki_entry(self, page):
         self.wiki_data = Wikidata(page)
@@ -304,6 +306,61 @@ class UnboundSentence(collections.Sequence):
     def get_constituent_at(self, i):
         """Get the constituent at index i."""
         raise NotImplementedError
+
+    def get_constituent_tree(self):
+        """Get the constituent tree as an adjacency list of lists."""
+        constituents = self.get_constituents()
+        if len(constituents) == 0:
+            return []
+
+        # Each node is a tuple (constituency index, [adjacency tuples])
+        nodes = [(i, []) for i in range(len(constituents))] # create empty
+        seen = [[] for i in range(len(constituents))]
+        root = 0
+        for i in range(len(constituents)):
+            nd = constituents[i]
+            if nd.chead != i:
+                if i not in seen[nd.chead]:
+                    nodes[nd.chead][1].append(nodes[i])
+                    seen[nd.chead].append(i)
+            else:
+                root = nd.chead
+        return nodes[root]
+
+    def print_constituent_tree(self, ctree, level=0):
+        """Print the constituent tree."""
+        indent = '' if level == 0 else ' ' * level
+        c = self.get_constituent_at(ctree[0])
+        print('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
+        for nd in ctree[1]:
+            self.print_constituent_tree(nd, level+3)
+
+    def get_dependency_tree(self):
+        """Get the dependency tree as an adjacency list of lists."""
+        if len(self) == 0:
+            return []
+
+        # Each node is a tuple (constituency index, [adjacency tuples])
+        nodes = [(i, []) for i in range(len(self))] # create empty
+        seen = [[] for i in range(len(self))]
+        root = 0
+        for i in range(len(self)):
+            nd = self.at(i)
+            if nd.head != i:
+                if i not in seen[nd.head]:
+                    nodes[nd.head][1].append(nodes[i])
+                    seen[nd.head].append(i)
+            else:
+                root = nd.head
+        return nodes[root]
+
+    def print_dependency_tree(self, dtree, level=0):
+        """Print the constituent tree."""
+        indent = '' if level == 0 else ' ' * level
+        lex = self.at(dtree[0])
+        print('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
+        for nd in dtree[1]:
+            self.print_dependency_tree(nd, level+3)
 
 
 class IndexSpan(collections.Sequence):

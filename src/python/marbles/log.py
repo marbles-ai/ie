@@ -70,3 +70,9 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
                 self.error_cache[callerid] = tmnew
         super(ExceptionRateLimitedLogAdaptor, self).exception(msg, *args, **kwargs)
 
+
+def set_log_format(log_handler):
+    """Make some attempt to comply with RFC5424."""
+    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
+                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+

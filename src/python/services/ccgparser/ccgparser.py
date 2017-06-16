@@ -24,7 +24,7 @@ terminate = False
 
 
 from marbles.ie import grpc
-from marbles.log import ExceptionRateLimitedLogAdaptor
+from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
 
 
 hup_recv = 0
@@ -68,9 +68,7 @@ def run_daemon(parsers, state):
 
 def init_log_handler(log_handler, log_level):
     log_handler.setLevel(log_level)
-    # Make some attempt to comply with RFC5424
-    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
-                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+    set_log_format(log_handler)
 
 def init_service(grpc_daemon, news_queue_name, ccg_queue_name, state):
     # If we run multiple threads then each thread needs its own resources (S3, SQS etc).

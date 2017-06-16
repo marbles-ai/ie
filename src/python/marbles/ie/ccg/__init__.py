@@ -27,6 +27,7 @@ FEATURE_Q    = 0x00002000
 FEATURE_WQ   = 0x00004000
 FEATURE_QEM  = 0x00008000
 FEATURE_INV  = 0x00010000
+FEATURE_NUM  = 0x00020000
 FUNCTOR_RETURN_PREP_CHECKED = 0x80000000
 FUNCTOR_RETURN_PREP = 0x40000000
 FUNCTOR_RETURN_MOD_CHECKED = 0x20000000
@@ -158,6 +159,7 @@ def extract_features(signature):
     features |= FEATURE_WQ if '[wq]' in signature else 0
     features |= FEATURE_QEM if '[qem]' in signature else 0
     features |= FEATURE_INV if '[inv]' in signature else 0
+    features |= FEATURE_NUM if '[num]' in signature else 0
     return signature, features
 
 ## @ingroup gfn
@@ -1065,7 +1067,7 @@ class Category(Freezable):
             self._features = features
         return 0 != (features & FUNCTOR_RETURN_ENTITY_MOD)
 
-    def test_return(self, result_category, exact=True):
+    def test_return(self, result_category, exact=False):
         """Test if the functor matches result_category or if it returns a category that matches result_category.
         The wildcard feature [X] can be used to match.
 
@@ -1077,7 +1079,7 @@ class Category(Freezable):
         """
         return self.test_return_and_get(result_category, exact) is not None
 
-    def test_return_and_get(self, result_category, exact=True):
+    def test_return_and_get(self, result_category, exact=False):
         """Test if the functor matches result_category or if it returns a category that matches result_category. If
         True then return the matching category else return None. The wildcard feature [X] can be used to match.
 
@@ -1141,6 +1143,7 @@ CAT_Sto = Category.from_cache('S[to]')
 CAT_Swq = Category.from_cache('S[wq]')
 CAT_SX = Category.from_cache('S[X]')    # wildcard
 CAT_ADVERB = Category.from_cache(r'(S\NP)\(S\NP)')
+CAT_MODAL = Category.from_cache(r'(S\NP)/(S\NP)')
 CAT_S = Category.from_cache('S')
 CAT_ADJECTIVE = Category.from_cache('N/N')
 CAT_DETERMINER = Category.from_cache('NP[nb]/N')
