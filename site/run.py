@@ -26,4 +26,4 @@ init_log_handler(log_handler, log_level)
 app.logger.addHandler(log_handler)
 logging.getLogger("werkzeug").addHandler(log_handler)
 
-app.run(debug=True, host='0.0.0.0')
+app.run(debug=True, port=80, host='0.0.0.0')
