@@ -311,6 +311,19 @@ class UnboundSentence(collections.Sequence):
         for nd in ctree[1]:
             self.print_constituent_tree(nd, level+3)
 
+    def _get_constituent_tree_as_string_helper(self, ctree, level, result):
+        indent = '' if level == 0 else ' ' * level
+        c = self.get_constituent_at(ctree[0])
+        result.append('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
+        for nd in ctree[1]:
+            self._get_constituent_tree_as_string_helper(nd, level+3, result)
+        return result
+
+    def get_constituent_tree_as_string(self, ctree):
+        """Get the constituent tree as a string."""
+        result = self._get_constituent_tree_as_string_helper(ctree, 0, [])
+        return '\n'.join(result)
+
     def get_dependency_tree(self):
         """Get the dependency tree as an adjacency list of lists."""
         if len(self) == 0:
@@ -337,6 +350,20 @@ class UnboundSentence(collections.Sequence):
         print('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self.print_dependency_tree(nd, level+3)
+
+    def _get_dependency_tree_as_string_helper(self, dtree, level, result):
+        indent = '' if level == 0 else ' ' * level
+        lex = self.at(dtree[0])
+        result.append('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
+        for nd in dtree[1]:
+            self._get_dependency_tree_as_string_helper(nd, level+3, result)
+        return result
+
+    def get_dependency_tree_as_string(self, ctree):
+        """Get the dependency tree as a string."""
+        result = self._get_dependency_tree_as_string_helper(ctree, 0, [])
+        return '\n'.join(result)
+
 
 
 class IndexSpan(collections.Sequence):
