@@ -253,6 +253,9 @@ class AbstractProduction(object):
             xrs = zip(ors, nrs)
             self.rename_vars(xrs)
 
+    def union_span(self, other):
+        raise NotImplementedError
+
 
 class DrsProduction(AbstractProduction):
     """A DRS production."""
@@ -296,7 +299,11 @@ class DrsProduction(AbstractProduction):
         u = [x for x in self._universe]
         u.extend(self._freerefs)
         u.extend(self.lambda_refs)
-        return u
+        if self.span is not None:
+            for x in self.span:
+                if x.refs is not None:
+                    u.extend(x.refs)
+        return [v for v in dict([(id(x), x) for x in u]).itervalues()]
 
     @property
     def universe(self):
@@ -326,6 +333,11 @@ class DrsProduction(AbstractProduction):
     def span(self):
         return self._span
 
+    @span.setter
+    def span(self, value):
+        assert isinstance(value, IndexSpan)
+        self._span = value
+
     @property
     def isempty(self):
         """Test if the production is an empty DRS."""
@@ -348,14 +360,12 @@ class DrsProduction(AbstractProduction):
             return
         self.fast_rename_vars(rs, other)
         return
-        '''
-        if 0 == (self.compose_options & CO_FAST_RENAME):
-            self._universe = map(lambda x: rename_var(x, rs), self._universe)
-            self._freerefs = map(lambda x: rename_var(x, rs), self._freerefs)
-            self.rename_lambda_refs(rs)
-        else:
-            self.fast_rename_vars(rs, other)
-        '''
+
+    def union_span(self, other):
+        if self._span is None:
+            self._span = other
+        elif other is not None:
+            self._span = self._span.union(other)
 
 
 class ProductionList(AbstractProduction):
@@ -442,7 +452,7 @@ class ProductionList(AbstractProduction):
         """Unify subordinate ProductionList's into the current list."""
         compList = collections.deque()
         for d in self._compList:
-            if d.isempty:
+            if d.isempty and (d.span is None or d.span.isempty):
                 continue    # removes punctuation
             if isinstance(d, ProductionList):
                 d = d.unify()
@@ -519,6 +529,9 @@ class ProductionList(AbstractProduction):
         """
         ml = [x.unify() for x in self._compList]
         self._compList = collections.deque()
+        sps = [x.span for x in filter(lambda z: z.span is not None and z.isempty, ml)]
+        sp = None if len(sps) == 0 else reduce(lambda x, y: x.union(y), sps)
+        ml = filter(lambda x: not x.isempty, ml)
         if len(ml) == 1:
             # FIXME: Should never infer.
             if not self.islambda_inferred:
@@ -526,6 +539,7 @@ class ProductionList(AbstractProduction):
             # Unary type changes require we set here
             ml[0].set_category(self.category)
             ml[0].set_options(self.compose_options)
+            ml[0].union_span(sp)
             return ml[0]
         elif any(filter(lambda x: x.contains_functor, ml)):
             self._compList.extend(ml)
@@ -565,6 +579,9 @@ class ProductionList(AbstractProduction):
             d.set_lambda_refs(ml[0].lambda_refs)
         d.set_options(self.compose_options)
         return d
+
+    def union_span(self, other):
+        pass
 
 
 class FunctorProduction(AbstractProduction):
@@ -810,6 +827,11 @@ class FunctorProduction(AbstractProduction):
     def span(self):
         fn = self.inner_scope
         return None if fn._comp is None else fn._comp.span
+
+    def union_span(self, other):
+        fn = self.inner_scope
+        if fn._comp is not None:
+            fn._comp.union_span(other)
 
     def unify_atoms(self, a, b):
         """Unify two atoms: a and b.

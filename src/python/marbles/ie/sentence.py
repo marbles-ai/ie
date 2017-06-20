@@ -1,7 +1,5 @@
 from __future__ import unicode_literals, print_function
 import drt
-from ccg import Category, CAT_NP, CAT_PP, CAT_VP, CAT_VPdcl, CAT_VPb, CAT_VPto, CAT_AP, \
-    CAT_Sany, CAT_Sadj, CAT_VP, CAT_ADVERB
 from kb import google_search
 import wikipedia
 import re
@@ -85,12 +83,10 @@ def safe_wikipage(query):
 
 class Constituent(object):
     """A constituent is a sentence span with an category."""
-    def __init__(self, category, span, vntype, chead=-1):
-        if not isinstance(category, Category) or not isinstance(span, IndexSpan) \
-                or not isinstance(vntype, utils.cache.ConstString):
+    def __init__(self, span, vntype, chead=-1):
+        if not isinstance(span, IndexSpan) or not isinstance(vntype, utils.cache.ConstString):
             raise TypeError('Constituent.__init__() bad argument')
         self.span = span
-        self.category = category
         self.vntype = vntype
         self.wiki_data = None
         self.chead = chead
@@ -98,7 +94,6 @@ class Constituent(object):
     def get_json(self):
         result = {
             'span': self.span.get_indexes(),
-            'category': self.category.signature,
             'vntype': self.vntype.signature,
             'chead': self.chead
         }
@@ -108,8 +103,7 @@ class Constituent(object):
 
     @classmethod
     def from_json(self, data, sentence):
-        c = Constituent(None, None, None)
-        c.category = Category.from_cache(data['category'])
+        c = Constituent(None, None)
         c.vntype = constituent_types.Typeof[data['vntype']]
         c.span = IndexSpan(sentence, data['span'])
         c.chead = data['chead']
@@ -129,45 +123,27 @@ class Constituent(object):
         return hash(self.span)
 
     def __eq__(self, other):
-        return self.span == other.span
+        return self.vntype is other.vntype and self.span == other.span
 
     def __ne__(self, other):
-        return self.span != other.span
+        return self.vntype is other.vntype or self.span != other.span
 
     def __lt__(self, other):
-        return self.span < other.span
+        return self.span < other.span or (self.span == other.span and self.vntype < other.vntype)
 
     def __gt__(self, other):
-        return self.span > other.span
+        return self.span > other.span or (self.span == other.span and self.vntype > other.vntype)
 
     def __le__(self, other):
-        return self.span <= other.span
+        return not self.__gt__()
 
     def __ge__(self, other):
-        return self.span >= other.span
+        return not self.__lt__()
 
     def __contains__(self, item):
         return item.span in self.span
 
-    @classmethod
-    def vntype_from_category(cls, category):
-        if category == CAT_NP:
-            return constituent_types.CONSTITUENT_NP
-        elif category == CAT_PP:
-            return constituent_types.CONSTITUENT_PP
-        elif category in [CAT_VPdcl, CAT_VP]:
-            return constituent_types.CONSTITUENT_VP
-        elif category == CAT_VPb:
-            return constituent_types.CONSTITUENT_SINF
-        elif category == CAT_VPto:
-            return constituent_types.CONSTITUENT_TO
-        elif category == CAT_AP:
-            return constituent_types.CONSTITUENT_ADJP
-        #elif category != CAT_Sadj and category == CAT_Sany:
-        #    return category.signature
-        return None
-
-    def get_head(self):
+    def get_head(self, multihead=False):
         """Get the head lexeme of the constituent.
 
         Returns:
@@ -177,7 +153,7 @@ class Constituent(object):
 
         # Handle singular case
         if len(indexes) == 1:
-            return self.span[0]
+            return self.span[0] if not multihead else [self.span[0]]
 
         hd = set(indexes)
         for lex in self.span:
@@ -186,10 +162,10 @@ class Constituent(object):
         if len(hd) == 0:
             return None
         # We don't support multiple heads
-        if len(hd) != 1:
-            pass
-        assert len(hd) == 1
-        return self.span.sentence[hd.pop()]
+        if len(hd) != 1 and not multihead:
+            raise ValueError('multiple heads (%s) for constituent %s' %
+                             (repr(IndexSpan(self.span.sentence, hd).text), repr(self)))
+        return self.span.sentence[hd.pop()] if not multihead else [self.span.sentence[i] for i in hd]
 
     def get_chead(self):
         """Get the head constituent.
@@ -405,7 +381,8 @@ class IndexSpan(collections.Sequence):
             if i == j:
                 continue
             return i < j
-        return len(self) < len(other)
+        # The longer sentence is less - important for constituent ordering
+        return len(self) > len(other)
 
     def __gt__(self, other):
         if self.sentence is not other.sentence:
@@ -414,7 +391,8 @@ class IndexSpan(collections.Sequence):
             if i == j:
                 continue
             return i > j
-        return len(self) > len(other)
+        # The shorter sentence is greater - important for constituent ordering
+        return len(self) < len(other)
 
     def __le__(self, other):
         return not self.__gt__(other)
@@ -537,34 +515,6 @@ class IndexSpan(collections.Sequence):
                 refs.extend(tok.drs.referents)
         return drt.drs.DRS(refs, conds)
 
-    def get_constituents(self, category_filter=None, heads_only=True):
-        """Get the constituents of the span. These are only potential constituents.
-
-        Args:
-            category_filter: A Category or RegexCategoryClass instance or a list of these types (None == any == default).
-            heads_only: Only return constituents where the head is in this span (default == True).
-
-        Returns:
-            An array of Constituent instances.
-        """
-        idxs = set(self._indexes)
-        if category_filter:
-            if isinstance(category_filter, collections.Iterable):
-                if heads_only:
-                    return filter(lambda x: x.category in category_filter and x.get_head().idx in idxs,
-                                  self._sent.get_constituents())
-                return filter(lambda x: x.category in category_filter and len(idxs.intersection(x.span.get_indexes())) != 0,
-                              self._sent.get_constituents())
-            if heads_only:
-                return filter(lambda x: x.category == category_filter and x.get_head().idx in idxs,
-                              self._sent.get_constituents())
-            return filter(lambda x: x.category == category_filter and len(idxs.intersection(x.span.get_indexes())) != 0,
-                          self._sent.get_constituents())
-        # Any category
-        if heads_only:
-            return filter(lambda x: x.get_head().idx in idxs, self._sent.get_constituents())
-        return filter(lambda x: len(idxs.intersection(x.span.get_indexes())) != 0, self._sent.get_constituents())
-
     def get_subspan_from_wiki_search(self, search_result, max_results=0):
         """Get a subspan from a wikpedia search result.
 
@@ -606,15 +556,3 @@ class IndexSpan(collections.Sequence):
         return ranked_spans[0] if max_results == 0 else ranked_spans[0:max_results]
 
 
-class Document(DocProp):
-    """A sentence."""
-    def __init__(self):
-        self.sents = []
-
-    @property
-    def no_vn(self):
-        return True
-
-    @property
-    def no_wn(self):
-        return True

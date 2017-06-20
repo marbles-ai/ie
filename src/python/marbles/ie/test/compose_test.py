@@ -110,7 +110,7 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         s = ' '.join(s)
         dprint(s)
-        self.assertEqual('NP(boy) VP(wants) S_INF(to believe) NP(girl)', s)
+        self.assertEqual('NP(The boy) VP(wants) S_INF(to believe) NP(the girl)', s)
 
     def test1_BoyGirl2(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN boy N>) ) (<T S[dcl]\NP 0 2>
@@ -138,7 +138,7 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         s = ' '.join(s)
         dprint(s)
-        self.assertEqual('NP(boy) S_INF(will want) S_INF(to believe) NP(girl)', s)
+        self.assertEqual('NP(The boy) S_INF(will want) S_INF(to believe) NP(the girl)', s)
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -260,9 +260,10 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         x = [
             'NP(Rudolph-Agnew)',
+            'ADVP(55 years old and former chairman of Consolidated-Gold-Fields-PLC)',
             'NP(55 years)',
-            'ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)',
             'NP(former chairman)',
+            'PP(of Consolidated-Gold-Fields-PLC)',
             'NP(Consolidated-Gold-Fields-PLC)',
             'VP(was named)',
             'NP(a nonexecutive director)',
@@ -271,16 +272,17 @@ class ComposeTest(unittest.TestCase):
         ]
         dprint(' '.join(s))
         self.assertListEqual(x, s)
-        # 5 VP(was named)
+        # 6 VP(was named)
         #   0 NP(Rudolph-Agnew)
-        #     2 ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)
-        #       1 NP(55 years)
+        #     1 ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)
+        #       2 NP(55 years)
         #       3 NP(former chairman)
-        #         4 NP(Consolidated-Gold-Fields-PLC)
-        #   6 NP(a nonexecutive director)
-        #     7 PP(of this British industrial conglomerate)
-        #       8 NP(this British industrial conglomerate)
-        x = (5, [(0, [(2, [(1, []), (3, [(4, [])])])]), (6, [(7, [(8, [])])])])
+        #         4 PP(of Consolidated-Gold-Fields-PLC)
+        #           5 NP(Consolidated-Gold-Fields-PLC)
+        #   7 NP(a nonexecutive director)
+        #     8 PP(of this British industrial conglomerate)
+        #       9 NP(this British industrial conglomerate)
+        x = (6, [(0, [(1, [(2, []), (3, [(4, [(5, [])])])])]), (7, [(8, [(9, [])])])])
         a = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, a)
         self.assertEqual(repr(x), repr(a))
@@ -374,8 +376,8 @@ class ComposeTest(unittest.TestCase):
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         x = [
             'NP(Pierre-Vinken)',
-            'NP(61 years)',
             'ADJP(61 years old)',
+            'NP(61 years)',
             'S_INF(will join)',
             'NP(the board)',
             'PP(as a nonexecutive director)',
@@ -386,13 +388,13 @@ class ComposeTest(unittest.TestCase):
         self.assertListEqual(x, s)
         # 03 VP(will join)
         #    00 NP(Pierre-Vinken)
-        #       02 ADJP(61 years old)
-        #          01 NP(61 years)
+        #       01 ADJP(61 years old)
+        #          02 NP(61 years)
         #    04 NP(the board)
         #    05 PP(as a nonexecutive director)
         #       06 NP(a nonexecutive director)
         #    07 NP(Nov. 29)
-        x = (3, [(0, [(2, [(1, [])])]), (4, []), (5, [(6, [])]), (7, [])])
+        x = (3, [(0, [(1, [(2, [])])]), (4, []), (5, [(6, [])]), (7, [])])
         a = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, a)
         self.assertEqual(repr(x), repr(a))
@@ -656,21 +658,21 @@ class ComposeTest(unittest.TestCase):
         for c in ccg.constituents:
             s.append(c.vntype.signature + '(' + c.span.text + ')')
         x = [
-            'NP(A form)',
-            'PP(of asbestos)',
-            'NP(asbestos)',
-            'ADVP(once used to make Kent cigarette filters)', # MARKED VP
-            'NP(Kent cigarette filters)',
-            'VP(has caused)',
-            'NP(a high percentage)',
-            'PP(of cancer deaths)',
-            'NP(cancer deaths)',
-            'PP(among a group of workers)',
-            'NP(a group)',
-            'NP(workers)',
-            'ADVP(exposed to it more than 30 years ago)',
-            'NP(researchers)',
-            'VP(reported)',
+            'NP(A form)',           # 0
+            'PP(of asbestos)',      # 1
+            'NP(asbestos)',         # 2
+            'ADVP(once used to make Kent cigarette filters)',   # 3
+            'NP(Kent cigarette filters)',                       # 4
+            'VP(has caused)',       # 5
+            'NP(a high percentage)',# 6
+            'PP(of cancer deaths)', # 7
+            'NP(cancer deaths)',    # 8
+            'PP(among a group of workers exposed to it more than 30 years ago)', # 9
+            'NP(a group)',          #10
+            'NP(workers exposed to it more than 30 years ago)', #11
+            'ADVP(exposed to it more than 30 years ago)',       #12
+            'NP(researchers)',      #13
+            'VP(reported)',         #14
         ]
         dprint(' '.join(s))
         self.assertListEqual(x, s)
@@ -684,9 +686,9 @@ class ComposeTest(unittest.TestCase):
         #       06 NP(a high percentage)
         #          07 PP(of cancer deaths)
         #             08 NP(cancer deaths)
-        #          09 PP(among a group of workers)
+        #          09 PP(among a group of workers exposed to it more than 30 years ago)
         #             10 NP(a group)
-        #                11 NP(workers)
+        #                11 NP(workers exposed to it more than 30 years ago)
         #                   12 ADVP(exposed to it more than 30 years ago)
         #    13 NP(reserchers)
         x = (14, [(5, [(0, [(1, [(2, [])]), (3, [(4, [])])]), (6, [(7, [(8, [])]), (9, [(10, [(11, [(12, [])])])])])]), (13,[])])
@@ -871,7 +873,7 @@ class ComposeTest(unittest.TestCase):
         ctree = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, ctree)
 
-    def test3_ParseEasySrl(self):
+    def test3_EasySrl(self):
         # Welcome to MerryWeather High
         txt = r'''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
@@ -937,6 +939,79 @@ class ComposeTest(unittest.TestCase):
         s = ccg.get_drs().show(SHOW_LINEAR)
         x = u'[x1,e2,x3| school(x1),bus(x1),wheeze(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,x3),to(x3),i(x4),.POSS(x4,x3),corner(x3)]'
         self.assertEquals(x, s)
+
+    def test3_EasySrl_00_1200(self):
+        # The department 's roof-crush proposal would apply to vehicles weighing 10,000 pounds or less.
+        txt = r'''
+(<T S[dcl] 1 2>
+    (<T NP 0 2>
+        (<T NP/(N/PP) 1 2>
+            (<T NP 0 2>
+                (<L NP/N DT DT The NP/N>)
+                (<L N NN NN department N>)
+            )
+            (<L (NP/(N/PP))\NP POS POS 's (NP/(N/PP))\NP>)
+        )
+        (<T N/PP 1 2>
+            (<L N/N JJ JJ roof-crush N/N>)
+            (<L N/PP NN NN proposal N/PP>)
+        )
+    )
+    (<T S[dcl]\NP 0 2>
+        (<T S[dcl]\NP 0 2>
+            (<L (S[dcl]\NP)/(S[b]\NP) MD MD would (S[dcl]\NP)/(S[b]\NP)>)
+            (<T S[b]\NP 0 2>
+                (<L (S[b]\NP)/PP VB VB apply (S[b]\NP)/PP>)
+                (<T PP 0 2>
+                    (<L PP/NP TO TO to PP/NP>)
+                    (<T NP 0 1>
+                        (<T N 0 2>
+                            (<L N NNS NNS vehicles N>)
+                            (<T N\N 0 2>
+                                (<T N\N 0 1>
+                                    (<T S[ng]\NP 0 2>
+                                        (<L (S[ng]\NP)/NP VBG VBG weighing (S[ng]\NP)/NP>)
+                                        (<T NP 0 1>
+                                            (<T N 1 2>
+                                                (<L N/N CD CD 10,000 N/N>)
+                                                (<L N NNS NNS pounds N>)
+                                            )
+                                        )
+                                    )
+                                )
+                                (<T (N\N)\(N\N) 1 2>
+                                    (<L conj CC CC or conj>)
+                                    (<L N\N JJR JJR less N\N>)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        (<L . . . . .>)
+    )
+) '''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.resolve_proper_names()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        dtree = ccg.get_dependency_tree()
+        dprint_dependency_tree(ccg, dtree)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        dprint(' '.join(s))
+        ctree = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, ctree)
 
     def test4_Asbestos(self):
         txt=r'''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT A NP/N>) (<T N 0 2> (<L N/PP NN NN form N/PP>)
@@ -1187,9 +1262,16 @@ class ComposeTest(unittest.TestCase):
 )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        ccg = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        dprint(' '.join(s))
+        a = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, a)
 
     def test6_Pronouns(self):
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2> (<L ((S[dcl]\NP)/PP)/NP VBD VBD leased ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN car N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ my NP/(N/PP)>) (<T N/PP 0 2> (<L N/PP NN NN friend N/PP>) (<T (N/PP)\(N/PP) 0 2> (<L ((N/PP)\(N/PP))/NP IN IN for ((N/PP)\(N/PP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N CD CD $5 N>) (<T N\N 0 2> (<L (N\N)/N DT DT a (N\N)/N>) (<L N NN NN month. N>) ) ) ) ) ) ) ) ) )'''
@@ -1199,7 +1281,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
 
     def test7_Brexit(self):
-        # The managing director of the International Monetary Fund has said she wants Britain to stay in the EU,
+        # 0: The managing director of the International Monetary Fund has said she wants Britain to stay in the EU,
         # warning that a looming Brexit referendum posed a risk to the UK economy
         txt = []
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN managing N/N>)
@@ -1219,7 +1301,7 @@ class ComposeTest(unittest.TestCase):
         (<L ((S[dcl]\NP)/PP)/NP VBD VBD posed ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>)
         (<L N NN NN risk N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>)
         (<T N 1 2> (<L N/N NNP NNP UK N/N>) (<L N NN NN economy N>) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) ) )''')
-        # In an upbeat assessment, Christine Lagarde said the UK was enjoying strong growth, record employment and had
+        # 1: In an upbeat assessment, Christine Lagarde said the UK was enjoying strong growth, record employment and had
         # largely recovered from the global financial crisis
         txt.append(r'''(<T S[dcl] 1 2> (<T S/S 0 2> (<L (S/S)/NP IN IN In (S/S)/NP>) (<T NP 0 2> (<L NP/N DT DT an NP/N>)
         (<T N 1 2> (<L N/N JJ JJ upbeat N/N>) (<L N NN NN assessment, N>) ) ) ) (<T S[dcl] 1 2> (<T NP 0 1>
@@ -1235,7 +1317,7 @@ class ComposeTest(unittest.TestCase):
         (<L (S[pt]\NP)/PP VBN VBN recovered (S[pt]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN from PP/NP>)
         (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ global N/N>) (<T N 1 2>
         (<L N/N JJ JJ financial N/N>) (<L N NN NN crisis N>) ) ) ) ) ) ) ) ) ) ) ) )''')
-        # Presenting the IMF’s annual healthcheck of the economy alongside George Osborne, Lagarde said there were
+        # 2: Presenting the IMF’s annual healthcheck of the economy alongside George Osborne, Lagarde said there were
         # risks to the outlook, including from the housing market, but she was generally positive
         txt.append(r'''(<T S[dcl] 1 2> (<T S/S 0 1> (<T S[ng]\NP 0 2> (<T S[ng]\NP 0 2> (<T (S[ng]\NP)/PP 0 2>
         (<T (S[ng]\NP)/PP 0 2> (<L ((S[ng]\NP)/PP)/NP VBG VBG Presenting ((S[ng]\NP)/PP)/NP>) (<T NP 0 2>
@@ -1254,7 +1336,7 @@ class ComposeTest(unittest.TestCase):
         (<L NP PRP PRP she NP>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD was (S[dcl]\NP)/(S[adj]\NP)>)
         (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB generally (S[adj]\NP)/(S[adj]\NP)>)
         (<L S[adj]\NP JJ JJ positive S[adj]\NP>) ) ) ) )''')
-        # “The UK authorities have managed to repair the damage of the crisis in a way few other countries have been
+        # 3: “The UK authorities have managed to repair the damage of the crisis in a way few other countries have been
         # able to do,” she said
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP “The N/N>) (<T N 1 2> (<L N/N NNP NNP UK N/N>)
         (<L N NNS NNS authorities N>) ) ) ) (<T S[dcl]\NP 0 2>
@@ -1272,7 +1354,7 @@ class ComposeTest(unittest.TestCase):
         (<L (S[adj]\NP)/(S[to]\NP) JJ JJ able (S[adj]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
         (<L S[to]\NP TO TO to S[to]\NP>) (<L RQU VB VB do,” RQU>) ) ) ) ) ) (<T S[dcl]\S[dcl] 1 2>
         (<L NP PRP PRP she NP>) (<L (S[dcl]\S[dcl])\NP VBD VBD said (S[dcl]\S[dcl])\NP>) ) ) ) ) ) ) ) ) )''')
-        # Lagarde said the IMF would work through various scenarios for the EU referendum outcome in its next assessment
+        # 4: Lagarde said the IMF would work through various scenarios for the EU referendum outcome in its next assessment
         # of the UK in May 2016
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 1> (<L N NNP NNP Lagarde N>) ) (<T S[dcl]\NP 0 2>
         (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP)/S[dcl]>) (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT the NP/N>)
@@ -1287,20 +1369,73 @@ class ComposeTest(unittest.TestCase):
         (<L PP/NP IN IN of PP/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) ) ) ) ) ) ) ) ) ) ) )
         ) ) ) ) (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN in ((S\NP)\(S\NP))/NP>) (<T NP 0 1> (<T N 0 2>
         (<L N NNP NNP May N>) (<L N\N CD CD 2016 N\N>) ) ) ) ) ) ) )''')
-        # “On a personal basis … I am very, very much hopeful that the UK stays within the EU,” she added
-        txt.append(r'''(<T NP 1 2> (<L NP/NP NN NN “On NP/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 0 2> (<T N 0 2>
-        (<T N 1 2> (<L N/N JJ JJ personal N/N>) (<T N 0 2> (<L N NN NN basis N>) (<L RQU NN NN … RQU>) ) )
-        (<T N\N 0 1> (<T S[dcl]/NP 1 2> (<T S[X]/(S[X]\NP) 0 1> (<L NP PRP PRP I NP>) )
-        (<L (S[dcl]\NP)/NP VBP VBP am (S[dcl]\NP)/NP>) ) ) ) (<T N\N 0 1> (<T S[adj]\NP 0 2>
-        (<T (S[adj]\NP)/S[em] 0 2> (<L ((S[adj]\NP)/S[em])/(S[adj]\NP) RB RB very, ((S[adj]\NP)/S[em])/(S[adj]\NP)>)
-        (<T S[adj]\NP 1 2> (<L (S[adj]\NP)/(S[adj]\NP) RB RB very (S[adj]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2>
-        (<L (S[adj]\NP)/(S[adj]\NP) JJ JJ much (S[adj]\NP)/(S[adj]\NP)>) (<L S[adj]\NP NN NN hopeful S[adj]\NP>) ) ) )
-        (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>) (<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2>
-        (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) (<T S[dcl]\NP 0 2>
-        (<L (S[dcl]\NP)/PP VBZ VBZ stays (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN within PP/NP>)
-        (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NNP NNP EU,” N>) ) ) ) ) (<T S[dcl]\S[dcl] 1 2>
-        (<L NP PRP PRP she NP>) (<L (S[dcl]\S[dcl])\NP VBD VBD added (S[dcl]\S[dcl])\NP>) ) ) ) ) ) ) ) )''')
-        # Separately, ratings agency Standard & Poor’s reiterated a warning on Friday that leaving the EU could cost
+        # 5: “On a personal basis … I am very, very much hopeful that the UK stays within the EU,” she added
+        txt.append(r'''
+(<T NP 1 2>
+    (<L NP/NP NN NN “On NP/NP>)
+    (<T NP 0 2>
+        (<L NP/N DT DT a NP/N>)
+        (<T N 0 2>
+            (<T N 0 2>
+                (<T N 1 2>
+                    (<L N/N JJ JJ personal N/N>)
+                    (<T N 0 2>
+                        (<L N NN NN basis N>)
+                        (<L RQU NN NN … RQU>)
+                    )
+                )
+                (<T N\N 0 1>
+                    (<T S[dcl]/NP 1 2>
+                        (<T S[X]/(S[X]\NP) 0 1>
+                            (<L NP PRP PRP I NP>)
+                        )
+                        (<L (S[dcl]\NP)/NP VBP VBP am (S[dcl]\NP)/NP>)
+                    )
+                )
+            )
+            (<T N\N 0 1>
+                (<T S[adj]\NP 0 2>
+                    (<T (S[adj]\NP)/S[em] 0 2>
+                        (<L ((S[adj]\NP)/S[em])/(S[adj]\NP) RB RB very, ((S[adj]\NP)/S[em])/(S[adj]\NP)>)
+                        (<T S[adj]\NP 1 2>
+                            (<L (S[adj]\NP)/(S[adj]\NP) RB RB very (S[adj]\NP)/(S[adj]\NP)>)
+                            (<T S[adj]\NP 1 2>
+                                (<L (S[adj]\NP)/(S[adj]\NP) JJ JJ much (S[adj]\NP)/(S[adj]\NP)>)
+                                (<L S[adj]\NP NN NN hopeful S[adj]\NP>)
+                            )
+                        )
+                    )
+                    (<T S[em] 0 2>
+                        (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]>)
+                        (<T S[dcl] 1 2>
+                            (<T S[dcl] 1 2>
+                                (<T NP 0 2>
+                                    (<L NP/N DT DT the NP/N>)
+                                    (<L N NNP NNP UK N>)
+                                )
+                                (<T S[dcl]\NP 0 2>
+                                    (<L (S[dcl]\NP)/PP VBZ VBZ stays (S[dcl]\NP)/PP>)
+                                    (<T PP 0 2>
+                                        (<L PP/NP IN IN within PP/NP>)
+                                        (<T NP 0 2>
+                                            (<L NP/N DT DT the NP/N>)
+                                            (<L N NNP NNP EU,” N>)
+                                        )
+                                    )
+                                )
+                            )
+                            (<T S[dcl]\S[dcl] 1 2>
+                                (<L NP PRP PRP she NP>)
+                                (<L (S[dcl]\S[dcl])\NP VBD VBD added (S[dcl]\S[dcl])\NP>)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)''')
+        # 6: Separately, ratings agency Standard & Poor’s reiterated a warning on Friday that leaving the EU could cost
         # the UK its top credit score
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<T N/N 1 2> (<L (N/N)/(N/N) NN NN Separately, (N/N)/(N/N)>)
         (<T N/N 1 2> (<L (N/N)/(N/N) NNS NNS ratings (N/N)/(N/N)>) (<L N/N NN NN agency N/N>) ) ) (<T N 1 2>
@@ -1315,7 +1450,7 @@ class ComposeTest(unittest.TestCase):
          (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ its NP/(N/PP)>)
          (<T N/PP 1 2> (<L N/N JJ JJ top N/N>) (<T N/PP 1 2> (<L N/N NN NN credit N/N>) (<L N/PP NN NN score N/PP>) ) )
         ) ) ) ) ) ) ) ) ) )''')
-        # The IMF, which is based in Washington, also used its assessment to recommend that interest rates remain at
+        # 7: The IMF, which is based in Washington, also used its assessment to recommend that interest rates remain at
         # their record low of 0
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 0 2> (<L N NN NN IMF, N>) (<T N\N 0 2>
         (<L (N\N)/(S[dcl]\NP) WDT WDT which (N\N)/(S[dcl]\NP)>) (<T S[dcl]\NP 0 2>
@@ -1332,13 +1467,13 @@ class ComposeTest(unittest.TestCase):
         (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ their NP/(N/PP)>) (<T N/PP 1 2> (<L N/N NN NN record N/N>) (<T N/PP 0 2>
         (<L (N/PP)/PP NN NN low (N/PP)/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>) (<T NP 0 1> (<L N CD CD 0 N>) ) ) )
         ) ) ) ) ) ) ) ) ) ) )''')
-        # 0.5% until there were clearer signs of inflationary pressures
+        # 8: 0.5% until there were clearer signs of inflationary pressures
         txt.append(r'''(<T NP 0 1> (<T N 0 2> (<L N NN NN 5% N>) (<T N\N 0 2> (<L (N\N)/S[dcl] IN IN until (N\N)/S[dcl]>)
         (<T S[dcl] 1 2> (<L NP[thr] EX EX there NP[thr]>) (<T S[dcl]\NP[thr] 0 2>
         (<L (S[dcl]\NP[thr])/NP VBD VBD were (S[dcl]\NP[thr])/NP>) (<T NP 0 1> (<T N 1 2>
         (<L N/N JJR JJR clearer N/N>) (<T N 0 2> (<L N/PP NNS NNS signs N/PP>) (<T PP 0 2> (<L PP/NP IN IN of PP/NP>)
         (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ inflationary N/N>) (<L N NNS NNS pressures N>) ) ) ) ) ) ) ) ) ) ) )''')
-        # Its report on the UK was delayed for six months due to the general election
+        # 9: Its report on the UK was delayed for six months due to the general election
         txt.append(r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ Its NP/(N/PP)>) (<T N/PP 0 2>
         (<L (N/PP)/PP NN NN report (N/PP)/PP>) (<T PP 0 2> (<L PP/NP IN IN on PP/NP>) (<T NP 0 2>
         (<L NP/N DT DT the NP/N>) (<L N NNP NNP UK N>) ) ) ) ) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2>
@@ -1347,7 +1482,7 @@ class ComposeTest(unittest.TestCase):
         (<L N/N CD CD six N/N>) (<L N NNS NNS months N>) ) ) ) ) (<T (S\NP)\(S\NP) 0 2>
         (<L ((S\NP)\(S\NP))/PP JJ JJ due ((S\NP)\(S\NP))/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2>
         (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ general N/N>) (<L N NN NN election N>) ) ) ) ) ) )''')
-        for t in txt:
+        for t in txt[5:6]:
             pt = parse_ccg_derivation(t)
             self.assertIsNotNone(pt)
             s = sentence_from_pt(pt)
