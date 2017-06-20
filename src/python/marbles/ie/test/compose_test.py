@@ -3,6 +3,7 @@
 from __future__ import unicode_literals, print_function
 import os
 import unittest
+import logging
 
 from marbles import future_string, native_string
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
@@ -41,6 +42,19 @@ def dprint_dependency_tree(ccg, dtree):
 
 
 class ComposeTest(unittest.TestCase):
+
+    def setUp(self):
+        # Print log messages to console
+        global _PRINT
+        self.logger = logging.getLogger('marbles')
+        self.logger.setLevel(logging.DEBUG)
+        if _PRINT:
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            self.logger.addHandler(console_handler)
+
+    def tearDown(self):
+        logging.shutdown()
 
     def __test1_Compose(self):
         # λP.[x|me(x),own(x,y)];P(y)
@@ -81,7 +95,7 @@ class ComposeTest(unittest.TestCase):
         (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<T N 1 2> (<L N/N JJ JJ new N/N>) (<L N NN NN tax N>) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
 
@@ -879,7 +893,7 @@ class ComposeTest(unittest.TestCase):
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET)
+        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET) | CO_NO_WIKI_SEARCH
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -1137,7 +1151,7 @@ class ComposeTest(unittest.TestCase):
 ) '''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
 
@@ -1487,7 +1501,7 @@ class ComposeTest(unittest.TestCase):
             self.assertIsNotNone(pt)
             s = sentence_from_pt(pt)
             dprint(s)
-            d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+            d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
             self.assertIsNotNone(d)
             dprint(d)
 
@@ -1497,7 +1511,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1507,7 +1521,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1517,7 +1531,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1544,7 +1558,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1570,7 +1584,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1593,7 +1607,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1699,7 +1713,7 @@ class ComposeTest(unittest.TestCase):
                 dprint(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 try:
-                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
                     assert d is not None
                     s = d.show(SHOW_LINEAR).encode('utf-8')
                     dprint(s)
@@ -1765,7 +1779,7 @@ class ComposeTest(unittest.TestCase):
                 dprint(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 try:
-                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET).get_drs()
+                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
                     assert d is not None
                     s = d.show(SHOW_LINEAR).encode('utf-8')
                     dprint(s)
