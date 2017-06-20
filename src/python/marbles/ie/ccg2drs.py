@@ -5,8 +5,8 @@ from __future__ import unicode_literals, print_function
 import collections
 import inflect
 import itertools
+import logging
 from nltk.stem import wordnet as wn
-
 from ccg import *
 from ccg.model import MODEL
 import constituent_types as ctypes
@@ -21,6 +21,11 @@ from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from sentence import UnboundSentence, IndexSpan, Constituent
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 from constants import *
+from marbles.log import ExceptionRateLimitedLogAdaptor
+
+
+_actual_logger = logging.getLogger(__name__)
+_logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
 
 
 ## @cond
@@ -1665,7 +1670,17 @@ class Ccg2Drs(UnboundSentence):
                 for s, e in spans:
                     # Preserve heads
                     ctmp = Constituent(c.span[s:e+1], c.vntype)
-                    lexeme = ctmp.get_head()
+                    heads = ctmp.get_head(multihead=True)
+                    if len(heads) > 1:
+                        global _logger
+                        ctree = self.get_constituent_tree()
+                        dtree = self.get_dependency_tree()
+                        ct = self.get_constituent_tree_as_string(ctree)
+                        dt = self.get_dependency_tree_as_string(dtree)
+                        _logger.info('resolve_proper_name (%s) in constituent %s(%s) multi headed\nsentence: %s\n%s\n%s',
+                                     ctmp.span.text, c.vntype.signature, c.span.text, self.get_span().text, ct, dt)
+                        continue
+                    lexeme = heads[0]
                     ref = lexeme.refs[0]
                     word = '-'.join([c.span[i].word for i in range(s, e+1)])
                     stem = '-'.join([c.span[i].stem for i in range(s, e+1)])
