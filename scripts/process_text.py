@@ -172,10 +172,10 @@ if __name__ == '__main__':
                     fol, _ = d.to_fol()
                     fol = unicode(fol)
                     drs = d.show(SHOW_LINEAR)
-                    constituents = ''
+                    constituents = []
                     for c in sentence.get_constituents():
-                        constituents += c.vntype + '(' + c.span.text + ') '
-                    constituents = constituents.strip()
+                        constituents.append(c.vntype.signature + '(' + c.span.text + ')')
+                    constituents = ' '.join(constituents)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise
