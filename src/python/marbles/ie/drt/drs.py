@@ -2,58 +2,12 @@ from __future__ import unicode_literals, print_function
 from marbles import native_string, future_string, safe_utf8_decode, safe_utf8_encode
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var, compare_lists_eq
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
-from common import DRSVar, DRSConst, LambdaDRSVar, Showable
+from common import DRSVar, DRSConst, Showable
 import fol
 import weakref
 
 
 WORLD_VAR = 'w'
-
-
-class LambdaTuple(object):
-    """Lambda DRS tuple"""
-    def __init__(self, lambdaVar, pos):
-        """A lambda tuple.
-
-        Args:
-            lambdaVar: A LambdaDRSVar instance.
-            pos: Argument position.
-        """
-        if not isinstance(lambdaVar, LambdaDRSVar):
-            raise TypeError
-        self._var = lambdaVar
-        self._pos = pos
-
-    def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var or self._pos != other._pos
-
-    def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var and self._pos == other._pos
-
-    def __unicode__(self):
-        return u'(%s,%i)' % (unicode(self._var), self._pos)
-
-    def __str__(self):
-        return b'(%s,%i)' % (str(self._var), self._pos)
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    def __lt__(self, other):
-        return self._pos < other._pos or (self._pos == other._pos and self._var < other._var)
-
-    def __le__(self, other):
-        return self._pos < other._pos or (self._pos == other._pos and self._var <= other._var)
-
-    def __gt__(self, other):
-        return not self.__le__(other)
-
-    def __ge__(self, other):
-        return not self.__lt__(other)
-
-    @property
-    def var(self):
-        return self._var
 
 
 # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Properties.hs#isPureDRS:pureRefs
@@ -187,15 +141,7 @@ class AbstractDRS(Showable):
     ##
     @property
     def isresolved(self):
-        """Test whether this DRS is resolved (containing no unresolved merges or lambdas)."""
-        return False
-
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isLambdaDRS</a>
-    ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Structure.hs">/Data/PDRS/Structure.hs:isLambdaPDRS</a>.
-    ##
-    @property
-    def islambda(self):
-        """Test whether this DRS is entirely a 'LambdaDRS' (at its top-level)."""
+        """Test whether this DRS is resolved (containing no unresolved merges)."""
         return False
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Structure.hs">/Data/DRS/Structure.hs:isMergeDRS</a>
@@ -358,34 +304,6 @@ class AbstractDRS(Showable):
         """
         return u if u is not None else []
 
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsLambdas</a>
-    ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsLambdaVars</a>.
-    ##
-    def get_lambdas(self):
-        """Get the ordered list of all lambda variables in this DRS.
-
-        Returns:
-            A list of LambdaVar instances.
-        """
-        s = self.get_lambda_tuples()
-        lts = sorted(s)
-        return [x.var for x in lts]
-
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:lambdas</a>
-    ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/PDRS/Variables.hs">/Data/PDRS/Variables.hs:pdrsLambdas</a>.
-    ## @remarks Helper for get_lambdas().
-    ##
-    def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS.
-
-        Args:
-            u: An initial set of tuples. If not present `u` is set to `set()`.
-
-        Returns:
-            A set of LambdaTuple instances union'ed with `u`.
-        """
-        raise NotImplementedError
-
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ## and <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/RDRS/LambdaCalculus.hs">/Data/RDRS/LambdaCalculus.hs:purifyPRefs</a>.
     ##
@@ -433,8 +351,8 @@ class AbstractDRS(Showable):
         conversion list `rs` for DRSRef's and the conversion list `ps` for PVar's.
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
+            gd: An DRS|Merge instance.
+            rs: A list of DRSRef tuples.
             ps: A list of integer tuples. Cannot be None in PDRS implementation but we
                 have to reproduce the type declaration of AbstractDRS.
 
@@ -469,8 +387,8 @@ class AbstractDRS(Showable):
         conversion list `rs` for DRSRef's .
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
+            gd: An DRS|Merge instance.
+            rs: A list of DRSRef tuples.
 
         Returns:
             A DRS instance.
@@ -519,132 +437,6 @@ class AbstractDRS(Showable):
             ie.fol.FOLConversionError
         """
         raise fol.FOLConversionError('infelicitous FOL formula')
-
-
-class LambdaDRS(AbstractDRS):
-    """A lambda DRS."""
-
-    def __init__(self, lambdaVar, pos):
-        """A lambda DRS.
-
-        Args:
-            lambdaVar: A LambdaDRSVar instance.
-            pos: Argument position.
-        """
-        if not isinstance(lambdaVar, LambdaDRSVar):
-            raise TypeError
-        super(LambdaDRS, self).__init__()
-        self._var = lambdaVar
-        self._pos = pos
-
-    def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var or self._pos != other._pos
-
-    def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var and self._pos == other._pos
-
-    def __unicode__(self):
-        return u'(%s,%i)' % (unicode(self._var), self._pos)
-
-    def __str__(self):
-        return b'(%s,%i)' % (str(self._var), self._pos)
-
-    def _isproper_subdrsof(self, d):
-        """Help for isproper"""
-        return True
-
-    def _ispure_helper(self, rs, gd):
-        """Help for isproper"""
-        return True
-
-    @property
-    def isresolved(self):
-        """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
-        return False
-
-    @property
-    def islambda(self):
-        """Test whether this DRS is entirely a LambdaDRS (at its top-level)."""
-        return True
-
-    def resolve_merges(self):
-        """Resolves all unresolved merges in this DRS."""
-        return self
-
-    def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS.
-
-        Args:
-            u: An initial set of tuples. If not present `u` is set to `set()`.
-
-        Returns:
-            The set of LambdaTuple instances union'ed with `u`.
-        """
-        lt = LambdaTuple(self._var, self._pos)
-        if u is None: return set([lt])
-        u.add(lt)
-        return u
-
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
-    ##
-    def purify_refs(self, gd, rs):
-        """Replaces duplicate uses of DRSRef's by new DRSRef's. For a Lambda DRS
-        this function does nothing.
-
-        Args:
-            gd: A global DRS, where `self` is a subordinate DRS of global.
-            rs: A list of referents.
-
-        Returns:
-             A tuple of (`self`, `ers`).
-         """
-        return (self, rs)
-
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs::renameSubDRS</a>
-    ##
-    def rename_subdrs(self, gd, rs, ps=None):
-        """Applies alpha conversion to this DRS, which is a subordinate DRS of the
-        global DRS gd, on the basis of a conversion list for DRSRef's rs.
-
-        Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
-            ps: A list of integer tuples. Only used in PDRS implementation.
-
-        Returns:
-            This instance.
-        """
-        return self
-
-    def subst_subdrs(self, gd, rs):
-        """Applies substitution to this DRS, which is a subordinate DRS of the global DRS `gd`, on the basis of the
-        conversion list `rs` for DRSRef's .
-
-        Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
-
-        Returns:
-            A DRS instance.
-        """
-        return self
-
-    ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Show.hs">/Data/DRS/Show.hs::showDRSBox</a>
-    ##
-    def show(self, notation):
-        """For pretty printing.
-
-        Args:
-            notation: An integer notation.
-
-        Returns:
-             A unicode string.
-        """
-        if notation == SHOW_BOX:
-            return self._var.show(notation) + u'\n'
-        elif notation in [SHOW_LINEAR, SHOW_SET]:
-            return self._var.show(notation)
-        return u'LambdaDRS ' + safe_utf8_decode(self._var.to_string())
 
 
 def conds_to_mfol(conds, world, worlds):
@@ -731,7 +523,7 @@ class DRS(AbstractDRS):
 
     @property
     def isresolved(self):
-        """Test whether this DRS is resolved (containing no unresolved merges or lambdas)"""
+        """Test whether this DRS is resolved (containing no unresolved merges)"""
         return all([x.isresolved for x in self._refs]) and all([x.isresolved for x in self._conds])
 
     def simplify_props(self):
@@ -863,23 +655,6 @@ class DRS(AbstractDRS):
             u = c._universes(u)
         return u
 
-    def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS.
-
-        Args:
-            u: An initial set of tuples. If not present `u` is set to `set()`.
-
-        Returns:
-            The set of LambdaTuple instances union'ed with `u`.
-        """
-        if u is None:
-            u = set()
-        for r in self._refs:
-            u = r._lambda_tuple(u)
-        for c in self._conds:
-            u = c._lambda_tuple(u)
-        return u
-
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ##
     def purify_refs(self, gd, ers):
@@ -921,8 +696,8 @@ class DRS(AbstractDRS):
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
+            gd: An DRS|Merge instance.
+            rs: A list of DRSRef tuples.
             ps: A list of integer tuples. Only used in PDRS implementation.
 
         Returns:
@@ -937,8 +712,8 @@ class DRS(AbstractDRS):
         conversion list `rs` for DRSRef's .
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
+            gd: An DRS|Merge instance.
+            rs: A list of DRSRef tuples.
 
         Returns:
             A DRS instance.
@@ -1068,11 +843,6 @@ class Merge(AbstractDRS):
         return self._drsB
 
     @property
-    def islambda(self):
-        """test whether this DRS is entirely a LambdaDRS (at its top-level)."""
-        return self._drsA.islambda and self._drsB.islambda
-
-    @property
     def ismerge(self):
         """Test whether this DRS is entirely a Merge (at its top-level)."""
         return True
@@ -1172,18 +942,6 @@ class Merge(AbstractDRS):
         u = self._drsA.get_universes(u)
         return self._drsB.get_universes(u)
 
-    def get_lambda_tuples(self, u=None):
-        """Returns the set of all lambda tuples in this DRS.
-
-        Args:
-            u: An initial set of tuples. If not present `u` is set to `set()`.
-
-        Returns:
-            The set of LambdaTuple instances union'ed with `u`.
-        """
-        u = self._drsA.get_lambda_tuples(u)
-        return self._drsB.get_lambda_tuples(u)
-
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs">/Data/DRS/LambdaCalculus.hs:purifyRefs</a>
     ##
     def purify_refs(self, gd, ers):
@@ -1207,7 +965,7 @@ class Merge(AbstractDRS):
         global DRS gd, on the basis of a conversion list for DRSRef's rs.
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
+            gd: An DRS|Merge instance.
             rs: A list of DRSRef|LambaDRSRef tuples.
             ps: A list of integer tuples. Only used in PDRS implementation.
 
@@ -1221,8 +979,8 @@ class Merge(AbstractDRS):
         conversion list `rs` for DRSRef's .
 
         Args:
-            gd: An DRS|LambdaDRS|Merge instance.
-            rs: A list of DRSRef|LambaDRSRef tuples.
+            gd: An DRS|Merge instance.
+            rs: A list of DRSRef tuples.
 
         Returns:
             A DRS instance.
@@ -1245,21 +1003,10 @@ class Merge(AbstractDRS):
              A unicode string.
         """
         if notation == SHOW_BOX:
-            if self._drsA.islambda and self._drsB.islambda:
-                self.show_modifier(u'(', 0, self.show_concat(self.show_concat(self._drsA.show(notation), \
-                                            self.show_modifier(self.opMerge, 0, self._drsB.show(notation))), u')'))
-            elif not self._drsA.islambda and self._drsB.islambda:
-                return self._show_brackets(self.show_concat(self._drsA.show(notation),
-                                            self.show_modifier(self.opMerge, 2, self._drsA.show(notation))))
-            elif self._drsA.islambda and not self._drsB.islambda:
-                self._show_brackets(self.show_concat(self.show_padding(self._drsA.show(notation)),
-                                            self.show_modifier(self.opMerge, 2, self._drsB.show(notation))))
             return self._show_brackets(self.show_concat(self._drsA.show(notation),
                                             self.show_modifier(self.opMerge, 2, self._drsB.show(notation))))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
-            if not self._drsA.islambda and not self._drsB.islambda:
-                return merge(self._drsA, self._drsB).show(notation)
-            return self._drsA.show(notation) + u' ' + self.opMerge + u' ' + self._drsB.show(notation)
+            return merge(self._drsA, self._drsB).show(notation)
         return u'Merge (' + self._drsA.show(notation) + ') (' + self._drsB.show(notation) + u')'
 
 
@@ -1268,22 +1015,10 @@ class Merge(AbstractDRS):
 ##
 def merge(d1, d2):
     """Applies merge to 'DRS' d1 and 'DRS' d2"""
-    if isinstance(d2, LambdaDRS) or isinstance(d1, LambdaDRS):
-        return Merge(d1, d2)
-    elif isinstance(d2, Merge):
-        if d2.ldrs.islambda:
-            return Merge(d2.ldrs, merge(d1, d2.rdrs))
-        elif d2.rdrs.islambda:
-            return Merge(merge(d1, d2.ldrs), d2.rdrs)
-        else:
-            return merge(d1, d2.resolve_merges())
+    if isinstance(d2, Merge):
+        return merge(d1, d2.resolve_merges())
     elif isinstance(d1, Merge):
-        if d1.ldrs.islambda:
-            return Merge(d1.ldrs, merge(d1.rdrs, d2))
-        elif d1.rdrs.islambda:
-            return Merge(d1.rdrs, merge(d1.ldrs, d2))
-        else:
-            return merge(d2, d1.resolve_merges())
+        return merge(d2, d1.resolve_merges())
     else:
         # orig haskell code Merge.hs and Variable.hs
         p1 = d1.resolve_merges().purify()
@@ -1328,10 +1063,6 @@ class AbstractDRSRef(Showable):
     def __init__(self, drsVar):
         self._var = drsVar
 
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        raise NotImplementedError
-
     def __hash__(self):
         return hash(self.var.to_string())
 
@@ -1353,8 +1084,8 @@ class AbstractDRSRef(Showable):
         and `gd` then the accessible constraint of the consequent is extended to the antecedent.
 
         Args:
-            ld: A LambdaDRS|Merge|DRS instance.
-            gd: A LambdaDRS|Merge|DRS instance.
+            ld: A Merge|DRS instance.
+            gd: A Merge|DRS instance.
 
         Returns:
             True if this referent is bound.
@@ -1375,7 +1106,7 @@ class AbstractDRSRef(Showable):
 
     @property
     def isresolved(self):
-        """Test if this DRS is resolved (containing no unresolved merges or lambdas)"""
+        """Test if this DRS is resolved (containing no unresolved merges)"""
         return False
 
     # Make public to support fast renaming
@@ -1400,38 +1131,6 @@ class AbstractDRSRef(Showable):
         self._var = var
 
 
-class LambdaDRSRef(AbstractDRSRef):
-    """Lambda DRS referent"""
-    def __init__(self, lambdaVar, pos):
-        """A lambda DRSRef.
-
-        Args:
-            lambdaVar: A LambdaDRSVar instance.
-            pos: Argument position.
-        """
-        if not isinstance(lambdaVar, LambdaDRSVar):
-            raise TypeError
-        super(LambdaDRSRef, self).__init__(lambdaVar)
-        self._pos = pos
-
-    def __ne__(self, other):
-        return type(self) != type(other) or self._var != other.var or self._pos != other._pos
-
-    def __eq__(self, other):
-        return type(self) == type(other) and self._var == other.var and self._pos == other._pos
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        """Adds a trailing integer to the referent to make it unique."""
-        u.add(LambdaTuple(self._var, self._pos))
-        return u
-
-    @property
-    def var(self):
-        """Converts a DRSRef into a DRSVar."""
-        return self._var.var
-
-
 class DRSRef(AbstractDRSRef):
     """DRS referent"""
     def __init__(self, drsVar):
@@ -1446,10 +1145,6 @@ class DRSRef(AbstractDRSRef):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other.var
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return u
 
     @property
     def isconst(self):
@@ -1477,10 +1172,6 @@ class DRSRef(AbstractDRSRef):
 class AbstractDRSRelation(object):
     """Abstract DRS Relation"""
 
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        raise NotImplementedError
-
     def __hash__(self):
         return hash(self.to_string())
 
@@ -1497,38 +1188,6 @@ class AbstractDRSRelation(object):
         return safe_utf8_decode(self.to_string())
 
 
-class LambdaDRSRelation(AbstractDRSRelation):
-    """Lambda DRS Relation"""
-    def __init__(self, lambdaVar, idx):
-        """A lambda DRSRef.
-
-        Args:
-            lambdaVar: A LambdaDRSVar instance.
-            idx: Argument position.
-        """
-        if not isinstance(lambdaVar, LambdaDRSVar):
-            raise TypeError
-        self._var = lambdaVar
-        self._idx = idx
-
-    def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var or self._idx != other._idx
-
-    def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var and self._idx == other._idx
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        u.add(LambdaTuple(self._var, self._pos))
-        return u
-
-    ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
-    ##
-    def to_string(self):
-        """Converts this instance into a string."""
-        return self._var.var.to_string()
-
-
 class DRSRelation(AbstractDRSRelation):
     """DRS Relation"""
     def __init__(self, drsVar):
@@ -1543,10 +1202,6 @@ class DRSRelation(AbstractDRSRelation):
 
     def __eq__(self, other):
         return type(self) == type(other) and self._var == other._var
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return u
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
     ##
@@ -1589,10 +1244,6 @@ class AbstractDRSCond(Showable):
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs#drsUniverses:universes
     def _universes(self, u):
-        return u
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
         return u
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
@@ -1712,12 +1363,6 @@ class Rel(AbstractDRSCond):
         if not _pure_refs(ld, gd, self._refs, rs): return (False, None)
         rs.extend(self._refs)
         return (True, rs)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        u = self._rel._lambda_tuple(u)
-        for x in self._refs:
-            u = x._lambda_tuple(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -1864,10 +1509,6 @@ class Neg(AbstractDRSCond):
     def _universes(self, u):
         return self._drs.get_universes(u)
 
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return self._drs.get_lambda_tuples(u)
-
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
         return type(self)(self._drs.rename_subdrs(gd, rs, ps))
@@ -1958,8 +1599,6 @@ class Neg(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drs.islambda:
-                return self.show_modifier(self.opNeg, 0, self._drs.show(notation))
             return self.show_modifier(self.opNeg, 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self.opNeg + self._drs.show(notation)
@@ -2015,11 +1654,6 @@ class Imp(AbstractDRSCond):
     def _universes(self, u):
         u = self._drsA.get_universes(u)
         return self._drsB.get_universes(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        u = self._drsA.get_lambda_tuples(u)
-        return self._drsB.get_lambda_tuples(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -2134,15 +1768,6 @@ class Imp(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drsA.islambda and self._drsB.islambda:
-                return self.show_concat(self._drsA.show(notation), \
-                                        self.show_modifier(self.opImp, 0, self._drsB.show(notation)))
-            elif not self._drsA.islambda and self._drsB.islambda:
-                return self.show_concat(self._drsA.show(notation), \
-                                        self.show_modifier(self.opImp, 2, self.show_padding(self._drsB.show(notation))))
-            elif self._drsA.islambda and not self._drsB.islambda:
-                return self.show_concat(self.show_padding(self._drsA.show(notation)), \
-                                        self.show_modifier(self.opImp, 0, self._drsB.show(notation)))
             return self.show_concat(self._drsA.show(notation), \
                                     self.show_modifier(self.opImp, 2, self._drsB.show(notation)))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
@@ -2198,11 +1823,6 @@ class Or(AbstractDRSCond):
     def _universes(self, u):
         u = self._drsA.get_universes(u)
         return self._drsB.get_universes(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        u = self._drsA.get_lambda_tuples(u)
-        return self._drsB.get_lambda_tuples(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -2310,15 +1930,6 @@ class Or(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drsA.islambda and self._drsB.islambda:
-                return self.show_concat(self._drsA.show(notation), \
-                                        self.show_modifier(self.opOr, 0, self._drsB.show(notation)))
-            elif not self._drsA.islambda and self._drsB.islambda:
-                return self.show_concat(self._drsA.show(notation), \
-                                        self.show_modifier(self.opOr, 2, self.show_padding(self._drsB.show(notation))))
-            elif self._drsA.islambda and not self._drsB.islambda:
-                return self.show_concat(self.show_padding(self._drsA.show(notation)), \
-                                        self.show_modifier(self.opOr, 0, self._drsB.show(notation)))
             return self.show_concat(self._drsA.show(notation), \
                                     self.show_modifier(self.opOr, 2, self._drsB.show(notation)))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
@@ -2371,11 +1982,6 @@ class Prop(AbstractDRSCond):
 
     def _universes(self, u):
         return self._drs.get_universes(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        u = self._ref._lambda_tuple(u)
-        return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -2484,8 +2090,6 @@ class Prop(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drs.islambda:
-                return self.show_modifier(self._ref.var.show(notation) + u':', 0, self._drs.show(notation))
             return self.show_modifier(self._ref.var.show(notation) + u':', 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self._ref.var.show(notation) + u': ' + self._drs.show(notation)
@@ -2534,10 +2138,6 @@ class Diamond(AbstractDRSCond):
 
     def _universes(self, u):
         return self._drs.get_universes(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -2631,8 +2231,6 @@ class Diamond(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drs.islambda:
-                return self.show_modifier(self.opDiamond, 0, self._drs.show(notation))
             return self.show_modifier(self.opDiamond, 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self.opDiamond + self._drs.show(notation)
@@ -2681,10 +2279,6 @@ class Box(AbstractDRSCond):
 
     def _universes(self, u):
         return self._drs.get_universes(u)
-
-    # Helper for DRS.get_lambda_tuples()
-    def _lambda_tuple(self, u):
-        return self._drs.get_lambda_tuples(u)
 
     # Original haskell code in https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/LambdaCalculus.hs#renameCons:convertCon
     def _convert(self, ld, gd, rs, pv=None, ps=None):
@@ -2778,8 +2372,6 @@ class Box(AbstractDRSCond):
     def show(self, notation):
         """Helper for DRS function of same name."""
         if notation == SHOW_BOX:
-            if self._drs.islambda:
-                return self.show_modifier(self.opBox, 0, self._drs.show(notation))
             return self.show_modifier(self.opBox, 2, self._drs.show(notation))
         elif notation in [SHOW_LINEAR, SHOW_SET]:
             return self.opBox + self._drs.show(notation)

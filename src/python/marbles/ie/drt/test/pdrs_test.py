@@ -35,7 +35,6 @@ class PDrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'1:[x|(1,man(x)),(1,happy(x))|]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)

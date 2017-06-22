@@ -47,7 +47,6 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[x| man(x),happy(x)]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)
@@ -87,7 +86,6 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[x| man(x),\u00AC[| happy(x)]]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)
@@ -114,7 +112,6 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[| [x,y| farmer(x),donkey(y),owns(x,y)] \u21D2 [| feeds(x,y)]]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)
@@ -139,7 +136,6 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[x,y,p| man(x),woman(y),believes(x,p),p: [| loves(x,y)]]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)
@@ -163,7 +159,6 @@ class DrsTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         x = u'[x| man(x),happy(x),\u00AC[| sad(x)]]'
         self.assertEquals(x,s)
-        self.assertFalse(d.islambda)
         self.assertTrue(d.isresolved)
         self.assertFalse(d.ismerge)
         self.assertTrue(d.isproper)
