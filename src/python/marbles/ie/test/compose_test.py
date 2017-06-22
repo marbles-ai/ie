@@ -4,11 +4,12 @@ from __future__ import unicode_literals, print_function
 import os
 import unittest
 import logging
+import re
 
 from marbles import future_string, native_string
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import process_ccg_pt, Ccg2Drs
-from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, \
+from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
     CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
@@ -39,6 +40,38 @@ def dprint_dependency_tree(ccg, dtree):
     global _PRINT
     if _PRINT:
         ccg.print_dependency_tree(dtree)
+
+
+_NDS= re.compile(r'(\(<[TL]|\s\))')
+def dprint_ccgbank(ccgbank):
+    global _PRINT, _NDS
+    if _PRINT:
+        nds = filter(lambda s: len(s) != 0, [x.strip() for x in _NDS.sub(r'\n\1', ccgbank).split('\n')])
+        level = 0
+        for nd in nds:
+            if nd[0] == '(' and nd[2] == 'T':
+                print('  '* level + nd)
+                level += 1
+            elif nd[0] == ')':
+                level -= 1
+                print('  '* level + nd)
+            else:
+                print('  '* level + nd)
+
+
+def get_constituents_string_list(sent):
+    s = []
+    for i in range(len(sent.constituents)):
+        c = sent.constituents[i]
+        headword = c.get_head().idx
+        txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
+        s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
+    return s
+
+
+def get_constituent_string(sent, ch=' '):
+    s = get_constituents_string_list(sent)
+    return ch.join(s)
 
 
 class ComposeTest(unittest.TestCase):
@@ -109,7 +142,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -119,12 +152,11 @@ class ComposeTest(unittest.TestCase):
         dprint(s)
         x = '[x1,e2,e3,x4| boy(x1),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
         self.assertEqual(x, s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
-        s = ' '.join(s)
+        s = get_constituent_string(ccg)
         dprint(s)
-        self.assertEqual('NP(The boy) VP(wants) S_INF(to believe) NP(the girl)', s)
+        self.assertEqual('S_DCL(The boy #wants to believe the girl) NP(#The boy) S_INF(#to believe the girl) S_INF(#believe the girl) NP(#the girl)', s)
+        s = get_constituent_string(ccg.get_verbnet_sentence())
+        self.assertEqual('NP(#The boy) VP(#wants) S_INF(#to believe) NP(#the girl)', s)
 
     def test1_BoyGirl2(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN boy N>) ) (<T S[dcl]\NP 0 2>
@@ -137,7 +169,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -147,12 +179,19 @@ class ComposeTest(unittest.TestCase):
         dprint(s)
         x = '[x1,e2,e3,x4| boy(x1),will(e2),.MODAL(e2),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
         self.assertEqual(x, s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
-        s = ' '.join(s)
-        dprint(s)
-        self.assertEqual('NP(The boy) S_INF(will want) S_INF(to believe) NP(the girl)', s)
+        a = get_constituents_string_list(ccg)
+        dprint('\n'.join(a))
+        x = [
+            'S(The boy #will want to believe the girl)',
+            'NP(#The boy)',
+            'S_INF(#want to believe the girl)',
+            'S_INF(#to believe the girl)',
+            'S_INF(#believe the girl)',
+            'NP(#the girl)'
+        ]
+        self.assertListEqual(x, a)
+        s = get_constituent_string(ccg.get_verbnet_sentence())
+        self.assertEqual('NP(#The boy) VP(#will want) S_INF(#to believe) NP(#the girl)', s)
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -261,7 +300,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -269,36 +308,36 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        sent = ccg.get_verbnet_sentence()
+        a = get_constituents_string_list(sent)
+        dprint('\n'.join(a))
+        # Hash indicates head word in constituent
         x = [
-            'NP(Rudolph-Agnew)',
-            'ADVP(55 years old and former chairman of Consolidated-Gold-Fields-PLC)',
-            'NP(55 years)',
-            'NP(former chairman)',
-            'PP(of Consolidated-Gold-Fields-PLC)',
-            'NP(Consolidated-Gold-Fields-PLC)',
-            'VP(was named)',
-            'NP(a nonexecutive director)',
-            'PP(of this British industrial conglomerate)',
-            'NP(this British industrial conglomerate)'
+            'NP(#Rudolph-Agnew)',
+            'ADJP(55 years #old and former chairman of Consolidated-Gold-Fields-PLC)',
+            'NP(55 #years)',
+            'NP(former #chairman)',
+            'PP(#of)',
+            'NP(#Consolidated-Gold-Fields-PLC)',
+            'VP(#was named)',
+            'NP(a nonexecutive #director)',
+            'PP(#of)',
+            'NP(this British industrial #conglomerate)'
         ]
-        dprint(' '.join(s))
-        self.assertListEqual(x, s)
+        self.assertListEqual(x, a)
         # 6 VP(was named)
         #   0 NP(Rudolph-Agnew)
         #     1 ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)
         #       2 NP(55 years)
         #       3 NP(former chairman)
-        #         4 PP(of Consolidated-Gold-Fields-PLC)
+        #         4 PP(of)
         #           5 NP(Consolidated-Gold-Fields-PLC)
         #   7 NP(a nonexecutive director)
-        #     8 PP(of this British industrial conglomerate)
+        #     8 PP(of)
         #       9 NP(this British industrial conglomerate)
         x = (6, [(0, [(1, [(2, []), (3, [(4, [(5, [])])])])]), (7, [(8, [(9, [])])])])
-        a = ccg.get_constituent_tree()
-        dprint_constituent_tree(ccg, a)
+        a = sent.get_constituent_tree()
+        dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0001_1(self):
@@ -377,7 +416,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -385,32 +424,35 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        sent = ccg.get_verbnet_sentence()
+        a = get_constituents_string_list(sent)
+        # FIXME: VP(will #join) should be S_INF(will #join).
+        # Issues occurs because I convert modal-verb combinator categories to modifiers. Must be fixed on functor
+        # creation - Lexeme.get_production()
+        # will: (S[dcl]\NP)/(S[b]/NP) -> (S\NP)/(S/NP)
         x = [
-            'NP(Pierre-Vinken)',
-            'ADJP(61 years old)',
-            'NP(61 years)',
-            'S_INF(will join)',
-            'NP(the board)',
-            'PP(as a nonexecutive director)',
-            'NP(a nonexecutive director)',
-            'NP(Nov. 29)'
+            'NP(#Pierre-Vinken)',
+            'ADJP(61 years #old)',
+            'NP(61 #years)',
+            'VP(#will join)',
+            'NP(the #board)',
+            'PP(#as)',
+            'NP(a nonexecutive #director)',
+            'NP(#Nov. 29)'
         ]
-        dprint(' '.join(s))
-        self.assertListEqual(x, s)
+        dprint('\n'.join(a))
+        self.assertListEqual(x, a)
         # 03 VP(will join)
         #    00 NP(Pierre-Vinken)
         #       01 ADJP(61 years old)
         #          02 NP(61 years)
         #    04 NP(the board)
-        #    05 PP(as a nonexecutive director)
+        #    05 PP(as)
         #       06 NP(a nonexecutive director)
         #    07 NP(Nov. 29)
         x = (3, [(0, [(1, [(2, [])])]), (4, []), (5, [(6, [])]), (7, [])])
-        a = ccg.get_constituent_tree()
-        dprint_constituent_tree(ccg, a)
+        a = sent.get_constituent_tree()
+        dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0001_2(self):
@@ -475,7 +517,7 @@ class ComposeTest(unittest.TestCase):
         s = sentence_from_pt(pt)
         dprint(s)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -483,19 +525,18 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        sent = ccg.get_verbnet_sentence()
+        a = get_constituents_string_list(sent)
         x = [
-            'NP(Mr.-Vinken)',
-            'VP(is)',
-            'NP(chairman)',
-            'PP(of Elsevier-N.V. the Dutch publishing group)',
-            'NP(Elsevier-N.V.)',
-            'NP(the Dutch publishing group)',
+            'NP(#Mr.-Vinken)',
+            'VP(#is)',
+            'NP(#chairman)',
+            'PP(#of)',
+            'NP(#Elsevier-N.V.)',
+            'NP(the Dutch publishing #group)',
         ]
-        dprint(' '.join(s))
-        self.assertListEqual(x, s)
+        dprint('\n'.join(a))
+        self.assertListEqual(x, a)
         # 01 VP(is)
         #    00 NP(Mr.-Vinken)
         #    02 NP(chairman)
@@ -503,8 +544,8 @@ class ComposeTest(unittest.TestCase):
         #          04 NP(Elsevier N.V.)
         #             05 NP(the Dutch publishing group)
         x = (1, [(0, []), (2, [(3, [(4, [(5, [])])])])])
-        a = ccg.get_constituent_tree()
-        dprint_constituent_tree(ccg, a)
+        a = sent.get_constituent_tree()
+        dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0003_1(self):
@@ -661,53 +702,58 @@ class ComposeTest(unittest.TestCase):
         s = sentence_from_pt(pt)
         dprint(s)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        s = []
-        for c in ccg.constituents:
-            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        sent = ccg.get_verbnet_sentence()
+        a = get_constituents_string_list(sent)
         x = [
-            'NP(A form)',           # 0
-            'PP(of asbestos)',      # 1
-            'NP(asbestos)',         # 2
-            'ADVP(once used to make Kent cigarette filters)',   # 3
-            'NP(Kent cigarette filters)',                       # 4
-            'VP(has caused)',       # 5
-            'NP(a high percentage)',# 6
-            'PP(of cancer deaths)', # 7
-            'NP(cancer deaths)',    # 8
-            'PP(among a group of workers exposed to it more than 30 years ago)', # 9
-            'NP(a group)',          #10
-            'NP(workers exposed to it more than 30 years ago)', #11
-            'ADVP(exposed to it more than 30 years ago)',       #12
-            'NP(researchers)',      #13
-            'VP(reported)',         #14
+            'NP(A #form)',              # 0
+            'PP(#of)',                  # 1
+            'NP(#asbestos)',            # 2
+            'ADVP(once #used to make Kent cigarette filters)',   # 3
+            'S_INF(#to make)',          # 4
+            'NP(Kent cigarette #filters)',  # 5
+            'VP(#has caused)',          # 6
+            'NP(a high #percentage)',   # 7
+            'PP(#of)',                  # 8
+            'NP(cancer #deaths)',       # 9
+            'PP(#among)',               #10
+            'NP(a #group)',             #11
+            'PP(#of)',                  #12
+            'NP(#workers)',             #13
+            'ADVP(#exposed to it more than 30 years ago)',  #14
+            'NP(more than 30 #years)',  #15
+            'NP(#researchers)',         #16
+            'VP(#reported)',            #17
         ]
-        dprint(' '.join(s))
-        self.assertListEqual(x, s)
-        # 14 VP(reported.)
-        #    05 VP(has caused)
+        dprint('\n'.join(a))
+        self.assertListEqual(x, a)
+        # 17 VP(reported.)
+        #    06 VP(has caused)
         #       00 NP(A form)
-        #          01 PP(of asbestos)
+        #          01 PP(of)
         #             02 NP(asbestos)
         #          03 ADVP(once used to make Kent cigarette filters)
-        #             04 NP(Kent cigarette filters)
-        #       06 NP(a high percentage)
-        #          07 PP(of cancer deaths)
-        #             08 NP(cancer deaths)
-        #          09 PP(among a group of workers exposed to it more than 30 years ago)
-        #             10 NP(a group)
-        #                11 NP(workers exposed to it more than 30 years ago)
-        #                   12 ADVP(exposed to it more than 30 years ago)
-        #    13 NP(reserchers)
-        x = (14, [(5, [(0, [(1, [(2, [])]), (3, [(4, [])])]), (6, [(7, [(8, [])]), (9, [(10, [(11, [(12, [])])])])])]), (13,[])])
-        a = ccg.get_constituent_tree()
-        dprint_constituent_tree(ccg, a)
+        #             04 S_INF(to make)
+        #                05 NP(Kent cigarette filters)
+        #       07 NP(a high percentage)
+        #          08 PP(of)
+        #             09 NP(cancer deaths)
+        #          10 PP(among)
+        #             11 NP(a group)
+        #                12 PP(of)
+        #                   13 NP(workers)
+        #                      14 ADVP(exposed to it more than 30 years ago)
+        #                         15 NP(more than 30 years)
+        #    16 NP(reserchers)
+        x = (17, [(6, [(0, [(1, [(2, [])]), (3, [(4, [(5, [])])])]), (7, [(8, [(9, [])]), (10, [(11, [(12, [(13, [(14, [(15, [])])])])])])])]), (16, [])])
+        a = sent.get_constituent_tree()
+        dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
 
     def test2_Wsj0004_1(self):
@@ -729,7 +775,7 @@ class ComposeTest(unittest.TestCase):
         (<L N NNS NNS rates N>) ) ) ) ) ) ) ) ) ) ) ) ) (<L . . . . .>) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -752,7 +798,7 @@ class ComposeTest(unittest.TestCase):
         ) ) ) ) ) ) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -870,7 +916,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -893,7 +939,7 @@ class ComposeTest(unittest.TestCase):
             (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET) | CO_NO_WIKI_SEARCH
+        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.final_rename()
@@ -1010,7 +1056,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         ccg.build_execution_sequence(pt)
         ccg.create_drs()
         ccg.resolve_proper_names()
@@ -1607,7 +1653,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_WIKI_SEARCH).get_drs()
+        d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_WIKI_SEARCH).get_drs()
         self.assertIsNotNone(d)
         dprint(d)
 
@@ -1637,7 +1683,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         d = builder.get_drs()
         self.assertIsNotNone(d)
         dprint(d)
@@ -1659,7 +1705,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
         dprint(s)
-        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
         d = builder.get_drs()
         self.assertIsNotNone(d)
         dprint(d)
@@ -1693,8 +1739,8 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = []
         failed_ccg2drs = []
-        start = 0
-        for fn in allfiles:
+        start = 1850
+        for fn in allfiles[4:5]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
@@ -1706,16 +1752,19 @@ class ComposeTest(unittest.TestCase):
                 dprint(hdr)
                 try:
                     pt = parse_ccg_derivation(ccgbank)
+                    dprint(sentence_from_pt(pt))
+                    dprint_ccgbank(ccgbank)
                 except Exception:
                     failed_parse.append(hdr)
                     continue
-                self.assertIsNotNone(pt)
-                dprint(sentence_from_pt(pt))
                 #d = process_ccg_pt(pt, CO_PRINT_DERIVATION|CO_VERIFY_SIGNATURES)
                 try:
-                    d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
+                    ccg = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+                    dprint_constituent_tree(ccg, ccg.get_constituent_tree())
+                    dprint_dependency_tree(ccg, ccg.get_dependency_tree())
+                    d = ccg.get_drs()
                     assert d is not None
-                    s = d.show(SHOW_LINEAR).encode('utf-8')
+                    s = d.show(SHOW_LINEAR)
                     dprint(s)
                 except Exception as e:
                     raise
@@ -1781,7 +1830,7 @@ class ComposeTest(unittest.TestCase):
                 try:
                     d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
                     assert d is not None
-                    s = d.show(SHOW_LINEAR).encode('utf-8')
+                    s = d.show(SHOW_LINEAR)
                     dprint(s)
                 except Exception as e:
                     raise

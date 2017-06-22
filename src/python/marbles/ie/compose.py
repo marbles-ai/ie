@@ -4,8 +4,8 @@
 from __future__ import unicode_literals, print_function
 import weakref
 import collections
-from drt.drs import AbstractDRS, DRS, DRSRef
-from drt.drs import get_new_drsrefs
+from drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
+from drt.common import SHOW_LINEAR
 from ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
 from drt.utils import iterable_type_check, intersect, union, remove_dups
 from sentence import IndexSpan
@@ -278,13 +278,12 @@ class DrsProduction(AbstractProduction):
         lr = [unicode(r.var) for r in self.lambda_refs]
         if self._span is not None and len(self._span) != 0:
             # Span repr include DRS representation
-            fn = unicode(self.span)
+            fn = unicode(self.span.get_drs().show(SHOW_LINEAR))
         else:
             fn = u'f(' + ','.join([unicode(u.var) for u in self.universe]) + u'| ' + \
                  u','.join([unicode(v.var) for v in self.freerefs]) + u')'
         if len(lr) == 0:
             return fn
-        #    return self.drs.show(SHOW_LINEAR).encode('utf-8')
         return u'λ' + u'λ'.join(lr) + u'.' + fn
 
     def __str__(self):
@@ -575,8 +574,11 @@ class ProductionList(AbstractProduction):
         d = DrsProduction(universe, freerefs, category=self.category, span=span)
         if not self.islambda_inferred:
             d.set_lambda_refs(self.lambda_refs)
-        elif not ml[0].islambda_inferred:
+        elif len(ml) != 0 and not ml[0].islambda_inferred:
             d.set_lambda_refs(ml[0].lambda_refs)
+        else:
+            pass
+
         d.set_options(self.compose_options)
         return d
 

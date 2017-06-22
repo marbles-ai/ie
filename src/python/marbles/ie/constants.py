@@ -57,8 +57,6 @@ CO_NO_VERBNET = 0x0040
 CO_FAST_RENAME = 0x0080
 ## Disable wikipedia search for constituents
 CO_NO_WIKI_SEARCH = 0x0100
-## Keep punctuation
-CO_KEEP_PUNCT = 0x0200
 ## Discard constituents with adjuncts
 CO_DISCARD_ADJUCT_CONSTITUENTS = 0x0400
 
