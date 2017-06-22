@@ -1353,6 +1353,8 @@ class Ccg2Drs(UnboundSentence):
         for i in range(len(self.constituents)):
             c = self.constituents[i]
             lexhd = c.get_head()
+            if lexhd.idx in i2c:
+                pass
             assert lexhd.idx not in i2c
             i2c[lexhd.idx] = i
 
@@ -1737,9 +1739,11 @@ class Ccg2Drs(UnboundSentence):
                         ref = lexeme.refs[0]
 
                     if startIdx >= 0:
-                        if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N or \
-                                (lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(c.span) and c.span[i+1].isproper_noun)):
+                        if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N):
                             endIdx = i
+                            continue
+                        elif ref == lastref and lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(c.span) \
+                                and c.span[i+1].isproper_noun:
                             continue
                         else:
                             if startIdx != endIdx:
@@ -1756,18 +1760,23 @@ class Ccg2Drs(UnboundSentence):
 
                 for s, e in spans:
                     # Preserve heads
-                    ctmp = Constituent(c.span[s:e+1], c.vntype)
-                    heads = ctmp.get_head(multihead=True)
-                    if len(heads) > 1:
+                    hdspan = c.span[s:e+1].get_head_span(strict=False)
+                    if len(hdspan) > 1:
                         global _logger
-                        ctree = self.get_constituent_tree()
-                        dtree = self.get_dependency_tree()
-                        _logger.info('resolve_proper_name (%s) in constituent %s(%s) multi headed\nsentence: %s\n%s\n%s',
-                                     ctmp.span.text, c.vntype.signature, c.span.text, self.get_span().text,
-                                     self.get_constituent_tree_as_string(ctree),
-                                     self.get_dependency_tree_as_string(dtree))
-                        continue
-                    lexeme = heads[0]
+                        # Check if we can find a common head
+                        sptmp = c.span[s:e+1]
+                        hd = hdspan[0]
+                        sptmp.add(hd.head)
+                        while len(sptmp.get_head_span(strict=False)) > 1 and not hd.isroot:
+                            hd = self.at(hd.head)
+                            sptmp.add(hd.head)
+                        if len(sptmp.get_head_span(strict=False)) > 1:
+                            dtree = self.get_dependency_tree()
+                            _logger.info('resolve_proper_name (%s) in constituent %s(%s) multi headed\nsentence: %s\n%s',
+                                         hdspan.text, c.vntype.signature, c.span.text, self.get_span().text,
+                                         self.get_dependency_tree_as_string(dtree))
+                            continue
+                    lexeme = hdspan[0]
                     ref = lexeme.refs[0]
                     word = '-'.join([c.span[i].word for i in range(s, e+1)])
                     stem = '-'.join([c.span[i].stem for i in range(s, e+1)])
@@ -1777,7 +1786,7 @@ class Ccg2Drs(UnboundSentence):
                     fca.cond.relation.rename(stem)
                     lexeme.stem = stem
                     lexeme.word = word
-                    to_remove = to_remove.union(IndexSpan(self, filter(lambda y: y != lexeme.idx, [x.idx for x in ctmp.span])))
+                    to_remove = to_remove.union(IndexSpan(self, filter(lambda y: y != lexeme.idx, [x.idx for x in c.span[s:e+1]])))
 
         if not to_remove.isempty:
             # Python 2.x does not support nonlocal keyword for the closure

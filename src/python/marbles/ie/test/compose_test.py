@@ -933,6 +933,205 @@ class ComposeTest(unittest.TestCase):
         ctree = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, ctree)
 
+    def test2_Wsj0999_31(self):
+        txt = r'''
+(<T S[dcl] 0 2>
+    (<T S[dcl] 1 2>
+        (<T NP 0 2>
+            (<T NP 1 2>
+                (<L NP[nb]/N DT DT AN NP[nb]_137/N_137>)
+                (<T N 1 2>
+                    (<L N/N NNP NNP AIDS N_132/N_132>)
+                    (<L N NN NN DIRECTORY N>)
+                )
+            )
+            (<T NP\NP 0 2>
+                (<L (NP\NP)/NP IN IN from (NP_145\NP_145)/NP_146>)
+                (<T NP 0 2>
+                    (<T NP 1 2>
+                        (<L NP[nb]/N DT DT the NP[nb]_160/N_160>)
+                        (<T N 1 2>
+                            (<L N/N NNP NNP American N_155/N_155>)
+                            (<L N NNP NNP Foundation N>)
+                        )
+                    )
+                    (<T NP\NP 0 2>
+                        (<L (NP\NP)/NP IN IN for (NP_168\NP_168)/NP_169>)
+                        (<T NP 0 1>
+                            (<T N 1 2>
+                                (<L N/N NNP NNP AIDS N_178/N_178>)
+                                (<L N NNP NNP Research N>)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        (<T S[dcl]\NP 0 2>
+            (<T (S[dcl]\NP)/NP 0 2>
+                (<L (S[dcl]\NP)/NP VBZ VBZ rates (S[dcl]\NP_102)/NP_103>)
+                (<T (S[dcl]\NP)/NP[conj] 1 2>
+                    (<L conj CC CC and conj>)
+                    (<L (S[dcl]\NP)/NP VBZ VBZ reviews (S[dcl]\NP_110)/NP_111>)
+                )
+            )
+            (<T NP 0 1>
+                (<T N 1 2>
+                    (<L N/N JJ JJ educational N_122/N_122>)
+                    (<L N NNS NNS materials N>)
+                )
+            )
+        )
+    )
+    (<L . . . . .>)
+)
+'''
+        pt = parse_ccg_derivation(txt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.resolve_proper_names()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        x = u'[x1,x2,x3,e4,e5,x6| .EXISTS(x1),AIDS-DIRECTORY(x1),from(x1,x2),American-Foundation(x2),for(x2,x3),AIDS-Research(x3),rat(e4),.EVENT(e4),.AGENT(e4,x1),.THEME(e4,x6),review(e5),.EVENT(e5),.AGENT(e5,x7),.THEME(e5,x8),educational(x6),materials(x6)]'
+        self.assertEqual(x, s)
+        dtree = ccg.get_dependency_tree()
+        dprint_dependency_tree(ccg, dtree)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        dprint('\n'.join(s))
+        ctree = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, ctree)
+
+    def test2_Wsj0620_01(self):
+        txt = r'''
+(<T S[dcl] 0 2>
+    (<T S[dcl] 1 2>
+        (<T NP 0 1>
+            (<T N 1 2>
+                (<L N/N NNP NNP Exxon N_208/N_208>)
+                (<L N NNP NNP Corp. N>)
+            )
+        )
+        (<T S[dcl]\NP 0 2>
+            (<L (S[dcl]\NP)/(S[ng]\NP) VBZ VBZ is (S[dcl]\NP_10)/(S[ng]_11\NP_10:B)_11>)
+            (<T S[ng]\NP 0 2>
+                (<T S[ng]\NP 0 2>
+                    (<T S[ng]\NP 0 2>
+                        (<L (S[ng]\NP)/PP VBG VBG resigning (S[ng]\NP_18)/PP_19>)
+                        (<T PP 0 2>
+                            (<L PP/NP IN IN from PP/NP_24>)
+                            (<T NP 1 2>
+                                (<T NP[nb]/N 1 2>
+                                    (<T NP 1 2>
+                                        (<L NP[nb]/N DT DT the NP[nb]_69/N_69>)
+                                        (<T N 1 2>
+                                            (<L N/N NNP NNP National N_64/N_64>)
+                                            (<T N 1 2>
+                                                (<L N/N NNP NNP Wildlife N_57/N_57>)
+                                                (<L N NNP NNP Federation N>)
+                                            )
+                                        )
+                                    )
+                                    (<L (NP[nb]/N)\NP POS POS 's (NP[nb]_47/N_47)\NP_48>)
+                                )
+                                (<T N 1 2>
+                                (<L N/N JJ JJ corporate N_40/N_40>)
+                                    (<T N 1 2>
+                                        (<L N/N JJ JJ advisory N_33/N_33>)
+                                        (<L N NN NN panel N>)
+                                    )
+                                )
+                            )
+                        )
+                    )
+                    (<L , , , , ,>)
+                )
+                (<T (S\NP)\(S\NP) 0 1>
+                    (<T S[ng]\NP 0 2>
+                        (<L (S[ng]\NP)/S[dcl] VBG VBG saying (S[ng]\NP_78)/S[dcl]_79>)
+                        (<T S[dcl] 1 2>
+                            (<T NP 1 2>
+                                (<L NP[nb]/N DT DT the NP[nb]_189/N_189>)
+                                (<T N 1 2>
+                                    (<L N/N NN NN conservation N_184/N_184>)
+                                    (<L N NN NN group N>)
+                                )
+                            )
+                            (<T S[dcl]\NP 0 2>
+                                (<L (S[dcl]\NP)/(S[pt]\NP) VBZ VBZ has (S[dcl]\NP_88)/(S[pt]_89\NP_88:B)_89>)
+                                (<T S[pt]\NP 0 2>
+                                    (<L (S[pt]\NP)/(S[adj]\NP) VBN VBN been (S[pt]\NP_98)/(S[adj]_99\NP_98:B)_99>)
+                                    (<T S[adj]\NP 1 2>
+                                        (<L (S[adj]\NP)/(S[adj]\NP) RB RB unfairly (S[adj]_175\NP_170)_175/(S[adj]_175\NP_170)_175>)
+                                        (<T S[adj]\NP 0 2>
+                                            (<L (S[adj]\NP)/PP JJ JJ critical (S[adj]\NP_106)/PP_107>)
+                                            (<T PP 0 2>
+                                                (<L PP/NP IN IN of PP/NP_112>)
+                                                (<T NP 0 2>
+                                                    (<T NP 1 2>
+                                                        (<L NP[nb]/N DT DT the NP[nb]_140/N_140>)
+                                                        (<T N 1 2>
+                                                            (<L N/N NNP NNP Exxon N_135/N_135>)
+                                                            (<T N 1 2>
+                                                                (<L N/N NNP NNP Valdez N_128/N_128>)
+                                                                (<T N 1 2>
+                                                                    (<L N/N NN NN oil N_121/N_121>)
+                                                                    (<L N NN NN spill N>)
+                                                                )
+                                                            )
+                                                        )
+                                                    )
+                                                    (<T NP\NP 0 2>
+                                                        (<L (NP\NP)/NP IN IN along (NP_148\NP_148)/NP_149>)
+                                                        (<T NP 1 2>
+                                                            (<L NP[nb]/N DT DT the NP[nb]_163/N_163>)
+                                                            (<T N 1 2>
+                                                                (<L N/N JJ JJ Alaskan N_158/N_158>)
+                                                                (<L N NN NN coast N>)
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    (<L . . . . .>)
+)
+'''
+        pt = parse_ccg_derivation(txt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.resolve_proper_names()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        dtree = ccg.get_dependency_tree()
+        dprint_dependency_tree(ccg, dtree)
+        s = []
+        for c in ccg.constituents:
+            s.append(c.vntype.signature + '(' + c.span.text + ')')
+        dprint('\n'.join(s))
+        ctree = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, ctree)
+
     def test3_EasySrl(self):
         # Welcome to MerryWeather High
         txt = r'''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
@@ -1739,8 +1938,8 @@ class ComposeTest(unittest.TestCase):
 
         failed_parse = []
         failed_ccg2drs = []
-        start = 1850
-        for fn in allfiles[4:5]:
+        start = 0
+        for fn in allfiles:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
@@ -1785,13 +1984,7 @@ class ComposeTest(unittest.TestCase):
         self.assertEqual(len(failed_parse), 0)
 
     def testA2_ParseLdc2005T13(self):
-        # Mar-2017 PWG
-        #
         # LDC2005T13 is a conversion of the Penn Treebank into CCG derivations.
-        # This was done with a algorithm that required support for special CCG
-        # type changing rules. It is my understanding that these rules are never
-        # required in derivations from a CCG parser, so while I implemented
-        # some, I did not implement them all, hence some tests are expected to fail.
         allfiles = []
         projdir = os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))

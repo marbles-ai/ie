@@ -961,7 +961,7 @@ class IndexSpan(collections.Sequence):
                     hds.add(lex.idx)
                 elif lex.head not in indexes:
                     hd = self._sent[lex.head]
-                    while hd.head not in indexes and not lex.isroot:
+                    while hd.head not in indexes and not hd.isroot:
                         hd = self._sent[hd.head]
                     if hd.head not in indexes:
                         hds.add(lex.idx)
