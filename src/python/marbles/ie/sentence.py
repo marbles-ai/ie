@@ -7,6 +7,7 @@ import collections
 import logging
 import requests
 import time
+import re
 import constituent_types as ct
 import utils.cache
 from marbles.log import ExceptionRateLimitedLogAdaptor
@@ -16,13 +17,49 @@ from constants import *
 
 _actual_logger = logging.getLogger(__name__)
 _logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
-
+_NNPSPLIT = re.compile(r'for|and|of')
 
 # Remove extra info from wikipedia topic
 _WTOPIC = re.compile(r'http://.*/(?P<topic>[^/]+(\([^)]+\))?)')
 
 # Rate limit wiki requests
 wikipedia.set_rate_limiting(rate_limit=True)
+
+
+class Wikidata(object):
+    def __init__(self, page):
+        if page is not None:
+            self.title = page.title
+            self.summary = page.summary
+            # TODO: filter wikipedia categories
+            self.categories = page.categories
+            self.pageid = page.pageid
+            self.url = page.url
+        else:
+            self.title = None
+            self.summary = None
+            self.categories = None
+            self.pageid = None
+            self.url = None
+
+    def get_json(self):
+        return {
+            'title': self.title,
+            'summary': self.summary,
+            'page_categories': self.categories,
+            'pageid': self.pageid,
+            'url': self.url
+        }
+
+    @classmethod
+    def from_json(self, data):
+        wd = Wikidata(None)
+        wd.title = data['title']
+        wd.summary = data['summary']
+        wd.categories = data['page_categories']
+        wd.pageid = data['pageid']
+        wd.url = data['url']
+        return wd
 
 
 class AbstractLexeme(object):
@@ -38,6 +75,7 @@ class AbstractLexeme(object):
             self.stem = c.stem
             self.drs = c.drs
             self.category = c.category
+            self.wiki_data = c.wiki_data
         else:
             self.head = -1
             self.idx = -1
@@ -48,6 +86,7 @@ class AbstractLexeme(object):
             self.stem = None
             self.drs = None
             self.category = None
+            self.wiki_data = None
 
     @property
     def isroot(self):
@@ -101,6 +140,9 @@ class AbstractLexeme(object):
 
     def clone(self):
         raise NotImplementedError
+
+    def set_wiki_entry(self, page):
+        self.wiki_data = Wikidata(page)
 
 
 class BasicLexeme(AbstractLexeme):
@@ -165,45 +207,11 @@ class BasicLexeme(AbstractLexeme):
         self.mask = d['mask']
         self.refs = d['refs']
         self.drs = None
+        if 'wiki' in d:
+            self.wiki_data = Wikidata.from_json(d['wiki'])
 
     def clone(self):
         return BasicLexeme(self)
-
-
-class Wikidata(object):
-    def __init__(self, page):
-        if page is not None:
-            self.title = page.title
-            self.summary = page.summary
-            # TODO: filter wikipedia categories
-            self.categories = page.categories
-            self.pageid = page.pageid
-            self.url = page.url
-        else:
-            self.title = None
-            self.summary = None
-            self.categories = None
-            self.pageid = None
-            self.url = None
-
-    def get_json(self):
-        return {
-            'title': self.title,
-            'summary': self.summary,
-            'page_categories': self.categories,
-            'pageid': self.pageid,
-            'url': self.url
-        }
-
-    @classmethod
-    def from_json(self, data):
-        wd = Wikidata(None)
-        wd.title = data['title']
-        wd.summary = data['summary']
-        wd.categories = data['page_categories']
-        wd.pageid = data['pageid']
-        wd.url = data['url']
-        return wd
 
 
 def safe_wikipage(query):
@@ -223,7 +231,6 @@ class Constituent(object):
             raise TypeError('Constituent.__init__() bad argument')
         self.span = span
         self.vntype = vntype
-        self.wiki_data = None
         self.chead = chead
 
     def get_json(self):
@@ -232,8 +239,6 @@ class Constituent(object):
             'vntype': self.vntype.signature,
             'chead': self.chead
         }
-        if self.wiki_data:
-            result['wiki'] = self.wiki_data.get_json()
         return result
 
     @classmethod
@@ -242,8 +247,6 @@ class Constituent(object):
         c.vntype = ct.Typeof[data['vntype']]
         c.span = IndexSpan(sentence, data['span'])
         c.chead = data['chead']
-        if 'wiki' in data:
-            c.wiki_data = Wikidata.from_json(data['wiki'])
 
     def __unicode__(self):
         return self.vntype.signature + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
@@ -309,85 +312,6 @@ class Constituent(object):
             A Constituent instance or None if the root constituent.
         """
         return self.span.sentence.get_constituent_at(self.chead)
-
-    def set_wiki_entry(self, page):
-        self.wiki_data = Wikidata(page)
-
-    def search_wikipedia(self, max_results=1, google=True):
-        """Find a wikipedia topic from this span.
-
-        Returns: A wikipedia topic.
-        """
-        global _logger
-        retry = True
-        attempts = 0
-        while retry:
-            try:
-                txt = self.span.text
-                topics = []
-                result = wikipedia.search(txt, results=max_results)
-                if result is not None and len(result) != 0:
-                    for t in result:
-                        wr = safe_wikipage(t)
-                        if wr is not None:
-                            topics.append(wr)
-
-                if len(topics) == 0:
-                    # Get suggestions from wikipedia
-                    query = wikipedia.suggest(txt)
-                    if query is not None:
-                        result = safe_wikipage(query)
-                        if result is not None:
-                            return [result]
-                    if google and (result is None or len(result) == 0):
-                        # Try google search - hopefully will fix up spelling or ignore irrelevent words
-                        scraper = google_search.GoogleScraper()
-                        spell, urls = scraper.search(txt, 'wikipedia.com')
-                        if spell is not None:
-                            result = wikipedia.search(txt, results=max_results)
-                            if result is not None and len(result) != 0:
-                                for t in result:
-                                    wr = safe_wikipage(t)
-                                    if wr is not None:
-                                        topics.append(wr)
-
-                            if len(topics) == 0:
-                                # Get suggestions from wikipedia
-                                query = wikipedia.suggest(txt)
-                                if query is not None:
-                                    result = safe_wikipage(query)
-                                    if result is not None and len(result) != 0:
-                                        return [result]
-                            else:
-                                return topics
-                        seen = set()
-                        for u in urls:
-                            m = _WTOPIC.match(u)
-                            if m is not None:
-                                t = m.group('topic')
-                                if t not in seen:
-                                    seen.add(t)
-                                    wr = safe_wikipage(t.replace('_', ' '))
-                                    if wr:
-                                        topics.append(wr)
-                                        if len(topics) >= max_results:
-                                            break
-                return topics if len(topics) != 0 else None
-            except requests.exceptions.ConnectionError as e:
-                attempts += 1
-                retry = attempts <= 3
-                _logger.exception('Constituent.search_wikipedia', exc_info=e)
-                time.sleep(0.25)
-            except wikipedia.exceptions.DisambiguationError as e:
-                # TODO: disambiguation
-                retry = False
-            except wikipedia.exceptions.HTTPTimeoutError as e:
-                attempts += 1
-                retry = attempts <= 3
-                _logger.exception('Constituent.search_wikipedia', exc_info=e)
-                time.sleep(0.25)
-
-        return None
 
 
 class UnboundSentence(collections.Sequence):
@@ -694,7 +618,6 @@ class UnboundSentence(collections.Sequence):
         constituents = sorted(constituents)
         return Sentence([lex for lex in self], constituents)
 
-
 class Sentence(UnboundSentence):
     """A sentence"""
     def __init__(self, lexemes, constituents, i2c=None):
@@ -895,12 +818,13 @@ class IndexSpan(collections.Sequence):
                 refs.extend(tok.drs.referents)
         return drt.drs.DRS(refs, conds)
 
-    def get_subspan_from_wiki_search(self, search_result, max_results=0):
+    def get_subspan_from_wiki_search(self, search_result, max_results=0, threshold=0.5):
         """Get a subspan from a wikpedia search result.
 
         Args:
             search_result: The result of a wikipedia.search().
-            max_results: If zero return a IndexSpan, else return a list of IndexSpan.
+            max_results: If zero return a IndexSpan, else return a list of IndexSpan's.
+            threshold: A ratio (< 1) of common-prefix-length/total-length.
 
         Returns:
             A IndexSpan instance or a list of IndexSpan instances.
@@ -912,14 +836,17 @@ class IndexSpan(collections.Sequence):
             idxs = set()
             words = {}
             for lex in self:
+                # Proper nouns get hypenated
+                word = lex.word.replace('-', ' ').lower()
+                stem = lex.stem.replace('-', ' ').lower()
                 for nm in title:
                     nml = nm.lower()
-                    p1 = os.path.commonprefix([lex.word.lower(), nml])
-                    p2 = os.path.commonprefix([lex.stem.lower(), nml])
+                    p1 = os.path.commonprefix([word, nml])
+                    p2 = os.path.commonprefix([stem, nml])
                     if (len(p1) - len(p2)) >= 0:
-                        if len(p1) >= (len(nml)/2):
+                        if len(p1) >= (threshold * len(nml)):
                             idxs.add(lex.idx)
-                    elif len(p2) > len(p1) and len(p2) >= (len(nml)/2):
+                    elif len(p2) > len(p1) and len(p2) >= (threshold * len(nml)):
                         idxs.add(lex.idx)
             idxs = sorted(idxs)
             if len(idxs) >= 2:
@@ -967,3 +894,78 @@ class IndexSpan(collections.Sequence):
                         hds.add(lex.idx)
         return IndexSpan(self._sent, hds)
 
+    def search_wikipedia(self, max_results=1, google=True):
+        """Find a wikipedia topic from this span.
+
+        Returns: A wikipedia topic.
+        """
+        global _logger
+        retry = True
+        attempts = 0
+        while retry:
+            try:
+                txt = self.text.replace('-', ' ')
+                topics = []
+                result = wikipedia.search(txt, results=max_results)
+                if result is not None and len(result) != 0:
+                    for t in result:
+                        wr = safe_wikipage(t)
+                        if wr is not None:
+                            topics.append(wr)
+
+                if len(topics) == 0:
+                    # Get suggestions from wikipedia
+                    query = wikipedia.suggest(txt)
+                    if query is not None:
+                        result = safe_wikipage(query)
+                        if result is not None:
+                            return [result]
+                    if google and (result is None or len(result) == 0):
+                        # Try google search - hopefully will fix up spelling or ignore irrelevent words
+                        scraper = google_search.GoogleScraper()
+                        spell, urls = scraper.search(txt, 'wikipedia.com')
+                        if spell is not None:
+                            result = wikipedia.search(txt, results=max_results)
+                            if result is not None and len(result) != 0:
+                                for t in result:
+                                    wr = safe_wikipage(t)
+                                    if wr is not None:
+                                        topics.append(wr)
+
+                            if len(topics) == 0:
+                                # Get suggestions from wikipedia
+                                query = wikipedia.suggest(txt)
+                                if query is not None:
+                                    result = safe_wikipage(query)
+                                    if result is not None and len(result) != 0:
+                                        return [result]
+                            else:
+                                return topics
+                        seen = set()
+                        for u in urls:
+                            m = _WTOPIC.match(u)
+                            if m is not None:
+                                t = m.group('topic')
+                                if t not in seen:
+                                    seen.add(t)
+                                    wr = safe_wikipage(t.replace('_', ' '))
+                                    if wr:
+                                        topics.append(wr)
+                                        if len(topics) >= max_results:
+                                            break
+                return topics if len(topics) != 0 else None
+            except requests.exceptions.ConnectionError as e:
+                attempts += 1
+                retry = attempts <= 3
+                _logger.exception('Constituent.search_wikipedia', exc_info=e)
+                time.sleep(0.25)
+            except wikipedia.exceptions.DisambiguationError as e:
+                # TODO: disambiguation
+                retry = False
+            except wikipedia.exceptions.HTTPTimeoutError as e:
+                attempts += 1
+                retry = attempts <= 3
+                _logger.exception('Constituent.search_wikipedia', exc_info=e)
+                time.sleep(0.25)
+
+        return None

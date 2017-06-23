@@ -6,6 +6,7 @@ import collections
 import inflect
 import itertools
 import logging
+import numpy as np
 from nltk.stem import wordnet as wn
 from ccg import *
 from ccg.model import MODEL
@@ -18,7 +19,7 @@ from drt.utils import remove_dups, union, complement, intersect
 from kb.verbnet import VERBNETDB
 from parse import parse_drs
 from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from sentence import UnboundSentence, IndexSpan, Constituent, AbstractLexeme
+from sentence import UnboundSentence, IndexSpan, Constituent, AbstractLexeme, Wikidata
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 from constants import *
 from marbles.log import ExceptionRateLimitedLogAdaptor
@@ -375,7 +376,7 @@ class Lexeme(AbstractLexeme):
     _p = inflect.engine()
 
     def get_json(self):
-        return {
+        result = {
             'word': self.word,
             'stem': self.stem,
             'pos': self.pos.tag,
@@ -389,6 +390,9 @@ class Lexeme(AbstractLexeme):
                                        Showable.opOr:u' or '}.iteritems(), self.drs.show(SHOW_SET)),
             'category': self.category.signature
         }
+        if self.wiki_data:
+            result['wiki'] = self.wiki_data.get_json()
+        return result
 
     def __init__(self, category, word, pos_tags, idx=0):
         if isinstance(Category, Lexeme):
@@ -1524,6 +1528,7 @@ class Ccg2Drs(UnboundSentence):
             if 0 != (self.options & CO_NO_WIKI_SEARCH):
                 continue
 
+            '''
             result = c.search_wikipedia()
             if result is not None:
                 subspan = c.span.get_subspan_from_wiki_search(result)
@@ -1549,7 +1554,7 @@ class Ccg2Drs(UnboundSentence):
                             content = result[0].content
                             if all(map(lambda x: x.stem.lower() in content, dspan)):
                                 c.set_wiki_entry(result[0])
-
+            '''
         # Remove irrelevent entries
         if len(to_remove) != 0:
             filtered_constituents = [constituents[i] for i in
@@ -1654,12 +1659,11 @@ class Ccg2Drs(UnboundSentence):
                 i2c[lexhd.idx] = i
 
         if resort:
-            self.constituents = sorted(set(filter(lambda c: not c.span.isempty, constituents)))
-        else:
-            self.constituents = constituents
+            constituents = sorted(set(filter(lambda c: not c.span.isempty, constituents)))
 
         # And finally set constituent heads and map lexeme heads to constituents
-        self._map_heads_to_constituents()
+        self.i2c = self.map_heads_to_constituents(constituents)
+        self.constituents = constituents
 
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
@@ -1755,7 +1759,7 @@ class Ccg2Drs(UnboundSentence):
                         endIdx = i
                         lastref = ref
 
-                if startIdx >= 0:
+                if startIdx >= 0 and startIdx != endIdx:
                     spans.append((startIdx, endIdx))
 
                 for s, e in spans:
@@ -1850,7 +1854,7 @@ class Ccg2Drs(UnboundSentence):
                                             filter(lambda x: idxmap[x] >= 0, self.final_prod.span.get_indexes())))
                 self.final_prod.span = pspan
 
-            self._map_heads_to_constituents()
+            self.i2c = self.map_heads_to_constituents(self.constituents)
 
     def get_drs(self):
         refs = []
@@ -2123,6 +2127,107 @@ class Ccg2Drs(UnboundSentence):
         # TODO: support span with start and length
         return IndexSpan(self, range(len(self.lexque)))
 
+    def get_subspan_from_wiki_search2(self, span, search_result, max_results=0, threshold=0.5):
+        """Get a subspan from a wikpedia search result.
+
+        Args:
+            search_result: The result of a wikipedia.search().
+            max_results: If zero return a IndexSpan, else return a list of IndexSpan's.
+            threshold: A ratio (< 1) of common-prefix-length/total-length.
+
+        Returns:
+            A tuple containing an IndexSpan instance and the search_result
+        """
+        spans = {}
+        # FIXME: rank using statistical model
+        best_score = np.float32(0)
+        best_result = None
+        best_span = None
+        for result in search_result:
+            iwords = []
+            for lex in span:
+                # Proper nouns get hypenated
+                iwords.extend([(w, lex.idx) for w in lex.word.replace('-', ' ').lower().split(' ')])
+
+            span = IndexSpan(self)
+            title = result.title.lower().split(' ')
+            score = np.zeros(shape=(len(iwords), len(title)), dtype=np.float32)
+            for k in range(len(iwords)):
+                wi = iwords[k]
+                score[k,:] = [float(len(os.path.commonprefix([wi[0], nm])))/float(len(wi[0])) for nm in title]
+            d0 = np.max(score, axis=1)
+            score = np.mean(d0)
+            if score >= threshold and score > best_score:
+                pos = (d0 > threshold/2) * np.arange(1, len(iwords)+1, dtype=np.int32)
+                idxs = set()
+                for k in np.nditer(pos):
+                    if k > 0:
+                        idxs.add(iwords[int(k)-1][1])
+                best_score = score
+                best_result = result
+                idxs = sorted(idxs)
+                if len(idxs) >= 2:
+                    idxs = [x for x in range(idxs[0], idxs[-1]+1)]
+                best_span = IndexSpan(self, idxs)
+        return best_span, best_result
+
+    def add_wikipedia_links(self):
+        """Call after resolved proper nouns."""
+        NNP = filter(lambda x: x.isproper_noun, self.lexque)
+        found = []
+        skip_to = -1
+        for i in range(len(NNP)):
+            if i < skip_to:
+                continue
+            skip_to = -1
+            lex = NNP[i]
+            todo = [IndexSpan(self, [lex.idx])]
+            if (i+1) < len(NNP) and self.lexque[lex.idx+1].word in ['for', 'and', 'of'] and NNP[i+1].idx == lex.idx+2:
+                todo.append(IndexSpan(self, [lex.idx, lex.idx+1, lex.idx+2]))
+            while len(todo):
+                c = todo.pop()
+                result = c.search_wikipedia()
+                if result is not None:
+                    subspan, bresult = self.get_subspan_from_wiki_search2(c, result, threshold=0.7)
+                    if subspan is not None:
+                        # Only checking first result
+                        found.append((c, bresult))
+                        if len(c) > 1 and c[-1].idx in subspan.get_indexes():
+                            skip_to = i+2
+                        break
+
+        recalc_nnps = False
+        for f in itertools.ifilter(lambda x: len(x[0]) > 1, found):
+            # Proper nouns separated by for|of|and
+            n = f[0][0].refs[0]
+            o = f[0][-1].refs[0]
+            prep = f[0][1]
+            nnp = f[0][0]
+            if prep.idx in self.i2c:
+                c = self.i2c[prep.idx]
+                if nnp.idx not in self.i2c:
+                    c.span = c.span.union(f[0])
+                    c.vntype = ct.CONSTITUENT_NP
+                    del self.i2c[prep.idx]
+                    self.i2c[nnp.idx] = c
+            f[0][1].head = f[0][0].idx
+            f[0][-1].head = f[0][0].idx
+            f[0][1].refs = f[0][0].refs
+            f[0][1].drs = DRS([], [])
+            self.final_prod.rename_vars([(o, n)])
+            recalc_nnps = True
+
+        # Attach wiki pages
+        for f in found:
+            f[0][0].set_wiki_entry(f[1])
+
+        if recalc_nnps:
+            self.constituents = sorted(set(self.constituents))
+            self.i2c = self.map_heads_to_constituents(self.constituents)
+            self.resolve_proper_names()
+
+        # TODO: Add wiki entry to local search engine - like indri from lemur project
+
 
 ## @ingroup gfn
 def process_ccg_pt(pt, options=0):
@@ -2143,8 +2248,10 @@ def process_ccg_pt(pt, options=0):
         pt = pt_to_utf8(pt)
     ccg.build_execution_sequence(pt)
     ccg.create_drs()
-    ccg.final_rename()
     ccg.resolve_proper_names()
+    if 0 != (options & CO_NO_WIKI_SEARCH):
+        ccg.add_wikipedia_links()
+    ccg.final_rename()
     # TODO: resolve anaphora
     return ccg
 

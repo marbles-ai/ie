@@ -339,6 +339,7 @@ class ComposeTest(unittest.TestCase):
         a = sent.get_constituent_tree()
         dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
+        ccg.add_wikipedia_links()
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -1531,6 +1532,8 @@ class ComposeTest(unittest.TestCase):
         dprint(' '.join(s))
         a = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, a)
+        ccg.add_wikipedia_links()
+        dprint(ccg.get_drs().show(SHOW_LINEAR))
 
     def test6_Pronouns(self):
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/PP 0 2> (<L ((S[dcl]\NP)/PP)/NP VBD VBD leased ((S[dcl]\NP)/PP)/NP>) (<T NP 0 2> (<L NP/N DT DT the NP/N>) (<L N NN NN car N>) ) ) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/(N/PP) PRP$ PRP$ my NP/(N/PP)>) (<T N/PP 0 2> (<L N/PP NN NN friend N/PP>) (<T (N/PP)\(N/PP) 0 2> (<L ((N/PP)\(N/PP))/NP IN IN for ((N/PP)\(N/PP))/NP>) (<T NP 0 1> (<T N 0 2> (<L N CD CD $5 N>) (<T N\N 0 2> (<L (N\N)/N DT DT a (N\N)/N>) (<L N NN NN month. N>) ) ) ) ) ) ) ) ) )'''
