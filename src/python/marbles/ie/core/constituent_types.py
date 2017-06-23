@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-from utils.cache import ConstString, Cache
+from marbles.ie.utils.cache import ConstString, Cache
 
 
 CONSTITUENT_NP = ConstString('NP')

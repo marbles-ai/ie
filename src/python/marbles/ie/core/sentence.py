@@ -1,19 +1,20 @@
 from __future__ import unicode_literals, print_function
-import drt
-from kb import google_search
-import wikipedia
-import itertools
-import collections
-import logging
-import requests
-import time
-import re
-import constituent_types as ct
-import utils.cache
-from marbles.log import ExceptionRateLimitedLogAdaptor
-from ccg import *
-from constants import *
 
+import collections
+import itertools
+import logging
+import time
+
+import requests
+import wikipedia
+
+import marbles.ie.drt
+import marbles.ie.utils.cache
+from marbles.ie.ccg import *
+from marbles.ie.kb import google_search
+from marbles.ie.core import constituent_types as ct
+from marbles.ie.core.constants import *
+from marbles.log import ExceptionRateLimitedLogAdaptor
 
 _actual_logger = logging.getLogger(__name__)
 _logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
@@ -227,7 +228,7 @@ def safe_wikipage(query):
 class Constituent(object):
     """A constituent is a sentence span and a phrase type."""
     def __init__(self, span, vntype, chead=-1):
-        if not isinstance(span, IndexSpan) or not isinstance(vntype, utils.cache.ConstString):
+        if not isinstance(span, IndexSpan) or not isinstance(vntype, marbles.ie.utils.cache.ConstString):
             raise TypeError('Constituent.__init__() bad argument')
         self.span = span
         self.vntype = vntype
@@ -818,7 +819,7 @@ class IndexSpan(collections.Sequence):
             if tok.drs:
                 conds.extend(tok.drs.conditions)
                 refs.extend(tok.drs.referents)
-        return drt.drs.DRS(refs, conds)
+        return marbles.ie.drt.drs.DRS(refs, conds)
 
     def get_subspan_from_wiki_search(self, search_result, max_results=0, threshold=0.5):
         """Get a subspan from a wikpedia search result.

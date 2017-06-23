@@ -2,15 +2,17 @@
 """Compositional DRT"""
 
 from __future__ import unicode_literals, print_function
-import weakref
+
 import collections
-from drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
-from drt.common import SHOW_LINEAR
+import weakref
+
 from ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
+from drt.common import SHOW_LINEAR
+from drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
 from drt.utils import iterable_type_check, intersect, union, remove_dups
-from sentence import IndexSpan
 from marbles import safe_utf8_encode, future_string
-from constants import *
+from marbles.ie.core.constants import *
+from marbles.ie.core.sentence import IndexSpan
 
 
 class DrsComposeError(Exception):

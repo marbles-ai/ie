@@ -2,28 +2,30 @@
 """CCG to DRS Production Generator"""
 
 from __future__ import unicode_literals, print_function
+
 import collections
-import inflect
 import itertools
 import logging
+
+import inflect
 import numpy as np
 from nltk.stem import wordnet as wn
+
 from ccg import *
 from ccg.model import MODEL
-import constituent_types as ct
 from compose import ProductionList, FunctorProduction, DrsProduction, DrsComposeError, identity_functor
-from drt.common import DRSVar, SHOW_LINEAR, SHOW_SET, Showable
+from drt.common import DRSVar, SHOW_SET, Showable
 from drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
 from drt.drs import get_new_drsrefs
 from drt.utils import remove_dups, union, complement, intersect
 from kb.verbnet import VERBNETDB
+from marbles import safe_utf8_decode, safe_utf8_encode, future_string
+from marbles.ie.core import constituent_types as ct
+from marbles.ie.core.constants import *
+from marbles.ie.core.sentence import UnboundSentence, IndexSpan, Constituent, AbstractLexeme
+from marbles.log import ExceptionRateLimitedLogAdaptor
 from parse import parse_drs
 from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from sentence import UnboundSentence, IndexSpan, Constituent, AbstractLexeme, Wikidata
-from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
-from constants import *
-from marbles.log import ExceptionRateLimitedLogAdaptor
-
 
 _actual_logger = logging.getLogger(__name__)
 _logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
