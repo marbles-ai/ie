@@ -320,11 +320,10 @@ class Sentence(collections.Sequence):
             self.lexemes = []
             self.constituents = []
             i2c = None
+        self.i2c = i2c or {}
+        self.msgid = msgid
         if i2c is None and self.constituents is not None:
             self.map_heads_to_constituents()
-        else:
-            self.i2c = i2c or {}
-        self.msgid = msgid
 
     def __len__(self):
         return len(self.lexemes)
