@@ -1764,17 +1764,17 @@ class Ccg2Drs(UnboundSentence):
 
                 for s, e in spans:
                     # Preserve heads
-                    hdspan = c.span[s:e+1].get_head_span(strict=False)
+                    hdspan = c.span[s:e+1].get_head_span()
                     if len(hdspan) > 1:
                         global _logger
                         # Check if we can find a common head
                         sptmp = c.span[s:e+1]
                         hd = hdspan[0]
                         sptmp.add(hd.head)
-                        while len(sptmp.get_head_span(strict=False)) > 1 and not hd.isroot:
+                        while len(sptmp.get_head_span()) > 1 and not hd.isroot:
                             hd = self.at(hd.head)
                             sptmp.add(hd.head)
-                        if len(sptmp.get_head_span(strict=False)) > 1:
+                        if len(sptmp.get_head_span()) > 1:
                             dtree = self.get_dependency_tree()
                             _logger.info('resolve_proper_name (%s) in constituent %s(%s) multi headed\nsentence: %s\n%s',
                                          hdspan.text, c.vntype.signature, c.span.text, self.get_span().text,
@@ -2127,29 +2127,32 @@ class Ccg2Drs(UnboundSentence):
         # TODO: support span with start and length
         return IndexSpan(self, range(len(self.lexque)))
 
-    def get_subspan_from_wiki_search2(self, span, search_result, max_results=0, threshold=0.5):
+    def get_subspan_from_wiki_search2(self, query_span, search_result, threshold=0.7, title_only=True):
         """Get a subspan from a wikpedia search result.
 
         Args:
+            query_span: The span of the query.
             search_result: The result of a wikipedia.search().
-            max_results: If zero return a IndexSpan, else return a list of IndexSpan's.
-            threshold: A ratio (< 1) of common-prefix-length/total-length.
+            threshold: A ratio (< 1) of match quality.
+            title_only: If True then search title words else search page content.
 
         Returns:
-            A tuple containing an IndexSpan instance and the search_result
+            A tuple containing an IndexSpan instance and the wiki-page.
         """
-        spans = {}
-        # FIXME: rank using statistical model
+        # TODO: search page content
+        if not title_only:
+            return None, None
         best_score = np.float32(0)
         best_result = None
         best_span = None
-        for result in search_result:
-            iwords = []
-            for lex in span:
-                # Proper nouns get hypenated
-                iwords.extend([(w, lex.idx) for w in lex.word.replace('-', ' ').lower().split(' ')])
+        iwords = []
+        threshold = np.float32(threshold)
 
-            span = IndexSpan(self)
+        for lex in query_span:
+            # Proper nouns get hypenated
+            iwords.extend([(w, lex.idx) for w in lex.word.replace('-', ' ').lower().split(' ')])
+
+        for result in search_result:
             title = result.title.lower().split(' ')
             score = np.zeros(shape=(len(iwords), len(title)), dtype=np.float32)
             for k in range(len(iwords)):
@@ -2182,44 +2185,64 @@ class Ccg2Drs(UnboundSentence):
             skip_to = -1
             lex = NNP[i]
             todo = [IndexSpan(self, [lex.idx])]
-            if (i+1) < len(NNP) and self.lexque[lex.idx+1].word in ['for', 'and', 'of'] and NNP[i+1].idx == lex.idx+2:
-                todo.append(IndexSpan(self, [lex.idx, lex.idx+1, lex.idx+2]))
-            while len(todo):
-                c = todo.pop()
-                result = c.search_wikipedia()
-                if result is not None:
-                    subspan, bresult = self.get_subspan_from_wiki_search2(c, result, threshold=0.7)
-                    if subspan is not None:
-                        # Only checking first result
-                        found.append((c, bresult))
-                        if len(c) > 1 and c[-1].idx in subspan.get_indexes():
-                            skip_to = i+2
-                        break
+            j = i+1
+            k = lex.idx + 1
+            while j < len(NNP) and self.lexque[k].word in ['for', 'and', 'of'] and NNP[j].idx == k+1:
+                todo.append(IndexSpan(self, [x for x in range(lex.idx, k+2)]))
+                j += 1
+                k += 2
+            retry = True
+            allresults = []
+            while skip_to < 0 and (retry or len(allresults) != 0):
+                allresults.reverse()
+                while len(todo):
+                    c = todo.pop()
+                    if retry:
+                        result = c.search_wikipedia()
+                        allresults.append(result)
+                    else:
+                        result = allresults.pop()
+                    if result is not None:
+                        subspan, bresult = self.get_subspan_from_wiki_search2(c, result, title_only=retry)
+                        if subspan is not None:
+                            # Only checking first result
+                            found.append((c, bresult))
+                            if len(c) > 1 and c[-1].idx in subspan.get_indexes():
+                                skip_to = j+1
+                            break
+                if not retry:
+                    break
+                retry = False
 
         recalc_nnps = False
         for f in itertools.ifilter(lambda x: len(x[0]) > 1, found):
             # Proper nouns separated by for|of|and
-            n = f[0][0].refs[0]
-            o = f[0][-1].refs[0]
-            prep = f[0][1]
-            nnp = f[0][0]
-            if prep.idx in self.i2c:
-                c = self.i2c[prep.idx]
-                if nnp.idx not in self.i2c:
-                    c.span = c.span.union(f[0])
-                    c.vntype = ct.CONSTITUENT_NP
-                    del self.i2c[prep.idx]
-                    self.i2c[nnp.idx] = c
-            f[0][1].head = f[0][0].idx
-            f[0][-1].head = f[0][0].idx
-            f[0][1].refs = f[0][0].refs
-            f[0][1].drs = DRS([], [])
-            self.final_prod.rename_vars([(o, n)])
+            nspan = f[0]
+            hds = nspan.get_head_span()
+            if len(hds) != 1:
+                nspan.clear()
+                _logger.info('Multi-headed proper noun discarded (%s), hds=(%s)', nspan.text, hds.text)
+                continue
+            if not hds[0].idx in self.i2c:
+                c = Constituent(nspan, ct.CONSTITUENT_NP)
+                self.i2c[hds[0]] = c
+                self.constituents.append(c)
+            ref = nspan[0].refs[0]
+            for lex in nspan[1::2]:
+                lex.refs = [ref]
+                lex.drs = DRS([], [])
+            rs = []
+            for lex in nspan[2::2]:
+                assert lex.isproper_noun
+                rs.append((lex.refs[0], ref))
+            self.final_prod.rename_vars(rs)
             recalc_nnps = True
 
         # Attach wiki pages
         for f in found:
-            f[0][0].set_wiki_entry(f[1])
+            # We clear multiheaded entries
+            if len(f[0]) > 0:
+                f[0][0].set_wiki_entry(f[1])
 
         if recalc_nnps:
             self.constituents = sorted(set(self.constituents))

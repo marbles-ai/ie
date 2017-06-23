@@ -431,6 +431,8 @@ class UnboundSentence(collections.Sequence):
         for i in range(len(constituents)):
             c = constituents[i]
             lexhd = c.get_head()
+            if lexhd.idx in i2c:
+                pass
             assert lexhd.idx not in i2c
             i2c[lexhd.idx] = i
 
@@ -862,7 +864,7 @@ class IndexSpan(collections.Sequence):
             return None
         return ranked_spans[0] if max_results == 0 else ranked_spans[0:max_results]
 
-    def get_head_span(self, strict=True):
+    def get_head_span(self, strict=False):
         """Get the head lexemes of the span.
 
         Args:
