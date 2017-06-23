@@ -53,6 +53,7 @@ setup(
         'pypeg2',
         'rdflib',
         'nltk',
+        'numpy',
         'statistics',
         'protobuf==3.2.0',
         'grpcio==1.1.3',
