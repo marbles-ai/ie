@@ -22,7 +22,7 @@ from kb.verbnet import VERBNETDB
 from marbles import safe_utf8_decode, safe_utf8_encode, future_string
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
-from marbles.ie.core.sentence import UnboundSentence, IndexSpan, Constituent, AbstractLexeme
+from marbles.ie.core.sentence import Sentence, IndexSpan, Constituent, AbstractLexeme
 from marbles.log import ExceptionRateLimitedLogAdaptor
 from parse import parse_drs
 from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
@@ -1007,41 +1007,35 @@ CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A
 PosInt = re.compile(r'\d+')
 
 
-class Ccg2Drs(UnboundSentence):
+class Ccg2Drs(Sentence):
     """CCG to DRS Converter"""
     dispatchmap = VectorMap(Rule.rule_count())
     debugcount = 0
 
-    def __init__(self, options=0):
+    def __init__(self, options=0, msgid=None):
+        """Constructor
+
+        Args:
+            options: compose options
+            msgid: optional message id string tobe used when logging
+        """
+        super(Ccg2Drs, self).__init__(msgid=msgid)
         self.xid = 10
         self.eid = 10
         self.limit = 10
         self.options = options or 0
         self.exeque = []
-        self.lexque = []
         self.depth = -1
         self.final_prod = None
-        self.constituents = []
-        self.i2c = {}
 
     def __len__(self):
-        # Required by UnboundSentence
-        return len(self.lexque)
+        # Required by Sentence
+        return len(self.lexemes)
 
     def at(self, i):
         """Get the lexeme at index i."""
-        # Required by UnboundSentence
-        return self.lexque[i]
-
-    def get_constituents(self):
-        """Get the constituents."""
-        # Required by UnboundSentence
-        return self.constituents
-
-    def get_constituent_at(self, i):
-        """Get the constituent at index i."""
-        # Required by UnboundSentence
-        return self.constituents[i]
+        # Required by Sentence
+        return self.lexemes[i]
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
@@ -1353,41 +1347,10 @@ class Ccg2Drs(UnboundSentence):
                 self._add_constituent(c)
         return d
 
-    def _map_heads_to_constituents(self):
-        # Lexeme head index is always in constituent so use it to map between the two.
-        i2c = {}
-        for i in range(len(self.constituents)):
-            c = self.constituents[i]
-            lexhd = c.get_head()
-            if lexhd.idx in i2c:
-                pass
-            assert lexhd.idx not in i2c
-            i2c[lexhd.idx] = i
-
-        for i in range(len(self.constituents)):
-            c = self.constituents[i]
-            lexhd = c.get_head()
-            if lexhd.head in i2c:
-                c.chead = i2c[lexhd.head]
-            else:
-                while lexhd.head not in i2c and lexhd.head != lexhd.idx:
-                    lexhd = self.lexque[lexhd.head]
-                if lexhd.head in i2c:
-                    c.chead = i2c[lexhd.head]
-        self.i2c = dict(map(lambda x: (x[0], self.constituents[x[1]]), i2c.iteritems()))
-
     def _refine_constituents(self):
 
         # Constituents ordering (see span) for sentence AB, AB < A < B
         constituents = sorted(self.constituents)
-        '''
-        self.constituents = constituents
-        print('\n'.join(['%s(%s)' % (x.vntype, x.span.text) for x in constituents]))
-        self._map_heads_to_constituents()
-        self.print_constituent_tree(self.get_constituent_tree())
-        self.print_dependency_tree(self.get_dependency_tree())
-        print(self.get_drs().show(1))
-        '''
 
         # Merge adjacent adjuncts
         cadvp = filter(lambda x: x.vntype is ct.CONSTITUENT_ADVP, reversed(constituents))
@@ -1463,7 +1426,7 @@ class Ccg2Drs(UnboundSentence):
             hd2 = c2.get_head()
             if c2.span in c1.span:
                 lex = c2.span[0]
-                if lex.idx > 0 and self.lexque[lex.idx-1].ispunct and hd2.head in c1.span:
+                if lex.idx > 0 and self.lexemes[lex.idx-1].ispunct and hd2.head in c1.span:
                     c1.span = c1.span.difference(c2.span)
                 else:
                     for lx in c2.span:
@@ -1494,16 +1457,16 @@ class Ccg2Drs(UnboundSentence):
         '''
         if 0 == (self.options & CO_NO_VERBNET):
             verbrefs = {}
-            for lex in self.lexque:
+            for lex in self.lexemes:
                 # TODO: Add compose option to allow VP visibility in adjuncts
                 if 0 != (lex.mask & RT_EVENT) and 0 == (lex.mask & RT_ADJUNCT):
                     verbrefs.setdefault(lex.refs[0], []).append(lex.idx)
-            for lex in self.lexque:
+            for lex in self.lexemes:
                 if 0 != (lex.mask & (RT_EVENT_MODAL | RT_EVENT_ATTRIB)) or lex.category == CAT_INFINITIVE:
                     if lex.refs[0] in verbrefs:
                         verbrefs[lex.refs[0]].append(lex.idx)
             for r, idxs in verbrefs.iteritems():
-                category = self.lexque[idxs[0]].category
+                category = self.lexemes[idxs[0]].category
                 vntype = ct.CONSTITUENT_SINF if category.test_return(CAT_VPb) \
                     else ct.CONSTITUENT_VP
                 constituents.append(Constituent(IndexSpan(self, idxs), vntype))
@@ -1664,15 +1627,15 @@ class Ccg2Drs(UnboundSentence):
             constituents = sorted(set(filter(lambda c: not c.span.isempty, constituents)))
 
         # And finally set constituent heads and map lexeme heads to constituents
-        self.i2c = self.map_heads_to_constituents(constituents)
         self.constituents = constituents
+        self.map_heads_to_constituents()
 
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
         # First create all productions up front
-        prods = [None] * len(self.lexque)
-        for i in range(len(self.lexque)):
-            lexeme = self.lexque[i]
+        prods = [None] * len(self.lexemes)
+        for i in range(len(self.lexemes)):
+            lexeme = self.lexemes[i]
             if lexeme.category.ispunct:
                 prod = DrsProduction([], [], category=lexeme.category, span=IndexSpan(self))
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
@@ -1823,30 +1786,30 @@ class Ccg2Drs(UnboundSentence):
 
             # Find the sentence head
             sentence_head = 0
-            while self.lexque[sentence_head].head != sentence_head:
-                sentence_head = self.lexque[sentence_head].head
+            while self.lexemes[sentence_head].head != sentence_head:
+                sentence_head = self.lexemes[sentence_head].head
 
             # Only allow deletion if it has a single child, otherwise we get multiple sentence heads
-            if sentence_head in idxs_to_del and len(filter(lambda lex: lex.head == sentence_head, self.lexque)) != 2:
+            if sentence_head in idxs_to_del and len(filter(lambda lex: lex.head == sentence_head, self.lexemes)) != 2:
                 idxs_to_del.remove(sentence_head)
 
             # Reparent heads marked for deletion
-            for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self.lexque):
+            for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self.lexemes):
                 lasthead = -1
                 while lex.head in idxs_to_del and lex.head != lasthead:
                     lasthead = lex.head
-                    lex.head = self.lexque[lex.head].head
+                    lex.head = self.lexemes[lex.head].head
                 if lex.head in idxs_to_del:
                     # New head for sentence
                     lex.head = lex.idx
 
-            idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexque)))
+            idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexemes)))
             for c in self.constituents:
                 c.span = IndexSpan(self, map(lambda y: idxmap[y],
                                              filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
-            self.lexque = map(lambda y: self.lexque[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
-            for i in range(len(self.lexque)):
-                lexeme = self.lexque[i]
+            self.lexemes = map(lambda y: self.lexemes[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
+            for i in range(len(self.lexemes)):
+                lexeme = self.lexemes[i]
                 lexeme.idx = i
                 lexeme.head = idxmap[lexeme.head]
                 assert lexeme.head >= 0
@@ -1856,12 +1819,12 @@ class Ccg2Drs(UnboundSentence):
                                             filter(lambda x: idxmap[x] >= 0, self.final_prod.span.get_indexes())))
                 self.final_prod.span = pspan
 
-            self.i2c = self.map_heads_to_constituents(self.constituents)
+            self.map_heads_to_constituents()
 
     def get_drs(self):
         refs = []
         conds = []
-        for w in self.lexque:
+        for w in self.lexemes:
             if w.drs:
                 refs.extend(w.drs.universe)
                 conds.extend(w.drs.conditions)
@@ -1885,7 +1848,7 @@ class Ccg2Drs(UnboundSentence):
 
         # Attempt to order by first occurence
         v = []
-        for t in self.lexque:
+        for t in self.lexemes:
             if t.drs:
                 v.extend(t.drs.universe)
 
@@ -1895,7 +1858,7 @@ class Ccg2Drs(UnboundSentence):
             v.extend(f)
 
         # Map variables to type
-        vtype = dict(map(lambda y: (y.refs[0], y.mask), filter(lambda x: x.drs and len(x.drs.universe) != 0, self.lexque)))
+        vtype = dict(map(lambda y: (y.refs[0], y.mask), filter(lambda x: x.drs and len(x.drs.universe) != 0, self.lexemes)))
 
         # Move names to 1:...
         idx = [i+1 for i in range(len(v))]
@@ -1971,7 +1934,7 @@ class Ccg2Drs(UnboundSentence):
             result = Category.from_cache(pt[0][0])
 
             idxs = []
-            lex_begin = len(self.lexque)
+            lex_begin = len(self.lexemes)
             op_begin = len(self.exeque)
             op_end = []
             for nd in pt[1:-1]:
@@ -1981,7 +1944,7 @@ class Ccg2Drs(UnboundSentence):
             assert count == len(idxs)
             # Ranges allow us to schedule work to a thread pool
             op_range = (op_begin, len(self.exeque))
-            lex_range = (lex_begin, len(self.lexque))
+            lex_range = (lex_begin, len(self.lexemes))
 
             if count == 2:
                 subops = [self.exeque[op_end[0]], self.exeque[-1]]
@@ -1998,8 +1961,8 @@ class Ccg2Drs(UnboundSentence):
                     '''
                     assert rule is not None
 
-                # Head resolved to lexque indexes
-                self.lexque[idxs[1-head]].head = idxs[head]
+                # Head resolved to lexemes indexes
+                self.lexemes[idxs[1-head]].head = idxs[head]
                 self.exeque.append(ExecOp(len(self.exeque), subops, head, result, rule, lex_range, op_range,
                                           self.depth))
                 self.depth -= 1
@@ -2020,8 +1983,8 @@ class Ccg2Drs(UnboundSentence):
                 self.depth -= 1
                 return idxs[head]
         else:
-            lexeme = Lexeme(Category.from_cache(pt[0]), pt[1], pt[2:4], len(self.lexque))
-            self.lexque.append(lexeme)
+            lexeme = Lexeme(Category.from_cache(pt[0]), pt[1], pt[2:4], len(self.lexemes))
+            self.lexemes.append(lexeme)
             self.exeque.append(PushOp(lexeme, len(self.exeque), self.depth))
             self.depth -= 1
             return lexeme.idx
@@ -2035,7 +1998,7 @@ class Ccg2Drs(UnboundSentence):
         Returns:
             A ccgbank string.
         """
-        assert len(self.exeque) != 0 and len(self.lexque) != 0
+        assert len(self.exeque) != 0 and len(self.lexemes) != 0
         assert isinstance(self.exeque[0], PushOp)
 
         # Process exec queue
@@ -2127,7 +2090,7 @@ class Ccg2Drs(UnboundSentence):
             A IndexSpan instance.
         """
         # TODO: support span with start and length
-        return IndexSpan(self, range(len(self.lexque)))
+        return IndexSpan(self, range(len(self.lexemes)))
 
     def get_subspan_from_wiki_search2(self, query_span, search_result, threshold=0.7, title_only=True):
         """Get a subspan from a wikpedia search result.
@@ -2178,7 +2141,7 @@ class Ccg2Drs(UnboundSentence):
 
     def add_wikipedia_links(self):
         """Call after resolved proper nouns."""
-        NNP = filter(lambda x: x.isproper_noun, self.lexque)
+        NNP = filter(lambda x: x.isproper_noun, self.lexemes)
         found = []
         skip_to = -1
         for i in range(len(NNP)):
@@ -2189,7 +2152,7 @@ class Ccg2Drs(UnboundSentence):
             todo = [IndexSpan(self, [lex.idx])]
             j = i+1
             k = lex.idx + 1
-            while j < len(NNP) and self.lexque[k].word in ['for', 'and', 'of'] and NNP[j].idx == k+1:
+            while j < len(NNP) and self.lexemes[k].word in ['for', 'and', 'of'] and NNP[j].idx == k+1:
                 todo.append(IndexSpan(self, [x for x in range(lex.idx, k+2)]))
                 j += 1
                 k += 2
@@ -2248,7 +2211,7 @@ class Ccg2Drs(UnboundSentence):
 
         if recalc_nnps:
             self.constituents = sorted(set(self.constituents))
-            self.i2c = self.map_heads_to_constituents(self.constituents)
+            self.map_heads_to_constituents()
             self.resolve_proper_names()
 
         # TODO: Add wiki entry to local search engine - like indri from lemur project
@@ -2336,18 +2299,9 @@ def extract_predarg_categories_from_pt(pt, lst=None):
     return lst
 
 
-class TestSentence(UnboundSentence):
+class TestSentence(Sentence):
     def __init__(self, lst):
-        self.lst = lst
-
-    def __len__(self):
-        return len(self.lst)
-
-    def at(self, i):
-        return self.lst[i]
-
-    def get_constituents(self):
-        raise []
+        super(TestSentence, self).__init__(lexemes=lst)
 
 
 ## @ingroup gfn

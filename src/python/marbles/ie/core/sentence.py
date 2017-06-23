@@ -215,16 +215,6 @@ class BasicLexeme(AbstractLexeme):
         return BasicLexeme(self)
 
 
-def safe_wikipage(query):
-    global _logger
-    try:
-        return wikipedia.page(title=query)
-    except wikipedia.PageError as e:
-        _logger.warning('wikipedia.page(%s) - %s', query, str(e))
-
-    return None
-
-
 class Constituent(object):
     """A constituent is a sentence span and a phrase type."""
     def __init__(self, span, vntype, chead=-1):
@@ -282,6 +272,10 @@ class Constituent(object):
     def __contains__(self, item):
         return item.span in self.span
 
+    @property
+    def sentence(self):
+        return self.span.sentence
+
     def clone(self):
         return Constituent(self.span.clone(), self.vntype, self.chead)
 
@@ -312,11 +306,28 @@ class Constituent(object):
         Returns:
             A Constituent instance or None if the root constituent.
         """
-        return self.span.sentence.get_constituent_at(self.chead)
+        return self.span.sentence.constituents[self.chead]
 
 
-class UnboundSentence(collections.Sequence):
-    """A sentence with no bound to a discourse."""
+class Sentence(collections.Sequence):
+    """A sentence."""
+
+    def __init__(self, lexemes=None, constituents=None, i2c=None, msgid=None):
+        if lexemes is not None:
+            self.lexemes = lexemes
+            self.constituents = constituents or []
+        else:
+            self.lexemes = []
+            self.constituents = []
+            i2c = None
+        if i2c is None and self.constituents is not None:
+            self.map_heads_to_constituents()
+        else:
+            self.i2c = i2c or {}
+        self.msgid = msgid
+
+    def __len__(self):
+        return len(self.lexemes)
 
     def __getitem__(self, slice_i_j):
         if isinstance(slice_i_j, slice):
@@ -333,19 +344,23 @@ class UnboundSentence(collections.Sequence):
 
     def at(self, i):
         """Get the lexeme at index i."""
-        raise NotImplementedError
+        return self.lexemes[i]
 
-    def get_constituents(self):
-        """Get the list of constituents"""
-        raise NotImplementedError
+    def safe_wikipage(self, query):
+        global _logger
+        try:
+            return wikipedia.page(title=query)
+        except wikipedia.PageError as e:
+            if self.msgid is not None:
+                _logger.warning('[msgid=%s] wikipedia.page(%s) - %s', self.msgid, query, str(e))
+            else:
+                _logger.warning('wikipedia.page(%s) - %s', query, str(e))
 
-    def get_constituent_at(self, i):
-        """Get the constituent at index i."""
-        raise NotImplementedError
+        return None
 
     def get_constituent_tree(self):
         """Get the constituent tree as an adjacency list of lists."""
-        constituents = self.get_constituents()
+        constituents = self.constituents
         if len(constituents) == 0:
             return []
 
@@ -366,14 +381,14 @@ class UnboundSentence(collections.Sequence):
     def print_constituent_tree(self, ctree, level=0):
         """Print the constituent tree."""
         indent = '' if level == 0 else ' ' * level
-        c = self.get_constituent_at(ctree[0])
+        c = self.constituents[ctree[0]]
         print('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
         for nd in ctree[1]:
             self.print_constituent_tree(nd, level+3)
 
     def _get_constituent_tree_as_string_helper(self, ctree, level, result):
         indent = '' if level == 0 else ' ' * level
-        c = self.get_constituent_at(ctree[0])
+        c = self.constituents[ctree[0]]
         result.append('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
         for nd in ctree[1]:
             self._get_constituent_tree_as_string_helper(nd, level+3, result)
@@ -424,21 +439,21 @@ class UnboundSentence(collections.Sequence):
         result = self._get_dependency_tree_as_string_helper(ctree, 0, [])
         return '\n'.join(result)
 
-    def map_heads_to_constituents(self, constituents):
-        """Set constituent heads and return a dictionary mapping Lexeme head indexes to constituents."""
+    def map_heads_to_constituents(self):
+        """Set constituent heads."""
 
         # Lexeme head index is always in constituent so use it to map between the two.
         i2c = {}
-        for i in range(len(constituents)):
-            c = constituents[i]
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
             lexhd = c.get_head()
             if lexhd.idx in i2c:
                 pass
             assert lexhd.idx not in i2c
             i2c[lexhd.idx] = i
 
-        for i in range(len(constituents)):
-            c = constituents[i]
+        for i in range(len(self.constituents)):
+            c = self.constituents[i]
             lexhd = c.get_head()
             if lexhd.head in i2c:
                 c.chead = i2c[lexhd.head]
@@ -447,7 +462,7 @@ class UnboundSentence(collections.Sequence):
                     lexhd = self.at(lexhd.head)
                 if lexhd.head in i2c:
                     c.chead = i2c[lexhd.head]
-        return dict(map(lambda x: (x[0], constituents[x[1]]), i2c.iteritems()))
+        self.i2c = dict(map(lambda x: (x[0], self.constituents[x[1]]), i2c.iteritems()))
 
     def trim(self, to_remove):
         assert isinstance(to_remove, IndexSpan)
@@ -463,7 +478,7 @@ class UnboundSentence(collections.Sequence):
 
         # Remove constituents and remap indexes.
         context.i = 0
-        constituents = map(lambda c: Constituent(c.span.difference(to_remove), c.vntype, c.chead), self.get_constituents())
+        constituents = map(lambda c: Constituent(c.span.difference(to_remove), c.vntype, c.chead), self.constituents)
         idxs_to_del = set(filter(lambda i: constituents[i].span.isempty, range(len(constituents))))
         if len(idxs_to_del) != 0:
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(constituents)))
@@ -516,7 +531,7 @@ class UnboundSentence(collections.Sequence):
 
     def get_verbnet_sentence(self):
 
-        constituents = [c.clone() for c in self.get_constituents()]
+        constituents = [c.clone() for c in self.constituents]
 
         # Build adjacency list
         adj = map(lambda x: list(), constituents)
@@ -621,36 +636,12 @@ class UnboundSentence(collections.Sequence):
         constituents = sorted(constituents)
         return Sentence([lex for lex in self], constituents)
 
-class Sentence(UnboundSentence):
-    """A sentence"""
-    def __init__(self, lexemes, constituents, i2c=None):
-        self.lexemes = lexemes
-        self.constituents = constituents
-        if i2c is None:
-            i2c = self.map_heads_to_constituents(constituents)
-        self.i2c = i2c
-
-    def __len__(self):
-        return len(self.lexemes)
-
-    def at(self, i):
-        """Get the lexeme at index i."""
-        return self.lexemes[i]
-
-    def get_constituents(self):
-        """Get the list of constituents"""
-        return self.constituents
-
-    def get_constituent_at(self, i):
-        """Get the constituent at index i."""
-        return self.constituents[i]
-
 
 class IndexSpan(collections.Sequence):
     """View of a discourse."""
     def __init__(self, sentence, indexes=None):
-        if not isinstance(sentence, UnboundSentence):
-            raise TypeError('IndexSpan constructor requires sentence type = UnboundSentence')
+        if not isinstance(sentence, Sentence):
+            raise TypeError('IndexSpan constructor requires sentence type = Sentence')
         self._sent = sentence
         if indexes is None:
             self._indexes = []
@@ -821,50 +812,6 @@ class IndexSpan(collections.Sequence):
                 refs.extend(tok.drs.referents)
         return marbles.ie.drt.drs.DRS(refs, conds)
 
-    def get_subspan_from_wiki_search(self, search_result, max_results=0, threshold=0.5):
-        """Get a subspan from a wikpedia search result.
-
-        Args:
-            search_result: The result of a wikipedia.search().
-            max_results: If zero return a IndexSpan, else return a list of IndexSpan's.
-            threshold: A ratio (< 1) of common-prefix-length/total-length.
-
-        Returns:
-            A IndexSpan instance or a list of IndexSpan instances.
-        """
-        spans = {}
-        # FIXME: rank using statistical model based on context
-        for result in search_result:
-            title = result.title.split(' ')
-            idxs = set()
-            words = {}
-            for lex in self:
-                # Proper nouns get hypenated
-                word = lex.word.replace('-', ' ').lower()
-                stem = lex.stem.replace('-', ' ').lower()
-                for nm in title:
-                    nml = nm.lower()
-                    p1 = os.path.commonprefix([word, nml])
-                    p2 = os.path.commonprefix([stem, nml])
-                    if (len(p1) - len(p2)) >= 0:
-                        if len(p1) >= (threshold * len(nml)):
-                            idxs.add(lex.idx)
-                    elif len(p2) > len(p1) and len(p2) >= (threshold * len(nml)):
-                        idxs.add(lex.idx)
-            idxs = sorted(idxs)
-            if len(idxs) >= 2:
-                idxs = [x for x in range(idxs[0], idxs[-1]+1)]
-            spans.setdefault(len(idxs), [])
-            spans[len(idxs)].append(IndexSpan(self._sent, idxs))
-
-        # Order by size
-        ranked_spans = []
-        for k in reversed(sorted(spans.iterkeys())):
-            ranked_spans.extend(spans[k])
-        if len(ranked_spans) == 0:
-            return None
-        return ranked_spans[0] if max_results == 0 else ranked_spans[0:max_results]
-
     def get_head_span(self, strict=False):
         """Get the head lexemes of the span.
 
@@ -912,7 +859,7 @@ class IndexSpan(collections.Sequence):
                 result = wikipedia.search(txt, results=max_results)
                 if result is not None and len(result) != 0:
                     for t in result:
-                        wr = safe_wikipage(t)
+                        wr = self.sentence.safe_wikipage(t)
                         if wr is not None:
                             topics.append(wr)
 
@@ -920,7 +867,7 @@ class IndexSpan(collections.Sequence):
                     # Get suggestions from wikipedia
                     query = wikipedia.suggest(txt)
                     if query is not None:
-                        result = safe_wikipage(query)
+                        result = self.sentence.safe_wikipage(query)
                         if result is not None:
                             return [result]
                     if google and (result is None or len(result) == 0):
@@ -931,7 +878,7 @@ class IndexSpan(collections.Sequence):
                             result = wikipedia.search(txt, results=max_results)
                             if result is not None and len(result) != 0:
                                 for t in result:
-                                    wr = safe_wikipage(t)
+                                    wr = self.sentence.safe_wikipage(t)
                                     if wr is not None:
                                         topics.append(wr)
 
@@ -939,7 +886,7 @@ class IndexSpan(collections.Sequence):
                                 # Get suggestions from wikipedia
                                 query = wikipedia.suggest(txt)
                                 if query is not None:
-                                    result = safe_wikipage(query)
+                                    result = self.sentence.safe_wikipage(query)
                                     if result is not None and len(result) != 0:
                                         return [result]
                             else:
@@ -951,7 +898,7 @@ class IndexSpan(collections.Sequence):
                                 t = m.group('topic')
                                 if t not in seen:
                                     seen.add(t)
-                                    wr = safe_wikipage(t.replace('_', ' '))
+                                    wr = self.sentence.safe_wikipage(t.replace('_', ' '))
                                     if wr:
                                         topics.append(wr)
                                         if len(topics) >= max_results:
@@ -960,7 +907,10 @@ class IndexSpan(collections.Sequence):
             except requests.exceptions.ConnectionError as e:
                 attempts += 1
                 retry = attempts <= 3
-                _logger.exception('Constituent.search_wikipedia', exc_info=e)
+                if self.sentence.msgid is not None:
+                    _logger.exception('[msgid=%s] IndexSpan.search_wikipedia', self.sentence.msgid, exc_info=e)
+                else:
+                    _logger.exception('IndexSpan.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
             except wikipedia.exceptions.DisambiguationError as e:
                 # TODO: disambiguation
@@ -968,7 +918,10 @@ class IndexSpan(collections.Sequence):
             except wikipedia.exceptions.HTTPTimeoutError as e:
                 attempts += 1
                 retry = attempts <= 3
-                _logger.exception('Constituent.search_wikipedia', exc_info=e)
+                if self.sentence.msgid is not None:
+                    _logger.exception('[msgid=%s] IndexSpan.search_wikipedia', self.sentence.msgid, exc_info=e)
+                else:
+                    _logger.exception('IndexSpan.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
 
         return None
