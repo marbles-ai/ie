@@ -315,12 +315,12 @@ class Sentence(collections.Sequence):
     def __init__(self, lexemes=None, constituents=None, i2c=None, msgid=None):
         if lexemes is not None:
             self.lexemes = lexemes
-            self.constituents = constituents or []
+            self.constituents = [] if constituents is None else constituents
         else:
             self.lexemes = []
             self.constituents = []
             i2c = None
-        self.i2c = i2c or {}
+        self.i2c = {} if i2c is None else i2c
         self.msgid = msgid
         if i2c is None and self.constituents is not None:
             self.map_heads_to_constituents()

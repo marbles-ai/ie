@@ -8,6 +8,22 @@ import time
 from marbles import PROJDIR
 from marbles.ie import grpc
 from marbles.ie.core.constants import *
+from marbles.ie.core.marshal import marshal_sentence
+
+
+def get_constituents_string_list(sent):
+    s = []
+    for i in range(len(sent.constituents)):
+        c = sent.constituents[i]
+        headword = c.get_head().idx
+        txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
+        s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
+    return s
+
+
+def get_constituent_string(sent, ch=' '):
+    s = get_constituents_string_list(sent)
+    return ch.join(s)
 
 
 class InfoxTest(unittest.TestCase):
@@ -17,7 +33,7 @@ class InfoxTest(unittest.TestCase):
         self.daemon = subprocess.Popen([os.path.join(PROJDIR, 'src', 'python', 'services', 'infox', 'infox.py'),
                                         '--port', '50000', '--log-level', 'debug'])
         # Wait for model to load otherwise port will not be available
-        time.sleep(20)
+        time.sleep(40)
         # Check if success
         os.kill(self.daemon.pid, 0)
 
@@ -31,7 +47,7 @@ class InfoxTest(unittest.TestCase):
         gtext = grpc.GText()
         gtext.text = 'The boy wants to believe the girl'
         gtext.options = CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH
-        sentence = stub.parse(gtext)
+        gsentence = stub.parse(gtext)
         xwords = [
             'The',
             'boy',
@@ -41,7 +57,7 @@ class InfoxTest(unittest.TestCase):
             'the',
             'girl'
         ]
-        awords = [lex.word for lex in sentence.lexemes]
+        awords = [lex.word for lex in gsentence.lexemes]
         self.assertListEqual(xwords, awords)
         xconstituents = [
             [0, 1, 2, 3, 4, 5, 6],
@@ -51,9 +67,16 @@ class InfoxTest(unittest.TestCase):
             [5, 6]
         ]
         aconstituents = []
-        for c in sentence.constituents:
+        for c in gsentence.constituents:
             aconstituents.append([x for x in c.span])
         self.assertListEqual(xconstituents, aconstituents)
+
+        sent = marshal_sentence(gsentence)
+        s = get_constituent_string(sent)
+        self.assertEqual('S_DCL(The boy #wants to believe the girl) NP(#The boy) S_INF(#to believe the girl) S_INF(#believe the girl) NP(#the girl)', s)
+        s = get_constituent_string(sent.get_verbnet_sentence())
+        self.assertEqual('NP(#The boy) VP(#wants) S_INF(#to believe) NP(#the girl)', s)
+
 
 if __name__ == '__main__':
     unittest.main()
