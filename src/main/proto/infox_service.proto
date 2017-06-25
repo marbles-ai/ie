@@ -1,0 +1,55 @@
+// INFOrmation eXtraction Service - INFOX
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+option java_multiple_files = true;
+option java_package = "ai.marbles.grpc";
+option java_outer_classname = "InfoxServiceProto";
+//option cc_enable_arenas = true;
+
+package infox;
+
+message GWikidata {
+    string title = 1;
+    string summary = 2;
+    repeated string page_categories = 3;
+    string url = 4;
+}
+
+message GLexeme {
+    int32 head = 1;
+    int32 idx = 2;
+    int64 mask = 3;
+    repeated string refs = 4;
+    string pos = 5;
+    string word = 6;
+    string stem = 7;
+    string category = 8;
+    GWikidata wikidata = 9;
+}
+
+message GConstituent {
+    repeated int32 span = 1;
+    string vntype = 2;
+}
+
+message GSentence {
+    repeated GLexeme lexemes = 1;
+    repeated GConstituent constituents = 2;
+}
+
+// RPC request non-streaming
+message GText {
+    int64 options = 1;
+    string text = 2;
+}
+
+// The service definition
+service InfoxService {
+    // Parse a message
+    rpc parse(GText) returns (GSentence) {}
+
+    // Does nothing
+    rpc ping(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}
+

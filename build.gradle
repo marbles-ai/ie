@@ -193,13 +193,13 @@ task grpcOther() {
 
     // Add some extension properties
     ext.cppout = new File("${buildDir}/grpc/cpp")
-    //ext.pyout  = new File("${buildDir}/grpc/python")
     ext.pyout  = new File("${rootDir}/src/python/marbles/ie/grpc")
-    ext.proto_filename = "marbles_service.proto"
     ext.proto_dirname = "${rootDir}/src/main/proto"
+	ext.proto_filenames = ["marbles_service.proto", "infox_service.proto"]
 
     // Set io for up-to-date checks
-    inputs.file "${proto_dirname}/${proto_filename}"
+    //inputs.files(["${proto_dirname}/marbles_service.proto", "${proto_dirname}/infox.proto"])
+    inputs.files(proto_filenames.collect { "${proto_dirname}/$it" })
     outputs.dir cppout
     
     // Execute protoc compiler with plugin 
@@ -210,12 +210,15 @@ task grpcOther() {
         // By separating the exec phase we allow incremetal executions of this task
         // - could not get it to work when this task was Exec type
         tasks.create("grpcPython", Exec) {
-            workingDir = "${proto_dirname}" 
-            commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}", "--plugin=protoc-gen-grpc=${pyPlugin}", "${proto_filename}"]
+			workingDir = "${proto_dirname}"
+			commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}",
+						   "--plugin=protoc-gen-grpc=${pyPlugin}"] + proto_filenames
+			//args(["marbles_service.proto", "infox.proto"])
         }.execute()
         tasks.create("grpcCpp", Exec) {
             workingDir = "${proto_dirname}" 
-            commandLine = ['protoc', "--cpp_out=${cppout}", '-I./', "--grpc_out=${cppout}", "--plugin=protoc-gen-grpc=${cppPlugin}", "${proto_filename}"]
+            commandLine = ['protoc', "--cpp_out=${cppout}", '-I./', "--grpc_out=${cppout}",
+						   "--plugin=protoc-gen-grpc=${cppPlugin}"] + proto_filenames
         }.execute()
     }
 }
