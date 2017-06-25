@@ -1078,11 +1078,6 @@ class Ccg2Drs(Sentence):
         unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
         if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
             unary = MODEL.infer_unary(op.category)
-        # TODO: remove debug code below
-        '''
-        if unary is None:
-            pass
-        '''
         assert unary is not None
         fn = self.rename_vars(unary.get())
         ucat = fn.category
@@ -1414,63 +1409,9 @@ class Ccg2Drs(Sentence):
                     x.mask &= ~RT_ADJUNCT
                 c.span.clear()
 
-        # TODO: do we need to do the same for PP, ADVP?
-        # Merge adjacent NP, ADVP
-        '''
-        cadvp = filter(lambda x: x.vntype is ct.CONSTITUENT_ADVP, reversed(constituents))
-        cnp   = filter(lambda x: x.vntype is ct.CONSTITUENT_NP, reversed(constituents))
-        while len(cnp) > 0 and len(cadvp) > 0:
-            c1 = cnp.pop()
-            c2 = cadvp.pop()
-            hd1 = c1.get_head()
-            hd2 = c2.get_head()
-            if c2.span in c1.span:
-                lex = c2.span[0]
-                if lex.idx > 0 and self.lexemes[lex.idx-1].ispunct and hd2.head in c1.span:
-                    c1.span = c1.span.difference(c2.span)
-                else:
-                    for lx in c2.span:
-                        lx.mask &= ~RT_ADJUNCT
-                    #c2.span.clear()
-                    #c2.vntype = None
-            elif hd1.idx < hd2.idx:
-                cadvp.append(c2)
-            elif hd1.idx > hd2.idx:
-                cnp.append(c1)
-        '''
-        # Now Fixup ADJP that are adjuncts
-        '''
-        cadjp = filter(lambda x: x.vntype is ct.CONSTITUENT_ADJP, constituents)
-        for c1 in cadjp:
-            hd1 = c1.get_head()
-            if hd1.idx not in self.i2c:
-                continue
-            c2 = self.i2c[hd1.idx]
-            if c1 is not c1 and c2.span == c1.span and c2.vntype != ct.CONSTITUENT_ADJP:
-                c2.vntype = ct.CONSTITUENT_ADJP
-                c1.vntype = None
-        '''
         constituents = filter(lambda x: x.vntype is not None, constituents)
         self.i2c = {}
 
-        # Add verb phrases
-        '''
-        if 0 == (self.options & CO_NO_VERBNET):
-            verbrefs = {}
-            for lex in self.lexemes:
-                # TODO: Add compose option to allow VP visibility in adjuncts
-                if 0 != (lex.mask & RT_EVENT) and 0 == (lex.mask & RT_ADJUNCT):
-                    verbrefs.setdefault(lex.refs[0], []).append(lex.idx)
-            for lex in self.lexemes:
-                if 0 != (lex.mask & (RT_EVENT_MODAL | RT_EVENT_ATTRIB)) or lex.category == CAT_INFINITIVE:
-                    if lex.refs[0] in verbrefs:
-                        verbrefs[lex.refs[0]].append(lex.idx)
-            for r, idxs in verbrefs.iteritems():
-                category = self.lexemes[idxs[0]].category
-                vntype = ct.CONSTITUENT_SINF if category.test_return(CAT_VPb) \
-                    else ct.CONSTITUENT_VP
-                constituents.append(Constituent(IndexSpan(self, idxs), vntype))
-        '''
         # Finalize NP constituents, split VP's
         to_remove = set()
         constituents = sorted(set(constituents))
@@ -1493,67 +1434,12 @@ class Ccg2Drs(Sentence):
             if 0 != (self.options & CO_NO_WIKI_SEARCH):
                 continue
 
-            '''
-            result = c.search_wikipedia()
-            if result is not None:
-                subspan = c.span.get_subspan_from_wiki_search(result)
-                if subspan == c.span:
-                    c.set_wiki_entry(result[0])
-                elif subspan:
-                    dspan = c.span.difference(subspan)
-                    if all(map(lambda x: x.category in [CAT_DETERMINER, CAT_POSSESSIVE_PRONOUN,
-                                                        CAT_PREPOSITION, CAT_ADJECTIVE] or
-                            x.category.test_returns_entity_modifier() or
-                                    x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
-                                    x.pos in [POS_PREPOSITION, POS_DETERMINER], dspan)):
-                        c.set_wiki_entry(result[0])
-                        lastwiki_result = result[0]
-                        lastwiki_idx = i
-                    elif all(map(lambda x: x.pos in [POS_PROPER_NOUN, POS_PROPER_NOUN_S], dspan)):
-                        # FIXME: This is not a good strategy. For example Consolidated-Gold-Fields *PLC*.
-                        # Search page for these words
-                        summary = result[0].summary.lower()
-                        if all(map(lambda x: x.stem.lower() in summary, dspan)):
-                            c.set_wiki_entry(result[0])
-                        else:
-                            content = result[0].content
-                            if all(map(lambda x: x.stem.lower() in content, dspan)):
-                                c.set_wiki_entry(result[0])
-            '''
         # Remove irrelevent entries
         if len(to_remove) != 0:
             filtered_constituents = [constituents[i] for i in
                                      filter(lambda k: k not in to_remove, range(len(constituents)))]
             constituents = filtered_constituents
 
-        # Split VP's that accidently got combined.
-        '''
-        if 0 == (self.options & CO_NO_VERBNET):
-            split_vps = []
-            for i in range(len(constituents)):
-                c = constituents[i]
-                if c.vntype is ct.CONSTITUENT_VP:
-                    cindexes = c.span.get_indexes()
-                    findexes = c.span.fullspan().get_indexes()
-                    if len(cindexes) == len(findexes):
-                        continue
-                    splits = []
-                    while len(cindexes) != 0:
-                        contig_span = map(lambda y: y[0], filter(lambda x: x[1] == x[0], zip(findexes, cindexes)))
-                        contig = Constituent(IndexSpan(self, contig_span), ct.CONSTITUENT_VP)
-                        if 0 != (contig.get_head().mask & RT_EVENT):
-                            splits.append(contig)
-                        cnew = IndexSpan(self, set(cindexes).difference(contig_span))
-                        cindexes = cnew.get_indexes()
-                        findexes = cnew.fullspan().get_indexes()
-                    if len(splits) >= 1:
-                        constituents[i] = splits[0]
-                        split_vps.extend(splits[1:])
-
-            if len(split_vps) != 0:
-                constituents.extend(split_vps)
-                constituents = sorted(set(constituents))
-        '''
         # And finally remove any constituent that contains only punctuation
         constituents = filter(lambda x: len(x.span) != 1 or not x.span[0].ispunct, constituents)
 
@@ -1953,12 +1839,6 @@ class Ccg2Drs(Sentence):
                 rule = get_rule(cats[0], cats[1], result)
                 if rule is None:
                     rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                    # TODO: remove debug code below
-                    '''
-                    if rule is None:
-                        rule = get_rule(cats[0].simplify(), cats[1].simplify(), result)
-                        pass
-                    '''
                     assert rule is not None
 
                 # Head resolved to lexemes indexes

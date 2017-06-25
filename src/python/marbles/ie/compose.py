@@ -981,14 +981,12 @@ class FunctorProduction(AbstractProduction):
             return
         self.fast_rename_vars(rs, other)
         return
-        '''
-        if 0 == (self.compose_options & CO_FAST_RENAME):
-            self.rename_lambda_refs(rs)
-            if self._comp is not None:
-                self._comp.rename_vars(rs)
-        else:
-            self.fast_rename_vars(rs, other)
-        '''
+        #if 0 == (self.compose_options & CO_FAST_RENAME):
+        #    self.rename_lambda_refs(rs)
+        #    if self._comp is not None:
+        #        self._comp.rename_vars(rs)
+        #else:
+        #    self.fast_rename_vars(rs, other)
 
     def unify(self):
         """Finalize the production by performing a unify right to left.
@@ -1081,10 +1079,6 @@ class FunctorProduction(AbstractProduction):
         """
         self.make_vars_disjoint(np)
         slr = self.inner_scope._comp.lambda_refs
-        '''
-        if not isinstance(np, DrsProduction):
-            pass
-        '''
         assert isinstance(np, DrsProduction)
         lr = np.lambda_refs
         if len(lr) == 0:
@@ -1191,10 +1185,6 @@ class FunctorProduction(AbstractProduction):
             g.pop()
             assert gc is not None
         zg._category = cat
-        '''
-        if len(yflr) != len(glr):
-            pass
-        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -1373,10 +1363,6 @@ class FunctorProduction(AbstractProduction):
         assert zf is not None
         self.push(fc)
         yflr = self.inner_scope.get_unify_scopes(False)
-        '''
-        if len(yflr) != len(glr):
-            pass
-        '''
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
@@ -1632,10 +1618,6 @@ class PropProduction(FunctorProduction):
             print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord('P')+self._get_position()), future_string(d)))
         if isinstance(d, ProductionList):
             d = d.unify()
-        '''
-        if not isinstance(d, DrsProduction):
-            pass
-        '''
         assert isinstance(d, DrsProduction)
         if (self.compose_options & CO_REMOVE_UNARY_PROPS) != 0 and len(d.referents) == 1:
             rs = zip(d.referents, self._lambda_refs.referents)
