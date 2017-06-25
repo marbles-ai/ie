@@ -338,9 +338,6 @@ class Sentence(collections.Sequence):
         for i in range(len(self)):
             yield self.at(i)
 
-    def __len__(self):
-        raise NotImplementedError
-
     def at(self, i):
         """Get the lexeme at index i."""
         return self.lexemes[i]
