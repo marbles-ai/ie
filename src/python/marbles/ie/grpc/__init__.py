@@ -1,4 +1,5 @@
 from marbles_service_pb2 import LucidaServiceStub, QueryInput, QuerySpec, Request, Response
+from infox_service_pb2 import InfoxServiceStub, GConstituent, GLexeme, GSentence, GText, GWikidata
 from google.protobuf import empty_pb2
 import grpc
 import os
@@ -12,6 +13,8 @@ EASYSRL_PORT = 8084
 
 ## EasyCCG gRPC service port
 EASYCCG_PORT = 8085
+
+INFOX_PORT = 8086
 
 ## Default Session Id
 DEFAULT_SESSION='default'
@@ -180,5 +183,27 @@ class CcgParserService:
                                  self.daemon_name])
             else:
                 self.child.terminate()
+
+
+def get_infox_client_transport(host, port=INFOX_PORT, timeout=60):
+    """Open a connection to the gRPC service endpoint
+
+    Args:
+        host: The host domain name. Set to local_host if running locally.
+        port: The service port.
+        timeout: The maximum time to wait for the service to start.
+
+    Returns:
+        A tuple of the client end-point stub and channel
+    """
+    channel = grpc.insecure_channel('%s:%u' % (host, port))
+    stub = InfoxServiceStub(channel)
+
+    if timeout <= 0:
+        stub.ping(empty_pb2.Empty())
+    else:
+        ping_future = stub.ping.future(empty_pb2.Empty(), timeout)
+        ping_future.result()
+    return stub, channel
 
 

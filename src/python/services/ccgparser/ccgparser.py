@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
                       help='Run as a daemon.')
     parser.add_option('-g', '--grpc-daemon', type='string', action='store', dest='grpc_daemon',
-                      help='gRPC daemon name, [easysrl (default),easyccg]')
+                      help='gRPC parser daemon name, [easysrl (default),easyccg]')
     parser.add_option('-p', '--pid-file', type='string', action='store', dest='pid_file',
                       help='PID lock file, defaults to directory containing daemon.')
     parser.add_option('-j', '--jar', type='string', action='store', dest='jar_file',
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     # Delay import so help is displayed quickly without loading model.
     from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader, ServiceState
-    from marbles.ie.compose import CO_NO_WIKI_SEARCH
+    from marbles.ie.core.constants import CO_NO_WIKI_SEARCH
 
 
     class NRServiceState(ServiceState):
