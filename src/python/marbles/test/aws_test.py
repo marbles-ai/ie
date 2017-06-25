@@ -78,13 +78,15 @@ class TestAWS(unittest.TestCase):
 
     def setUp(self):
         self.mocked_src = MockedNewsSource()
+        root = logging.getLogger('marbles')
+        root.addHandler(logging.NullHandler())
         logger = logging.getLogger(__name__)
-        logger.addHandler(logging.NullHandler())
         self.state = MockedState(logger)
         self.svc = grpc.CcgParserService(daemon='easysrl', logger=self.state.logger)
 
     def tearDown(self):
         self.svc.shutdown()
+        logging.shutdown()
 
     @mock_s3
     @mock_sqs
