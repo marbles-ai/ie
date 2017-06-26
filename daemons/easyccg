@@ -7,11 +7,11 @@ PIDFILE=$1
 LOGFILE=$2
 VERSION="0.1.0"
 
-[ -e $ECCGPATH/build/libs/easyccg-${VERSION}-standalone.jar ] || die "$ECCGPATH/build/libs/easyccg-$VERSION-standalone.jar missing, run gradle build"
+[ -e $ECCGPATH/build/libs/easyccg-${VERSION}-capsule.jar ] || die "$ECCGPATH/build/libs/easyccg-$VERSION-capsule.jar missing, run gradle build"
 [ -e $PROJROOT/build/libs/ie-${VERSION}.jar ] || die "$PROJROOT/build/libs/ie-$VERSION.jar missing, run gradle build"
 [ -e $ECCGPATH/model/text/categories ] || die "$ECCGPATH/model/text missing, run scripts/extract_lfs.sh"
 
-EXEC="java -jar $ECCGPATH/build/libs/easyccg-$VERSION-standalone.jar --model $ECCGPATH/model/text --daemonize"
+EXEC="java -jar $ECCGPATH/build/libs/easyccg-$VERSION-capsule.jar --model $ECCGPATH/model/text --daemonize"
 if [ "x$PIDFILE" == "x" ]; then
 	$EXEC
 else 

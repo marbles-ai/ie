@@ -2,11 +2,16 @@
 //    id "com.github.johnrengelman.shadow" version "1.2.4"
 //}
 
-apply plugin: 'gradle-one-jar'
+apply plugin: 'us.kirchmeier.capsule'
 
-task standaloneJar(type: OneJar) {
-    mainClass = 'edu.uw.easysrl.main.EasySRL'
+task standaloneJar(type: FatCapsule) {
+    applicationClass 'edu.uw.easysrl.main.EasySRL'
 }
+//apply plugin: 'gradle-one-jar'
+
+//task standaloneJar(type: OneJar) {
+//    mainClass = 'edu.uw.easysrl.main.EasySRL'
+//}
 
 jar {
     manifest {

@@ -2,6 +2,10 @@
 
 //mainClassName = 'edu.uw.easysrl.main.EasySRL'
 
+plugins {
+	id "us.kirchmeier.capsule" version "1.0.2"
+}
+
 dependencies {
 	compile project(':ext:easysrl')
 	compile project(':ext:easyccg')

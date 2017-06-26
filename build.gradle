@@ -46,10 +46,10 @@ subprojects {
 }
 
 jar {
-    manifest {
-        attributes 'Implementation-Title': 'Information Extraction Service',
-                   'Implementation-Version': version
-    }
+	manifest {
+		attributes 'Implementation-Title': 'Information Extraction Service',
+					'Implementation-Version': version
+	}
 }
 
 buildscript {
@@ -66,8 +66,7 @@ buildscript {
 		classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
 
 		// MAKES FAT JARS
-		//classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
-		classpath 'com.github.rholder:gradle-one-jar:1.0.4'
+		//classpath 'com.github.rholder:gradle-one-jar:1.0.4'
 	}
 }
 
@@ -146,7 +145,7 @@ idea {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.14'
+    gradleVersion = '3.5'
 }
 
 // FIXME: there must be a better way to get this list

@@ -2,11 +2,18 @@
 //    id "com.github.johnrengelman.shadow" version "1.2.4"
 //}
 
-apply plugin: 'gradle-one-jar'
 
-task standaloneJar(type: OneJar) {
-    mainClass = 'uk.ac.ed.easyccg.main.EasyCCG'
+apply plugin: 'us.kirchmeier.capsule'
+
+task standaloneJar(type: FatCapsule) {
+    applicationClass 'uk.ac.ed.easyccg.main.EasyCCG'
 }
+
+//apply plugin: 'gradle-one-jar'
+
+//task standaloneJar(type: OneJar) {
+//    mainClass = 'uk.ac.ed.easyccg.main.EasyCCG'
+//}
 
 jar {
     manifest {
