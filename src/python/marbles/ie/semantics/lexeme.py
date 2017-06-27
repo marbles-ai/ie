@@ -15,7 +15,7 @@ from marbles.ie.drt.utils import remove_dups, union, complement, intersect
 from marbles.ie.kb.verbnet import VERBNETDB
 from marbles import safe_utf8_decode, safe_utf8_encode
 from marbles.ie.core.constants import *
-from marbles.ie.core.sentence import IndexSpan, AbstractLexeme
+from marbles.ie.core.sentence import Span, AbstractLexeme
 from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, DrsComposeError, identity_functor
 from marbles.ie.parse import parse_drs
 
@@ -434,7 +434,7 @@ class Lexeme(AbstractLexeme):
             A Production instance.
         """
         no_vn = 0 != (CO_NO_VERBNET & options)
-        span = IndexSpan(sentence, [self.idx])
+        span = Span(sentence, [self.idx])
         template = self.get_template()
 
         # Ensure we only have one instance for each referent name. FunctorTemplate's guarantee

@@ -128,7 +128,7 @@ class IndexSpan(object):
 
 
 class SubtreeSpan(IndexSpan):
-    '''View of a document. Specialization of IndexSpan.'''
+    '''View of a document. Specialization of Span.'''
 
     def __init__(self, doc, idx=None, removePunct=False, shallow=False, nofollow=None):
         '''Constructor.

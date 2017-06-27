@@ -12,7 +12,7 @@ from marbles.ie.drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
 from marbles.ie.drt.utils import iterable_type_check, intersect, union, remove_dups
 from marbles import safe_utf8_encode, future_string
 from marbles.ie.core.constants import *
-from marbles.ie.core.sentence import IndexSpan
+from marbles.ie.core.sentence import Span
 
 
 class DrsComposeError(Exception):
@@ -339,7 +339,7 @@ class DrsProduction(AbstractProduction):
 
     @span.setter
     def span(self, value):
-        assert isinstance(value, IndexSpan)
+        assert isinstance(value, Span)
         self._span = value
 
     @property
@@ -567,7 +567,7 @@ class ProductionList(AbstractProduction):
             universe = universe.union(d.universe)
 
         # Merge indexes
-        span = IndexSpan(sentence) if sentence is not None else None
+        span = Span(sentence) if sentence is not None else None
         freerefs = []
         universe = []
         for d in ml:

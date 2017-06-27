@@ -1,7 +1,7 @@
 from __future__ import unicode_literals, print_function
 from marbles.ie.ccg import *
 from marbles.ie.core import constituent_types as ct
-from sentence import Constituent, BasicLexeme, Wikidata, Sentence, IndexSpan
+from sentence import Constituent, BasicLexeme, Wikidata, Sentence, Span
 from marbles.ie.grpc.infox_service_pb2 import GSentence
 
 
@@ -40,7 +40,7 @@ def marshal_sentence(response):
 
     for gc in response.constituents:
         indexes = [x for x in gc.span]
-        c = Constituent(IndexSpan(sentence, indexes), ct.from_cache(gc.vntype), gc.head)
+        c = Constituent(Span(sentence, indexes), ct.from_cache(gc.vntype), gc.head)
         constituents.append(c)
 
     sentence.map_heads_to_constituents()

@@ -218,7 +218,7 @@ class BasicLexeme(AbstractLexeme):
 class Constituent(object):
     """A constituent is a sentence span and a phrase type."""
     def __init__(self, span, vntype, chead=-1):
-        if not isinstance(span, IndexSpan) or not isinstance(vntype, marbles.ie.utils.cache.ConstString):
+        if not isinstance(span, Span) or not isinstance(vntype, marbles.ie.utils.cache.ConstString):
             raise TypeError('Constituent.__init__() bad argument')
         self.span = span
         self.vntype = vntype
@@ -236,7 +236,7 @@ class Constituent(object):
     def from_json(self, data, sentence):
         c = Constituent(None, None)
         c.vntype = ct.Typeof[data['vntype']]
-        c.span = IndexSpan(sentence, data['span'])
+        c.span = Span(sentence, data['span'])
         c.chead = data['chead']
 
     def __unicode__(self):
@@ -309,7 +309,40 @@ class Constituent(object):
         return self.span.sentence.constituents[self.chead]
 
 
-class Sentence(collections.Sequence):
+class AbstractSentence(collections.Sequence):
+    """AbstractSentence"""
+
+    def __unicode__(self):
+        return safe_utf8_decode(self.text)
+
+    def __str__(self):
+        return safe_utf8_encode(self.text)
+
+    def __repr__(self):
+        return self.text
+
+    def __len__(self):
+        raise NotImplementedError
+
+    def __getitem__(self, slice_i_j):
+        raise NotImplementedError
+
+    def __iter__(self):
+        raise NotImplementedError
+
+    @property
+    def text(self):
+        if len(self) == 0:
+            return ''
+        txt = [self[0].word]
+        for tok in self[1:]:
+            if not tok.ispunct:
+                txt.append(' ')
+            txt.append(tok.word)
+        return ''.join(txt)
+
+
+class Sentence(AbstractSentence):
     """A sentence."""
 
     def __init__(self, lexemes=None, constituents=None, i2c=None, msgid=None):
@@ -331,7 +364,7 @@ class Sentence(collections.Sequence):
     def __getitem__(self, slice_i_j):
         if isinstance(slice_i_j, slice):
             indexes = [i for i in range(len(self))]
-            return IndexSpan(self, indexes[slice_i_j])
+            return Span(self, indexes[slice_i_j])
         return self.lexemes[slice_i_j]
 
     def __iter__(self):
@@ -457,7 +490,7 @@ class Sentence(collections.Sequence):
         self.i2c = dict(map(lambda x: (x[0], self.constituents[x[1]]), i2c.iteritems()))
 
     def trim(self, to_remove):
-        assert isinstance(to_remove, IndexSpan)
+        assert isinstance(to_remove, Span)
         if to_remove.isempty:
             return self, None
         # Python 2.x does not support nonlocal keyword for the closure
@@ -505,8 +538,8 @@ class Sentence(collections.Sequence):
 
         idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self)))
         for c in constituents:
-            c.span = IndexSpan(self, map(lambda y: idxmap[y],
-                                         filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
+            c.span = Span(self, map(lambda y: idxmap[y],
+                                    filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
         lexemes = map(lambda y: self[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
         for i in range(len(lexemes)):
             lexeme = lexemes[i]
@@ -517,7 +550,7 @@ class Sentence(collections.Sequence):
         return Sentence(lexemes, constituents), idxmap
 
     def trim_punctuation(self):
-        to_remove = IndexSpan(self, filter(lambda i: self[i].ispunct, range(len(self))))
+        to_remove = Span(self, filter(lambda i: self[i].ispunct, range(len(self))))
         sent, _ = self.trim(to_remove)
         return sent
 
@@ -533,13 +566,13 @@ class Sentence(collections.Sequence):
                 adj[c.chead].append(i)
 
         vps = []
-        allspan = IndexSpan(self)
+        allspan = Span(self)
         for i in itertools.ifilter(lambda x: constituents[x].vntype in [ct.CONSTITUENT_VP, ct.CONSTITUENT_SDCL,
                                                                         ct.CONSTITUENT_SEM, ct.CONSTITUENT_SQ,
                                                                         ct.CONSTITUENT_S, ct.CONSTITUENT_SINF],
                                    range(len(constituents))):
             ci = constituents[i]
-            span = IndexSpan(self)
+            span = Span(self)
             for j in adj[i]:
                 span = span.union(constituents[j].span)
 
@@ -549,8 +582,8 @@ class Sentence(collections.Sequence):
                 ci.vntype = None
                 ci.span.clear()
                 continue
-            hds = dict([(hd.idx, Constituent(IndexSpan(self), ci.vntype))
-                        for hd in IndexSpan(self, idxs).get_head_span()])
+            hds = dict([(hd.idx, Constituent(Span(self), ci.vntype))
+                        for hd in Span(self, idxs).get_head_span()])
             for j in idxs:
                 k = j
                 while k not in hds and self[k].head != k:
@@ -559,7 +592,7 @@ class Sentence(collections.Sequence):
 
             # Check referents
             refs = {}
-            spcjs = IndexSpan(self)
+            spcjs = Span(self)
             for cj in hds.itervalues():
                 refs[cj.get_head().refs[0]] = cj
                 spcjs = spcjs.union(cj.span)
@@ -587,7 +620,7 @@ class Sentence(collections.Sequence):
         for i in itertools.ifilter(lambda x: constituents[x].vntype is not None and constituents[x].vntype in [ct.CONSTITUENT_NP, ct.CONSTITUENT_PP],
                                    range(len(constituents))):
             ci = constituents[i]
-            span = IndexSpan(self)
+            span = Span(self)
             for j in adj[i]:
                 span = span.union(constituents[j].span)
 
@@ -629,11 +662,11 @@ class Sentence(collections.Sequence):
         return Sentence([lex for lex in self], constituents)
 
 
-class IndexSpan(collections.Sequence):
+class Span(AbstractSentence):
     """View of a discourse."""
     def __init__(self, sentence, indexes=None):
         if not isinstance(sentence, Sentence):
-            raise TypeError('IndexSpan constructor requires sentence type = Sentence')
+            raise TypeError('Span constructor requires sentence type = Sentence')
         self._sent = sentence
         if indexes is None:
             self._indexes = []
@@ -641,15 +674,6 @@ class IndexSpan(collections.Sequence):
             self._indexes = sorted(indexes)
         else:
             self._indexes = sorted(set([x for x in indexes]))
-
-    def __unicode__(self):
-        return safe_utf8_decode(self.text)
-
-    def __str__(self):
-        return safe_utf8_encode(self.text)
-
-    def __repr__(self):
-        return self.text
 
     def __eq__(self, other):
         return other is not None and self.sentence is other.sentence and len(self) == len(other) \
@@ -695,7 +719,7 @@ class IndexSpan(collections.Sequence):
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return IndexSpan(self._sent, self._indexes[i])
+            return Span(self._sent, self._indexes[i])
         return self._sent[self._indexes[i]]
 
     def __iter__(self):
@@ -703,7 +727,7 @@ class IndexSpan(collections.Sequence):
             yield self._sent[k]
 
     def __contains__(self, item):
-        if isinstance(item, IndexSpan):
+        if isinstance(item, Span):
             return len(item) != 0 and len(set(item._indexes).difference(self._indexes)) == 0
         elif isinstance(item, int):
             return item in self._indexes
@@ -741,13 +765,13 @@ class IndexSpan(collections.Sequence):
 
     def clone(self):
         """Do a shallow copy and clone the span."""
-        return IndexSpan(self._sent, self._indexes)
+        return Span(self._sent, self._indexes)
 
     def union(self, other):
         """Union two spans."""
         if other is None or len(other) == 0:
             return self
-        return IndexSpan(self._sent, set(self._indexes).union(other._indexes))
+        return Span(self._sent, set(self._indexes).union(other._indexes))
 
     def add(self, idx):
         """Add an index to the span."""
@@ -760,13 +784,13 @@ class IndexSpan(collections.Sequence):
         """Remove other from this span."""
         if other is None or len(other) == 0:
             return self
-        return IndexSpan(self._sent, set(self._indexes).difference(other._indexes))
+        return Span(self._sent, set(self._indexes).difference(other._indexes))
 
     def intersection(self, other):
         """Find common span."""
         if other is None or len(other) == 0:
-            return IndexSpan(self._sent)
-        return IndexSpan(self._sent, set(self._indexes).intersection(other._indexes))
+            return Span(self._sent)
+        return Span(self._sent, set(self._indexes).intersection(other._indexes))
 
     def subspan(self, required, excluded=0):
         """Refine the span with `required` and `excluded` criteria's.
@@ -776,19 +800,19 @@ class IndexSpan(collections.Sequence):
             excluded: A mask of RT_? bits.
 
         Returns:
-            A IndexSpan instance.
+            A Span instance.
         """
-        return IndexSpan(self._sent, filter(lambda i: 0 != (self[i].mask & required) and 0 == (self[i].mask & excluded), self._indexes))
+        return Span(self._sent, filter(lambda i: 0 != (self[i].mask & required) and 0 == (self[i].mask & excluded), self._indexes))
 
     def fullspan(self):
         """Return the span which is a superset of this span but where the indexes are contiguous.
 
         Returns:
-            A IndexSpan instance.
+            A Span instance.
         """
         if len(self._indexes) <= 1:
             return self
-        return IndexSpan(self._sent, [x for x in range(self._indexes[0], self._indexes[-1]+1)])
+        return Span(self._sent, [x for x in range(self._indexes[0], self._indexes[-1] + 1)])
 
     def get_drs(self):
         """Get a DRS view of the span.
@@ -834,7 +858,7 @@ class IndexSpan(collections.Sequence):
                         hd = self._sent[hd.head]
                     if hd.head not in indexes:
                         hds.add(lex.idx)
-        return IndexSpan(self._sent, hds)
+        return Span(self._sent, hds)
 
     def search_wikipedia(self, max_results=1, google=True):
         """Find a wikipedia topic from this span.
@@ -900,9 +924,9 @@ class IndexSpan(collections.Sequence):
                 attempts += 1
                 retry = attempts <= 3
                 if self.sentence.msgid is not None:
-                    _logger.exception('[msgid=%s] IndexSpan.search_wikipedia', self.sentence.msgid, exc_info=e)
+                    _logger.exception('[msgid=%s] Span.search_wikipedia', self.sentence.msgid, exc_info=e)
                 else:
-                    _logger.exception('IndexSpan.search_wikipedia', exc_info=e)
+                    _logger.exception('Span.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
             except wikipedia.exceptions.DisambiguationError as e:
                 # TODO: disambiguation
@@ -911,9 +935,9 @@ class IndexSpan(collections.Sequence):
                 attempts += 1
                 retry = attempts <= 3
                 if self.sentence.msgid is not None:
-                    _logger.exception('[msgid=%s] IndexSpan.search_wikipedia', self.sentence.msgid, exc_info=e)
+                    _logger.exception('[msgid=%s] Span.search_wikipedia', self.sentence.msgid, exc_info=e)
                 else:
-                    _logger.exception('IndexSpan.search_wikipedia', exc_info=e)
+                    _logger.exception('Span.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
 
         return None

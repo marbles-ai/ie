@@ -14,7 +14,7 @@ from marbles.ie.ccg.model import MODEL
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
-from marbles.ie.core.sentence import Sentence, IndexSpan, Constituent
+from marbles.ie.core.sentence import Sentence, Span, Constituent
 from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, DRSRelation
 from marbles.ie.drt.utils import remove_dups
@@ -637,7 +637,7 @@ class Ccg2Drs(Sentence):
         to_remove = set()
         constituents = sorted(set(constituents))
 
-        allspan = IndexSpan(self)
+        allspan = Span(self)
         lastwiki_result = None
         lastwiki_idx = 0
         for i in range(len(constituents)):
@@ -744,12 +744,12 @@ class Ccg2Drs(Sentence):
         for i in range(len(self.lexemes)):
             lexeme = self.lexemes[i]
             if lexeme.category.ispunct:
-                prod = DrsProduction([], [], category=lexeme.category, span=IndexSpan(self))
+                prod = DrsProduction([], [], category=lexeme.category, span=Span(self))
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
                 prod.set_options(self.options)
             elif lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
-                prod = DrsProduction([], [], category=CAT_EMPTY, span=IndexSpan(self))
+                prod = DrsProduction([], [], category=CAT_EMPTY, span=Span(self))
                 prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
                 self.xid += 1
             else:
@@ -797,7 +797,7 @@ class Ccg2Drs(Sentence):
     def resolve_proper_names(self):
         """Merge proper names."""
 
-        to_remove = IndexSpan(self)
+        to_remove = Span(self)
         for c in self.constituents:
             c.span = c.span.difference(to_remove)
             if c.span.isempty:
@@ -862,7 +862,7 @@ class Ccg2Drs(Sentence):
                     fca.cond.relation.rename(stem)
                     lexeme.stem = stem
                     lexeme.word = word
-                    to_remove = to_remove.union(IndexSpan(self, filter(lambda y: y != lexeme.idx, [x.idx for x in c.span[s:e+1]])))
+                    to_remove = to_remove.union(Span(self, filter(lambda y: y != lexeme.idx, [x.idx for x in c.span[s:e + 1]])))
 
         if not to_remove.isempty:
             # Python 2.x does not support nonlocal keyword for the closure
@@ -912,8 +912,8 @@ class Ccg2Drs(Sentence):
 
             idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self.lexemes)))
             for c in self.constituents:
-                c.span = IndexSpan(self, map(lambda y: idxmap[y],
-                                             filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
+                c.span = Span(self, map(lambda y: idxmap[y],
+                                        filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
             self.lexemes = map(lambda y: self.lexemes[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
             for i in range(len(self.lexemes)):
                 lexeme = self.lexemes[i]
@@ -922,8 +922,8 @@ class Ccg2Drs(Sentence):
                 assert lexeme.head >= 0
 
             if self.final_prod is not None:
-                pspan = IndexSpan(self, map(lambda y: idxmap[y],
-                                            filter(lambda x: idxmap[x] >= 0, self.final_prod.span.get_indexes())))
+                pspan = Span(self, map(lambda y: idxmap[y],
+                                       filter(lambda x: idxmap[x] >= 0, self.final_prod.span.get_indexes())))
                 self.final_prod.span = pspan
 
             self.map_heads_to_constituents()
@@ -1188,10 +1188,10 @@ class Ccg2Drs(Sentence):
         """Get a span of the entire sentence.
 
         Returns:
-            A IndexSpan instance.
+            A Span instance.
         """
         # TODO: support span with start and length
-        return IndexSpan(self, range(len(self.lexemes)))
+        return Span(self, range(len(self.lexemes)))
 
     def get_subspan_from_wiki_search2(self, query_span, search_result, threshold=0.7, title_only=True):
         """Get a subspan from a wikpedia search result.
@@ -1203,7 +1203,7 @@ class Ccg2Drs(Sentence):
             title_only: If True then search title words else search page content.
 
         Returns:
-            A tuple containing an IndexSpan instance and the wiki-page.
+            A tuple containing an Span instance and the wiki-page.
         """
         # TODO: search page content
         if not title_only:
@@ -1237,7 +1237,7 @@ class Ccg2Drs(Sentence):
                 idxs = sorted(idxs)
                 if len(idxs) >= 2:
                     idxs = [x for x in range(idxs[0], idxs[-1]+1)]
-                best_span = IndexSpan(self, idxs)
+                best_span = Span(self, idxs)
         return best_span, best_result
 
     def add_wikipedia_links(self):
@@ -1250,11 +1250,11 @@ class Ccg2Drs(Sentence):
                 continue
             skip_to = -1
             lex = NNP[i]
-            todo = [IndexSpan(self, [lex.idx])]
+            todo = [Span(self, [lex.idx])]
             j = i+1
             k = lex.idx + 1
             while j < len(NNP) and self.lexemes[k].word in ['for', 'and', 'of'] and NNP[j].idx == k+1:
-                todo.append(IndexSpan(self, [x for x in range(lex.idx, k+2)]))
+                todo.append(Span(self, [x for x in range(lex.idx, k + 2)]))
                 j += 1
                 k += 2
             retry = True
