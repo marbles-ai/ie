@@ -172,7 +172,7 @@ if __name__ == '__main__':
                     fol = unicode(fol)
                     drs = d.show(SHOW_LINEAR)
                     constituents = []
-                    for c in sentence.get_constituents():
+                    for c in sentence.constituents:
                         constituents.append(c.vntype.signature + '(' + c.span.text + ')')
                     constituents = ' '.join(constituents)
                 except Exception as e:
