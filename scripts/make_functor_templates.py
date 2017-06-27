@@ -12,7 +12,7 @@ pypath = os.path.join(projdir, 'src', 'python')
 datapath = os.path.join(pypath, 'marbles', 'ie', 'ccg', 'data')
 sys.path.insert(0, pypath)
 
-from marbles.ie.ccg2drs import extract_predarg_categories_from_pt
+from marbles.ie.ccg_derivation import extract_predarg_categories_from_pt
 from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.ccg import Category
 from marbles.ie.utils.cache import Cache

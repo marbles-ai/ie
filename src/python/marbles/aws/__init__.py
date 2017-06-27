@@ -13,7 +13,7 @@ import mimetypes
 from nltk.tokenize import sent_tokenize
 from marbles.ie import grpc
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg2drs import process_ccg_pt
+from marbles.ie.ccg_derivation import process_ccg_pt
 from marbles.log import ExceptionRateLimitedLogAdaptor
 
 

@@ -202,7 +202,7 @@ if __name__ == '__main__':
     from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader, ServiceState
     from marbles.ie.core.constants import CO_NO_WIKI_SEARCH
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-    from marbles.ie.ccg2drs import process_ccg_pt
+    from marbles.ie.ccg_derivation import process_ccg_pt
 
 
     class IxServiceState(ServiceState):

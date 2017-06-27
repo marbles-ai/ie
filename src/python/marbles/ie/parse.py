@@ -509,8 +509,7 @@ def parse_ccg_derivation(s):
         s: The CCG syntactic derivation.
 
     Returns:
-        A parse tree for the syntactic derivation. This should be passed to
-        marbles.ie.drt.ccg2drs.process_ccg_pt to convert to a DRS.
+        A parse tree for the syntactic derivation.
     """
     p = Parser()
     #if isinstance(s, str):

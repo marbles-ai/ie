@@ -14,7 +14,7 @@ sys.path.insert(0, pypath)
 
 #from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.ccg2drs import extract_lexicon_from_pt
+from marbles.ie.ccg_derivation import extract_lexicon_from_pt
 from marbles.ie.ccg import Category
 from marbles import safe_utf8_encode, safe_utf8_decode
 
@@ -63,7 +63,7 @@ if __name__ == '__main__':
             allfiles.append(ldcpath1)
 
     failed_parse = 0
-    failed_ccg2drs = []
+    failed_ccg_derivation = []
     start = 0
     progress = -1
     dictionary = None
