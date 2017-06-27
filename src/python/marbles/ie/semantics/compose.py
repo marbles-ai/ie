@@ -265,7 +265,10 @@ class DrsProduction(AbstractProduction):
         """Constructor.
 
         Args:
-            drs: A marbles.ie.drt.DRS instance.
+            universe: The universe of bound referents.
+            freerefs: The free referents.
+            category: The category.
+            span: The sentence span.
         """
         super(DrsProduction, self).__init__(category)
         if not isinstance(universe, list) or not iterable_type_check(universe, DRSRef):
@@ -596,8 +599,8 @@ class FunctorProduction(AbstractProduction):
         Args:
             category: A marbles.ie.drt.ccgcat.Category instance.
             referent: Either a list of, or a single, marbles.ie.drt.drs.DRSRef instance.
-            production: Optionally a marbles.ie.drt.drs.DRS instance or a AbstractProduction instance. The DRS will be converted
-                to a DrsProduction. If production is a functor then the combination is a curried functor.
+            production: Optionally an AbstractProduction instance. If production is a functor then the combination
+                is a curried functor.
         """
         if production is not None and not isinstance(production, (DrsProduction, FunctorProduction)):
             raise TypeError('production argument must be a AbstractProduction type')
@@ -702,8 +705,8 @@ class FunctorProduction(AbstractProduction):
         """Get the outer most functor in this production or self.
 
         See Also:
-            marbles.ie.drt.compose.FunctorProduction.inner_scope
-            marbles.ie.drt.compose.FunctorProduction.outer
+            FunctorProduction.inner_scope
+            FunctorProduction.outer
         """
         g = self
         while g.outer is not None:
@@ -720,8 +723,8 @@ class FunctorProduction(AbstractProduction):
         """Get the inner most functor in this production or self.
 
         See Also:
-            marbles.ie.drt.compose.FunctorProduction.outer_scope
-            marbles.ie.drt.compose.FunctorProduction.inner
+            FunctorProduction.outer_scope
+            FunctorProduction.inner
         """
         c = self._comp
         cprev = self
@@ -740,7 +743,7 @@ class FunctorProduction(AbstractProduction):
         """The immediate outer functor or None.
 
         See Also:
-            marbles.ie.drt.compose.FunctorProduction.outer_scope
+            FunctorProduction.outer_scope
         """
         return None if self._outer is None else self._outer() # weak deref
 
@@ -749,7 +752,7 @@ class FunctorProduction(AbstractProduction):
         """The immediate inner functor or None.
 
         See Also:
-            marbles.ie.drt.compose.FunctorProduction.inner_scope
+            FunctorProduction.inner_scope
         """
         return None if self._comp is None or not self._comp.isfunctor else self._comp
 
@@ -1139,7 +1142,7 @@ class FunctorProduction(AbstractProduction):
             g: The Y|Z functor where self (f) is the X|Y functor.
 
         Returns:
-            A AbstractProduction instance.
+            An AbstractProduction instance.
 
         Remarks:
             CALL[X|Y](Y|Z)
@@ -1223,7 +1226,7 @@ class FunctorProduction(AbstractProduction):
             g: The (Y|Z)$ functor where self (f) is the X|Y functor.
 
         Returns:
-            A AbstractProduction instance.
+            An AbstractProduction instance.
 
         Remarks:
             CALL[X|Y](Y|Z)$
@@ -1314,7 +1317,7 @@ class FunctorProduction(AbstractProduction):
             g: The Y|Z functor where self (f) is the (X|Y)|Z functor.
 
         Returns:
-            A AbstractProduction instance.
+            An AbstractProduction instance.
 
         Remarks:
             CALL[(X|Y)|Z](Y|Z)
@@ -1403,7 +1406,7 @@ class FunctorProduction(AbstractProduction):
             glambdas: If True set lambda from g, else set from self.
 
         Returns:
-            A AbstractProduction instance.
+            An AbstractProduction instance.
 
         Remarks:
             CALL[X1|Y1](X2|Y2)
@@ -1465,7 +1468,7 @@ class FunctorProduction(AbstractProduction):
             g: The application argument.
 
         Returns:
-            A AbstractProduction instance.
+            An AbstractProduction instance.
         """
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(g)
