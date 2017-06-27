@@ -7,7 +7,8 @@ import os
 import re
 import unittest
 
-from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
+from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg.utils import sentence_from_pt
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
 from marbles.ie.parse import parse_drs  #, parse_ccg_derivation

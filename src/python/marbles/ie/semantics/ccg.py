@@ -9,9 +9,9 @@ import logging
 
 import numpy as np
 
-from marbles import safe_utf8_encode, future_string
 from marbles.ie.ccg import *
 from marbles.ie.ccg.model import MODEL
+from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Sentence, IndexSpan, Constituent
@@ -1355,7 +1355,7 @@ def process_ccg_pt(pt, options=0):
 
 
 ## @ingroup gfn
-def pt_to_ccgbank(pt, fmt=True):
+def pt_to_ccg_derivation(pt, fmt=True):
     """Process the CCG parse tree, add predicate argument tags, and return the ccgbank string.
 
     Args:
@@ -1370,43 +1370,6 @@ def pt_to_ccgbank(pt, fmt=True):
     ccg.build_execution_sequence(pt)
     s = ccg.get_predarg_ccgbank(fmt)
     return s
-
-
-## @ingroup gfn
-def extract_predarg_categories_from_pt(pt, lst=None):
-    """Extract the predicate-argument categories from a CCG parse tree.
-
-    Args:
-        pt: The parse tree returned from marbles.ie.ccg.parse_ccg_derivation2().
-        lst: An optional list of existing predicate categories.
-    Returns:
-        A list of Category instances.
-    """
-    global _PredArgIdx
-    if future_string != unicode:
-        pt = pt_to_utf8(pt)
-    if lst is None:
-        lst = []
-
-    stk = [pt]
-    while len(stk) != 0:
-        pt = stk.pop()
-        if pt[-1] == 'T':
-            stk.extend(pt[1:-1])
-        else:
-            # Leaf nodes contains six fields:
-            # <L CCGcat mod_POS-tag orig_POS-tag word PredArgCat>
-            # PredArgCat example: (S[dcl]\NP_3)/(S[pt]_4\NP_3:B)_4>
-            catkey = Category(pt[0])
-
-            # Ignore atoms and conj rules.
-            if not catkey.isfunctor or catkey.result_category() == CAT_CONJ or catkey.argument_category() == CAT_CONJ:
-                continue
-
-            predarg = Category(pt[4])
-            assert catkey == predarg.clean(True)
-            lst.append(predarg)
-    return lst
 
 
 class TestSentence(Sentence):

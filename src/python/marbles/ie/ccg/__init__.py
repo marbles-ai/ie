@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """CCG Categories, Rules, and CCGBANK parser"""
 from __future__ import unicode_literals, print_function
-from marbles import safe_utf8_encode, safe_utf8_decode, native_string, future_string
-import re
+
 import os
+import re
+
+import datapath
+from marbles import safe_utf8_encode, safe_utf8_decode, future_string
 from marbles.ie.utils.cache import Cache, Freezable
 from marbles.ie.utils.vmap import Dispatchable
-import datapath
-
 
 ISCONJMASK   = 0x00000001
 FEATURE_CONJ = 0x00000002
@@ -83,51 +84,6 @@ def parse_ccg_derivation2(ccgbank):
     assert level == 0
     assert len(root) == 1
     return root[0]
-
-
-## @ingroup gfn
-def pt_to_utf8(pt, force=False):
-    """Convert a parse tree to utf-8. The conversion is done in-place.
-
-    Args:
-        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-
-    Returns:
-        A utf-8 parse tree
-    """
-    if force or isinstance(pt[0][0], unicode):  # isinstance(pt[-1], unicode)
-        # Convert to utf-8
-        stk = [pt]
-        while len(stk) != 0:
-            lst = stk.pop()
-            for i in range(len(lst)):
-                x = lst[i]
-                if isinstance(x, list):
-                    stk.append(x)
-                elif isinstance(x, unicode):
-                    lst[i] = x.encode('utf-8')
-    return pt
-
-
-## @ingroup gfn
-def sentence_from_pt(pt):
-    """Get the sentence from a CCG parse tree.
-
-    Args:
-        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
-
-    Returns:
-        A string
-    """
-    s = []
-    stk = [pt]
-    while len(stk) != 0:
-        pt = stk.pop()
-        if pt[-1] == 'T':
-            stk.extend(reversed(pt[1:-1]))
-        else:
-            s.append(pt[1])
-    return ' '.join(s).replace(' ,', ',').replace(' .', '.')
 
 
 ## @ingroup gfn

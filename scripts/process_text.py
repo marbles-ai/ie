@@ -110,7 +110,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     # Delay imports so help text can be dislayed without loading model
-    from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccgbank
+    from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
     from marbles.ie.semantics.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES, CO_NO_WIKI_SEARCH
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     #from marbles.ie.parse import parse_ccg_derivation
@@ -156,7 +156,7 @@ if __name__ == '__main__':
             if options.ofmt == 'drs':
                 try:
                     pt = parse_ccg_derivation(ccg)
-                    pccg = pt_to_ccgbank(pt)
+                    pccg = pt_to_ccg_derivation(pt)
                 except Exception as e:
                     print('Error: failed to parse ccgbank - %s' % str(e))
                     raise

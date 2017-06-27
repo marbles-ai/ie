@@ -15,8 +15,9 @@ sys.path.insert(0, pypath)
 
 #from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.core.constants import *
-from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccgbank
+from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg.utils import sentence_from_pt
+from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.drt.drs import DRS
 from marbles import safe_utf8_encode
@@ -92,7 +93,7 @@ if __name__ == '__main__':
                 # CCG parser is Java so output is UTF-8.
                 pt = parse_ccg_derivation(ccgbank)
                 s = sentence_from_pt(pt).strip()
-                pccg = pt_to_ccgbank(pt)
+                pccg = pt_to_ccg_derivation(pt)
             except Exception:
                 failed_parse += 1
                 raise

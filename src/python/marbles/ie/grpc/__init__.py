@@ -150,10 +150,11 @@ class CcgParserService:
                 self.child = subprocess.Popen(['/usr/bin/java', '-jar', jarfile, '--model', modeldir,
                                                 '--daemonize', '-l', '250'],
                                               stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
+                time.sleep(5)
                 os.kill(self.child.pid, 0)
             else:
                 raise ValueError('CcgParserService.__init__() requires model and jar or neither')
-            time.sleep(4)   # Give it some time to lock session access
+            time.sleep(5)   # Give it some time to lock session access
             self.stub, _ = get_client_transport('localhost', self.daemon_port)
             # Call asynchronously - will wait until default session is created
             ccg_parse(self.stub, '', timeout=120)
