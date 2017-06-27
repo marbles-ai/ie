@@ -3,7 +3,7 @@
 from __future__ import unicode_literals, print_function
 import unittest
 from marbles import future_string
-from marbles.ie.ccg2drs import Ccg2Drs
+from marbles.ie.ccg_derivation import Ccg2Drs
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 

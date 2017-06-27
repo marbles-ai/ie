@@ -8,7 +8,7 @@ import re
 
 from marbles import future_string, native_string
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.ccg2drs import process_ccg_pt, Ccg2Drs
+from marbles.ie.ccg_derivation import process_ccg_pt, Ccg2Drs
 from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
     CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
