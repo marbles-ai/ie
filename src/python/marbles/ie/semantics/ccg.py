@@ -258,15 +258,6 @@ class Ccg2Drs(Sentence):
         self.depth = -1
         self.final_prod = None
 
-    def __len__(self):
-        # Required by Sentence
-        return len(self.lexemes)
-
-    def at(self, i):
-        """Get the lexeme at index i."""
-        # Required by Sentence
-        return self.lexemes[i]
-
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
         if len(op.sub_ops) == 2:
@@ -853,7 +844,7 @@ class Ccg2Drs(Sentence):
                         hd = hdspan[0]
                         sptmp.add(hd.head)
                         while len(sptmp.get_head_span()) > 1 and not hd.isroot:
-                            hd = self.at(hd.head)
+                            hd = self.lexemes[hd.head]
                             sptmp.add(hd.head)
                         if len(sptmp.get_head_span()) > 1:
                             dtree = self.get_dependency_tree()

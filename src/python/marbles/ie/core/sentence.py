@@ -332,15 +332,11 @@ class Sentence(collections.Sequence):
         if isinstance(slice_i_j, slice):
             indexes = [i for i in range(len(self))]
             return IndexSpan(self, indexes[slice_i_j])
-        return self.at(slice_i_j)
+        return self.lexemes[slice_i_j]
 
     def __iter__(self):
         for i in range(len(self)):
-            yield self.at(i)
-
-    def at(self, i):
-        """Get the lexeme at index i."""
-        return self.lexemes[i]
+            yield self.lexemes[i]
 
     def safe_wikipage(self, query):
         global _logger
@@ -405,7 +401,7 @@ class Sentence(collections.Sequence):
         seen = [[] for i in range(len(self))]
         root = 0
         for i in range(len(self)):
-            nd = self.at(i)
+            nd = self.lexemes[i]
             if nd.head != i:
                 if i not in seen[nd.head]:
                     nodes[nd.head][1].append(nodes[i])
@@ -417,14 +413,14 @@ class Sentence(collections.Sequence):
     def print_dependency_tree(self, dtree, level=0):
         """Print the constituent tree."""
         indent = '' if level == 0 else ' ' * level
-        lex = self.at(dtree[0])
+        lex = self.lexemes[dtree[0]]
         print('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self.print_dependency_tree(nd, level+3)
 
     def _get_dependency_tree_as_string_helper(self, dtree, level, result):
         indent = '' if level == 0 else ' ' * level
-        lex = self.at(dtree[0])
+        lex = self.lexemes[dtree[0]]
         result.append('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self._get_dependency_tree_as_string_helper(nd, level+3, result)
@@ -455,7 +451,7 @@ class Sentence(collections.Sequence):
                 c.chead = i2c[lexhd.head]
             else:
                 while lexhd.head not in i2c and lexhd.head != lexhd.idx:
-                    lexhd = self.at(lexhd.head)
+                    lexhd = self.lexemes[lexhd.head]
                 if lexhd.head in i2c:
                     c.chead = i2c[lexhd.head]
         self.i2c = dict(map(lambda x: (x[0], self.constituents[x[1]]), i2c.iteritems()))
@@ -700,11 +696,11 @@ class IndexSpan(collections.Sequence):
     def __getitem__(self, i):
         if isinstance(i, slice):
             return IndexSpan(self._sent, self._indexes[i])
-        return self._sent.at(self._indexes[i])
+        return self._sent[self._indexes[i]]
 
     def __iter__(self):
         for k in self._indexes:
-            yield self._sent.at(k)
+            yield self._sent[k]
 
     def __contains__(self, item):
         if isinstance(item, IndexSpan):
@@ -719,9 +715,9 @@ class IndexSpan(collections.Sequence):
     def text(self):
         if len(self._indexes) == 0:
             return ''
-        txt = [self._sent.at(self._indexes[0]).word]
+        txt = [self._sent[self._indexes[0]].word]
         for i in self._indexes[1:]:
-            tok = self._sent.at(i)
+            tok = self._sent[i]
             if not tok.ispunct:
                 txt.append(' ')
             txt.append(tok.word)
