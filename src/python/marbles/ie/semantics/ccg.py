@@ -1027,10 +1027,10 @@ class Ccg2Drs(Sentence):
         return d
 
     def build_execution_sequence(self, pt):
-        """Build the execution sequence from a ccg derivation parse tree.
+        """Build the execution sequence from a ccg derivation's parse tree.
 
         Args:
-            pt: The parse tree.
+            pt: The parse tree for a ccg derivation.
         """
         # FIXME: Remove recursion from this function
         self.depth += 1
@@ -1193,7 +1193,7 @@ class Ccg2Drs(Sentence):
         # TODO: support span with start and length
         return Span(self, range(len(self.lexemes)))
 
-    def get_subspan_from_wiki_search2(self, query_span, search_result, threshold=0.7, title_only=True):
+    def get_subspan_from_wiki_search(self, query_span, search_result, threshold=0.7, title_only=True):
         """Get a subspan from a wikpedia search result.
 
         Args:
@@ -1269,7 +1269,7 @@ class Ccg2Drs(Sentence):
                     else:
                         result = allresults.pop()
                     if result is not None:
-                        subspan, bresult = self.get_subspan_from_wiki_search2(c, result, title_only=retry)
+                        subspan, bresult = self.get_subspan_from_wiki_search(c, result, title_only=retry)
                         if subspan is not None:
                             # Only checking first result
                             found.append((c, bresult))
