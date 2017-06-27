@@ -1161,6 +1161,30 @@ CAT_VPto = Category.from_cache(r'S[to]\NP')
 # Adjectival phrase
 CAT_AP = Category.from_cache(r'S[adj]\NP')
 
+# Transitive verb
+CAT_TV = Category.from_cache(r'(S\NP)/NP')
+# Ditransitive verb
+CAT_DTV = Category.from_cache(r'(S\NP)/NP/NP')
+# Copular verb
+CAT_COPULAR = [Category.from_cache(r'(S[dcl]\NP)/(S[adj]\NP)'),
+               Category.from_cache(r'(S[b]\NP)/(S[adj]\NP)')]
+# EasySRL prepositions
+CAT_ESRL_PP = Category.from_cache(r'(NP\NP)/NP')
+CAT_PP_ADVP = Category.from_cache(r'((S\NP)\(S\NP))/NP')
+CAT_VP_MOD = Category.from_cache(r'(S\NP)\(S\NP)')
+# CAT_AP
+# Adjectival prepositional phrase
+CAT_AP_PP = Category.from_cache(r'(S[adj]\NP)/PP')
+# Past participle
+CAT_MODAL_PAST = Category.from_cache(r'(S[dcl]\NP)/(S[pt]\NP)')
+# If then
+CAT_IF_THEN = Category.from_cache(r'(S/S)/S[dcl]')
+
+FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM
+FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
+CAT_VPMODX = Category.from_cache(r'(S[X]\NP)/(S[X]\NP)')
+CAT_VP_MODX = Category.from_cache(r'(S[X]\NP)\(S[X]\NP)')
+CAT_VPX = Category.from_cache(r'S[X]\NP')
 ## @endcond
 
 
@@ -1400,13 +1424,11 @@ RL_TCR_UNARY = Rule('R_UNARY_TC')
 
 ## @cond
 CAT_Sany__NP = RegexCategoryClass(r'^S(\[[a-z]+\])?[\\/]NP(\[conj\])?$')
-CAT_NP_NP = Category.from_cache(r'NP\NP')
 CAT_NPNP = Category.from_cache(r'NP/NP')
 CAT_NP__NP = RegexCategoryClass(r'^(NP[\\/]NP(?:\[conj\])?|N[\\/]N)$')
 CAT_Sng_NP = Category.from_cache(r'S[ng]\NP')
 CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
 CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
-CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_Sany_NP__Sany_NP = RegexCategoryClass(r'^\(S(\[[a-z]+\])?\\NP\)[\\/]\(S(\[[a-z]+\])?\\NP\)$')
 CAT_S_NP_S_NP = Category.from_cache(r'(S\NP)\(S\NP)')
@@ -1733,3 +1755,4 @@ POS_NUMBER = POS.from_cache('CD')
 POS_PREPOSITION = POS.from_cache('IN')
 POS_LIST_PUNCT = [POS.from_cache(','), POS.from_cache('.'), POS.from_cache('?'), POS.from_cache(':'),
                   POS.from_cache(';')]
+POS_POSSESSIVE = POS.from_cache('POS')
