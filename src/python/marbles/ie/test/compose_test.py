@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, print_function
-import os
-import unittest
-import logging
-import re
 
-from marbles import future_string, native_string
+import logging
+import os
+import re
+import unittest
+
 from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.ccg_derivation import process_ccg_pt, Ccg2Drs
-from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
-    CO_FAST_RENAME, CO_NO_WIKI_SEARCH
-from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
 from marbles.ie.parse import parse_drs  #, parse_ccg_derivation
+from marbles.ie.semantics.ccg import process_ccg_pt, Ccg2Drs
+from marbles.ie.semantics.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
+    CO_FAST_RENAME, CO_NO_WIKI_SEARCH
+from marbles.ie.semantics.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
 
 
 # Like NLTK's dexpr()

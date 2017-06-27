@@ -2,17 +2,17 @@
 """CCG Model"""
 
 from __future__ import unicode_literals, print_function
+
+import logging
 import os
 import re
-import logging
 
+from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
 from marbles.ie.ccg import Category, CAT_Sadj, CAT_CONJ, CAT_Sany, datapath
-from marbles.ie.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.drs import DRSRef
+from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.utils.cache import Cache
-from marbles import safe_utf8_decode, safe_utf8_encode, future_string, native_string
-
 
 _logger = logging.getLogger()
 

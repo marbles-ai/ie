@@ -1,13 +1,17 @@
 from __future__ import unicode_literals, print_function
-import unittest
-import os
+
 import json
 import logging
+import os
+import unittest
+
+import boto3
 from moto import mock_s3, mock_sqs
+
 from marbles import aws
 from marbles.ie import grpc
-from marbles.ie.compose import CO_NO_WIKI_SEARCH
-import boto3
+from marbles.ie.semantics.compose import CO_NO_WIKI_SEARCH
+
 #from botocore.exceptions import QueueDoesNotExist
 
 

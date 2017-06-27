@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
+
 import os
 import re
 import sys
@@ -15,7 +16,7 @@ sys.path.insert(0, pypath)
 #from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
 from marbles.ie.ccg2drs import process_ccg_pt, pt_to_ccgbank
-from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
+from marbles.ie.semantics.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.drt.drs import DRS
 from marbles import safe_utf8_encode

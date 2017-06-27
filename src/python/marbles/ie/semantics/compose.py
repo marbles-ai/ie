@@ -6,10 +6,10 @@ from __future__ import unicode_literals, print_function
 import collections
 import weakref
 
-from ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
-from drt.common import SHOW_LINEAR
-from drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
-from drt.utils import iterable_type_check, intersect, union, remove_dups
+from marbles.ie.ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
+from marbles.ie.drt.common import SHOW_LINEAR
+from marbles.ie.drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
+from marbles.ie.drt.utils import iterable_type_check, intersect, union, remove_dups
 from marbles import safe_utf8_encode, future_string
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import IndexSpan

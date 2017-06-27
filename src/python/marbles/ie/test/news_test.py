@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals, print_function
+
+import json
 import os
 import unittest
-import json
-from marbles.ie.ccg import Category, parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.ccg_derivation import process_ccg_pt, Ccg2Drs
-from marbles.ie.compose import CO_VERIFY_SIGNATURES, CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_FAST_RENAME
-from marbles.ie.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
-from marbles.ie.drt.drs import *
-from marbles.ie.drt.utils import compare_lists_eq
-from marbles.ie.parse import parse_drs  #, parse_ccg_derivation
-from marbles.ie import grpc
+
 from nltk.tokenize import sent_tokenize
+
+from marbles.ie import grpc
+from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.semantics.ccg import process_ccg_pt
+
 datapath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 

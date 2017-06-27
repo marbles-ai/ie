@@ -9,19 +9,19 @@ import logging
 
 import numpy as np
 
-from ccg import *
-from ccg.model import MODEL
-from lexeme import Lexeme
-from compose import ProductionList, FunctorProduction, DrsProduction, DrsComposeError, identity_functor
-from drt.common import DRSVar, SHOW_SET, Showable
-from drt.drs import DRS, DRSRef, Rel, Or, Imp, DRSRelation
-from drt.utils import remove_dups
-from marbles import safe_utf8_decode, safe_utf8_encode, future_string
+from marbles import safe_utf8_encode, future_string
+from marbles.ie.ccg import *
+from marbles.ie.ccg.model import MODEL
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Sentence, IndexSpan, Constituent
+from marbles.ie.drt.common import DRSVar
+from marbles.ie.drt.drs import DRS, DRSRef, Rel, DRSRelation
+from marbles.ie.drt.utils import remove_dups
+from marbles.ie.semantics.compose import ProductionList, FunctorProduction, DrsProduction, identity_functor
+from marbles.ie.semantics.lexeme import Lexeme
+from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 from marbles.log import ExceptionRateLimitedLogAdaptor
-from utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
 
 _actual_logger = logging.getLogger(__name__)
 _logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
@@ -1036,7 +1036,7 @@ class Ccg2Drs(Sentence):
         return d
 
     def build_execution_sequence(self, pt):
-        """Build the execution sequence from a ccgbank parse tree.
+        """Build the execution sequence from a ccg derivation parse tree.
 
         Args:
             pt: The parse tree.

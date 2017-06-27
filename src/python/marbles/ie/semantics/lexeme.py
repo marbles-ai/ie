@@ -2,23 +2,22 @@
 """CCG to DRS Production Generator"""
 
 from __future__ import unicode_literals, print_function
-import logging
 
 import inflect
 from nltk.stem import wordnet as wn
 
-from ccg import *
-from ccg.model import MODEL
-from compose import FunctorProduction, DrsProduction, DrsComposeError, identity_functor
-from drt.common import DRSVar, SHOW_SET, Showable
-from drt.drs import DRS, DRSRef, Rel, Or, Imp
-from drt.drs import get_new_drsrefs
-from drt.utils import remove_dups, union, complement, intersect
-from kb.verbnet import VERBNETDB
-from marbles import safe_utf8_decode, safe_utf8_encode, future_string
+from marbles.ie.ccg import *
+from marbles.ie.ccg.model import MODEL
+from marbles.ie.drt.common import DRSVar, SHOW_SET, Showable
+from marbles.ie.drt.drs import DRS, DRSRef, Rel, Or, Imp
+from marbles.ie.drt.drs import get_new_drsrefs
+from marbles.ie.drt.utils import remove_dups, union, complement, intersect
+from marbles.ie.kb.verbnet import VERBNETDB
+from marbles import safe_utf8_decode, safe_utf8_encode
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import IndexSpan, AbstractLexeme
-from parse import parse_drs
+from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, DrsComposeError, identity_functor
+from marbles.ie.parse import parse_drs
 
 
 FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM

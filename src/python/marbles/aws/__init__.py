@@ -1,21 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-import boto3
-import requests
+
 import StringIO
 import base64
 import json
-import time
 import logging
-import regex as re  # Has better support for unicode
 import mimetypes
+import time
+
+import boto3
+import regex as re  # Has better support for unicode
+import requests
 from nltk.tokenize import sent_tokenize
+
 from marbles.ie import grpc
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg_derivation import process_ccg_pt
+from marbles.ie.semantics.ccg import process_ccg_pt
 from marbles.log import ExceptionRateLimitedLogAdaptor
-
 
 _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
 #python -m nltk.downloader punkt

@@ -1,23 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-import os
-import sys
-import logging
-from optparse import OptionParser
-import watchtower
-import daemon
-import daemon.pidfile
-import signal
-import grpc
-from google.protobuf import empty_pb2
-import regex as re  # Has better support for unicode
-import mimetypes
-from nltk.tokenize import sent_tokenize
-import requests
-import time
-from concurrent import futures
 
+import logging
+import os
+import signal
+import sys
+from optparse import OptionParser
+
+import daemon.pidfile
+import grpc
+import regex as re  # Has better support for unicode
+import requests
+import watchtower
+from concurrent import futures
+from google.protobuf import empty_pb2
 
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -199,10 +196,9 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
     # Delay import so help is displayed quickly without loading model.
-    from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader, ServiceState
-    from marbles.ie.core.constants import CO_NO_WIKI_SEARCH
+    from marbles.aws import ServiceState
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-    from marbles.ie.ccg_derivation import process_ccg_pt
+    from marbles.ie.semantics.ccg import process_ccg_pt
 
 
     class IxServiceState(ServiceState):

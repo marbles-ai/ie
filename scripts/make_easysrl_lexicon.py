@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
+
 import os
 import re
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, pypath)
 
 #from marbles.ie.parse import parse_ccg_derivation
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation, sentence_from_pt
-from marbles.ie.ccg_derivation import extract_lexicon_from_pt
+from marbles.ie.semantics.ccg import extract_lexicon_from_pt
 from marbles.ie.ccg import Category
 from marbles import safe_utf8_encode, safe_utf8_decode
 
