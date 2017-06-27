@@ -1377,7 +1377,7 @@ def extract_predarg_categories_from_pt(pt, lst=None):
     """Extract the predicate-argument categories from a CCG parse tree.
 
     Args:
-        pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
+        pt: The parse tree returned from marbles.ie.ccg.parse_ccg_derivation2().
         lst: An optional list of existing predicate categories.
     Returns:
         A list of Category instances.
