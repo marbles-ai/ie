@@ -119,10 +119,39 @@
 
 <script>
 
+    function toHtml(par, key, value){
+
+        if (key == "Tokens"){
+            var tokens = value.split(' ');
+            var toplist = $("<ol>");
+            console.log("Tokens: " + tokens);
+            for(var i = 0; i < tokens.length; i++){
+                var list = $("<li>");
+                list.append(tokens[i]);
+                toplist.append(list);
+            }
+            par.append(toplist.html());
+            return;
+        }
+        if (key == "Constituency Tree"){
+            var root = new TreeNode('PARA');
+            for( var i = 0, len = value.length; i < len; ++i){
+                var pt = parseCnfTree(value[i]);
+                root.children.push(pt);
+            }
+            var can = $("<canvas>")[0];
+            par.append(can);
+            var ctx = can.getContext("2d");
+            drawConstituentTree(can, ctx, root);
+            return;
+        }
+    }
+
     $("#nlInput").keyup(function(e){
         var keycode = e.which;
         if(keycode == 13){
-            
+            var inputText = $("#nlInput").val();
+            toHtml($("#response"),"Tokens",inputText);
         }
     });
 
