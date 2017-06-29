@@ -229,6 +229,9 @@ class Lexeme(AbstractLexeme):
             self.stem = word
         else:
             # TODO: should lookup nouns via conceptnet or wordnet
+            if word == "'s" and self.pos is not POS_POSSESSIVE \
+                    and not self.category.ismodifier and self.category.test_return(CAT_VP):
+                word = 'is'
             self.word = word
             wd = strip_apostrophe_s(word)
             if (self.category == CAT_NOUN or self.pos == POS_NOUN or self.pos == POS_NOUN_S) and wd.upper() == wd:
