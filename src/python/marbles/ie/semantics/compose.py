@@ -25,12 +25,12 @@ def unify_vars(f, g, rs):
 
 
 
-def identity_functor(category, ref=None):
-    """Return the identity functor `λx.P(x)`.
+def identity_functor(category, refs=None):
+    """Return the identity functor `λx.P(x) or λx.P(y)`.
 
     Args:
         category: A functor category where the result and argument are atoms.
-        ref: optional DRSRef to use as identity referent.
+        refs: optional DRSRef's to use as identity referents.
 
     Returns:
         A FunctorProduction instance.
@@ -41,10 +41,13 @@ def identity_functor(category, ref=None):
     assert category.result_category().isatom
     assert category.argument_category().isatom
     d = DrsProduction([], [], category=category.result_category())
-    if ref is None:
-        ref = DRSRef('x1')
-    d.set_lambda_refs([ref])
-    return FunctorProduction(category, ref, d)
+    if refs is None:
+        refs = [DRSRef('x1')]
+        d.set_lambda_refs(refs)
+        return FunctorProduction(category, refs, d)
+    else:
+        d.set_lambda_refs([refs[-1]])
+        return FunctorProduction(category, refs[0:-1], d) if len(refs) > 1 else FunctorProduction(category, [refs[0]], d)
 
 
 class AbstractProduction(object):
@@ -1102,37 +1105,32 @@ class FunctorProduction(AbstractProduction):
         self.push(np)
         return self
 
-    def type_raise(self, np):
-        """Special type change. See LDC manual section 3.7.2.
+    def type_raise(self, g):
+        """Type raise
 
         Args:
-            np: The noun phrase. Must be a NP category.
+            np: The argument category.
 
         Remarks:
             self is a template. The inner DrsProduction will be discarded.
         """
-        ## Forward   X:np => T/(T\X): λxf.f(np)
-        ## Backward  X:np => T\(T/X): λxf.f(np)
-        self.make_vars_disjoint(np)
-        slr = self.inner_scope._comp.lambda_refs
-        assert isinstance(np, DrsProduction)
-        assert not np.isfunctor
-        lr = np.lambda_refs
-        if len(lr) == 0:
-            lr = np.universe
-            np.set_lambda_refs(lr)
-        if len(lr) != 1:
-            # Add proposition
-            p = PropProduction(category=np.category, referent=slr[0])
-            np = p.apply(np)
-        else:
-            rs = zip(slr, lr)
-            self.rename_vars(rs, np)
+        ## Forward   X:g => T/(T\X): λxf.f(g)
+        ## Backward  X:g => T\(T/X): λxf.f(g)
+        self.make_vars_disjoint(g)
+        # Remove T vars from unify scope but maintain ordering
+        fU = self.get_unify_scopes(True)
+        fT = set()
+        for u in fU[1:]:
+            fT = fT.union(u)
+        fX = filter(lambda x: x not in fT, fU[0])
+        rs = zip(fX, g.lambda_refs)
+        self.rename_vars(rs)
 
         fc = self.pop()
-        np.set_lambda_refs(fc.lambda_refs)
-        np.set_category(self.category.extract_unify_atoms(False)[-1])
-        self.push(np)
+        if g.isfunctor:
+            g = g.pop()
+        g.set_lambda_refs(fc.lambda_refs)
+        self.push(g)
         return self
 
     def compose(self, g):
