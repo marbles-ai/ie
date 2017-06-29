@@ -1,23 +1,14 @@
-# Use an official Python runtime as a base image
-FROM python:2.7-slim
+# Using this docker image: https://github.com/tiangolo/uwsgi-nginx-flask-docker
+FROM tiangolo/uwsgi-nginx-flask:flask-index
 
-# Set the working directory to /app
-WORKDIR /webapp
+ADD requirements.txt .
 
-# Copy the current directory contents into the container at /webapp
-ADD . /webapp
-
-# Install any needed packages specified in requirements.txt
 RUN pip install -r requirements.txt
 
 # Set up AWS
-RUN mkdir ~/.aws && mv aws/website_config ~/.aws/config && mv aws/website_credentials ~/.aws/credentials
+# RUN mkdir ~/.aws && mv aws/website_config ~/.aws/config && mv aws/website_credentials ~/.aws/credentials
 
 # Make port 5000 available to the world outside this container
-EXPOSE 5000 
+# EXPOSE 5000
 
-# Define environment variable
-ENV HOME /webapp
-
-# Run app.py when the container launches
-CMD ["python", "run.py"]
+COPY ./app /app
