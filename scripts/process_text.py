@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     # Delay imports so help text can be dislayed without loading model
     from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
-    from marbles.ie.semantics.compose import CO_ADD_STATE_PREDICATES, CO_NO_VERBNET, CO_BUILD_STATES, CO_NO_WIKI_SEARCH
+    from marbles.ie.core.constants import *
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     #from marbles.ie.parse import parse_ccg_derivation
     from marbles.ie.drt.common import SHOW_LINEAR
@@ -175,6 +175,11 @@ if __name__ == '__main__':
                     for c in sentence.constituents:
                         constituents.append(c.vntype.signature + '(' + c.span.text + ')')
                     constituents = ' '.join(constituents)
+                    vnconstituents = []
+                    vsent = sentence.get_verbnet_sentence()
+                    for c in vsent.constituents:
+                        vnconstituents.append(c.vntype.signature + '(' + c.span.text + ')')
+                    vnconstituents = ' '.join(vnconstituents)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise
@@ -202,6 +207,8 @@ if __name__ == '__main__':
                 if constituents:
                     sys.stdout.write('<constituents>\n')
                     sys.stdout.write(constituents)
+                    sys.stdout.write('\n')
+                    sys.stdout.write(vnconstituents)
                     sys.stdout.write('\n</constituents>\n')
             else:
                 with open(outfile, 'w') as fd:
@@ -227,6 +234,8 @@ if __name__ == '__main__':
                     if constituents:
                         fd.write(b'<constituents>\n')
                         fd.write(safe_utf8_encode(constituents))
+                        fd.write('\n')
+                        fd.write(safe_utf8_encode(vnconstituents))
                         fd.write(b'\n</constituents>\n')
 
         elif outfile is None:
