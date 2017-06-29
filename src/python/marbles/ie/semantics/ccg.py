@@ -27,6 +27,27 @@ _actual_logger = logging.getLogger(__name__)
 _logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
 
 
+# The sentential features are as follows:
+#   S[dcl: for declarative sentences
+#   S[wq]: for wh-questions
+#   S[q]: for yes-no questions (Does he leave?)
+#   S[qem]: for embedded questions (worry [whether he left])
+#   S[em]: for embedded declaratives (he says [that he left])
+#   S[bem]: for embedded sentences in subjunctive mood (I demand [that he leave])
+#   S[b]: for sentences in subjunctive mood (I demand (that) [he leave])
+#   S[frg]: for sentence fragments (derived from the Treebank label     )
+#   S[for]:for small clauses headed by for ([for X to do sth])
+#   S[intj]: for interjections
+#   S[inv]: for elliptical inversion ((as) [does President Bush])
+
+# These are the verb phrase features:
+#   S[b]\NP: for bare infinitives, subjunctives and imperatives
+#   S[to]\NP: for to-infinitives
+#   S[pss]: for past participles in passive mode
+#   S[pt]: for past participles used in active mode
+#   S[ng]: for present participles
+
+
 # Copular verbs
 _COPULAR = [
     'act', 'appear', 'be', 'become', 'bleed', 'come', 'come out', 'constitute', 'end up', 'die', 'get', 'go', 'grow',
@@ -148,12 +169,15 @@ def safe_create_empty_functor(category):
     templ = MODEL.lookup(category)
     if templ is None:
         if category.isfunctor:
-            if category != CAT_CONJ_CONJ and category != CAT_CONJCONJ:
+            if category != CAT_CONJ_CONJ and category != CAT_CONJCONJ \
+                    and not category.result_category().isatom and not category.argument_category().isatom:
                 templ = MODEL.infer_template(category)
                 if templ is not None:
                     return templ.create_empty_functor()
-            else:
+            elif category.result_category().can_unify(category.argument_category()):
                 return identity_functor(category)
+            else:
+                return identity_functor(category, [DRSRef('x2'), DRSRef('x1')])
     else:
         return templ.create_empty_functor()
     return None
@@ -166,9 +190,7 @@ def vntype_from_category(category):
         return ct.CONSTITUENT_PP
     elif category in [CAT_VPdcl, CAT_VP]:
         return ct.CONSTITUENT_VP
-    elif category == CAT_VPb:
-        return ct.CONSTITUENT_SINF
-    elif category == CAT_VPto:
+    elif category in [CAT_VPb, CAT_VPto]:
         return ct.CONSTITUENT_SINF
     elif category == CAT_AP:
         return ct.CONSTITUENT_ADJP
@@ -310,16 +332,23 @@ class Ccg2Drs(Sentence):
         nlst.set_options(self.options)
         nlst.set_category(op.category)
 
-        # FIXME: this is a hack to get proper nouns separated by 'and' merged
         d1 = stk.pop()
         d2 = stk.pop()
-        if d2.category is CAT_CONJ and d1.category.test_returns_entity_modifier():
-            d2.rename_vars(zip(d2.lambda_refs, reversed(d1.lambda_refs)))
+        markadjunct = True
+        if d2.category is CAT_CONJ:
+            if d1.category.test_returns_entity_modifier():
+                # FIXME: this is a hack to get proper nouns separated by 'and' merged
+                d2.rename_vars(zip(d2.lambda_refs, reversed(d1.lambda_refs)))
+            elif op.category.ismodifier and op.category.simplify().test_return(CAT_S_NP) and \
+                    (op.category.test_return(d1.category) or op.category.test_return(d2.category)):
+                markadjunct = False
+
 
         nlst.push_right(d1)
         nlst.push_right(d2)
         stk.append(nlst.flatten().unify())
-        self._mark_if_adjunct(ucat, stk[-1])
+        if markadjunct:
+            self._mark_if_adjunct(ucat, stk[-1])
 
     @dispatchmethod(dispatchmap, RL_TC_CONJ)
     def _dispatch_tcconj(self, op, stk):
@@ -354,9 +383,9 @@ class Ccg2Drs(Sentence):
         self._dispatch_ba(op, stk)  # backward application
 
     @dispatchmethod(dispatchmap, RL_TYPE_RAISE)
-    def _dispatch_typeraise(self, op, stk):
-        ## Forward   X:np => T/(T\X): λxf.f(np)
-        ## Backward  X:np => T\(T/X): λxf.f(np)
+    def _dispatch_type_raise(self, op, stk):
+        ## Forward   X:g => T/(T\X): λxf.f(g)
+        ## Backward  X:g => T\(T/X): λxf.f(g)
         assert len(op.sub_ops) == 1
         f = self.rename_vars(safe_create_empty_functor(op.category))
         g = stk.pop()
@@ -527,6 +556,11 @@ class Ccg2Drs(Sentence):
                         and (cat_before_rule.test_return(CAT_VPMODX) or cat_before_rule.test_return(CAT_VP_MODX)):
                     # (S\NP)/(S\NP)/N[X]
                     vntype = ct.CONSTITUENT_NP
+                elif vntype is None and cat_before_rule.argument_category() in [CAT_VPb, CAT_VPto] and \
+                        cat_before_rule.result_category().ismodifier and \
+                        cat_before_rule.result_category().test_return(CAT_S_NP):
+                    # Handle categories like ((S\NP)\(S\NP))/(S[b]\NP) for TO in 'has done more than its share to popularize'
+                    vntype = ct.CONSTITUENT_SINF
 
             if vntype is not None \
                     and ((0 == (self.options & CO_NO_VERBNET) \
@@ -1338,7 +1372,7 @@ def process_ccg_pt(pt, options=0):
     ccg.build_execution_sequence(pt)
     ccg.create_drs()
     ccg.resolve_proper_names()
-    if 0 != (options & CO_NO_WIKI_SEARCH):
+    if 0 == (options & CO_NO_WIKI_SEARCH):
         ccg.add_wikipedia_links()
     ccg.final_rename()
     # TODO: resolve anaphora
