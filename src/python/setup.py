@@ -8,6 +8,7 @@ projdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 from setuptools import setup, find_packages
 from setuptools.command.develop import develop
 from setuptools.command.install import install
+from setuptools import Command
 import nltk
 
 
@@ -29,6 +30,47 @@ class PostInstallCommand(install):
         nltk.download('punkt')
 
 
+exclude_spec = [ '*.test', '*.test.*', 'test.*', '*.log', '*.nlp', 'nlp.*', '*.nlp.*' ]
+packages_to_include = find_packages(exclude=exclude_spec)
+scripts_to_include = [
+    'services/ccgparser/ccgparser.py',
+    'services/newsreader/newsreader.py'
+]
+
+class MinimalCommand(Command):
+    """Create minimal package"""
+    description = 'build a minimal package'
+
+    user_options = [
+        ('exclude', 'x', 'exclude spec')
+    ]
+
+    def initialize_options(self):
+        self.exclude = None
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        global exclude_spec, packages_to_include, scripts_to_include
+        if self.exclude is not None:
+            exclude_spec.extend(self.exclude.split(','))
+        else:
+            exclude_spec.extend(['*.drt', '*.drt.*', 'drt.*',
+                                 '*.aws', '*.aws.*', 'aws.*',
+                                 '*.newsfeed', '*.newsfeed.*', 'newsfeed.*',
+                                 '*.semantics', '*.semantics.*', 'semantics.*',
+                                 '*.services', '*.services.*', 'services.*',
+                                 ])
+        # Delete all entries but dont change reference
+        while len(packages_to_include) != 0:
+            packages_to_include.pop()
+        packages_to_include.extend(find_packages(exclude=exclude_spec))
+
+        # No scripts in minimal
+        while len(scripts_to_include) != 0:
+            scripts_to_include.pop()
+
 setup(
     name='marbles',
     version='0.1',
@@ -42,7 +84,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Topic :: Text Processing :: Linguistic',
     ],
-    packages=find_packages(exclude=['*.test', '*.test.*', 'test.*', '*.log', '*.nlp', 'nlp.*', '*.nlp.*']),
+    packages=packages_to_include,
     package_data={
         'marbles.newsfeed': ['data/phantomjs'],
         'marbles.ie.ccg': ['data/*.dat', 'data/phantomjs', 'data/vnxml/*.xml'],
@@ -68,13 +110,11 @@ setup(
         'python_daemon',
         'regex'
     ],
-    scripts=[
-        'services/ccgparser/ccgparser.py',
-        'services/newsreader/newsreader.py'
-    ],
+    scripts=scripts_to_include,
     cmdclass={
         'develop': PostDevelopCommand,
         'install': PostInstallCommand,
+        'minimal': MinimalCommand,
     },
     include_package_data=True,
     zip_safe=False,
