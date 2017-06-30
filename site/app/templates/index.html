@@ -9,11 +9,16 @@
 
 <style>
 
+  element.style {
+    opacity: 0.9;
+  }
+
   .btn-primary, .btn-primary:hover, .btn-primary:active, .btn-primary:visited {
-    background-color: white;
+    background-color: transparent;
   }
   .carousel {
-    background: rgba(0, 0, 0, 0.0);
+    /*background: rgba(0, 0, 0, 0.0);*/
+    background-color: transparent;
     position: relative;
     padding: 10px;     /* Shows as a border around the carousel */
   }
@@ -25,10 +30,11 @@
   .carousel-control {
     background: rgba(0, 0, 0, 0.0);
     height: 200px;
+    opacity: 0;
   }
   .carousel.item {
     height: 200px;
-    background: rgba(0, 0, 0, 0.0);
+    background-color: transparent;
   }
   .carousel.slide{
     height: 200px;
@@ -54,6 +60,7 @@
     z-index: -1;
   }
 </style>
+
 </head>
 <!--<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script>-->
 
@@ -62,12 +69,14 @@
 {% block content %}
 
 <div id="myCarousel" class="carousel slide" data-ride="carousel" style="background-color: white;">
+
   <!-- Indicators -->
   <ol class="carousel-indicators" >
     <li data-target="#myCarousel" data-slide-to="0" class="active"></li>
     <li data-target="#myCarousel" data-slide-to="1"></li>
     <li data-target="#myCarousel" data-slide-to="2"></li>
   </ol>
+
   <div class="carousel-inner" role="listbox" >
     <div class="item active" >
       <img class="first-slide" src="data:image/gif;base64,R0lGODdhAQABAIABAB181f///ywAAAAAAQABAAACAkQBADs=" alt="First slide" style="background-color: white;">
