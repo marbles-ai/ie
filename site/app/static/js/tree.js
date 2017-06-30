@@ -6,6 +6,18 @@
  */
 
 
+/*
+    Example javascript request:
+ http://msrsplat.cloudapp.net/SplatServiceJson.svc
+ /Analyze?language=en
+ &analyzers=Constituency_Tree-PennTreebank3-SplitMerge
+ &appId=89839f78-e146-48c6-8e55-96de0b30057a
+ &input=I%20like%20apples!
+
+    Result:
+ [{"Key": "Constituency_Tree-PennTreebank3-SplitMerge", "Value": ["(TOP (S (NP (PRP I)) (VP (VBP like) (NNS apples)) (. !)))"]}]
+ */
+
 var font = "'Sorts Mill Goudy'";
 var largeSize = "24px";
 var smallSize = "13px";
@@ -13,7 +25,6 @@ var textheight = 20;
 var between = 25;
 var lineoffsettop = 8;
 var lineoffsetbottom = -2;
-
 
 // constructor for a treenode object, representing one node in a constituent tree.
 function Treenode(label) {
@@ -32,11 +43,29 @@ function Treenode(label) {
     }
 }
 
+// constructor for a position reference object.  passes a position by reference,
+// and checks for access beyond bounds
+function PositionRef(max) {
+    this.index = 0;
+    this.maxpos = max;
+    this.inc = function() {
+        if (++this.index > this.maxpos)
+            throw new exception("access beyond end of array");
+        return this.index;
+    }
+    this.add = function(i) {
+        this.index += i;
+        if (this.index > this.maxpos)
+            throw new exception("access beyond end of array");
+        return this.index;
+    }
+}
+
 function parseCnfTreeHelper(str, pos, maxpos) {
-    //log("parsing at position " + pos.index + ": " + str.substr(pos.index));
     // skip past any initial whitespace.
     while (str.charAt(pos.index) == ' ') pos.inc();
 
+    // Start a label with '('
     if (str.charAt(pos.index) == '(') {
         var labelstart = pos.inc();
         while (str.charAt(pos.index) != ' ') pos.inc();
@@ -48,7 +77,6 @@ function parseCnfTreeHelper(str, pos, maxpos) {
                 break;
             }
             var child = parseCnfTreeHelper(str, pos);
-            //log("add child " + n.label + " ===/ " + child.label);
             n.children.push(child);
         }
         return n;
@@ -62,6 +90,19 @@ function parseCnfTreeHelper(str, pos, maxpos) {
 // parse a CNF-style tree representation into a tree of nodes.
 function parseCnfTree(str) {
     return parseCnfTreeHelper(str, new PositionRef(str.length));
+}
+
+
+function distributeExtraWeight(n, extra) {
+    n.right += extra;
+    var kids = n.children.length;
+    if (kids == 0) {
+        return;
+    }
+    if (kids == 1) {
+        distributeExtraWeight(n.children[0], extra);
+        return;
+    }
 }
 
 function drawConstituentTree(canvas, ctx, pt) {
@@ -80,6 +121,71 @@ function drawConstituentTree(canvas, ctx, pt) {
     drawTree(pt, ctx, pt.layer);
 }
 
+function layoutTree(n, ctx, pos) {
+    n.left = pos.index;
+    if (n.children.length == 0) {
+        n.layer = 0;
+        pos.add(ctx.measureText(n.label).width);
+        pos.add(10);
+        n.right = pos.index;
+        return;
+    }
+
+    n.layer = 1;
+    var totalWidth = 0;
+    for (x in n.children) {
+        var child = n.children[x];
+        layoutTree(child, ctx, pos);
+        if (child.layer >= n.layer) {
+            n.layer = child.layer + 1;
+        }
+        totalWidth += child.right - child.left;
+    }
+    var mywidth = ctx.measureText(n.label).width + 10;
+    if (mywidth > totalWidth) {
+        var extra = mywidth - totalWidth;
+        pos.add(extra);
+        distributeExtraWeight(n, extra);
+    }
+    n.right = pos.index;
+}
+function layoutTreeFixLayer(n) {
+    for (x in n.children) {
+        var child = n.children[x];
+        if (child.layer > 0 && child.layer < n.layer - 1) {
+            child.layer = n.layer - 1
+        }
+        layoutTreeFixLayer(child);
+    }
+}
+function layoutTreeFixMid(n) {
+    if (n.children.length == 0)
+    {
+        n.mid = Math.round((n.left + n.right) / 2);
+        return;
+    }
+    var sum = 0;
+    var denom = 0;
+    for (x in n.children) {
+        var child = n.children[x];
+        layoutTreeFixMid(child);
+        var weight = 1 / (1 + child.layer);
+        denom += weight;
+        sum += child.mid * weight;
+    }
+    n.mid = Math.round(sum / denom);
+}
+
+function topY(layer, toplayer) {
+    var l = toplayer - layer;
+    return l * (textheight + between);
+}
+
+function bottomY(layer, toplayer) {
+    var l = toplayer - layer;
+    return textheight + l * (textheight + between);
+}
+
 function drawTree(pt, ctx, toplayer) {
     ctx.textAlign = "center";
     var y = bottomY(pt.layer, toplayer);
@@ -88,7 +194,7 @@ function drawTree(pt, ctx, toplayer) {
     y += lineoffsettop;
 
     for (var x in pt.children) {
-        var color = "#b0b0b0";
+        var color = "blue";
         if (pt.children[x].label.indexOf('*') != -1)
             color = "red";
         ctx.strokeStyle = color;
