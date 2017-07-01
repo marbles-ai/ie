@@ -7,13 +7,12 @@ import os
 import signal
 import sys
 from optparse import OptionParser
-
 import daemon.pidfile
 import grpc
 import requests
-import watchtower
 from concurrent import futures
 from google.protobuf import empty_pb2
+
 
 # Modify python path if in development mode
 thisdir = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +29,7 @@ terminate = False
 from marbles.ie import grpc as gsvc
 from marbles.ie.grpc import infox_service_pb2
 from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
+from marbles.aws import svc
 
 
 class InfoxService(infox_service_pb2.InfoxServiceServicer):
@@ -44,7 +44,6 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
         return self.state.logger
 
     def parse(self, request, context):
-        global _USQUOTE, _UDQUOTE, _UPUNCT
         """Parse a message."""
         retry = 3
         while retry:
@@ -111,79 +110,61 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
         return empty_pb2.Empty()
 
 
-hup_recv = 0
-def hup_handler(signum, frame):
-    """Forces code to re-read all active articles. This will re-queue articles on AWS SQS."""
-    global hup_recv
-    hup_recv += 1
-    logger.info('SIGHUP')
+class InfoxExecutor(svc.ServiceExecutor):
 
+    def __init__(self, state, grpc_daemon_name, jar_file, model_dir, port):
+        super(InfoxExecutor, self).__init__(wakeup=5*60, state_or_logger=state)
+        self.grpc_daemon_name = grpc_daemon_name
+        self.grpc_daemon = None
+        self.model_dir = model_dir
+        self.jar_file = jar_file
+        self.server = None
+        self.port = port
 
-def term_handler(signum, frame):
-    global terminate, logger
-    terminate = True
-    logger.info('SIGTERM')
+    def on_start(self, workdir):
+        # Start dependent gRPC CCG parser service
+        self.grpc_daemon = gsvc.CcgParserService(self.grpc_daemon_name,
+                                            logger=self.logger,
+                                            workdir=workdir,
+                                            modeldir=self.model_dir,
+                                            jarfile=self.jar_file)
+        # Start InfoX gRPC service
+        svc_handler = InfoxService(self.grpc_daemon.open_client(), self.state)
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        infox_service_pb2.add_InfoxServiceServicer_to_server(svc_handler, self.server)
+        self.server.add_insecure_port('[::]:%d' % self.port)
+        self.server.start()
 
+    def on_term(self, graceful):
+        if self.server is not None:
+            if graceful:
+                self.logger.debug('Graceful shutdown of gRPC main service')
+                evt = self.server.stop(3)
+                evt.wait(3)
+            else:
+                self.logger.debug('Immediate shutdown of gRPC main service')
+                self.server.stop(0)
+            self.logger.info('gRPC main service stopped')
 
-def alarm_handler(signum, frame):
-    pass
-
-
-def start_server(svc_handler, port):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    infox_service_pb2.add_InfoxServiceServicer_to_server(svc_handler, server)
-    server.add_insecure_port('[::]:%d' % port)
-    server.start()
-    return server
-
-
-def run_daemon(server, state):
-    global hup_recv, terminate
-    count = 0
-
-    while not terminate:
-        # A HUP will force a read of all articles. Save to local to avoid race condition
-        # between test and set
-        hup_recv_local = hup_recv
-        hup_signaled = hup_recv_local == count  # test
-        count = hup_recv_local                  # set
-
-        if hup_signaled:
-            logger.info('HUP received, refreshing')
-
-        state.wait(5*60)    # Wait 5 mins
-
-    logger.info('TERM received, exited daemon run loop')
-    evt = server.stop(3)
-    evt.wait()
-
-
-def init_log_handler(log_handler, log_level):
-    log_handler.setLevel(log_level)
-    set_log_format(log_handler)
+    def on_shutdown(self):
+        if self.grpc_daemon is not None:
+            self.grpc_daemon.shutdown()
+            self.logger.info('gRPC ccg parser service stopped')
 
 
 #-jar $ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar --model $ESRLPATH/model/text
 if __name__ == '__main__':
     usage = 'Usage: %prog [options]'
     parser = OptionParser(usage)
-    parser.add_option('-l', '--log-level', type='string', action='store', dest='log_level',
-                      help='Logging level, defaults to \"info\"')
-    parser.add_option('-f', '--log-file', type='string', action='store', dest='log_file',
-                      help='Logging file, defaults to console or AWS CloudWatch when running as a daemon.')
-    parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
-                      help='Run as a daemon.')
     parser.add_option('-g', '--grpc-daemon', type='string', action='store', dest='grpc_daemon',
                       help='gRPC parser daemon name, [easysrl (default),easyccg]')
-    parser.add_option('-p', '--pid-file', type='string', action='store', dest='pid_file',
-                      help='PID lock file, defaults to directory containing daemon.')
     parser.add_option('-P', '--port', type='int', action='store', dest='port', default=gsvc.INFOX_PORT,
                       help='Port to accept connection, defaults to %d.' % gsvc.INFOX_PORT)
     parser.add_option('-j', '--jar', type='string', action='store', dest='jar_file',
                       help='Jar file. Must be combined with -m.')
     parser.add_option('-m', '--model', type='string', action='store', dest='model_dir',
                       help='Model folder. Must be combined with -m.')
-    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
+    svc.init_parser_options(parser)
 
     (options, args) = parser.parse_args()
     # Delay import so help is displayed quickly without loading model.
@@ -192,63 +173,9 @@ if __name__ == '__main__':
     from marbles.ie.semantics.ccg import process_ccg_pt
     from marbles.ie.utils.text import preprocess_sentence
 
-
-    class IxServiceState(ServiceState):
-        def __init__(self, *args, **kwargs):
-            super(IxServiceState, self).__init__(*args, **kwargs)
-
-        @property
-        def terminate(self):
-            global terminate
-            return terminate
-
-        def wait(self, seconds):
-            global terminate
-            self.logger.debug('Pausing for %s seconds', seconds)
-            signal.signal(signal.SIGALRM, alarm_handler)
-            signal.alarm(seconds)
-            if not terminate:
-                # FIXME: We have a race condition here.
-                # If SIGTERM arrives just before the pause call we miss it for `seconds`.
-                # A second SIGTERM will help
-                signal.pause()
-            self.logger.debug('Continue')
-
-
     grpc_daemon_name = options.grpc_daemon or 'easysrl'
-
-    # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
-    log_level = getattr(logging, options.log_level.upper()) if options.log_level else logging.INFO
-    root_logger = logging.getLogger('marbles')
-    root_logger.setLevel(log_level)
-    actual_logger = logging.getLogger('marbles.svc.' + svc_name)
-    logger = ExceptionRateLimitedLogAdaptor(actual_logger)
-
-    console_handler = None
-    if options.log_file:
-        log_handler = logging.FileHandler(options.log_file, mode='a')
-    else:
-        if not options.daemonize:
-            console_handler = logging.StreamHandler()   # Log to console
-            init_log_handler(console_handler, log_level)
-            root_logger.addHandler(console_handler)
-        log_handler = watchtower.CloudWatchLogHandler(log_group='core-nlp-services',
-                                                      use_queues=False, # Does not shutdown if True
-                                                      create_log_group=False)
-    init_log_handler(log_handler, log_level)
-    root_logger.addHandler(log_handler)
-    queue_name = args[0] if len(args) != 0 else None
-    parsers = []
-    grpc_daemon = None
-    state = IxServiceState(logger)
-
-    if options.pid_file is None:
-        rundir = os.path.join(thisdir, 'run')
-        pid_file = os.path.join(rundir, svc_name + '.pid')
-    else:
-        pid_file = os.path.abspath(options.pid_file)
-        rundir = os.path.dirname(pid_file)
+    state = svc.process_parser_options(options, svc_name)
 
     model_dir = None
     jar_file = None
@@ -265,74 +192,5 @@ if __name__ == '__main__':
         print('-j|--jar option must be combined with -m|--model option')
         sys.exit(1)
 
-    if options.daemonize:
-        if not os.path.exists(rundir):
-            os.makedirs(rundir, 0o777)
-        if not os.path.isdir(rundir):
-            print('%s is not a directory' % rundir)
-            sys.exit(1)
-        print('Starting service')
-        context = daemon.DaemonContext(working_directory=thisdir,
-                                       umask=0o022,
-                                       pidfile=daemon.pidfile.PIDLockFile(pid_file),
-                                       signal_map = {
-                                           signal.SIGTERM: term_handler,
-                                           signal.SIGHUP:  hup_handler,
-                                           signal.SIGALRM: alarm_handler,
-                                       })
-
-        server = None
-        try:
-            grpc_daemon = gsvc.CcgParserService(grpc_daemon_name,
-                                                logger=logger,
-                                                workdir=thisdir,
-                                                modeldir=model_dir,
-                                                jarfile=jar_file)
-            svc_handler = InfoxService(grpc_daemon.open_client(), state)
-            server = start_server(svc_handler, options.port)
-            with context:
-                logger.info('Service started')
-                with open(os.path.join(rundir, svc_name + '.pid'), 'w') as fd:
-                    fd.write(str(os.getpid()))
-                run_daemon(server, state)
-
-        except Exception as e:
-            if not server:
-                print('An error occured starting service')
-            else:
-                server.stop(0)
-            logger.exception('Exception caught', exc_info=e)
-
-    else:
-        try:
-            grpc_daemon = gsvc.CcgParserService(daemon=grpc_daemon_name,
-                                                logger=logger,
-                                                workdir=thisdir,
-                                                modeldir=model_dir,
-                                                jarfile=jar_file)
-            svc_handler = InfoxService(grpc_daemon.open_client(), state)
-            server = start_server(svc_handler, options.port)
-            logger.info('Service started')
-            run_daemon(server, state)
-
-        except KeyboardInterrupt:
-            evt = server.stop(3)
-            evt.wait()
-
-        except Exception as e:
-            logger.exception('Exception caught', exc_info=e)
-            server.stop(0)
-
-    try:
-        if grpc_daemon is not None:
-            grpc_daemon.shutdown()
-    except Exception as e:
-        logger.exception('Exception caught', exc_info=e)
-
-    logger.info('Service stopped')
-    logging.shutdown()
-    if options.daemonize:
-        try:
-            os.remove(pid_file)
-        except:
-            pass
+    svc = InfoxExecutor(state, grpc_daemon_name, jar_file, model_dir, options.port)
+    svc.run(thisdir)
