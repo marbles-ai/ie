@@ -18,28 +18,10 @@ from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.semantics.ccg import process_ccg_pt
 from marbles.log import ExceptionRateLimitedLogAdaptor
 from marbles.ie.utils.text import preprocess_sentence
+from svc import ServiceState
 
 _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
 #python -m nltk.downloader punkt
-
-
-class ServiceState(object):
-    def __init__(self, logger=None):
-        self.pass_on_exceptions = False
-        if logger is not None and not isinstance(logger, ExceptionRateLimitedLogAdaptor):
-            self.logger = ExceptionRateLimitedLogAdaptor(logger)
-        else:
-            self.logger = logger
-
-    @property
-    def terminate(self):
-        return False
-
-    def wait(self, seconds):
-        time.sleep(seconds)
-
-    def time(self):
-        return time.time()
 
 
 def receive_messages(*args, **kwargs):
