@@ -10,7 +10,6 @@ from optparse import OptionParser
 
 import daemon.pidfile
 import grpc
-import regex as re  # Has better support for unicode
 import requests
 import watchtower
 from concurrent import futures
@@ -31,12 +30,6 @@ terminate = False
 from marbles.ie import grpc as gsvc
 from marbles.ie.grpc import infox_service_pb2
 from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
-
-
-# r'\p{P}' is too broad
-_UPUNCT = re.compile(r'([,:;\u00a1\u00a7\u00b6\u00b7\u00bf])', re.UNICODE)
-_UDQUOTE = re.compile(r'["\u2033\u2034\u2036\u2037\u201c\u201d]', re.UNICODE)
-_USQUOTE = re.compile(r"\u2032([^\u2032\u2035]+)\u2035", re.UNICODE)
 
 
 class InfoxService(infox_service_pb2.InfoxServiceServicer):
@@ -62,9 +55,7 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
 
             try:
                 # EasyXXX does not handle these
-                smod = _USQUOTE.sub(r" ' \1 ' ", request.text).replace('\u2019', "'")
-                smod = _UDQUOTE.sub(r' " ', smod)
-                smod = _UPUNCT.sub(r' \1 ', smod)
+                smod = preprocess_sentence(request.text)
                 ccgbank = gsvc.ccg_parse(self.ccg_stub, smod, gsvc.DEFAULT_SESSION)
                 pt = parse_ccg_derivation(ccgbank)
                 ccg = process_ccg_pt(pt, options=request.options)
@@ -199,6 +190,7 @@ if __name__ == '__main__':
     from marbles.aws import ServiceState
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     from marbles.ie.semantics.ccg import process_ccg_pt
+    from marbles.ie.utils.text import preprocess_sentence
 
 
     class IxServiceState(ServiceState):

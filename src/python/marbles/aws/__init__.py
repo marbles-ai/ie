@@ -10,7 +10,6 @@ import mimetypes
 import time
 
 import boto3
-import regex as re  # Has better support for unicode
 import requests
 from nltk.tokenize import sent_tokenize
 
@@ -18,6 +17,7 @@ from marbles.ie import grpc
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.semantics.ccg import process_ccg_pt
 from marbles.log import ExceptionRateLimitedLogAdaptor
+from marbles.ie.utils.text import preprocess_sentence
 
 _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
 #python -m nltk.downloader punkt
@@ -273,12 +273,6 @@ class AwsNewsQueueWriter(object):
             self.state.wait(1)
 
 
-# r'\p{P}' is too broad
-_UPUNCT = re.compile(r'([,:;\u00a1\u00a7\u00b6\u00b7\u00bf])', re.UNICODE)
-_UDQUOTE = re.compile(r'["\u2033\u2034\u2036\u2037\u201c\u201d]', re.UNICODE)
-_USQUOTE = re.compile(r"\u2032([^\u2032\u2035]+)\u2035", re.UNICODE)
-
-
 class AwsNewsQueueReader(object):
     """CCG Parser handler"""
 
@@ -329,10 +323,7 @@ class AwsNewsQueueReader(object):
                         ccgsent = []
                         ccgpara.append(ccgsent)
                         for s in sentences:
-                            # EasyXXX does not handle these
-                            smod = _USQUOTE.sub(r" ' \1 ' ", s).replace('\u2019', "'")
-                            smod = _UDQUOTE.sub(r' " ', smod)
-                            smod = _UPUNCT.sub(r' \1 ', smod)
+                            smod = preprocess_sentence(s)
                             ccgbank = grpc.ccg_parse(self.aws.stub, smod, grpc.DEFAULT_SESSION)
                             pt = parse_ccg_derivation(ccgbank)
                             ccg = process_ccg_pt(pt, options=self.options)

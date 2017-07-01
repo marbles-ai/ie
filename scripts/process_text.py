@@ -115,6 +115,7 @@ if __name__ == '__main__':
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     #from marbles.ie.parse import parse_ccg_derivation
     from marbles.ie.drt.common import SHOW_LINEAR
+    from marbles.ie.utils.text import preprocess_sentence
 
     titleRe = options.title or r'^\s*[A-Z][-A-Z\s\.]*$'
     wordsep = options.wordsep or '-'
@@ -141,7 +142,7 @@ if __name__ == '__main__':
 
         titleSrch = re.compile(titleRe)
         if not options.book:
-            line = ' '.join(args)
+            line = preprocess_sentence(' '.join(args))
             html = None
             # FIXME: Convert to python 3. Unicode is default.
             ccg = grpc.ccg_parse(stub, line, sessionId)
