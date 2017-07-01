@@ -199,8 +199,10 @@ def vntype_from_category(category):
             return ct.CONSTITUENT_SDCL
         elif category.has_any_features(FEATURE_EM | FEATURE_BEM):
             return ct.CONSTITUENT_SEM
-        elif category.has_any_features(FEATURE_QEM | FEATURE_Q | FEATURE_WQ):
+        elif category.has_any_features(FEATURE_QEM | FEATURE_Q):
             return ct.CONSTITUENT_SQ
+        elif category.has_any_features(FEATURE_WQ):
+            return ct.CONSTITUENT_SWQ
         else:
             return ct.CONSTITUENT_S
     return None
@@ -566,7 +568,7 @@ class Ccg2Drs(Sentence):
                     and ((0 == (self.options & CO_NO_VERBNET) \
                                   and vntype not in [ct.CONSTITUENT_VP, ct.CONSTITUENT_S,
                                                      ct.CONSTITUENT_SEM, ct.CONSTITUENT_SDCL,
-                                                     ct.CONSTITUENT_SQ]) \
+                                                     ct.CONSTITUENT_SQ, ct.CONSTITUENT_SWQ]) \
                      or vntype is not ct.CONSTITUENT_TO):
                 c = Constituent(d.span, vntype)
                 #if vntype is ct.CONSTITUENT_NP:
@@ -579,14 +581,14 @@ class Ccg2Drs(Sentence):
                         cc = self._pop_constituent()
                         if cc.span == c.span and c.vntype == ct.CONSTITUENT_VP and cc.vntype in \
                                 [ct.CONSTITUENT_SINF, ct.CONSTITUENT_SDCL, ct.CONSTITUENT_SEM,
-                                 ct.CONSTITUENT_SQ, ct.CONSTITUENT_S]:
+                                 ct.CONSTITUENT_SQ, ct.CONSTITUENT_SWQ, ct.CONSTITUENT_S]:
                             c = cc
                             break
                 elif c.vntype == ct.CONSTITUENT_VP and len(self.constituents) != 0:
                     cc = self.constituents[-1]
                     if cc.span == c.span and cc.vntype in \
                             [ct.CONSTITUENT_SINF, ct.CONSTITUENT_SDCL, ct.CONSTITUENT_SEM,
-                             ct.CONSTITUENT_SQ, ct.CONSTITUENT_S]:
+                             ct.CONSTITUENT_SQ, ct.CONSTITUENT_SWQ, ct.CONSTITUENT_S]:
                         # Keep vntype
                         return
                 self._add_constituent(c)

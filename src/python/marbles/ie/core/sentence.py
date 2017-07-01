@@ -569,6 +569,7 @@ class Sentence(AbstractSentence):
         allspan = Span(self)
         for i in itertools.ifilter(lambda x: constituents[x].vntype in [ct.CONSTITUENT_VP, ct.CONSTITUENT_SDCL,
                                                                         ct.CONSTITUENT_SEM, ct.CONSTITUENT_SQ,
+                                                                        ct.CONSTITUENT_SWQ,
                                                                         ct.CONSTITUENT_S, ct.CONSTITUENT_SINF],
                                    range(len(constituents))):
             ci = constituents[i]

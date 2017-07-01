@@ -13,6 +13,7 @@ CONSTITUENT_TO = ConstString('TO')
 CONSTITUENT_SDCL = ConstString('S_DCL')
 CONSTITUENT_SEM = ConstString('S_EM')
 CONSTITUENT_SQ = ConstString('S_Q')
+CONSTITUENT_SWQ = ConstString('S_WQ')
 CONSTITUENT_S = ConstString('S')
 
 
@@ -27,6 +28,7 @@ _CT.addinit((CONSTITUENT_TO.signature, CONSTITUENT_TO))
 _CT.addinit((CONSTITUENT_SDCL.signature, CONSTITUENT_SDCL))
 _CT.addinit((CONSTITUENT_SEM.signature, CONSTITUENT_SEM))
 _CT.addinit((CONSTITUENT_SQ.signature, CONSTITUENT_SQ))
+_CT.addinit((CONSTITUENT_SWQ.signature, CONSTITUENT_SWQ))
 _CT.addinit((CONSTITUENT_S.signature, CONSTITUENT_S))
 for k, v in _CT:
     v.freeze()
