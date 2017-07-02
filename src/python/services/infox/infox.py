@@ -162,7 +162,6 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
     # Delay import so help is displayed quickly without loading model.
-    from marbles.aws import ServiceState
     from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
     from marbles.ie.semantics.ccg import process_ccg_pt
     from marbles.ie.utils.text import preprocess_sentence
