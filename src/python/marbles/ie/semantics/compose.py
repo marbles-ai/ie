@@ -45,6 +45,9 @@ def identity_functor(category, refs=None):
         refs = [DRSRef('x1')]
         d.set_lambda_refs(refs)
         return FunctorProduction(category, refs, d)
+    elif not isinstance(refs, collections.Iterable):
+        d.set_lambda_refs([refs])
+        return FunctorProduction(category, [refs], d)
     else:
         d.set_lambda_refs([refs[-1]])
         return FunctorProduction(category, refs[0:-1], d) if len(refs) > 1 else FunctorProduction(category, [refs[0]], d)
