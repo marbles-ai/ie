@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-
-import logging
 import os
-import signal
 import sys
 from optparse import OptionParser
-import daemon.pidfile
 import grpc
 import requests
 from concurrent import futures
@@ -23,12 +19,10 @@ if os.path.exists(os.path.join(srcdir, 'marbles', 'ie')):
 else:
     # Only set when in devel tree
     projdir = None
-terminate = False
 
 
 from marbles.ie import grpc as gsvc
 from marbles.ie.grpc import infox_service_pb2
-from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
 from marbles.aws import svc
 
 
