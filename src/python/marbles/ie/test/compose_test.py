@@ -1913,6 +1913,118 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         dprint(d)
 
+    def testA0_NYIMES(self):
+        txt = r'''
+(<T S[dcl] 1 2>
+    (<T S[dcl] 1 2>
+        (<T NP 0 2>
+            (<L NP/N DT DT The NP/N>)
+            (<T N 1 2>
+                (<L N/N JJ JJ long N/N>)
+                (<T N 1 2>
+                    (<L N/N NN NN smelting N/N>)
+                    (<L N NNS NNS sheds N>)
+                )
+            )
+        )
+        (<T S[dcl]\NP 0 2>
+            (<T S[dcl]\NP 0 2>
+                (<L (S[dcl]\NP)/(S[pss]\NP) VBP VBP are (S[dcl]\NP)/(S[pss]\NP)>)
+                (<T S[pss]\NP 0 2>
+                    (<T (S[pss]\NP)/PP 0 2>
+                        (<L (S[pss]\NP)/PP VBN VBN bound (S[pss]\NP)/PP>)
+                        (<L (S\NP)\(S\NP) RB RB together (S\NP)\(S\NP)>)
+                    )
+                    (<T PP 0 2>
+                        (<L PP/NP IN IN by PP/NP>)
+                        (<T NP 0 1>
+                            (<T N 1 2>
+                                (<T N/N 0 2>
+                                    (<L N/N JJ JJ large N/N>)
+                                    (<L , , , , ,>)
+                                )
+                                (<T N 1 2>
+                                    (<L N/N JJ JJ colorful N/N>)
+                                    (<L N NNS NNS pipes N>)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+            (<L , , , , ,>)
+        )
+    )
+    (<T S[dcl]\S[dcl] 1 2>
+        (<T conj 0 2>
+            (<L conj CC CC and conj>)
+            (<L , , , , ,>)
+        )
+        (<T S[dcl] 1 2>
+            (<T S/S 0 2>
+                (<L (S/S)/S[dcl] IN IN because (S/S)/S[dcl]>)
+                (<T S[dcl] 1 2>
+                    (<L NP DT DT this NP>)
+                    (<T S[dcl]\NP 0 2>
+                        (<T S[dcl]\NP 0 2>
+                            (<L (S[dcl]\NP)/NP VBZ VBZ is (S[dcl]\NP)/NP>)
+                            (<T NP 0 1>
+                                (<L N NNP NNP Scandinavia N>)
+                            )
+                        )
+                        (<L , , , , ,>)
+                    )
+                )
+            )
+            (<T S[dcl] 1 2>
+                (<T NP 0 2>
+                    (<L NP/N DT DT the NP/N>)
+                    (<L N NN NN company N>)
+                )
+                (<T S[dcl]\NP 0 2>
+                    (<L (S[dcl]\NP)/NP VBD VBD held (S[dcl]\NP)/NP>)
+                    (<T NP 0 2>
+                        (<L NP/N DT DT an NP/N>)
+                        (<T N 1 2>
+                            (<L N/N JJ JJ architectural N/N>)
+                            (<T N 0 2>
+                                (<L N/PP NN NN competition N/PP>)
+                                (<T PP 0 2>
+                                    (<L PP/NP IN IN for PP/NP>)
+                                    (<T NP 0 2>
+                                        (<L NP/N DT DT the NP/N>)
+                                        (<T N 0 2>
+                                            (<L N/PP NN NN design N/PP>)
+                                            (<T PP 0 2>
+                                                (<L PP/NP IN IN of PP/NP>)
+                                                (<T NP 0 2>
+                                                    (<L NP/N DT DT the NP/N>)
+                                                    (<T N 1 2>
+                                                        (<L N/N JJ JJ administrative N/N>)
+                                                        (<L N NN NN wing. N>)
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        builder = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        d = builder.get_drs()
+        self.assertIsNotNone(d)
+        dprint(d)
+
     def testA1_ParseEasySRL2005T13(self):
         # This test requires you run the following scripts:
         # - ./scripts/extract_lfs.sh

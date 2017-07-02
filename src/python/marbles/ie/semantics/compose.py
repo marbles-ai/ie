@@ -541,6 +541,7 @@ class ProductionList(AbstractProduction):
         self._compList = collections.deque()
         sps = [x.span for x in filter(lambda z: z.span is not None and z.isempty, ml)]
         sp = None if len(sps) == 0 else reduce(lambda x, y: x.union(y), sps)
+        empty = filter(lambda x: x.isempty, ml)
         ml = filter(lambda x: not x.isempty, ml)
         if len(ml) == 1:
             # FIXME: Should never infer.
@@ -587,8 +588,9 @@ class ProductionList(AbstractProduction):
             d.set_lambda_refs(self.lambda_refs)
         elif len(ml) != 0 and not ml[0].islambda_inferred:
             d.set_lambda_refs(ml[0].lambda_refs)
-        else:
-            pass
+        elif len(ml) == 0 and len(empty) != 0:
+            # Add a lambda just in-case, can choose any
+            d.set_lambda_refs(empty[0].lambda_refs)
 
         d.set_options(self.compose_options)
         return d
