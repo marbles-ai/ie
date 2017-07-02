@@ -74,11 +74,10 @@ class DefaultServiceState(ServiceState):
         return terminate
 
     def wait(self, seconds):
-        global terminate
         self.logger.debug('Pausing for %s seconds', seconds)
         signal.signal(signal.SIGALRM, alarm_handler)
         signal.alarm(seconds)
-        if not terminate:
+        if not self.terminate:
             # FIXME: We have a race condition here.
             # If SIGTERM arrives just before the pause call we miss it for `seconds`.
             # A second SIGTERM will help
@@ -106,10 +105,10 @@ class ServiceExecutor(object):
             raise TypeError('state_or_logger must be a ServiceState, Logger, or LoggerAdaptor')
 
     def _run_loop(self):
-        global hup_recv, terminate
+        global hup_recv
         count = 0
 
-        while not terminate:
+        while not self.state.terminate:
             # A HUP increments hup_recv.
             hup_recv_local = hup_recv
             hup_signaled = hup_recv_local != count  # test
@@ -120,6 +119,9 @@ class ServiceExecutor(object):
                 self.on_hup()
             else:
                 self.on_wake()
+                # If force_terminate() was called then exit
+                if self.state.terminate:
+                    break
                 self.state.wait(self.wakeup)
 
         self.logger.info('TERM received, exited daemon run loop')
@@ -129,27 +131,49 @@ class ServiceExecutor(object):
     def logger(self):
         return self.state.logger
 
+    def force_terminate(self):
+        """Force termination of the run loop"""
+        global terminate
+        terminate = True
+
+    def force_hup(self):
+        """Force on_hup() to be called."""
+        global hup_recv
+        hup_recv += 1
+
     def on_hup(self):
-        """Called when SIGHUP is received"""
+        """Called when SIGHUP is received."""
         pass
 
     def on_term(self, graceful):
-        """Called when SIGTERM is received"""
+        """Called when SIGTERM is received."""
         pass
 
     def on_wake(self):
-        """Called regularly in run loop"""
+        """Called regularly in run loop."""
         pass
 
     def on_start(self, workdir):
-        """Called just before entering the run-loop. Dependent services should be started here."""
+        """Called just before entering the run-loop. Dependent services should be started here.
+
+        Args:
+            workdir: The working directory.
+        """
         pass
 
     def on_shutdown(self):
-        """Called after on_term, just before logging shutdown. Dependenr services should be stopped here."""
+        """Called after on_term, just before logging shutdown. Dependent services should be stopped here."""
         pass
 
     def run(self, workdir):
+        """Run the daemon.
+
+        Args:
+            workdir: The working directory.
+
+        Remarks:
+            Do not overide this function.
+        """
         if workdir is None:
             workdir = os.getcwdu()
 
@@ -201,12 +225,16 @@ class ServiceExecutor(object):
             started = False
             graceful = True
             try:
+                signal.signal(signal.SIGTERM, term_handler)
+                signal.signal(signal.SIGHUP, hup_handler)
+                signal.signal(signal.SIGALRM, alarm_handler)
                 self.on_start(workdir)
                 started = True
                 self.logger.info('Service started')
                 self._run_loop()
 
             except KeyboardInterrupt:
+                self.logger.debug('KeyboardInterrupt')
                 pass
 
             except Exception as e:
