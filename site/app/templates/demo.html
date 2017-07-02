@@ -3,10 +3,10 @@
 
 <!-- D3.js -->
 {% block includes %}
-<script src="http://d3js.org/d3.v3.js"></script>
-<script src="../static/js/d3.stretched.chord.js"></script>
-<script src="../static/js/d3.layout.chord.sort.js"></script>
 <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-1.11.3.js"></script>
+
+<script src="../static/js/tree.js"></script>
+
 
 <!--<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script>-->
 
@@ -134,7 +134,8 @@
             return;
         }
         if (key == "Constituency Tree"){
-            var root = new TreeNode('PARA');
+
+            var root = new Treenode('PARA');
             for( var i = 0, len = value.length; i < len; ++i){
                 var pt = parseCnfTree(value[i]);
                 root.children.push(pt);
@@ -147,11 +148,59 @@
         }
     }
 
+    function addAnalysisResult(resp, key, value)
+    {
+        var res = $(
+            '<div class="result">' +
+            //'<div class="panel panel-default">' +
+            //'<div class="panel-heading">' +
+            '<h3 class="result-title">' + key + '</h3>' +
+            //'</div>' +
+            //'<div class="panel-body">' +
+            '<div class="result-body">' +
+            '</div>' +
+            '</div>');
+        resp.append(res);
+        toHtml(res.children(".result-body"), key, value);
+    }
+
+
+    function updateAnalysis(){
+        var inputText = $("#nlInput").val();
+        var resp = $("#response");
+        resp.empty();
+
+        //http://msrsplat.cloudapp.net/SplatServiceJson.svc/Analyze?language=en&analyzers=Constituency_Tree-PennTreebank3-SplitMerge&appId=89839f78-e146-48c6-8e55-96de0b30057a&input=I%20like%20apples!
+
+
+            req = $.get("http://msrsplat.cloudapp.net/SplatServiceJson.svc/Analyze?language=en&analyzers=Constituency_Tree-PennTreebank3-SplitMerge&appId=89839f78-e146-48c6-8e55-96de0b30057a&input=" + encodeURI(inputText), function( data )
+            {
+                var resp = $("#response");
+                resp.empty();
+                for (var i = 0, len = data.length; i < len; ++i)
+                {
+                    var pair = data[i];
+                    addAnalysisResult(resp, pair['Key'].split('-')[0].replace(/_/g, ' '), pair['Value']);
+                }
+            });
+//
+//
+//
+//
+//        //var data = [{"Key": "Constituency_Tree-PennTreebank3-SplitMerge", "Value": ["(TOP (S (NP (PRP I)) (VP (VBP like) (NNS apples)) (. !)))"]}];
+//
+//        for(var i = 0, len = data.length; i < len; ++i){
+//            var pair = data[i];
+//            addAnalysisResult(resp, pair['Key'].split('-')[0].replace(/_/g, ' '), pair['Value']);
+//        }
+    }
+
     $("#nlInput").keyup(function(e){
         var keycode = e.which;
         if(keycode == 13){
-            var inputText = $("#nlInput").val();
-            toHtml($("#response"),"Tokens",inputText);
+            //
+            // [{"Key": "Constituency_Tree-PennTreebank3-SplitMerge", "Value": ["(TOP (S (NP (PRP I)) (VP (VBP like) (NNS apples)) (. !)))"]}]
+            updateAnalysis();
         }
     });
 
