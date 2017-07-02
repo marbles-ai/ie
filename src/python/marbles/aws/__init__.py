@@ -192,7 +192,7 @@ class AwsNewsQueueWriter(object):
                 self.aws.s3.Object(bucket, objpath).put(Body=data)
 
                 # Add to hash listing - allows us to find entries by hash
-                self.aws.s3.Object('marbles-ai-feeds-hash', hash).put(Body=objpath)
+                self.aws.s3.Object('marbles-ai-feeds-hash', hash).put(Body=bucket + '/' + objpath)
 
                 # Add to AWS processing queue
                 if self.aws.news_queue:
@@ -273,15 +273,17 @@ class AwsNewsQueueReader(object):
 
         for message in receive_messages(self.aws.news_queue, MessageAttributeNames=['All']):
             # Attributes will be passed onto next queue
-            self.logger.debug('Received news_queue(%s)', message.message_id)
             attributes = message.message_attributes
             mhash = attributes['hash']['StringValue']
+            self.logger.debug('Received news_queue(%s) -> hash(%s)', message.message_id, mhash)
             body = json.loads(message.body)
             retry = 3
             ccgbank = None
             title = body['title']
             paragraphs_in = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
             paragraphs_out = []
+            if len(paragraphs_in) == 0:
+                _logger.debug('No paragraphs for story %s\n%s' (mhash, title))
             # Use NLTK to split paragraphs into sentences.
             for p in paragraphs_in:
                 sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
