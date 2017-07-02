@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     (options, args) = parser.parse_args()
     # Delay import so help is displayed quickly without loading model.
-    from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader, ServiceState
+    from marbles.aws import AwsNewsQueueReaderResources, AwsNewsQueueReader
     from marbles.ie.core.constants import CO_NO_WIKI_SEARCH
 
     grpc_daemon_name = options.grpc_daemon or 'easysrl'

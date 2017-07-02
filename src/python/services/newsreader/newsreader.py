@@ -1,14 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-import datetime
 import os
 import sys
-import logging
 from optparse import OptionParser
-import watchtower
-import daemon.pidfile
-import signal
 
 
 # Modify python path if in development mode
