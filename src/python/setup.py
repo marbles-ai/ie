@@ -71,6 +71,24 @@ class MinimalCommand(Command):
         while len(scripts_to_include) != 0:
             scripts_to_include.pop()
 
+
+class CleanCommand(Command):
+    """Create minimal package"""
+    description = 'clean package'
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        workdir = os.path.dirname(os.path.abspath(__file__))
+        os.system('rm -rf ' + os.path.join(workdir, 'build'))
+        os.system('rm -rf ' + os.path.join(workdir, 'marbles.egg-info'))
+        os.system('rm -rf ' + os.path.join(workdir, 'dist'))
+
 setup(
     name='marbles',
     version='0.1',
@@ -115,6 +133,7 @@ setup(
         'develop': PostDevelopCommand,
         'install': PostInstallCommand,
         'minimal': MinimalCommand,
+        'clean': CleanCommand,
     },
     include_package_data=True,
     zip_safe=False,
