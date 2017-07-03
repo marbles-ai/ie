@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block title %}Marbles.AI: Solving Fake News{% endblock %}
+
+<!-- D3.js -->
+{% block includes %}
+<script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-1.11.3.js"></script>
+
+<script src="../static/js/vivagraph.js"></script>
+
+
+<!--<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script>-->
+
+
+{% endblock %}
+
+{% block content %}
+
+<div id="page-content-wrapper">
+    <div class="container-fluid">
+        <div class="col-sm-9">
+            <div class="prompt">ENTER A SENTENCE:</div>
+            <input type="text" id="nlInput" autofocus></input>
+            <div id="status"></div>
+            <div id="response"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+    var graphGenerator = Viva.Graph.generator();
+    var graph = graphGenerator.grid(3, 3);
+
+    var layout = Viva.Graph.Layout.forceDirected(graph, {
+        springLength : 10,
+        springCoeff : 0.0005,
+        dragCoeff : 0.02,
+        gravity : -1.2
+    });
+
+    var renderer = Viva.Graph.View.renderer(graph, {
+        layout : layout,
+        container: document.getElementById('response')
+    });
+    renderer.run();
+</script>
+
+{% endblock %}

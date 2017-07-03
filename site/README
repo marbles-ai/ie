@@ -1,0 +1,5 @@
+To build:
+docker build -t website .
+
+To Run:
+docker run -d --name website -p 80:80 website
