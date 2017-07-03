@@ -219,6 +219,7 @@ public class CloudwatchAppender extends AppenderSkeleton {
             CreateLogStreamRequest createLogStreamRequest = new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName);
             awsLogsClient.createLogStream(createLogStreamRequest);
         }
+        // FIXME: if the stream exists we always get an InvalidSequenceTokenException on the first message we send
 
     }
 

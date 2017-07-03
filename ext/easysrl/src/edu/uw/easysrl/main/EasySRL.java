@@ -20,8 +20,12 @@ import java.nio.file.Path;
 import java.nio.file.FileSystems;
 
 import ai.marbles.grpc.ServiceAcceptor;
+import ai.marbles.aws.log4j.CloudwatchAppender;
+
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.Priority;
 
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
@@ -103,6 +107,9 @@ public class EasySRL {
 
 		@Option(shortName = "p", defaultValue = "8084", description = "Set the port to listen for gRPC connection. Only valid with --daemonize option.")
 		int getPort();
+
+		@Option(shortName = "A", defaultValue = "easysrl", description = "(Optional) AWS log stream name")
+		String getAwsLogStream();
 	}
 
 	// Set of supported InputFormats
@@ -137,6 +144,14 @@ public class EasySRL {
 
 			// PWG: run as a gRPC service
 			if (commandLineOptions.getDaemonize()) {
+				// Modify AWS Cloudlogger
+				PatternLayout layout = new org.apache.log4j.PatternLayout();
+				layout.setConversionPattern("%p %d %c [%t] - %m%n");
+				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
+				cloudwatchAppender.setThreshold(Priority.INFO);
+				Logger.getRootLogger().addAppender(cloudwatchAppender);
+
+				// Now start service
 				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
 				logger.info("starting gRPC CCG parser service...");
 				// Want start routine to exit quickly else connections to gRPC service fail.
@@ -154,8 +169,25 @@ public class EasySRL {
 
 				ServiceAcceptor server = new ServiceAcceptor(commandLineOptions.getPort(), svc);
 				server.start();
-				//System.out.println("EasySRL at port " + commandLineOptions.getPort());
 				logger.info("gRPC CCG parser service started on port " + commandLineOptions.getPort());
+
+				Runtime.getRuntime().addShutdownHook(new Thread() {
+					@Override
+					public void run()
+					{
+						logger.info("Shutdown signal received");
+						server.shutdown();
+						try {
+							if (server.blockUntilShutdown(5000)) {
+								logger.info("Server shutdown complete");
+							} else {
+								logger.info("Server shutdown not complete after 5 seconds, exiting now.");
+							}
+						} catch (InterruptedException e) {
+						}
+						LogManager.shutdown();
+					}
+				});
 				server.blockUntilShutdown();
 				return;
 			}

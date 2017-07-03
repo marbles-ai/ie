@@ -81,6 +81,8 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		public boolean getDaemonize() { return true; }
 
 		public int getPort() { return 8084; }
+
+		public String getAwsLogStream() { return "easysrl"; }
 	}
 
 	public interface Session {
