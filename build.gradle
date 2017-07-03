@@ -21,6 +21,10 @@ allprojects {
 
 	dependencies {
 		testCompile 'junit:junit:4.12'
+		//compile "org.slf4j:slf4j-log4j12:1.7.21"
+		compile "log4j:log4j:1.2.16"
+		//compile fileTree(dir: 'ext/aws/', include: ['*.jar'])
+		compile "com.amazonaws:aws-java-sdk:1.11.158"
 	}
 
 	// Java8 has strict javadoc html rules which breaks the build.
@@ -75,7 +79,6 @@ dependencies {
 	compile "io.grpc:grpc-netty:${grpcVersion}"
 	compile "io.grpc:grpc-protobuf:${grpcVersion}"
 	compile "io.grpc:grpc-stub:${grpcVersion}"
-	compile "org.slf4j:slf4j-simple:1.7.21"
 }
 
 protobuf {

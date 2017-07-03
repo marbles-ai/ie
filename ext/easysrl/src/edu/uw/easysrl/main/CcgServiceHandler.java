@@ -10,8 +10,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import edu.uw.easysrl.semantics.lexicon.CompositeLexicon;
 import edu.uw.easysrl.semantics.lexicon.Lexicon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 import io.grpc.stub.StreamObserver;
 import com.google.protobuf.Empty;
@@ -35,7 +35,7 @@ import edu.uw.easysrl.util.Util;
  * Implementation of the easysrl ccg parser interface.
  */
 public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
-	private static final Logger logger = LoggerFactory.getLogger(CcgServiceHandler.class);
+	private static final Logger logger = LogManager.getLogger(CcgServiceHandler.class);
 
 	public class ConfigOptions implements EasySRL.CommandLineArguments {
 		private String modelPath;
@@ -144,12 +144,12 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		final File modelFolder = Util.getFile(EasySRL.absolutePath(commandLineOptions_.getModel()));
 
 		if (!modelFolder.exists()) {
-			logger.error("Couldn't load model from {}", commandLineOptions_.getModel());
+			logger.error("Couldn't load model from " + commandLineOptions_.getModel());
 			throw new InputMismatchException("Couldn't load model from from: " + commandLineOptions_.getModel());
 		}
 
 		final File pipelineFolder = new File(modelFolder, "/pipeline");
-		logger.debug("Loading model from {} ...", commandLineOptions_.getModel());
+		logger.info(String.format("Loading model from %s ...", commandLineOptions_.getModel()));
 		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(oformat);
 		ParsePrinter printer = outputFormat.printer;
 		SRLParser parser2;
@@ -189,7 +189,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			throw new Error(msg);
 		}
 		*/
-		logger.debug("Model loaded: gRPC parser ready");
+		logger.info("Model loaded: gRPC parser ready");
 
 		return new SynchronizedSession(parser2, reader, outputFormat);
 	}
@@ -237,11 +237,11 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	@Override
 	/** {@inheritDoc} */
 	public void create(Request request, StreamObserver<Empty> responseObserver) {
-		logger.debug("Create({}}", request.getLUCID());
+		logger.debug(String.format("Create(%s)", request.getLUCID()));
 
 		if (request.getSpec().getContentList().isEmpty() ||
 				request.getSpec().getContentList().get(0).getDataList().isEmpty()) {
-			logger.info("empty content passed to service");
+			logger.error("empty content - no session created");
 			throw new IllegalArgumentException();
 		}
 
@@ -250,8 +250,9 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			QueryInput queryInput = request.getSpec().getContentList().get(0);
 			getSessionFromId(request.getLUCID(), queryInput.getData(0).toString("UTF-8").toUpperCase());
 			responseObserver.onCompleted();
+			logger.info("new session created - " + request.getLUCID());
 		} catch (Exception e) {
-			logger.error("Create({}) failed to create session - {}", request.getLUCID(), e.getMessage());
+			logger.error(String.format("Create(%s) failed to create session", request.getLUCID()), e);
 			//e.printStackTrace();
 			responseObserver.onError(e);
 		}
@@ -261,7 +262,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	@Override
 	/** {@inheritDoc} */
 	public void learn(Request request, StreamObserver<Empty> responseObserver) {
-		logger.debug("Learn({}}", request.getLUCID());
+		logger.debug(String.format("Learn(%s)", request.getLUCID()));
 
 		responseObserver.onNext(Empty.newBuilder().build());
 		responseObserver.onCompleted();
@@ -270,7 +271,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	@Override
 	/** {@inheritDoc} */
     public void infer(Request request, StreamObserver<Response> responseObserver) {
-		logger.debug("Infer({}}", request.getLUCID());
+		logger.debug(String.format("Infer(%s)", request.getLUCID()));
 		
 	    if (request.getSpec().getContentList().isEmpty() || 
                 request.getSpec().getContentList().get(0).getDataList().isEmpty()) {
@@ -303,7 +304,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 //            logger.info("non UTF-8 encoding passed to service");
 //            responseObserver.onError(e);
         } catch (Exception e) {
-            logger.info("exception caught - {}", e.getMessage());
+            logger.error("exception caught", e);
             responseObserver.onError(e);
 		} finally {
 			if (session != null)

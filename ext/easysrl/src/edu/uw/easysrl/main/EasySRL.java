@@ -20,6 +20,9 @@ import java.nio.file.Path;
 import java.nio.file.FileSystems;
 
 import ai.marbles.grpc.ServiceAcceptor;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
+
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
 import uk.co.flamingpenguin.jewel.cli.Option;
@@ -56,6 +59,7 @@ import edu.uw.easysrl.syntax.training.Training;
 import edu.uw.easysrl.util.Util;
 
 public class EasySRL {
+	private static final Logger logger = LogManager.getLogger(EasySRL.class);
 
 	/**
 	 * Command Line Interface
@@ -134,6 +138,7 @@ public class EasySRL {
 			// PWG: run as a gRPC service
 			if (commandLineOptions.getDaemonize()) {
 				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
+				logger.info("starting gRPC CCG parser service...");
 				// Want start routine to exit quickly else connections to gRPC service fail.
 				ExecutorService executorService = Executors.newFixedThreadPool(1);
 				executorService.execute(new Runnable() {
@@ -149,7 +154,8 @@ public class EasySRL {
 
 				ServiceAcceptor server = new ServiceAcceptor(commandLineOptions.getPort(), svc);
 				server.start();
-				System.out.println("EasySRL at port " + commandLineOptions.getPort());
+				//System.out.println("EasySRL at port " + commandLineOptions.getPort());
+				logger.info("gRPC CCG parser service started on port " + commandLineOptions.getPort());
 				server.blockUntilShutdown();
 				return;
 			}

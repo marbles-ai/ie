@@ -47,14 +47,14 @@ import java.security.SecureRandom;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.DAYS;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 /**
  * Lucida client of gRPC service.
  */
 public final class ServiceConnector {
-	private static final Logger logger = LoggerFactory.getLogger(ServiceConnector.class);
+	private static final Logger logger = LogManager.getLogger(ServiceConnector.class);
 
 	private final ManagedChannel channel_;
 	private final LucidaServiceGrpc.LucidaServiceBlockingStub blockingStub_;
@@ -200,7 +200,7 @@ public final class ServiceConnector {
 	 * @param  id   The LUCID.
 	 */
 	public void create(String id) throws UnknownServiceException {
-		logger.info("{} {}", ServiceNames.createCommandName, id);
+		logger.info(ServiceNames.createCommandName + " " + id);
 		Request request = Request.newBuilder()
 				.setLUCID(id)
 				.setSpec(QuerySpec.newBuilder()
@@ -209,7 +209,7 @@ public final class ServiceConnector {
 		try {
 			blockingStub_.create(request);
 		} catch (StatusRuntimeException e) {
-			logger.warn("RPC failed: {}", e.getMessage());
+			logger.warn("RPC failed", e);
 			throw new UnknownServiceException(e.getMessage());
 		}
 	}
@@ -222,7 +222,7 @@ public final class ServiceConnector {
 		try {
 			blockingStub_.learn(request);
 		} catch (StatusRuntimeException e) {
-			logger.warn("RPC failed: {}", e.getMessage());
+			logger.warn("RPC failed", e);
 			throw new UnknownServiceException(e.getMessage());
 		}
 	}
@@ -235,7 +235,7 @@ public final class ServiceConnector {
 	 * @return The request.
 	 */
 	public static Request buildLearnRequest(String id, java.lang.Iterable<QueryInput> content) {
-		logger.info("BLD.Learn {} variant {}", ServiceNames.learnCommandName, id);
+		logger.info(String.format("BLD.Learn %s variant %s", ServiceNames.learnCommandName, id));
 		return Request.newBuilder()
 			.setLUCID(id)
 			.setSpec(QuerySpec.newBuilder()
@@ -265,7 +265,7 @@ public final class ServiceConnector {
 		try {
 			result = blockingStub_.infer(request);
 		} catch (StatusRuntimeException e) {
-			logger.warn("RPC failed: {}", e.getMessage());
+			logger.warn("RPC failed", e);
 			throw new UnknownServiceException(e.getMessage());
 		}
 		return result.getMsg();
@@ -282,7 +282,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, ByteString data, java.lang.Iterable<String> tags) {
-		logger.info("BLD.Infer {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("BLD.Infer %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()
@@ -307,7 +307,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, String data, java.lang.Iterable<String> tags) throws UnsupportedEncodingException {
-		logger.info("BLD.Infer {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("BLD.Infer %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()
@@ -331,7 +331,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, ByteString data) {
-		logger.info("SYNC  {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("SYNC  %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()
@@ -354,7 +354,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, String data) throws UnsupportedEncodingException {
-		logger.info("SYNC  {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("SYNC  %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()
@@ -378,7 +378,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, ByteString data, String tag) {
-		logger.info("SYNC  {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("SYNC  %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()
@@ -401,7 +401,7 @@ public final class ServiceConnector {
 	 * @see ServiceNames
 	 */
 	public static Request buildInferRequest(String id, String type, String data, String tag) throws UnsupportedEncodingException {
-		logger.info("SYNC  {} {} {}", ServiceNames.inferCommandName, type, id);
+		logger.info(String.format("SYNC  %s %s %s", ServiceNames.inferCommandName, type, id));
 		if (!ServiceNames.isTypeName(type))
 			return null;
 		return Request.newBuilder()

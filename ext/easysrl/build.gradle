@@ -30,6 +30,10 @@ sourceSets {
         java {
             srcDirs = ['src']
         }
+        resources {
+            srcDirs = ['resources']
+            include 'log4j.properties'
+        }
     }
 }
 
