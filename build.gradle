@@ -302,6 +302,7 @@ task dockerize {
 			workingDir = "${python_source}/services/ccgparser"
 			commandLine = ['docker', 'build', "-t", "ccg", "."]
 		}.execute()
+
 		tasks.create("dockerInfox", Exec) {
 			workingDir = "${python_source}/services/infox"
 			commandLine = ['docker', 'build', "-t", "infox", "."]
@@ -311,6 +312,12 @@ task dockerize {
 			workingDir = "${python_source}/services/newsreader"
 			commandLine = ['docker', 'build', "-t", "newsreader", "."]
 		}.execute()
+
+		tasks.create("dockerWebsite", Exec) {
+			workingDir = "${rootDir}/site"
+			commandLine = ['docker', 'build', "-t", "website", "."]
+		}.execute()
+
 	}
 }
 
