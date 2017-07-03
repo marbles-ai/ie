@@ -1,0 +1,5 @@
+To build:
+docker build -t ccg .
+
+To Run:
+docker run --rm -it <docker image> /bin/bash
