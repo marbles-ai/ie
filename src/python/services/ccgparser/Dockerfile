@@ -14,7 +14,7 @@ ADD requirements.txt /Ccg
 # Application stuff
 ADD ccgparser.py /Ccg
 ADD easysrl-0.1.0-capsule.jar /Ccg
-COPY model.tar.gz /Ccg
+ADD model.tar.gz /Ccg
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils\
@@ -26,4 +26,4 @@ RUN pip install -r requirements.txt
 RUN pip install marbles-0.1-py2.py3-none-any.whl
 
 # This is the command to be executed when done creating our container
-CMD ["./ccgparser.py", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model.tar.gz", "default-queue"]
+CMD ["./ccgparser.py", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model", "default-queue"]
