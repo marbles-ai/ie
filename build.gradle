@@ -266,7 +266,34 @@ task pydist {
 	dependsOn cpstdpy1, cpstdpy2
 }
 
-task dockerize(dependsOn: pydist) {
+task cpmodel1(type: Copy) {
+	from "${rootDir}/ext/easysrl/model"
+	into "${rootDir}/src/python/services/infox"
+	include 'model.tar.gz'
+}
+
+task cpmodel2(type: Copy) {
+	from "${rootDir}/ext/easysrl/model"
+	into "${rootDir}/src/python/services/ccgparser"
+	include 'model.tar.gz'
+}
+
+task cpjar1(type: Copy) {
+	dependsOn grpcOther, build
+	from "${rootDir}/ext/easysrl/build/libs"
+	into "${rootDir}/src/python/services/infox"
+	include '*-capsule.jar'
+}
+
+task cpjar2(type: Copy) {
+	dependsOn grpcOther, build
+	from "${rootDir}/ext/easysrl/build/libs"
+	into "${rootDir}/src/python/services/ccgparser"
+	include '*-capsule.jar'
+}
+
+task dockerize {
+	dependsOn pydist, cpmodel1, cpmodel2, cpjar1, cpjar2
 	description "Dockerizing services."
 	ext.python_source = "${rootDir}/src/python"
 
