@@ -86,7 +86,7 @@ class TestAWS(unittest.TestCase):
         root.addHandler(logging.NullHandler())
         logger = logging.getLogger(__name__)
         self.state = MockedState(logger)
-        self.svc = grpc.CcgParserService(daemon='easysrl', logger=self.state.logger)
+        self.svc = grpc.CcgParserService(daemon='easysrl')
 
     def tearDown(self):
         self.svc.shutdown()
