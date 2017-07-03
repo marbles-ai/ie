@@ -14,7 +14,7 @@ ADD requirements.txt /Infox
 # Application Stuff
 ADD infox.py /Infox
 ADD easysrl-0.1.0-capsule.jar /Infox
-COPY model.tar.gz /Infox
+ADD model.tar.gz /Infox
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils\
@@ -26,4 +26,4 @@ RUN pip install -r requirements.txt
 RUN pip install marbles-0.1-py2.py3-none-any.whl
 
 # This is the command to be executed when done creating our container
-CMD ["./infox.py"]
+CMD ["./infox.py", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]
