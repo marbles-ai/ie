@@ -119,7 +119,6 @@ class InfoxExecutor(svc.ServiceExecutor):
     def on_start(self, workdir):
         # Start dependent gRPC CCG parser service
         self.grpc_daemon = gsvc.CcgParserService(self.grpc_daemon_name,
-                                            logger=self.logger,
                                             workdir=workdir,
                                             extra_args=self.extra_args,
                                             jarfile=self.jar_file)
@@ -169,7 +168,8 @@ if __name__ == '__main__':
 
     grpc_daemon_name = options.grpc_daemon or 'easysrl'
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
-    state = svc.process_parser_options(options, svc_name)
+    stream_name = 'svc-' + svc_name
+    state = svc.process_parser_options(options, svc_name, stream_name)
 
     model_dir = None
     jar_file = None
@@ -187,6 +187,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     svc = InfoxExecutor(state, grpc_daemon_name, jar_file,
-                        ['-m', model_dir, '-A', 'marbles.svc.' + svc_name],
+                        ['-m', model_dir, '-A', stream_name],
                         options.port)
     svc.run(thisdir)

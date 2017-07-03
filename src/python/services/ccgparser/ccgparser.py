@@ -36,7 +36,6 @@ class CcgParserExecutor(svc.ServiceExecutor):
     def on_start(self, workdir):
         # Start dependent gRPC CCG parser service
         self.grpc_daemon = grpc.CcgParserService(self.grpc_daemon_name,
-                                                 logger=self.logger,
                                                  workdir=workdir,
                                                  extra_args=self.extra_args,
                                                  jarfile=self.jar_file)
