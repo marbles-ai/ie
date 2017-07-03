@@ -72,7 +72,8 @@ class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
 
 
 def set_log_format(log_handler):
-    """Make some attempt to comply with RFC5424."""
-    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
-                                               datefmt='%Y-%m-%dT%H:%M:%S%z'))
+    """Make some attempt to comply with RFC5424 and java."""
+    log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s'))
+    #log_handler.setFormatter(logging.Formatter(fmt='%(levelname)s %(asctime)s %(name)s %(process)d - %(message)s',
+    #                                           datefmt='%Y-%m-%dT%H:%M:%S%z'))
 
