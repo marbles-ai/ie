@@ -1,0 +1,8 @@
+python_daemon
+grpcio==1.1.3
+regex
+watchtower
+requests
+awscli
+pysmt
+inflect
