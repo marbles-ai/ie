@@ -5,11 +5,13 @@ ADD requirements.txt .
 ADD marbles-0.1-py2.py3-none-any.whl .
 RUN pip install -r requirements.txt
 RUN pip install marbles-0.1-py2.py3-none-any.whl
+RUN pip install watchtower
 
 # Set up AWS
 # RUN mkdir ~/.aws && mv aws/website_config ~/.aws/config && mv aws/website_credentials ~/.aws/credentials
 
-# Make port 5000 available to the world outside this container
-# EXPOSE 5000
+# Make port 80 available to the world outside this container
+# EXPOSE 80 
 
 COPY ./app /app
+# CMD ["python", "main.py"]

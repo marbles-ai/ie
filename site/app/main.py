@@ -1,6 +1,8 @@
 from flask import Flask, send_file, render_template, jsonify
 import os
 import logging
+import watchtower
+import marbles, marbles.ie, marbles.ie.core, marbles.ie.utils, marbles.ie.ccg, marbles.log
 
 app = Flask(__name__)
 
@@ -22,7 +24,7 @@ def generate_background():
 
 @app.route('/')
 @app.route('/index')
-def index():
+def main():
     return render_template('index.html',
                            title='Home')
 
@@ -33,13 +35,19 @@ def demo():
                            title='Demo')
 
 
-@app.route('/getData', methods= ['GET'])
+@app.route('/demo1')
+def demo1():
+    return render_template('demo1.html',
+                           title='Demo1')
+
+
+@app.route('/getData', methods=['GET'])
 def stuff():
     i = getGlobalCount()
-    return jsonify(article="Article: "+ str(i), content="Content: " + str(i))
+    return jsonify(article="Article: " + str(i), content="Content: " + str(i))
 
 
-@app.route('/getBackground', methods= ['GET'])
+@app.route('/getBackground', methods=['GET'])
 def background():
     background_name = generate_background()
     return jsonify(background=background_name)
