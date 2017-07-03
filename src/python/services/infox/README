@@ -1,0 +1,7 @@
+Instructions to build the image and run it interactively for testing
+
+To build:
+docker build -t infox .
+
+To Run interactively:
+docker run --rm -it infox /bin/bash

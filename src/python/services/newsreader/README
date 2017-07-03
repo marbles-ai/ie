@@ -1,7 +1,7 @@
 Instructions to build the image and run it interactively for testing
 
 To build:
-docker build -t ccg .
+docker build -t newsreader .
 
-To Run Interactively:
-docker run --rm -it ccg /bin/bash
+To Run:
+docker run --rm -it newsreader /bin/bash
