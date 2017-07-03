@@ -10,7 +10,7 @@ WORKDIR /Infox
 # Copy applications folder into our container
 ADD infox.py /Infox
 ADD marbles-0.1-py2.py3-none-any.whl /Infox
-ADD newreq /Infox
+ADD requirements.txt /Infox
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils\
@@ -18,12 +18,8 @@ RUN apt-get update \
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --upgrade pip
-RUN pip install -r newreq 
+RUN pip install -r requirements.txt 
 RUN pip install marbles-0.1-py2.py3-none-any.whl
-
-# Set all the correct env variables for the build script
-# ENV PYTHON_VERSION 2.7 
-# ENV PYTHON_BUILD 13
 
 # This is the command to be executed when done creating our container
 CMD ["./infox.py"]
