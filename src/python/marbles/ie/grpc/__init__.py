@@ -5,7 +5,11 @@ import grpc
 import os
 import time
 import subprocess
+import logging
 from marbles import PROJDIR, USE_DEVEL_PATH, safe_utf8_encode, safe_utf8_decode, future_string
+
+
+_logger = logging.getLogger(__name__)
 
 
 ## EasySRL gRPC service port
@@ -121,18 +125,17 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
 class CcgParserService:
     """Ccg Parser Service"""
 
-    def __init__(self, daemon, logger=None, workdir=None, jarfile=None, extra_args=None):
+    def __init__(self, daemon, workdir=None, jarfile=None, extra_args=None):
         """Create a CCG Parse Service.
 
         Args:
             daemon: 'easysrl' or 'easyccg'.
-            logger: Optional python logger.
             workdir: Optional path to daemon if in release mode.
         """
+        global _logger
         self.workdir = safe_utf8_encode(workdir) if workdir else os.getcwd()
         self.grpc_stop_onclose = False
         self.daemon_name = safe_utf8_encode(daemon)
-        self.logger = logger
         self.child = None
         try:
             # Check if easyxxx service has started. If not start it.
@@ -140,8 +143,7 @@ class CcgParserService:
             ccg_parse(self.grpc_stub, '')
         except Exception:
             # Not started
-            if self.logger:
-                self.logger.info('Starting %s gRPC daemon', self.daemon_name)
+            _logger.info('Starting %s gRPC daemon', self.daemon_name)
 
             if USE_DEVEL_PATH and jarfile is None:
                 cmdline = [os.path.join(PROJDIR, 'scripts', 'start_server.sh'), daemon]
@@ -156,6 +158,7 @@ class CcgParserService:
                 self.child = subprocess.Popen(cmdline, stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
                 time.sleep(5)
                 os.kill(self.child.pid, 0)
+                _logger.info('started child daemon with pid %d', self.child.pid)
             else:
                 raise ValueError('CcgParserService.__init__()')
             time.sleep(5)   # Give it some time to lock session access
@@ -180,14 +183,19 @@ class CcgParserService:
 
     def shutdown(self):
         """Shutdown the gRPC service if it was opened by this application."""
+        global _logger
         if self.grpc_stop_onclose:
-            if self.logger:
-                self.logger.info('Stopping %s gRPC daemon', self.daemon_name)
+            _logger.info('Stopping %s gRPC daemon', self.daemon_name)
             if self.child is None:
                 subprocess.call([os.path.join(PROJDIR, 'scripts', 'stop_server.sh'),
                                  self.daemon_name])
             else:
                 self.child.terminate()
+                for i in range(10):
+                    time.sleep(0.5)
+                    self.child.poll()
+                    if self.child.returncode is not None:
+                        break
 
 
 def get_infox_client_transport(host, port=INFOX_PORT, timeout=60):
