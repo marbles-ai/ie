@@ -91,7 +91,8 @@ if __name__ == '__main__':
 
     # Setup logging
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
-    state = svc.process_parser_options(options, svc_name)
+    stream_name = 'svc-' + svc_name
+    state = svc.process_parser_options(options, svc_name, stream_name)
 
     model_dir = None
     jar_file = None
@@ -110,5 +111,5 @@ if __name__ == '__main__':
 
     svc = CcgParserExecutor(state, news_queue_name=news_queue_name, ccg_queue_name=ccg_queue_name,
                             grpc_daemon_name=grpc_daemon_name, jar_file=jar_file,
-                            extra_args=['-m', model_dir, '-A', 'marbles.svc.' + svc_name])
+                            extra_args=['-m', model_dir, '-A', stream_name])
     svc.run(thisdir)
