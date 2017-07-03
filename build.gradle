@@ -215,7 +215,6 @@ task grpcOther {
 			workingDir = "${proto_dirname}"
 			commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}",
 						   "--plugin=protoc-gen-grpc=${pyPlugin}"] + proto_filenames
-			//args(["marbles_service.proto", "infox.proto"])
         }.execute()
         tasks.create("grpcCpp", Exec) {
             workingDir = "${proto_dirname}" 
@@ -225,48 +224,71 @@ task grpcOther {
     }
 }
 
-task pydist {
-	description "Build Python Distributions."
-
+task buildminpy {
 	dependsOn grpcOther, build
-	ext.python_source = "${rootDir}/src/python"
 	doLast {
-		tasks.create("minimalPydist", Exec) {
-			description 'Creating minimal python distribution.'
-			workingDir = "${python_source}"
+		tasks.create('dobuildminpy', Exec) {
+			workingDir = "${rootDir}/src/python"
 			commandLine = ['python', 'setup.py', "clean", 'minimal', "bdist_wheel"]
 		}.execute()
+	}
+}
 
-		task cpminpy(type: Copy, dependsOn: minimalPydist) {
-			description 'Copying minimal python distribution.'
-			from "${python_source}/dist"
-			into "${rootDir}/site"
-			include('*.whl')
-		}
+task cpminpy(type: Copy, dependsOn: buildminpy) {
+	from "${rootDir}/src/python/dist"
+	into "${rootDir}/site"
+	include '*.whl'
+}
 
-		tasks.create("stdPydist", Exec) {
-			dependsOn cpminpy
-			description 'Creating standard python distribution.'
-			workingDir = "${python_source}"
+task buildstdpy {
+	dependsOn cpminpy
+	doLast {
+		tasks.create('dobuildstdpy', Exec) {
+			workingDir = "${rootDir}/src/python"
 			commandLine = ['python', 'setup.py', "clean", "bdist_wheel"]
 		}.execute()
+	}
+}
 
-		task cpstdpy1(type: Copy, dependsOn: stdPydist) {
-			description 'Copying standard python distribution to ccgparser.'
-			from "${python_source}/dist"
-			into "${python_source}/services/ccgparser"
-			include('*.whl')
-		}
+task cpstdpy1(type: Copy, dependsOn: buildstdpy) {
+	from "${rootDir}/src/python/dist"
+	into "${rootDir}/src/python/services/ccgparser"
+	include '*.whl'
+}
 
-		task cpstdpy2(type: Copy, dependsOn: cpstdpy1) {
-			description 'Copying standard python distribution to infox.'
-			from "${python_source}/dist"
-			into "${python_source}/services/infox"
-			include('*.whl')
-		}
+task cpstdpy2(type: Copy, dependsOn: buildstdpy) {
+	from "${rootDir}/src/python/dist"
+	into "${rootDir}/src/python/services/infox"
+	include '*.whl'
+}
+
+task pydist {
+	dependsOn cpstdpy1, cpstdpy2
+}
+
+task dockerize(dependsOn: pydist) {
+	description "Dockerizing services."
+	ext.python_source = "${rootDir}/src/python"
+
+	doLast {
+		tasks.create("dockerCcgparser", Exec) {
+			workingDir = "${python_source}/services/ccgparser"
+			commandLine = ['docker', 'build', "-t", "ccg", "."]
+		}.execute()
+	/*
+		tasks.create("dockerInfox", Exec) {
+			workingDir = "${python_source}/services/infox"
+			commandLine = ['docker', 'build', "-t", "infox", "."]
+		}.execute()
+
+		tasks.create("dockerNewsreader", Exec) {
+			workingDir = "${python_source}/services/newsreader"
+			commandLine = ['docker', 'build', "-t", "news", "."]
+		}.execute()
+	*/
 	}
 }
 
 // Ensure our task is called after build
-build.finalizedBy(pydist)
+build.finalizedBy(grpcOther)
 
