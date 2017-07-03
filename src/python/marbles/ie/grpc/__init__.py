@@ -121,7 +121,7 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
 class CcgParserService:
     """Ccg Parser Service"""
 
-    def __init__(self, daemon, logger=None, workdir=None, jarfile=None, modeldir=None):
+    def __init__(self, daemon, logger=None, workdir=None, jarfile=None, extra_args=None):
         """Create a CCG Parse Service.
 
         Args:
@@ -143,17 +143,21 @@ class CcgParserService:
             if self.logger:
                 self.logger.info('Starting %s gRPC daemon', self.daemon_name)
 
-            if USE_DEVEL_PATH and modeldir is None and jarfile is None:
-                subprocess.call([os.path.join(PROJDIR, 'scripts', 'start_server.sh'), daemon])
-            elif modeldir is not None and jarfile is not None:
+            if USE_DEVEL_PATH and jarfile is None:
+                cmdline = [os.path.join(PROJDIR, 'scripts', 'start_server.sh'), daemon]
+                if extra_args is not None:
+                    cmdline.extend(extra_args)
+                subprocess.call(cmdline)
+            elif jarfile is not None:
                 log_file = os.path.join(workdir, self.daemon_name + '.log')
-                self.child = subprocess.Popen(['/usr/bin/java', '-jar', jarfile, '--model', modeldir,
-                                                '--daemonize', '-l', '250'],
-                                              stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
+                cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize', '-l', '250']
+                if extra_args is not None:
+                    cmdline.extend(extra_args)
+                self.child = subprocess.Popen(cmdline, stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
                 time.sleep(5)
                 os.kill(self.child.pid, 0)
             else:
-                raise ValueError('CcgParserService.__init__() requires model and jar or neither')
+                raise ValueError('CcgParserService.__init__()')
             time.sleep(5)   # Give it some time to lock session access
             self.stub, _ = get_client_transport('localhost', self.daemon_port)
             # Call asynchronously - will wait until default session is created
