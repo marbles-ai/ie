@@ -106,13 +106,14 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
 
 class InfoxExecutor(svc.ServiceExecutor):
 
-    def __init__(self, state, grpc_daemon_name, jar_file, model_dir, port):
+    def __init__(self, state, grpc_daemon_name, jar_file, extra_args, port=None):
         super(InfoxExecutor, self).__init__(wakeup=5*60, state_or_logger=state)
         self.grpc_daemon_name = grpc_daemon_name
         self.grpc_daemon = None
-        self.model_dir = model_dir
+        self.extra_args = extra_args
         self.jar_file = jar_file
         self.server = None
+        # TODO: get port from extra_args else use default port
         self.port = port
 
     def on_start(self, workdir):
@@ -120,7 +121,7 @@ class InfoxExecutor(svc.ServiceExecutor):
         self.grpc_daemon = gsvc.CcgParserService(self.grpc_daemon_name,
                                             logger=self.logger,
                                             workdir=workdir,
-                                            modeldir=self.model_dir,
+                                            extra_args=self.extra_args,
                                             jarfile=self.jar_file)
         # Start InfoX gRPC service
         svc_handler = InfoxService(self.grpc_daemon.open_client(), self.state)
@@ -185,5 +186,7 @@ if __name__ == '__main__':
         print('-j|--jar option must be combined with -m|--model option')
         sys.exit(1)
 
-    svc = InfoxExecutor(state, grpc_daemon_name, jar_file, model_dir, options.port)
+    svc = InfoxExecutor(state, grpc_daemon_name, jar_file,
+                        ['-m', model_dir, '-A', 'marbles.svc.' + svc_name],
+                        options.port)
     svc.run(thisdir)

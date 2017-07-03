@@ -23,14 +23,14 @@ from marbles.aws import svc
 
 class CcgParserExecutor(svc.ServiceExecutor):
 
-    def __init__(self, state, news_queue_name, ccg_queue_name, grpc_daemon_name, jar_file, model_dir):
+    def __init__(self, state, news_queue_name, ccg_queue_name, grpc_daemon_name, jar_file, extra_args):
         super(CcgParserExecutor, self).__init__(wakeup=5*60, state_or_logger=state)
         self.grpc_daemon_name = grpc_daemon_name
         self.grpc_daemon = None
         self.parsers = None
         self.news_queue_name = news_queue_name
         self.ccg_queue_name = ccg_queue_name
-        self.model_dir = model_dir
+        self.extra_args = extra_args
         self.jar_file = jar_file
 
     def on_start(self, workdir):
@@ -38,7 +38,7 @@ class CcgParserExecutor(svc.ServiceExecutor):
         self.grpc_daemon = grpc.CcgParserService(self.grpc_daemon_name,
                                                  logger=self.logger,
                                                  workdir=workdir,
-                                                 modeldir=self.model_dir,
+                                                 extra_args=self.extra_args,
                                                  jarfile=self.jar_file)
         # If we run multiple threads then each thread needs its own resources (S3, SQS etc).
         res = AwsNewsQueueReaderResources(self.grpc_daemon.open_client(), news_queue_name, ccg_queue_name)
@@ -111,5 +111,5 @@ if __name__ == '__main__':
 
     svc = CcgParserExecutor(state, news_queue_name=news_queue_name, ccg_queue_name=ccg_queue_name,
                             grpc_daemon_name=grpc_daemon_name, jar_file=jar_file,
-                            model_dir=model_dir)
+                            extra_args=['-m', model_dir, '-A', 'marbles.svc.' + svc_name])
     svc.run(thisdir)
