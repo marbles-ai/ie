@@ -262,8 +262,15 @@ task cpstdpy2(type: Copy, dependsOn: buildstdpy) {
 	include '*.whl'
 }
 
+task cpstdpy3(type: Copy, dependsOn: buildstdpy) {
+	from "${rootDir}/src/python/dist"
+	into "${rootDir}/src/python/services/newsreader"
+	include '*.whl'
+}
+
 task pydist {
-	dependsOn cpstdpy1, cpstdpy2
+	// Dummy task so we can exec from command line
+	dependsOn cpstdpy1, cpstdpy2, cpstdpy3
 }
 
 task cpmodel1(type: Copy) {
@@ -292,8 +299,12 @@ task cpjar2(type: Copy) {
 	include '*-capsule.jar'
 }
 
-task dockerize {
+task dockerdeps {
+	// Dummy task so we can exec from command line
 	dependsOn pydist, cpmodel1, cpmodel2, cpjar1, cpjar2
+}
+
+task dockerize(dependsOn: dockerdeps) {
 	description "Dockerizing services."
 	ext.python_source = "${rootDir}/src/python"
 
@@ -317,7 +328,6 @@ task dockerize {
 			workingDir = "${rootDir}/site"
 			commandLine = ['docker', 'build', "-t", "website", "."]
 		}.execute()
-
 	}
 }
 
