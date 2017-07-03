@@ -287,7 +287,7 @@ def init_parser_options(parser):
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', default=False, help='Verbose output.')
 
 
-def process_parser_options(options, svc_name):
+def process_parser_options(options, svc_name, stream_name=None):
     """Process standard parser service options.
 
     Args:
@@ -319,6 +319,8 @@ def process_parser_options(options, svc_name):
     root_logger.setLevel(log_level)
     actual_logger = logging.getLogger('marbles.svc.' + svc_name)
     logger = ExceptionRateLimitedLogAdaptor(actual_logger)
+    if stream_name is None:
+        stream_name = 'svc-' + svc_name
 
     console_handler = None
     if options.log_file:
@@ -330,6 +332,7 @@ def process_parser_options(options, svc_name):
             root_logger.addHandler(console_handler)
         log_handler = watchtower.CloudWatchLogHandler(log_group='core-nlp-services',
                                                       use_queues=False, # Does not shutdown if True
+                                                      stream_name=stream_name,
                                                       create_log_group=False)
     init_log_handler(log_handler, log_level)
     root_logger.addHandler(log_handler)
