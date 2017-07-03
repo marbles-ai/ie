@@ -8,9 +8,13 @@ FROM ubuntu:16.04
 WORKDIR /Infox
 
 # Copy applications folder into our container
-ADD infox.py /Infox
 ADD marbles-0.1-py2.py3-none-any.whl /Infox
 ADD requirements.txt /Infox
+
+# Application Stuff
+ADD infox.py /Infox
+ADD easysrl-0.1.0-capsule.jar /Infox
+COPY model.tar.gz /Infox
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils\
