@@ -147,8 +147,8 @@ idea {
 	}
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '3.5'
+task (wrapper, type: Wrapper) {
+    gradleVersion = '4.0'
 }
 
 // FIXME: there must be a better way to get this list
@@ -171,7 +171,7 @@ task alljavadoc(type: Javadoc) {
 }
 
 // Create gRPC interfaces for otherlanguages
-task grpcOther() {
+task grpcOther {
 	description "Build Python and CPP gRPC interface."
    
 	doFirst {
@@ -225,6 +225,48 @@ task grpcOther() {
     }
 }
 
+task pydist {
+	description "Build Python Distributions."
+
+	dependsOn grpcOther, build
+	ext.python_source = "${rootDir}/src/python"
+	doLast {
+		tasks.create("minimalPydist", Exec) {
+			description 'Creating minimal python distribution.'
+			workingDir = "${python_source}"
+			commandLine = ['python', 'setup.py', "clean", 'minimal', "bdist_wheel"]
+		}.execute()
+
+		task cpminpy(type: Copy, dependsOn: minimalPydist) {
+			description 'Copying minimal python distribution.'
+			from "${python_source}/dist"
+			into "${rootDir}/site"
+			include('*.whl')
+		}
+
+		tasks.create("stdPydist", Exec) {
+			dependsOn cpminpy
+			description 'Creating standard python distribution.'
+			workingDir = "${python_source}"
+			commandLine = ['python', 'setup.py', "clean", "bdist_wheel"]
+		}.execute()
+
+		task cpstdpy1(type: Copy, dependsOn: stdPydist) {
+			description 'Copying standard python distribution to ccgparser.'
+			from "${python_source}/dist"
+			into "${python_source}/services/ccgparser"
+			include('*.whl')
+		}
+
+		task cpstdpy2(type: Copy, dependsOn: cpstdpy1) {
+			description 'Copying standard python distribution to infox.'
+			from "${python_source}/dist"
+			into "${python_source}/services/infox"
+			include('*.whl')
+		}
+	}
+}
+
 // Ensure our task is called after build
-build.finalizedBy(grpcOther)
+build.finalizedBy(pydist)
 
