@@ -1,0 +1,7 @@
+Instructions to build the image and run it interactively for testing
+
+To build:
+docker build -t newsreader .
+
+To Run:
+docker run --rm -it newsreader /bin/bash
