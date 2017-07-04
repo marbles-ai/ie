@@ -239,6 +239,7 @@ task cleanPy {
 }
 
 clean {
+	delete "${rootDir}/site/build"
 	delete "${rootDir}/src/python/services/ccgparser/build"
 	delete "${rootDir}/src/python/services/infox/build"
 	delete "${rootDir}/src/python/services/newsreader/build"
