@@ -13,6 +13,7 @@ allprojects {
 	//targetCompatibility = 1.7
 	version = '0.1.0'
 	group = 'ai.marbles'
+	ext.pysrcDir = "${rootDir}/src/python"
 
 	repositories {
 		mavenCentral()
@@ -224,11 +225,39 @@ task grpcOther {
     }
 }
 
-task buildminpy {
-	dependsOn grpcOther, build
+// Ensure our task is called after build
+build.finalizedBy(grpcOther)
+
+task cleanPy {
+	ext.srcDir = "${rootDir}/src/python"
 	doLast {
+		tasks.create('docleanpy', Exec) {
+			workingDir = "${srcDir}"
+			commandLine = ['python', 'setup.py', "clean", '--all']
+		}.execute()
+	}
+}
+
+clean {
+	delete "${rootDir}/src/python/services/ccgparser/build"
+	delete "${rootDir}/src/python/services/infox/build"
+	delete "${rootDir}/src/python/services/newsreader/build"
+}
+
+clean.finalizedBy(cleanPy)
+
+task buildminpy(dependsOn: build) {
+	ext.bdir = new File("${rootDir}/site/build")
+	ext.srcDir = "${rootDir}/src/python"
+	ext.sources = files { file("${srcDir}").listFiles() }
+
+	inputs.files(sources.collect { relativePath(it) })
+	outputs.dir bdir
+
+	doLast {
+		bdir.mkdirs()
 		tasks.create('dobuildminpy', Exec) {
-			workingDir = "${rootDir}/src/python"
+			workingDir = "${srcDir}"
 			commandLine = ['python', 'setup.py', "clean", 'minimal', "bdist_wheel"]
 		}.execute()
 	}
@@ -236,13 +265,27 @@ task buildminpy {
 
 task cpminpy(type: Copy, dependsOn: buildminpy) {
 	from "${rootDir}/src/python/dist"
-	into "${rootDir}/site"
-	include '*.whl'
+	into "${rootDir}/site/build"
+	include 'marbles_min*.whl'
 }
 
-task buildstdpy {
-	dependsOn cpminpy
+task buildstdpy(dependsOn: cpminpy) {
+	ext.bdir1 = new File("${rootDir}/src/python/services/ccgparser/build")
+	ext.bdir2 = new File("${rootDir}/src/python/services/infox/build")
+	ext.bdir3 = new File("${rootDir}/src/python/services/newsreader/build")
+	ext.srcDir = "${rootDir}/src/python"
+	ext.sources = files { file("${srcDir}").listFiles() }
+
+	// Set these so we only build if source changes
+	inputs.files(sources.collect { relativePath(it) })
+	outputs.dir bdir1
+	outputs.dir bdir2
+	outputs.dir bdir3
+
 	doLast {
+		bdir1.mkdirs()
+		bdir2.mkdirs()
+		bdir3.mkdirs()
 		tasks.create('dobuildstdpy', Exec) {
 			workingDir = "${rootDir}/src/python"
 			commandLine = ['python', 'setup.py', "clean", "bdist_wheel"]
@@ -252,57 +295,63 @@ task buildstdpy {
 
 task cpstdpy1(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/ccgparser"
-	include '*.whl'
+	into "${rootDir}/src/python/services/ccgparser/build"
+	include 'marbles_std*.whl'
 }
 
 task cpstdpy2(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/infox"
-	include '*.whl'
+	into "${rootDir}/src/python/services/infox/build"
+	include 'marbles_std*.whl'
 }
 
 task cpstdpy3(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/newsreader"
-	include '*.whl'
+	into "${rootDir}/src/python/services/newsreader/build"
+	include 'marbles_std*.whl'
 }
 
 task pydist {
 	// Dummy task so we can exec from command line
-	dependsOn cpstdpy1, cpstdpy2, cpstdpy3
 }
 
-task cpmodel1(type: Copy) {
+pydist.dependsOn cpstdpy1
+pydist.dependsOn cpstdpy2
+pydist.dependsOn cpstdpy3
+
+task cpmodel1(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/ext/easysrl/model"
-	into "${rootDir}/src/python/services/infox"
+	into "${rootDir}/src/python/services/infox/build"
 	include 'model.tar.gz'
 }
 
-task cpmodel2(type: Copy) {
+task cpmodel2(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/ext/easysrl/model"
-	into "${rootDir}/src/python/services/ccgparser"
+	into "${rootDir}/src/python/services/ccgparser/build"
 	include 'model.tar.gz'
 }
 
-task cpjar1(type: Copy) {
-	dependsOn grpcOther, build
+task cpjar1(type: Copy, dependsOn: ':ext:easysrl:build') {
+
 	from "${rootDir}/ext/easysrl/build/libs"
-	into "${rootDir}/src/python/services/infox"
+	into "${rootDir}/src/python/services/infox/build"
 	include '*-capsule.jar'
 }
 
-task cpjar2(type: Copy) {
-	dependsOn grpcOther, build
+task cpjar2(type: Copy, dependsOn: ':ext:easysrl:build') {
 	from "${rootDir}/ext/easysrl/build/libs"
-	into "${rootDir}/src/python/services/ccgparser"
+	into "${rootDir}/src/python/services/ccgparser/build"
 	include '*-capsule.jar'
 }
 
 task dockerdeps {
 	// Dummy task so we can exec from command line
-	dependsOn pydist, cpmodel1, cpmodel2, cpjar1, cpjar2
 }
+dockerdeps.dependsOn pydist
+dockerdeps.dependsOn cpmodel1
+dockerdeps.dependsOn cpmodel2
+dockerdeps.dependsOn cpjar1
+dockerdeps.dependsOn cpjar2
 
 task dockerize(dependsOn: dockerdeps) {
 	description "Dockerizing services."
@@ -330,7 +379,4 @@ task dockerize(dependsOn: dockerdeps) {
 		}.execute()
 	}
 }
-
-// Ensure our task is called after build
-build.finalizedBy(grpcOther)
 
