@@ -30,12 +30,15 @@ class PostInstallCommand(install):
         nltk.download('punkt')
 
 
+# PWG: I know this is a hack but all variables are passed to setup before custom commands
+# are called. This hack makes mutable the variables we want to change.
 exclude_spec = [ '*.test', '*.test.*', 'test.*', '*.log', '*.nlp', 'nlp.*', '*.nlp.*' ]
 packages_to_include = find_packages(exclude=exclude_spec)
 scripts_to_include = [
     'services/ccgparser/ccgparser.py',
     'services/newsreader/newsreader.py'
 ]
+
 
 class MinimalCommand(Command):
     """Create minimal package"""
@@ -52,7 +55,7 @@ class MinimalCommand(Command):
         pass
 
     def run(self):
-        global exclude_spec, packages_to_include, scripts_to_include
+        global exclude_spec, packages_to_include, scripts_to_include, package_name
         if self.exclude is not None:
             exclude_spec.extend(self.exclude.split(','))
         else:
@@ -71,26 +74,32 @@ class MinimalCommand(Command):
         while len(scripts_to_include) != 0:
             scripts_to_include.pop()
 
+        # Finally change package name
+        self.distribution.metadata.name = 'marbles-min'
+
 
 class CleanCommand(Command):
     """Create minimal package"""
     description = 'clean package'
-    user_options = []
+    user_options = [('all', None, 'clean all, default is build only')]
 
     def initialize_options(self):
-        pass
+        self.all = None
 
     def finalize_options(self):
-        pass
+        self.all = self.all is not None
 
     def run(self):
         workdir = os.path.dirname(os.path.abspath(__file__))
         os.system('rm -rf ' + os.path.join(workdir, 'build'))
-        os.system('rm -rf ' + os.path.join(workdir, 'marbles.egg-info'))
-        os.system('rm -rf ' + os.path.join(workdir, 'dist'))
+        if self.all:
+            os.system('rm -rf ' + os.path.join(workdir, 'marbles_std.egg-info'))
+            os.system('rm -rf ' + os.path.join(workdir, 'marbles_min.egg-info'))
+            os.system('rm -rf ' + os.path.join(workdir, 'marbles.egg-info'))
+            os.system('rm -rf ' + os.path.join(workdir, 'dist'))
 
 setup(
-    name='marbles',
+    name='marbles-std',
     version='0.1',
     description='Marbles AI SDK',
     author='Marbles AI, Inc.',
