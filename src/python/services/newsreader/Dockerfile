@@ -9,7 +9,7 @@ WORKDIR /Newsreader
 
 # Copy applications folder into our container
 ADD newsreader.py /Newsreader
-ADD marbles-0.1-py2.py3-none-any.whl /Newsreader
+ADD build/marbles_std-0.1-py2.py3-none-any.whl /Newsreader
 ADD requirements.txt /Newsreader
 
 RUN apt-get update \
@@ -19,7 +19,7 @@ RUN apt-get update \
 # Install any needed packages specified in requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt 
-RUN pip install marbles-0.1-py2.py3-none-any.whl
+RUN pip install marbles_dts-0.1-py2.py3-none-any.whl
 
 # This is the command to be executed when done creating our container
 CMD ["./newsreader.py"]
