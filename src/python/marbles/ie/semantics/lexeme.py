@@ -417,7 +417,10 @@ class Lexeme(AbstractLexeme):
             # or use inflect https://pypi.python.org/pypi/inflect
             if self.stem == "'s":
                 pass
-            sp = self._p.plural(self.stem)
+            # inflect will generate an exception for single character nouns. This can happen for
+            # bad pos tagging (like EasySRL)
+            if len(self.stem) > 1:
+                sp = self._p.plural(self.stem)
             self.wnsynsets = wn.wordnet.synsets(self._wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
             if False and self.stem != sp:
                 rp = DRSRef(DRSVar('x', len(self.refs)+1))

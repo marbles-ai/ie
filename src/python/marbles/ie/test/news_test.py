@@ -27,6 +27,7 @@ class MyTestCase(unittest.TestCase):
         self.svc.shutdown()
 
     # c0053ac368cf2e5c2599f035f2ee4eea.json
+    # 9255a890ffe40c05876d8d402044ab11.json
     def test1_JsonFiles(self):
         filelist = os.listdir(datapath)
         allfiles =[]
@@ -34,7 +35,7 @@ class MyTestCase(unittest.TestCase):
             if not os.path.isfile(os.path.join(datapath, fn)):
                 continue
             f, x = os.path.splitext(fn)
-            if x == '.json':
+            if x == '.json' and f == '9255a890ffe40c05876d8d402044ab11':
                 allfiles.append(os.path.join(datapath, fn))
 
         for fn in allfiles:
@@ -52,16 +53,21 @@ class MyTestCase(unittest.TestCase):
                 'paragraphs': []
             }
             paragraphs = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
-            for p in paragraphs:
+            i = 0
+            for p in paragraphs[i:]:
                 sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
                 sp = []
-                for s in sentences:
+                j = 0
+                for s in sentences[j:]:
+                    #print('p:s = %d:%d' % (i, j))
                     smod = preprocess_sentence(s)
                     ccgbank = grpc.ccg_parse(self.stub, smod, grpc.DEFAULT_SESSION)
                     pt = parse_ccg_derivation(ccgbank)
                     ccg = process_ccg_pt(pt, CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
                     sp.append([x.get_json() for x in ccg.get_span()])
+                    j += 1
                 ccgbody['story']['paragraphs'].append(sp)
+                i += 1
 
             msgbody = json.dumps(ccgbody)
 
