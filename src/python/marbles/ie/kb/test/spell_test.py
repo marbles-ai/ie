@@ -26,7 +26,15 @@ class SymSpellTestCase(unittest.TestCase):
 
         self.assertEqual(spellchecker1.longest_word_length, spellchecker2.longest_word_length)
         self.assertEqual(spellchecker1.max_edit_distance, spellchecker2.max_edit_distance)
-        self.assertDictEqual(spellchecker1.dictionary, spellchecker2.dictionary)
+        self.assertEqual(len(spellchecker1.dictionary), len(spellchecker2.dictionary))
+        l1 = sorted(spellchecker1.dictionary.items(), key=lambda(word, (suggest, freq)): word)
+        l2 = sorted(spellchecker2.dictionary.items(), key=lambda(word, (suggest, freq)): word)
+
+        for s1, s2 in zip(l1, l2):
+            self.assertEqual(s1[0], s2[0])
+            self.assertListEqual(s1[1][0], s2[1][0])
+            self.assertEqual(s1[1][1], s2[1][1])
+        # self.assertDictEqual(spellchecker1.dictionary, spellchecker2.dictionary)
 
     def test2_GetSuggestions(self):
         ldcpath = os.path.join(PROJDIR, 'data', 'ldc', 'ccgbank_1_1', 'data', 'RAW')
@@ -37,12 +45,13 @@ class SymSpellTestCase(unittest.TestCase):
             if x != '.raw':
                 continue
             ldcpath1 = os.path.join(ldcpath, fname)
-            spellchecker.build_from_corpus(ldcpath1)
+            with open(ldcpath1, 'r') as fp:
+                spellchecker.build_from_corpus(fp)
 
         suggestion = spellchecker.get_suggestions('reprted', BEST_SUGGESTION)
         self.assertEqual('reported', suggestion)
         suggestion = spellchecker.get_suggestions('reprted', NBEST_SUGGESTIONS)
-        self.assertList(['reported', 'report'], suggestion)
+        self.assertListEqual(['reported'], suggestion)
 
 
 if __name__ == '__main__':
