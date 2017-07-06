@@ -225,10 +225,11 @@ class AwsNewsQueueWriter(object):
                             else:
                                 # Infer type
                                 mtype, _ = mimetypes.guess_type(media['url'])
-                                attributes['media_type'] = {
-                                    'DataType': 'String',
-                                    'StringValue': mtype
-                                }
+                                if mtype is not None:
+                                    attributes['media_type'] = {
+                                        'DataType': 'String',
+                                        'StringValue': mtype
+                                    }
                         except requests.ConnectionError as e:
                             # Non critical error - can happen when replaying old stories
                             self.logger.warning('Media not found - %s', str(e))
