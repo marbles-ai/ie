@@ -37,6 +37,7 @@ if __name__ == '__main__':
     print("total items in dictionary (corpus words and deletions): %i" % len(spellchecker.dictionary))
     print("  edit distance for deletions: %i" % spellchecker.max_edit_distance)
     print("  length of longest word in corpus: %i" % spellchecker.longest_word_length)
-    spellchecker.save(os.path.join(pypath, 'marbles', 'ie', 'kb', 'data', 'dictionary-en.dat'))
+    with open(os.path.join(pypath, 'marbles', 'ie', 'kb', 'data', 'dictionary-en.dat'), 'w') as fp:
+        spellchecker.save(fp)
 
 
