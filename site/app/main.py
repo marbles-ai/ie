@@ -35,12 +35,6 @@ def demo():
                            title='Demo')
 
 
-@app.route('/demo1')
-def demo1():
-    return render_template('demo1.html',
-                           title='Demo1')
-
-
 @app.route('/getData', methods=['GET'])
 def stuff():
     i = getGlobalCount()
@@ -54,4 +48,4 @@ def background():
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=True, port=80)
+    app.run(host='0.0.0.0', debug=False, port=80)
