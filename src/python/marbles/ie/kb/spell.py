@@ -104,7 +104,7 @@ import threading
 import copy
 import itertools
 import nltk
-from marbles import safe_utf8_decode, safe_utf8_encode
+from marbles import safe_utf8_decode, safe_utf8_encode, PROJDIR
 
 
 # Top suggestion
@@ -200,6 +200,7 @@ class SymSpell(object):
         # check if word is already in dictionary
         # dictionary entries are in the form: (list of suggested corrections,
         # frequency of word in corpus)
+        w = safe_utf8_decode(w)
         new_real_word_added = False
         if w in self.dictionary:
             # increment frequency of word in corpus
@@ -252,12 +253,12 @@ class SymSpell(object):
             self.longest_word_length = int(ln[1])
             for line in stream:
                 ln = line.strip().split(b':')
-                words = [safe_utf8_decode(x) for x in ln[2:]]
+                words = [safe_utf8_decode(x) for x in ln[2:] if len(x) != 0]
                 self.dictionary[safe_utf8_decode(ln[0])] = (words, int(ln[1]))
         finally:
             self.modify_lock.release()
 
-    def build_from_corpus(self, fname, stats=None):
+    def build_from_corpus(self, stream, stats=None):
         """Create from a file containing a corpus of words.
 
         Remarks:
@@ -267,17 +268,15 @@ class SymSpell(object):
         unique_word_count = 0 if stats is None else stats[1]
         self.modify_lock.acquire()
         try:
-            with open(fname) as file:
-                if not self.silent:
-                    print("Creating dictionary...")
-
-                for line in file:
-                    # separate words by non-alphabetical characters
-                    words = self.pattern.findall(line.lower())
-                    for word in words:
-                        total_word_count += 1
-                        if self.create_dictionary_entry(word):
-                            unique_word_count += 1
+            if not self.silent:
+                print("Creating dictionary...")
+            for line in stream:
+                # separate words by non-alphabetical characters
+                words = self.pattern.findall(line.lower())
+                for word in words:
+                    total_word_count += 1
+                    if self.create_dictionary_entry(word):
+                        unique_word_count += 1
         finally:
             self.modify_lock.release()
 
@@ -308,6 +307,7 @@ class SymSpell(object):
                 print("no items in dictionary within maximum edit distance")
             return []
 
+        string = safe_utf8_decode(string)
         suggest_dict = {}
         min_suggest_len = float('inf')
 
@@ -422,7 +422,9 @@ class SymSpell(object):
             as_list = suggest_dict.items()
             outlist = sorted(as_list, key=lambda(term, (freq, dist)): (dist, -freq))
             if suggest_mode == BEST_SUGGESTION:
-                return outlist[0]
+                return outlist[0][0]
+            elif suggest_mode == NBEST_SUGGESTIONS:
+                return [x[0] for x in outlist]
             return outlist
 
     def get_compound_suggestions(self, input):
@@ -524,7 +526,7 @@ class SymSpell(object):
                         if printlist:
                             print("In line %i, the word < %s > was not found (no suggested correction)" % (i, doc_word))
                         unknown_word_count += 1
-                    elif suggestion[0]!=doc_word:
+                    elif suggestion[0] != doc_word:
                         if printlist:
                             print("In line %i, %s: suggested correction is < %s >" % (i, doc_word, suggestion[0]))
                         corrected_word_count += 1
@@ -536,20 +538,17 @@ class SymSpell(object):
 
 ## main
 
-import time
-
 if __name__ == "__main__":
-
+    import time
+    import os
     print("Please wait...")
     start_time = time.time()
     spellcheck = SymSpell()
-    try:
-        spellcheck.build_from_corpus("big.txt")
-    except:
-        spellcheck.build_from_corpus("testdata/big.txt")
+    with open(os.path.join(PROJDIR, 'src', 'python', 'marbles', 'ie', 'kb', 'data', 'dictionary-en.dat'), 'r') as fp:
+        spellcheck.restore(fp)
     run_time = time.time() - start_time
     print('-----')
-    print('%.2f seconds to run' % run_time)
+    print('%.2f seconds to restore' % run_time)
     print('-----\n')
 
     print("Word correction")
@@ -564,5 +563,5 @@ if __name__ == "__main__":
         print(spellcheck.get_suggestions(word_in, NBEST_SUGGESTIONS))
         run_time = time.time() - start_time
         print('-----')
-        print('%.5f seconds to run' % run_time)
+        print('%.5f seconds to search' % run_time)
         print('-----\n')
