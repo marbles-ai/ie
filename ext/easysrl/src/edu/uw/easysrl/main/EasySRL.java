@@ -146,7 +146,7 @@ public class EasySRL {
 			if (commandLineOptions.getDaemonize()) {
 				// Modify AWS Cloudlogger
 				PatternLayout layout = new org.apache.log4j.PatternLayout();
-				layout.setConversionPattern("%p %d %c [%t] - %m%n");
+				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
 				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
 				cloudwatchAppender.setThreshold(Priority.INFO);
 				Logger.getRootLogger().addAppender(cloudwatchAppender);
