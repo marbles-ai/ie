@@ -15,9 +15,10 @@ ADD requirements.txt /Infox
 ADD infox.py /Infox
 ADD build/easysrl-0.1.0-capsule.jar /Infox
 ADD build/model.tar.gz /Infox
+ADD build/mservice.sh /Infox
 
 RUN apt-get update \
-    && apt-get install -y gcc apt-utils\
+    && apt-get install -y gcc apt-utils \
     && apt-get install -y python2.7 python-pip
 
 # Install any needed packages specified in requirements.txt
@@ -26,4 +27,4 @@ RUN pip install -r requirements.txt
 RUN pip install marbles_std-0.1-py2.py3-none-any.whl
 
 # This is the command to be executed when done creating our container
-CMD ["./infox.py", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]
+CMD ["./mservice.sh", "./infox.py", "start", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]
