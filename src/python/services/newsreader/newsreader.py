@@ -37,25 +37,27 @@ class NewsReaderExecutor(svc.ServiceExecutor):
         self.init_done = False
         self.oneshot = oneshot
         self.ghost_log_file = ghost_log_file
+        self.browser = None
 
     def on_start(self, workdir):
         # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
         aws = AwsNewsQueueWriterResources(self.news_queue_name)
         # Browser creates a single process for this archive
-        browser = nf.scraper.Browser(ghost_log_file=self.ghost_log_file)
+        self.browser = nf.scraper.Browser(ghost_log_file=self.ghost_log_file)
         sources = [
-            NewsSource(nf.washingtonpost.WPostScraper(browser), [nf.washingtonpost.WPOST_Politics]),
-            NewsSource(nf.nytimes.NYTimesScraper(browser), [nf.nytimes.NYTIMES_US_Politics]),
-            NewsSource(nf.reuters.ReutersScraper(browser), [nf.reuters.REUTERS_Politics]),
-            NewsSource(nf.foxnews.FoxScraper(browser), [nf.foxnews.FOX_Politics]),
+            NewsSource(nf.washingtonpost.WPostScraper(self.browser), [nf.washingtonpost.WPOST_Politics]),
+            NewsSource(nf.nytimes.NYTimesScraper(self.browser), [nf.nytimes.NYTIMES_US_Politics]),
+            NewsSource(nf.reuters.ReutersScraper(self.browser), [nf.reuters.REUTERS_Politics]),
+            NewsSource(nf.foxnews.FoxScraper(self.browser), [nf.foxnews.FOX_Politics]),
         ]
 
         self.archivers = [
-            AwsNewsQueueWriter(aws, state, sources, browser),
+            AwsNewsQueueWriter(aws, state, sources, self.browser),
         ]
 
     def on_term(self, graceful):
-        pass
+        self.archivers = []
+        self.browser.close()
 
     def on_hup(self):
         self.ignore_read = False
