@@ -29,19 +29,20 @@ class NewsSource(object):
 
 class NewsReaderExecutor(svc.ServiceExecutor):
 
-    def __init__(self, state, news_queue_name, oneshot):
+    def __init__(self, state, news_queue_name, oneshot, ghost_log_file=None):
         super(NewsReaderExecutor, self).__init__(wakeup=5*60, state_or_logger=state)
         self.archivers = None
         self.news_queue_name = news_queue_name
         self.ignore_read = True
         self.init_done = False
         self.oneshot = oneshot
+        self.ghost_log_file = ghost_log_file
 
     def on_start(self, workdir):
         # If we run multiple theads then each thread needs its own AWS resources (S3, SQS etc).
         aws = AwsNewsQueueWriterResources(self.news_queue_name)
         # Browser creates a single process for this archive
-        browser = nf.scraper.Browser()
+        browser = nf.scraper.Browser(ghost_log_file=self.ghost_log_file)
         sources = [
             NewsSource(nf.washingtonpost.WPostScraper(browser), [nf.washingtonpost.WPOST_Politics]),
             NewsSource(nf.nytimes.NYTimesScraper(browser), [nf.nytimes.NYTIMES_US_Politics]),
@@ -98,7 +99,8 @@ if __name__ == '__main__':
     state = svc.process_parser_options(options, svc_name)
     queue_name = args[0] if len(args) != 0 else None
 
-    svc = NewsReaderExecutor(state, news_queue_name=queue_name, oneshot=options.oneshot)
+    svc = NewsReaderExecutor(state, news_queue_name=queue_name, oneshot=options.oneshot,
+                             ghost_log_file=options.ghost_log_file)
     if options.force_read:
         svc.force_hup()
     svc.run(thisdir)

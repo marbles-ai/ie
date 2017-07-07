@@ -196,16 +196,13 @@ class ServiceExecutor(object):
                                                signal.SIGALRM: alarm_handler,
                                            })
             started = False
-            fdpid = None
             try:
                 self.on_start(workdir)
                 started = True
                 with context:
                     self.logger.info('Service started')
-                    fdpid = open(os.path.join(self.state.rundir, self.state.svcname + '.pid'), 'w')
-                    fdpid.write(str(os.getpid()))
-                    fdpid.close()
-                    fdpid = None
+                    with open(os.path.join(self.state.rundir, self.state.svcname + '.pid'), 'w') as fdpid:
+                        fdpid.write(str(os.getpid()) + '\n')
                     self._run_loop()
 
             except Exception as e:
@@ -214,9 +211,6 @@ class ServiceExecutor(object):
                     print('An error occured starting service')
                 else:
                     try:
-                        if fdpid:
-                            fdpid.close()
-                            fdpid = None
                         self.on_term(False)
                     except Exception as et:
                         self.logger.exception('Exception caught during on_term()', exc_info=et)
@@ -276,6 +270,8 @@ def init_parser_options(parser):
                       help='Logging level, defaults to \"info\"')
     parser.add_option('-f', '--log-file', type='string', action='store', dest='log_file',
                       help='Logging file, defaults to console or AWS CloudWatch when running as a daemon.')
+    parser.add_option('-F', '--ghost-log-file', type='string', action='store', dest='ghost_log_file',
+                      help='Logging file for ghostdriver, defaults to /working/dir/ghostdriver.log')
     parser.add_option('-d', '--daemonize', action='store_true', dest='daemonize', default=False,
                       help='Run as a daemon.')
     parser.add_option('-U', '--user', type='string', action='store', dest='user',
@@ -308,7 +304,7 @@ def process_parser_options(options, svc_name, stream_name=None):
 
     if gid is not None:
         # Check group if exists
-        grp.getgrall(gid)
+        grp.getgrgid(gid)
     if uid is not None:
         # Check user if exists
         pwd.getpwuid(uid)

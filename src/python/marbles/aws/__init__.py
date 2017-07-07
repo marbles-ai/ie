@@ -90,7 +90,7 @@ class AwsNewsQueueReaderResources(AwsNewsQueueBase):
 
 
 class AwsNewsQueueWriter(object):
-    """RSS/Atom reader"""
+    """News queue writer handler. Reads RSS/ATOM feeds and writes to queue. """
 
     def __init__(self, aws, state, sources, browser):
         self.browser = browser
@@ -257,7 +257,7 @@ class AwsNewsQueueWriter(object):
 
 
 class AwsNewsQueueReader(object):
-    """CCG Parser handler"""
+    """News queue reader handler"""
 
     def __init__(self, aws, state, options=0):
         self.aws = aws
@@ -270,8 +270,6 @@ class AwsNewsQueueReader(object):
 
     def run(self):
         """Process messages."""
-        global _USQUOTE, _UDQUOTE, _UPUNCT
-
         for message in receive_messages(self.aws.news_queue, MessageAttributeNames=['All']):
             # Attributes will be passed onto next queue
             attributes = message.message_attributes
