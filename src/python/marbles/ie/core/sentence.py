@@ -861,8 +861,13 @@ class Span(AbstractSentence):
                         hds.add(lex.idx)
         return Span(self._sent, hds)
 
-    def search_wikipedia(self, max_results=1, google=True):
+    def search_wikipedia(self, max_results=1, google=True, browser=None):
         """Find a wikipedia topic from this span.
+
+        Args:
+            max_results: The maximum number of results to return
+            google: If no results are found on wikipedia then do a google search if this is True.
+            browser: If set then google search uses this as the headless browser.
 
         Returns: A wikipedia topic.
         """
@@ -889,7 +894,7 @@ class Span(AbstractSentence):
                             return [result]
                     if google and (result is None or len(result) == 0):
                         # Try google search - hopefully will fix up spelling or ignore irrelevent words
-                        scraper = google_search.GoogleScraper()
+                        scraper = google_search.GoogleScraper(browser)
                         spell, urls = scraper.search(txt, 'wikipedia.com')
                         if spell is not None:
                             result = wikipedia.search(txt, results=max_results)

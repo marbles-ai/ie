@@ -21,13 +21,16 @@ _PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(o
 _WS = re.compile(r'\s+')
 
 
+def create_headless_browser(ghost_log_file=None):
+    return webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
+
+
 class GoogleScraper(object):
-    def __init__(self, firefox=False):
-        if firefox:
-            # Visual display in firefox
-            self.browser = webdriver.FireFox()
+    def __init__(self, browser=None, ghost_log_file=None):
+        if browser is None:
+            self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
         else:
-            self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH)
+            self.browser = browser
 
     def search(self, search_string, site=None):
         """Search using Google and scrape the search text.

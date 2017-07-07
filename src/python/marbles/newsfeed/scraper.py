@@ -23,12 +23,13 @@ _NALNUMSP = re.compile(r'[^A-Za-z0-9 _-]')
 
 class Browser(object):
     """Browser wrapper allows cookie counting and can be shared amongst many scrapers."""
-    def __init__(self, firefox=False):
+    def __init__(self, ghost_log_file=None, firefox=False):
         if firefox:
             # Visual display in firefox
             self.driver = webdriver.FireFox()
         else:
-            self.driver = webdriver.PhantomJS(_PHANTOMJS_PATH)
+            #driver = webdriver.PhantomJS(service_log_path='/var/log/phantomjs/ghostdriver.log')
+            self.driver = webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
         self.scrapers = []
 
     @property

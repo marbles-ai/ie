@@ -1276,7 +1276,7 @@ class Ccg2Drs(Sentence):
                 best_span = Span(self, idxs)
         return best_span, best_result
 
-    def add_wikipedia_links(self):
+    def add_wikipedia_links(self, browser):
         """Call after resolved proper nouns."""
         NNP = filter(lambda x: x.isproper_noun, self.lexemes)
         found = []
@@ -1300,7 +1300,7 @@ class Ccg2Drs(Sentence):
                 while len(todo):
                     c = todo.pop()
                     if retry:
-                        result = c.search_wikipedia()
+                        result = c.search_wikipedia(browser=browser)
                         allresults.append(result)
                     else:
                         result = allresults.pop()
@@ -1355,12 +1355,13 @@ class Ccg2Drs(Sentence):
 
 
 ## @ingroup gfn
-def process_ccg_pt(pt, options=0):
+def process_ccg_pt(pt, options=0, browser=None):
     """Process the CCG parse tree.
 
     Args:
         pt: The parse tree returned from marbles.ie.drt.parse.parse_ccg_derivation().
         options: None or marbles.ie.drt.compose.CO_REMOVE_UNARY_PROPS to simplify propositions.
+        browser: Headless browser used for scraping.
 
     Returns:
         A Ccg2Drs instance. Call Ccg2Drs.get_drs() to obtain the DRS.
@@ -1375,7 +1376,7 @@ def process_ccg_pt(pt, options=0):
     ccg.create_drs()
     ccg.resolve_proper_names()
     if 0 == (options & CO_NO_WIKI_SEARCH):
-        ccg.add_wikipedia_links()
+        ccg.add_wikipedia_links(browser)
     ccg.final_rename()
     # TODO: resolve anaphora
     return ccg
