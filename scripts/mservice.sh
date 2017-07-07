@@ -111,8 +111,12 @@ DAEMON=`basename $1`
 SVCNAME="`basename $1 | sed 's/\.[a-zA-Z0-9]*$//g'`"
 
 if [ "x$UID" == "x0" ]; then
-    PIDFILE="/var/run/${SVCNAME}.pid"
+    PIDFILE="/var/run/${SVCNAME}/${SVCNAME}.pid"
+    mkdir -p /var/run/${SVCNAME}
+    chown nobody /var/run/${SVCNAME} > /dev/null || die "Cannot set owner for /var/log/${SVCNAME}"
+    chgrp nogroup /var/run/${SVCNAME} > /dev/null || die "Cannot set group for /var/log/${SVCNAME}"
     mkdir -p /var/log/ghostdriver
+    rm -f /var/log/ghostdriver/ghostdriver.log > /dev/null
     chown nobody /var/log/ghostdriver > /dev/null || die "Cannot set owner for /var/log/ghostdriver"
     chgrp nogroup /var/log/ghostdriver > /dev/null || die "Cannot set group for /var/log/ghostdriver"
     EXTRA_OPTIONS="-U nobody -G nogroup -F /var/log/ghostdriver/ghostdriver.log"
