@@ -249,17 +249,20 @@ clean.finalizedBy(cleanPy)
 
 task buildminpy(dependsOn: build) {
 	ext.bdir = new File("${rootDir}/site/build")
-	ext.srcDir = "${rootDir}/src/python"
-	ext.sources = files { file("${srcDir}").listFiles() }
+	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
+	ext.wheelfile = "marbles_min-${pyver}-py2.py3-none-any.whl"
+	ext.sources = fileTree("${rootDir}/src/python/marbles")
+	description "Building ${wheelfile}"
 
-	inputs.files(sources.collect { relativePath(it) })
-	outputs.dir bdir
+	// Set these so we only build if source changes
+	inputs.files(sources)
+	outputs.files(["${bdir}/${wheelfile}"])
 
 	doLast {
 		bdir.mkdirs()
 		tasks.create('dobuildminpy', Exec) {
-			workingDir = "${srcDir}"
-			commandLine = ['python', 'setup.py', "clean", 'minimal', "bdist_wheel"]
+			workingDir = "${rootDir}/src/python"
+			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", 'minimal', "bdist_wheel"]
 		}.execute()
 	}
 }
@@ -274,14 +277,14 @@ task buildstdpy(dependsOn: cpminpy) {
 	ext.bdir1 = new File("${rootDir}/src/python/services/ccgparser/build")
 	ext.bdir2 = new File("${rootDir}/src/python/services/infox/build")
 	ext.bdir3 = new File("${rootDir}/src/python/services/newsreader/build")
-	ext.srcDir = "${rootDir}/src/python"
-	ext.sources = files { file("${srcDir}").listFiles() }
+	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
+	ext.wheelfile = "marbles_std-${pyver}-py2.py3-none-any.whl"
+	ext.sources = fileTree("${rootDir}/src/python/marbles")
+	description "Building ${wheelfile}"
 
 	// Set these so we only build if source changes
-	inputs.files(sources.collect { relativePath(it) })
-	outputs.dir bdir1
-	outputs.dir bdir2
-	outputs.dir bdir3
+	inputs.files(sources)
+	outputs.files(["${bdir1}/${wheelfile}", "${bdir2}/${wheelfile}", "${bdir3}/${wheelfile}"])
 
 	doLast {
 		bdir1.mkdirs()
@@ -289,7 +292,11 @@ task buildstdpy(dependsOn: cpminpy) {
 		bdir3.mkdirs()
 		tasks.create('dobuildstdpy', Exec) {
 			workingDir = "${rootDir}/src/python"
-			commandLine = ['python', 'setup.py', "clean", "bdist_wheel"]
+			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", "bdist_wheel"]
+		}.execute()
+		tasks.create('downloadAWSlogs', Exec) {
+			workingDir = "${rootDir}"
+			commandLine = ["./scripts/download_awslogs.sh", "${bdir1}", "${bdir2}", "${bdir3}"]
 		}.execute()
 	}
 }
@@ -312,13 +319,31 @@ task cpstdpy3(type: Copy, dependsOn: buildstdpy) {
 	include 'marbles_std*.whl'
 }
 
+task cpmsvc1(type: Copy, dependsOn: cpstdpy1) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/ccgparser/build"
+	include 'mservice.sh'
+}
+
+task cpmsvc2(type: Copy, dependsOn: cpstdpy2) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/infox/build"
+	include 'mservice.sh'
+}
+
+task cpmsvc3(type: Copy, dependsOn: cpstdpy3) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/newsreader/build"
+	include 'mservice.sh'
+}
+
 task pydist {
 	// Dummy task so we can exec from command line
 }
 
-pydist.dependsOn cpstdpy1
-pydist.dependsOn cpstdpy2
-pydist.dependsOn cpstdpy3
+pydist.dependsOn cpmsvc1
+pydist.dependsOn cpmsvc2
+pydist.dependsOn cpmsvc3
 
 task cpmodel1(type: Copy, dependsOn: buildstdpy) {
 	from "${rootDir}/ext/easysrl/model"
@@ -333,7 +358,6 @@ task cpmodel2(type: Copy, dependsOn: buildstdpy) {
 }
 
 task cpjar1(type: Copy, dependsOn: ':ext:easysrl:build') {
-
 	from "${rootDir}/ext/easysrl/build/libs"
 	into "${rootDir}/src/python/services/infox/build"
 	include '*-capsule.jar'
