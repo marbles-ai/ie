@@ -66,7 +66,7 @@ start() {
             die "Service is already running."
         fi
     fi
-    $DAEMONROOT/$DAEMON -d -p $PIDFILE $*
+    $DAEMONROOT/$DAEMON -d -p $PIDFILE $EXTRA_OPTIONS $*
     #pushd $DAEMONROOT 2>/dev/null >/dev/null
     #./$DAEMON -d -p $PIDFILE $*
     #popd 2>/dev/null 1>/dev/null
@@ -112,9 +112,14 @@ SVCNAME="`basename $1 | sed 's/\.[a-zA-Z0-9]*$//g'`"
 
 if [ "x$UID" == "x0" ]; then
     PIDFILE="/var/run/${SVCNAME}.pid"
+    mkdir -p /var/log/ghostdriver
+    chown nobody /var/log/ghostdriver > /dev/null || die "Cannot set owner for /var/log/ghostdriver"
+    chgrp nogroup /var/log/ghostdriver > /dev/null || die "Cannot set group for /var/log/ghostdriver"
+    EXTRA_OPTIONS="-U nobody -G nogroup -F /var/log/ghostdriver/ghostdriver.log"
     echo "Using root credentials - pidfile is $PIDFILE"
 else
     PIDFILE="${DAEMONROOT}/run/${SVCNAME}.pid"
+    EXTRA_OPTIONS=""
     echo "Using local credentials - pidfile is $PIDFILE"
 fi
 
