@@ -197,12 +197,10 @@ class ServiceExecutor(object):
                                            })
             started = False
             try:
-                self.on_start(workdir)
-                started = True
                 with context:
+                    self.on_start(workdir)
+                    started = True
                     self.logger.info('Service started')
-                    with open(os.path.join(self.state.rundir, self.state.svcname + '.pid'), 'w') as fdpid:
-                        fdpid.write(str(os.getpid()) + '\n')
                     self._run_loop()
 
             except Exception as e:
