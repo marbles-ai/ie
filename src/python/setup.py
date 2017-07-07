@@ -79,17 +79,21 @@ class MinimalCommand(Command):
 
 
 class CleanCommand(Command):
-    """Create minimal package"""
+    """Clean package"""
     description = 'clean package'
-    user_options = [('all', None, 'clean all, default is build only')]
+    user_options = [('all', None, 'clean all, default is build only'),
+                    ('version=', None, 'sets the version, default is 0.1')]
 
     def initialize_options(self):
         self.all = None
+        self.version = None
 
     def finalize_options(self):
         self.all = self.all is not None
 
     def run(self):
+        if self.version is not None:
+            self.distribution.metadata.version = self.version
         workdir = os.path.dirname(os.path.abspath(__file__))
         os.system('rm -rf ' + os.path.join(workdir, 'build'))
         if self.all:
