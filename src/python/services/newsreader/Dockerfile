@@ -17,7 +17,7 @@ ADD build/AgentDependencies.tar.gz /Newsreader
 ADD build/awslogs-agent-setup.py /Newsreader
 
 RUN apt-get update \
-    && apt-get install -y gcc apt-utils anacron \
+    && apt-get install -y gcc apt-utils anacron libfontconfig \
     && apt-get install -y python2.7 python-pip
 
 # Install any needed packages specified in requirements.txt

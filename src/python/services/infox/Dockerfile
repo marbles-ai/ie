@@ -18,7 +18,7 @@ ADD build/model.tar.gz /Infox
 ADD build/mservice.sh /Infox
 
 RUN apt-get update \
-    && apt-get install -y gcc apt-utils \
+    && apt-get install -y gcc apt-utils libfontconfig \
     && apt-get install -y python2.7 python-pip
 
 # Install any needed packages specified in requirements.txt
