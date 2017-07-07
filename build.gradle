@@ -200,10 +200,13 @@ task grpcOther {
     ext.proto_dirname = "${rootDir}/src/main/proto"
 	ext.proto_filenames = ["marbles_service.proto", "infox_service.proto"]
 
+
     // Set io for up-to-date checks
     //inputs.files(["${proto_dirname}/marbles_service.proto", "${proto_dirname}/infox.proto"])
     inputs.files(proto_filenames.collect { "${proto_dirname}/$it" })
-    outputs.dir cppout
+    outputs.files(proto_filenames.collect {
+		"${pyout}" + "/" + "$it".replaceFirst(/\.proto/, "_pb2.py")
+	})
     
     // Execute protoc compiler with plugin 
     doLast {
@@ -243,11 +246,15 @@ clean {
 	delete "${rootDir}/src/python/services/ccgparser/build"
 	delete "${rootDir}/src/python/services/infox/build"
 	delete "${rootDir}/src/python/services/newsreader/build"
+	delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2.py"
+	delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2_grpc.py"
+	delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2.py"
+	delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2_grpc.py"
 }
 
 clean.finalizedBy(cleanPy)
 
-task buildminpy(dependsOn: build) {
+task buildminpy(dependsOn: grpcOther) {
 	ext.bdir = new File("${rootDir}/site/build")
 	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
 	ext.wheelfile = "marbles_min-${pyver}-py2.py3-none-any.whl"
