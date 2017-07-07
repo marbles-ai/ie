@@ -10,12 +10,18 @@ import email.utils
 import re
 import hashlib
 import weakref
+import platform
 from marbles import safe_utf8_encode, safe_utf8_decode, future_string
 
 
 # PhantomJS files have different extensions
 # under different operating systems
-_PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs')
+if platform.system().lower() == 'darwin':
+    PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs-osx')
+else:
+    PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs-linux')
+
+
 _DATE1 = re.compile(r'/(?P<year>\d\d\d\d)/(?P<month>\d\d)/(?P<day>\d\d)/')
 _DOM = re.compile(r'https?://(?:ww[^.]*\.)?(?P<domain>[a-zA-Z0-9.-]+)(?:/.*)?$')
 _NALNUMSP = re.compile(r'[^A-Za-z0-9 _-]')
@@ -29,7 +35,7 @@ class Browser(object):
             self.driver = webdriver.FireFox()
         else:
             #driver = webdriver.PhantomJS(service_log_path='/var/log/phantomjs/ghostdriver.log')
-            self.driver = webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
+            self.driver = webdriver.PhantomJS(PHANTOMJS_PATH, service_log_path=ghost_log_file)
         self.scrapers = []
 
     @property

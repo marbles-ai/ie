@@ -9,26 +9,23 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import re
 import logging
+from marbles.newsfeed.scraper import PHANTOMJS_PATH
 
 
 _logger = logging.getLogger(__name__)
 
 
-# PhantomJS files have different extensions
-# under different operating systems
-_PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), \
-                               'newsfeed','data', 'phantomjs')
 _WS = re.compile(r'\s+')
 
 
 def create_headless_browser(ghost_log_file=None):
-    return webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
+    return webdriver.PhantomJS(PHANTOMJS_PATH, service_log_path=ghost_log_file)
 
 
 class GoogleScraper(object):
     def __init__(self, browser=None, ghost_log_file=None):
         if browser is None:
-            self.browser = webdriver.PhantomJS(_PHANTOMJS_PATH, service_log_path=ghost_log_file)
+            self.browser = webdriver.PhantomJS(PHANTOMJS_PATH, service_log_path=ghost_log_file)
         else:
             self.browser = browser
 

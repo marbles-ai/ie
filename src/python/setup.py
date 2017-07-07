@@ -117,8 +117,8 @@ setup(
     ],
     packages=packages_to_include,
     package_data={
-        'marbles.newsfeed': ['data/phantomjs'],
-        'marbles.ie.ccg': ['data/*.dat', 'data/phantomjs', 'data/vnxml/*.xml'],
+        'marbles.newsfeed': ['data/phantomjs*'],
+        'marbles.ie.ccg': ['data/*.dat', 'data/vnxml/*.xml'],
         'marbles.ie.kb': ['data/vnxml/*.xml'],
     },
     install_requires=[
