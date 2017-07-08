@@ -21,7 +21,6 @@ from marbles.ie.utils.text import preprocess_sentence
 from svc import ServiceState
 
 _logger = ExceptionRateLimitedLogAdaptor(logging.getLogger(__name__))
-#python -m nltk.downloader punkt
 
 
 def receive_messages(*args, **kwargs):
@@ -100,11 +99,6 @@ class AwsNewsQueueWriter(object):
         self.hash_cache = {}
         self.state = state
 
-    @property
-    def logger(self):
-        global _logger
-        return self.state.logger if self.state.logger is not None else _logger
-
     def close(self):
         self.browser.close()
 
@@ -120,6 +114,7 @@ class AwsNewsQueueWriter(object):
 
     def check_hash_exists(self, hash):
         if hash in self.hash_cache:
+            self.hash_cache[hash] = self.state.time()
             return True
         exists = 0 != len([x for x in self.aws.s3.Bucket('marbles-ai-feeds-hash').objects.filter(Prefix=hash)])
         if exists:
@@ -130,10 +125,11 @@ class AwsNewsQueueWriter(object):
         self.bucket_cache = set()
 
     def retire_hash_cache(self, limit):
+        global _logger
         """Retire least recently used in hash cache."""
         if limit >= len(self.hash_cache):
             return
-        self.logger.info('Retiring hash cache, current-size=%d, required-size=%d', len(self.hash_cache), limit)
+        _logger.info('Retiring hash cache, current-size=%d, required-size=%d', len(self.hash_cache), limit)
         # Each value is a timestamp floating point
         vk_sort = sorted(self.hash_cache.items(), key=lambda x: x[1])
         vk_sort.reverse()
@@ -152,16 +148,17 @@ class AwsNewsQueueWriter(object):
 
     def read_all(self, ignore_read):
         for src in self.sources:
-            self.read_from_source(src, ignore_read)
             if self.state.terminate:
                 return
+            self.read_from_source(src, ignore_read)
         self.browser.get_blank()
 
     def read_from_source(self, src, ignore_read):
-        if self.state.terminate:
-            return
+        global _logger
         articles = []
         for rss in src.feeds:
+            if self.state.terminate:
+                return
             articles.extend(rss.get_articles(ignore_read=ignore_read)) # Returns unread articles
 
         errors = 0
@@ -173,7 +170,7 @@ class AwsNewsQueueWriter(object):
                 arc = a.archive(src.scraper)
                 bucket, objname = a.get_aws_s3_names(arc['content'])
                 hash = objname.split('/')[-1]
-                self.logger.debug(hash + ' - ' + arc['title'])
+                _logger.debug(hash + ' - ' + arc['title'])
                 if self.check_hash_exists(hash):
                     continue
 
@@ -228,14 +225,17 @@ class AwsNewsQueueWriter(object):
                                         'DataType': 'String',
                                         'StringValue': mtype
                                     }
+                                else:
+                                    _logger.info('Could not infer mime type for url(%s) - message hash(%s)',
+                                                 media['url'], hash)
                         except requests.ConnectionError as e:
                             # Non critical error - can happen when replaying old stories
-                            self.logger.warning('Media not found - %s', str(e))
+                            _logger.warning('Media not found when processing message hash(%s) - %s', hash, str(e))
 
                     # Send the message to our queue
                     response = self.aws.news_queue.send_message(MessageAttributes=attributes,
                                                                 MessageBody=data)
-                    self.logger.debug('Sent hash(%s) -> news_queue(%s)', hash, response['MessageId'])
+                    _logger.debug('Sent hash(%s) -> news_queue(%s)', hash, response['MessageId'])
 
                 # Update hash cache
                 self.hash_cache[hash] = self.state.time()
@@ -246,7 +246,7 @@ class AwsNewsQueueWriter(object):
 
             except Exception as e:
                 # Exception source defined by file-name:line-number:exeption-class:hash
-                self.logger.exception('AwsNewsQueueWriter.read_from_source', exc_info=e, rlimitby=hash)
+                _logger.exception('AwsNewsQueueWriter.read_from_source', exc_info=e, rlimitby=hash)
                 errors += 1
                 if self.state.pass_on_exceptions:
                     raise
@@ -262,17 +262,14 @@ class AwsNewsQueueReader(object):
         self.state = state
         self.options = options
 
-    @property
-    def logger(self):
-        return self.state.logger
-
     def run(self):
         """Process messages."""
         for message in receive_messages(self.aws.news_queue, MessageAttributeNames=['All']):
+            global _logger
             # Attributes will be passed onto next queue
             attributes = message.message_attributes
             mhash = attributes['hash']['StringValue']
-            self.logger.debug('Received news_queue(%s) -> hash(%s)', message.message_id, mhash)
+            _logger.debug('Received news_queue(%s) -> hash(%s)', message.message_id, mhash)
             body = json.loads(message.body)
             retry = 3
             ccgbank = None
@@ -280,7 +277,7 @@ class AwsNewsQueueReader(object):
             paragraphs_in = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), body['content'].split('\n')))
             paragraphs_out = []
             if len(paragraphs_in) == 0:
-                _logger.debug('No paragraphs for story %s\n%s' (mhash, title))
+                _logger.debug('No paragraphs for story %s\n%s', (mhash, title))
             # Use NLTK to split paragraphs into sentences.
             for p in paragraphs_in:
                 sentences = filter(lambda x: len(x.strip()) != 0, sent_tokenize(p))
@@ -316,14 +313,14 @@ class AwsNewsQueueReader(object):
                 except requests.exceptions.ConnectionError as e:
                     time.sleep(0.25)
                     retry -= 1
-                    self.logger.exception('AwsNewsQueueReader.run', exc_info=e)
+                    _logger.exception('AwsNewsQueueReader.run', exc_info=e)
                     if self.state.pass_on_exceptions:
                         raise
                 except Exception as e:
                     # After X reads AWS sends the item to the dead letter queue.
                     # X is configurable in AWS console.
                     retry = 0
-                    self.logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
+                    _logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
                     if self.state.pass_on_exceptions:
                         raise
 
@@ -360,10 +357,10 @@ class AwsNewsQueueReader(object):
                             break
 
                     if ireduce >= 0:
-                        self.logger.warning('Hash(%s) ccg paragraphs reduced from %d to %d' % (mhash, iorig, ireduce))
+                        _logger.warning('Hash(%s) ccg paragraphs reduced from %d to %d' % (mhash, iorig, ireduce))
                     response = self.aws.ccg_queue.send_message(MessageAttributes=attributes, MessageBody=data)
-                    self.logger.debug('Sent hash(%s) -> ccg_queue(%s)', mhash, response['MessageId'])
+                    _logger.debug('Sent hash(%s) -> ccg_queue(%s)', mhash, response['MessageId'])
             except Exception as e:
-                self.logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
+                _logger.exception('AwsNewsQueueReader.run', exc_info=e, rlimitby=mhash)
                 if self.state.pass_on_exceptions:
                     raise
