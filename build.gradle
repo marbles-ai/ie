@@ -101,7 +101,7 @@ protobuf {
 				// To generate deprecated interfaces and static bindService method,
 				// turn the enable_deprecated option to true below:
 				option 'enable_deprecated=false'
-                
+
 			}
 		}
 	}
@@ -174,7 +174,7 @@ task alljavadoc(type: Javadoc) {
 // Create gRPC interfaces for otherlanguages
 task grpcOther {
 	description "Build Python and CPP gRPC interface."
-   
+
 	doFirst {
 		new ByteArrayOutputStream().withStream { os ->
 			def result = exec {
@@ -186,7 +186,7 @@ task grpcOther {
 		logger.info("Found Python gRPC plugin ${pyPlugin}")
 		new ByteArrayOutputStream().withStream { os ->
 			def result = exec {
-				commandLine 'which', 'grpc_cpp_plugin' 
+				commandLine 'which', 'grpc_cpp_plugin'
 				standardOutput = os
 			}
 			ext.cppPlugin = os.toString().trim()
@@ -207,8 +207,8 @@ task grpcOther {
     outputs.files(proto_filenames.collect {
 		"${pyout}" + "/" + "$it".replaceFirst(/\.proto/, "_pb2.py")
 	})
-    
-    // Execute protoc compiler with plugin 
+
+    // Execute protoc compiler with plugin
     doLast {
 		// Create output directories first
         cppout.mkdirs()
@@ -221,7 +221,7 @@ task grpcOther {
 						   "--plugin=protoc-gen-grpc=${pyPlugin}"] + proto_filenames
         }.execute()
         tasks.create("grpcCpp", Exec) {
-            workingDir = "${proto_dirname}" 
+            workingDir = "${proto_dirname}"
             commandLine = ['protoc', "--cpp_out=${cppout}", '-I./', "--grpc_out=${cppout}",
 						   "--plugin=protoc-gen-grpc=${cppPlugin}"] + proto_filenames
         }.execute()
@@ -270,6 +270,11 @@ task buildminpy(dependsOn: grpcOther) {
 		tasks.create('dobuildminpy', Exec) {
 			workingDir = "${rootDir}/src/python"
 			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", 'minimal', "bdist_wheel"]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                    && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 	}
 }
@@ -300,10 +305,16 @@ task buildstdpy(dependsOn: cpminpy) {
 		tasks.create('dobuildstdpy', Exec) {
 			workingDir = "${rootDir}/src/python"
 			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", "bdist_wheel"]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 		tasks.create('downloadAWSlogs', Exec) {
 			workingDir = "${rootDir}"
 			commandLine = ["./scripts/download_awslogs.sh", "${bdir1}", "${bdir2}", "${bdir3}"]
+            // Trash output- doesn't work with this script
 		}.execute()
 	}
 }
@@ -411,21 +422,41 @@ task dockerize(dependsOn: dockerdeps) {
 		tasks.create("dockerCcgparser", Exec) {
 			workingDir = "${python_source}/services/ccgparser"
 			commandLine = ['docker', 'build', "-t", "ccg", "."]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                    && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 
 		tasks.create("dockerInfox", Exec) {
 			workingDir = "${python_source}/services/infox"
 			commandLine = ['docker', 'build', "-t", "infox", "."]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                    && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 
 		tasks.create("dockerNewsreader", Exec) {
 			workingDir = "${python_source}/services/newsreader"
 			commandLine = ['docker', 'build', "-t", "newsreader", "."]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                    && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 
 		tasks.create("dockerWebsite", Exec) {
 			workingDir = "${rootDir}/site"
 			commandLine = ['docker', 'build', "-t", "website", "."]
+            if (gradle.startParameter.logLevel != LogLevel.DEBUG
+                    && gradle.startParameter.logLevel != LogLevel.INFO) {
+                // Trash output
+                standardOutput = new ByteArrayOutputStream()
+            }
 		}.execute()
 	}
 }
