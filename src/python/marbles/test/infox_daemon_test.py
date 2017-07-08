@@ -47,7 +47,7 @@ class InfoxTest(unittest.TestCase):
         #
         # Minimal calls are:
         # 1.Get transport to endpoint
-        #   stub, _ = grpc.get_infox_client_transport('localhost', 50000)
+        #   stub, _ = grpc.get_infox_client_transport('localhost')
         # 2:Call infox service endpoint
         #   gtext = grpc.GText()
         #   gtext.text = 'The boy wants to believe the girl'
