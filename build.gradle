@@ -326,19 +326,37 @@ task cpstdpy3(type: Copy, dependsOn: buildstdpy) {
 	include 'marbles_std*.whl'
 }
 
-task cpmsvc1(type: Copy, dependsOn: cpstdpy1) {
+task cpawslogs_helper1(type: Copy, dependsOn: cpstdpy1) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/ccgparser/build"
+	include 'cp_env_credentials_to_awslogs.sh'
+}
+
+task cpawslogs_helper2(type: Copy, dependsOn: cpstdpy2) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/infox/build"
+	include 'cp_env_credentials_to_awslogs.sh'
+}
+
+task cpawslogs_helper3(type: Copy, dependsOn: cpstdpy3) {
+	from "${rootDir}/scripts"
+	into "${rootDir}/src/python/services/newsreader/build"
+	include 'cp_env_credentials_to_awslogs.sh'
+}
+
+task cpmsvc1(type: Copy, dependsOn: cpawslogs_helper1) {
 	from "${rootDir}/scripts"
 	into "${rootDir}/src/python/services/ccgparser/build"
 	include 'mservice.sh'
 }
 
-task cpmsvc2(type: Copy, dependsOn: cpstdpy2) {
+task cpmsvc2(type: Copy, dependsOn: cpawslogs_helper2) {
 	from "${rootDir}/scripts"
 	into "${rootDir}/src/python/services/infox/build"
 	include 'mservice.sh'
 }
 
-task cpmsvc3(type: Copy, dependsOn: cpstdpy3) {
+task cpmsvc3(type: Copy, dependsOn: cpawslogs_helper3) {
 	from "${rootDir}/scripts"
 	into "${rootDir}/src/python/services/newsreader/build"
 	include 'mservice.sh'
