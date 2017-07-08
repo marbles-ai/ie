@@ -16,6 +16,7 @@ ADD ccgparser.py /Ccg
 ADD build/easysrl-0.1.0-capsule.jar /Ccg
 ADD build/model.tar.gz /Ccg
 ADD build/mservice.sh /Ccg
+ADD build/cp_env_credentials_to_awslogs.sh /Ccg
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils libfontconfig \

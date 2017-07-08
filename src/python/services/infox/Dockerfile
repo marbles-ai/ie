@@ -16,6 +16,7 @@ ADD infox.py /Infox
 ADD build/easysrl-0.1.0-capsule.jar /Infox
 ADD build/model.tar.gz /Infox
 ADD build/mservice.sh /Infox
+ADD build/cp_env_credentials_to_awslogs.sh /Infox
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils libfontconfig \
