@@ -140,8 +140,6 @@ class AwsNewsQueueWriter(object):
         self.hash_cache = dict(vk_sort[0:limit])
 
     def refresh(self):
-        if self.state.terminate:
-            return
         # TODO: Interleave work
         for src in self.sources:
             if self.state.terminate:
