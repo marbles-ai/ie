@@ -33,7 +33,7 @@ class InfoxTest(unittest.TestCase):
         self.daemon = subprocess.Popen([os.path.join(PROJDIR, 'src', 'python', 'services', 'infox', 'infox.py'),
                                         '--port', '50000', '--log-level', 'debug'])
         # Wait for model to load otherwise port will not be available
-        time.sleep(40)
+        time.sleep(4
         # Check if success
         os.kill(self.daemon.pid, 0)
 
@@ -43,6 +43,19 @@ class InfoxTest(unittest.TestCase):
         self.ccgparser.shutdown()
 
     def test1_parse(self):
+        # PWG: grpc.GText needs to be marshalled into core.sentence
+        #
+        # Minimal calls are:
+        # 1.Get transport to endpoint
+        #   stub, _ = grpc.get_infox_client_transport('localhost', 50000)
+        # 2:Call infox service endpoint
+        #   gtext = grpc.GText()
+        #   gtext.text = 'The boy wants to believe the girl'
+        #   gtext.options = CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH
+        #   gsentence = stub.parse(gtext)
+        # 3.Marshal into core.sentence
+        #   sent = marshal_sentence(gsentence)
+        #
         stub, _ = grpc.get_infox_client_transport('localhost', 50000)
         gtext = grpc.GText()
         gtext.text = 'The boy wants to believe the girl'
