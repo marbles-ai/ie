@@ -17,6 +17,9 @@ ADD build/easysrl-0.1.0-capsule.jar /Infox
 ADD build/model.tar.gz /Infox
 ADD build/mservice.sh /Infox
 ADD build/cp_env_credentials_to_awslogs.sh /Infox
+ADD awslogs.conf /Infox
+ADD build/AgentDependencies.tar.gz /Infox
+ADD build/awslogs-agent-setup.py /Infox
 
 RUN apt-get update \
     && apt-get install -y gcc apt-utils libfontconfig \
@@ -26,6 +29,8 @@ RUN apt-get update \
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt 
 RUN pip install marbles_std-0.1-py2.py3-none-any.whl
+
+RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDependencies --configfile=awslogs.conf -n
 
 # This is the command to be executed when done creating our container
 CMD ["./mservice.sh", "./infox.py", "start", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]
