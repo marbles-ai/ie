@@ -11,6 +11,7 @@ WORKDIR /Newsreader
 ADD newsreader.py /Newsreader
 ADD build/marbles_std-0.1-py2.py3-none-any.whl /Newsreader
 ADD build/mservice.sh /Newsreader
+ADD build/cp_env_credentials_to_awslogs.sh /Newsreader
 ADD requirements.txt /Newsreader
 ADD awslogs.conf /Newsreader
 ADD build/AgentDependencies.tar.gz /Newsreader
