@@ -1,6 +1,5 @@
 [ -d BUILD ] && exit 0
 mkdir -p BUILD \
-	&& cp -f Dockerfile BUILD \
 	&& unzip phantomjs-$RELEASE-macosx.zip -d BUILD \
 	&& cp BUILD/phantomjs-2.1.1-macosx/bin/phantomjs ../../src/python/marbles/newsfeed/data/phantomjs-osx \
 	|| die "unzip phantomjs"
