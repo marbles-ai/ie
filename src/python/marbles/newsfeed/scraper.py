@@ -18,7 +18,9 @@ from marbles import safe_utf8_encode, safe_utf8_decode, future_string
 # under different operating systems
 if platform.system().lower() == 'darwin':
     PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs-osx')
-else:
+elif platform.dist()[0].lower() == 'ubuntu':
+    PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs-ubuntu')
+else: # Generic linux
     PHANTOMJS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'phantomjs-linux')
 
 
