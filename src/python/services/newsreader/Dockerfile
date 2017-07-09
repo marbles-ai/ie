@@ -28,5 +28,9 @@ RUN pip install marbles_std-0.1-py2.py3-none-any.whl
 
 RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDependencies --configfile=awslogs.conf -n
 
+# This is useful if you want to debug the container and mount ~/.aws here
+# docker run -v ~/.aws:/root/.aws ...
+RUN mkdir -p /root/.aws
+
 # This is the command to be executed when done creating our container
 CMD ["./mservice.sh", "./newsreader.py", "start", "default-queue"]

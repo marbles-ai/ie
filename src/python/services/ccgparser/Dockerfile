@@ -7,7 +7,7 @@ FROM ubuntu:16.04
 # Set the working directory where CMD will be run
 WORKDIR /Ccg
 
-# Installation stuff 
+# Installation stuff
 ADD build/marbles_std-0.1-py2.py3-none-any.whl /Ccg
 ADD requirements.txt /Ccg
 
@@ -27,10 +27,14 @@ RUN apt-get update \
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt 
+RUN pip install -r requirements.txt
 RUN pip install marbles_std-0.1-py2.py3-none-any.whl
 
 RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDependencies --configfile=awslogs.conf -n
+
+# This is useful if you want to debug the container and mount ~/.aws here
+# docker run -v ~/.aws:/root/.aws ...
+RUN mkdir -p /root/.aws
 
 # This is the command to be executed when done creating our container
 CMD ["./mservice.sh", "./ccgparser.py", "start", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model", "default-queue"]
