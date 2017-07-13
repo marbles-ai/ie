@@ -1,5 +1,5 @@
 from __future__ import unicode_literals, print_function
-from marbles import native_string, future_string, safe_utf8_decode, safe_utf8_encode
+from marbles import safe_utf8_decode, safe_utf8_encode, UNICODE_STRINGS
 from utils import iterable_type_check, union, union_inplace, intersect, rename_var, compare_lists_eq
 from common import SHOW_BOX, SHOW_LINEAR, SHOW_SET, SHOW_DEBUG
 from common import DRSVar, DRSConst, Showable
@@ -57,6 +57,9 @@ class AbstractDRS(Showable):
 
     def __unicode__(self):
         return safe_utf8_decode(self.show(SHOW_LINEAR))
+
+    def __repr__(self):
+        return unicode(self) if UNICODE_STRINGS else str(self)
 
     def _isproper_subdrsof(self, d):
         """Helper for isproper"""
@@ -1069,6 +1072,9 @@ class AbstractDRSRef(Showable):
     def __str__(self):
         return safe_utf8_encode(self.var.to_string())
 
+    def __repr__(self):
+        return unicode(self) if UNICODE_STRINGS else str(self)
+
     def __unicode__(self):
         return safe_utf8_decode(self.var.to_string())
 
@@ -1187,6 +1193,10 @@ class AbstractDRSRelation(object):
     def __unicode__(self):
         return safe_utf8_decode(self.to_string())
 
+    def __repr__(self):
+        return unicode(self) if UNICODE_STRINGS else str(self)
+
+
 
 class DRSRelation(AbstractDRSRelation):
     """DRS Relation"""
@@ -1222,6 +1232,9 @@ class AbstractDRSCond(Showable):
 
     def __hash__(self):
         return hash(unicode(self))
+
+    def __repr__(self):
+        return unicode(self) if UNICODE_STRINGS else str(self)
 
     def _set_accessible(self, d):
         raise NotImplementedError
@@ -1407,7 +1420,7 @@ class Rel(AbstractDRSCond):
                 gd = gd.accessible_drs
             return ConditionRef(ld, ld.global_drs, self)
         return None
- 
+
     def simplify_props(self):
         """Simply propositions.
 
