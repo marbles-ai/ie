@@ -433,6 +433,7 @@ class Category(Freezable):
             sigs.append('RQU')
             sigs.append('LRB')
             sigs.append('RRB')
+            sigs.append('S[for]')
             sigs.append('S[X]')
             sigs.append('S')
 
@@ -1097,6 +1098,7 @@ CAT_Sq = Category.from_cache('S[q]')
 CAT_Sb = Category.from_cache('S[b]')
 CAT_Sto = Category.from_cache('S[to]')
 CAT_Swq = Category.from_cache('S[wq]')
+CAT_Sfor = Category.from_cache('S[for]')
 CAT_SX = Category.from_cache('S[X]')    # wildcard
 CAT_ADVERB = Category.from_cache(r'(S\NP)\(S\NP)')
 CAT_MODAL = Category.from_cache(r'(S\NP)/(S\NP)')
