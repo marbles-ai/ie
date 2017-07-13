@@ -598,8 +598,9 @@ try:
 
     _tcache.addinit(Model.build_template(r'S[X]_1022/NP_2022'))
     _tcache.addinit(Model.build_template(r'S[X]_1023\NP_2023'))
-    _tcache.addinit(Model.build_template(r'S[X]_1095/(S[X]_1095\NP)'))
-    _tcache.addinit(Model.build_template(r'(S[X]_1096\NP_2096)\((S[X]_1096\NP_2096)/PP)'))
+    _tcache.addinit(Model.build_template(r'S[X]_1200/(S[X]_1200\NP)'))
+    _tcache.addinit(Model.build_template(r'(S[X]_1201\NP_2201)\((S[X]_1201\NP_2201)/PP)'))
+    _tcache.addinit(Model.build_template(r'PP_2202/(S[ng]_1202\NP_2202)'), replace=True)
 
 
     # Add unary rules
