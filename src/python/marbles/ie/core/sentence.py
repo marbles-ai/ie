@@ -308,6 +308,18 @@ class Constituent(object):
         """
         return self.span.sentence.constituents[self.chead]
 
+    def marked_text(self, mark='#'):
+        """Get the constituent text with the the head marked."""
+        if len(self.span) == 0:
+            return ''
+        hd = self.get_head()
+        txt = [mark + self.span[0].word if self.span[0] is hd else self.span[0].word]
+        for tok in self.span[1:]:
+            if not tok.ispunct:
+                txt.append(' ')
+            txt.append(mark + tok.word if tok is hd else tok.word)
+        return ''.join(txt)
+
 
 class AbstractSentence(collections.Sequence):
     """AbstractSentence"""
