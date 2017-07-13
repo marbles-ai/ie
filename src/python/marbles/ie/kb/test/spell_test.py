@@ -37,21 +37,46 @@ class SymSpellTestCase(unittest.TestCase):
         # self.assertDictEqual(spellchecker1.dictionary, spellchecker2.dictionary)
 
     def test2_GetSuggestions(self):
+        spellchecker = SymSpell()
+        strm = StringIO.StringIO()
+        strm.write("accepted accept acceptance acceptable\n")
+        strm.write("excepted except exception exceptional sceptered\n")
+        strm.seek(0)
+        spellchecker.build_from_corpus(strm)
+        suggestion = spellchecker.get_suggestions('acept', BEST_SUGGESTION)
+        self.assertEqual('accept', suggestion)
+        suggestion = spellchecker.get_suggestions('cepted', NBEST_SUGGESTIONS)
+        self.assertListEqual(['accepted', 'excepted'], sorted(suggestion))
+
+    def test3_GetSuggestions(self):
         ldcpath = os.path.join(PROJDIR, 'data', 'ldc', 'ccgbank_1_1', 'data', 'RAW')
         dirlist = os.listdir(ldcpath)
         spellchecker = SymSpell()
+        stats = spellchecker.build_from_wordnet()
         for fname in dirlist:
             f, x = os.path.splitext(fname)
             if x != '.raw':
                 continue
             ldcpath1 = os.path.join(ldcpath, fname)
             with open(ldcpath1, 'r') as fp:
-                spellchecker.build_from_corpus(fp)
+                stats = spellchecker.build_from_corpus(fp, stats)
 
-        suggestion = spellchecker.get_suggestions('reprted', BEST_SUGGESTION)
-        self.assertEqual('reported', suggestion)
-        suggestion = spellchecker.get_suggestions('reprted', NBEST_SUGGESTIONS)
-        self.assertListEqual(['reported'], suggestion)
+        if True:
+            print("total words processed: %i" % stats[0])
+            print("total unique words in corpus: %i" % stats[1])
+            print("total items in dictionary (corpus words and deletions): %i" % len(spellchecker.dictionary))
+            print("  edit distance for deletions: %i" % spellchecker.max_edit_distance)
+            print("  length of longest word in corpus: %i" % spellchecker.longest_word_length)
+
+        strm = StringIO.StringIO()
+        strm.write("excepted except exception exceptional\n")
+        strm.seek(0)
+        spellchecker.build_from_corpus(strm)
+
+        suggestion = spellchecker.get_suggestions('acept', BEST_SUGGESTION)
+        self.assertEqual('accept', suggestion)
+        suggestion = spellchecker.get_suggestions('cepted', NBEST_SUGGESTIONS)
+        self.assertListEqual(['accepted', 'excepted', 'sceptred'], sorted(suggestion))
 
 
 if __name__ == '__main__':

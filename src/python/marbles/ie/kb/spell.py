@@ -103,7 +103,7 @@ import collections
 import threading
 import copy
 import itertools
-import nltk
+import StringIO
 from marbles import safe_utf8_decode, safe_utf8_encode, PROJDIR
 
 
@@ -113,6 +113,9 @@ BEST_SUGGESTION = 0
 NBEST_SUGGESTIONS = 1
 # All suggestions <= max_edit_distance (slower, no early termination)
 ALL_SUGGESTIONS = 2
+
+
+_CCGBANK_IGNORE = re.compile(r"^'(?:ll|s|ve|nt|m|re|d)(?:\s|$)|-[A-Z]+-?$", re.UNICODE | re.IGNORECASE)
 
 
 def dameraulevenshtein(seq1, seq2):
@@ -176,6 +179,7 @@ class SymSpell(object):
         self.longest_word_length = 0
         self.modify_lock = threading.RLock()
         self.silent = True
+        self.wnstats = None
 
     def get_deletes_list(self, w):
         """Given a word, derive strings with up to max_edit_distance characters deleted."""
@@ -261,9 +265,17 @@ class SymSpell(object):
     def build_from_corpus(self, stream, stats=None):
         """Create from a file containing a corpus of words.
 
+        Args:
+            stream: A stream or file
+            stats: A tuple of existing total-word-count, unique-word-count
+
+        Returns:
+            A tuple of total-word-count, unique-word-count
+
         Remarks:
             Threadsafe.
         """
+        global _CCGBANK_IGNORE
         total_word_count = 0 if stats is None else stats[0]
         unique_word_count = 0 if stats is None else stats[1]
         self.modify_lock.acquire()
@@ -274,6 +286,8 @@ class SymSpell(object):
                 # separate words by non-alphabetical characters
                 words = self.pattern.findall(line.lower())
                 for word in words:
+                    if _CCGBANK_IGNORE.match(word):
+                        continue
                     total_word_count += 1
                     if self.create_dictionary_entry(word):
                         unique_word_count += 1
@@ -289,7 +303,35 @@ class SymSpell(object):
         return total_word_count, unique_word_count
 
     def build_from_wordnet(self):
-        raise NotImplementedError
+        """Create from a wordnet.
+
+        Returns:
+            A tuple of total-word-count, unique-word-count
+
+        Remarks:
+            Threadsafe.
+        """
+        if self.wnstats is not None:
+            return self.wnstats
+        from nltk.corpus import wordnet as wn
+        strm = StringIO.StringIO()
+        i = 1000
+        i_init = i
+        stats = None
+        for s in wn.all_synsets():
+            nms = s.lemma_names()
+            strm.write(' '.join(nms))
+            strm.write('\n')
+            i -= 1
+            if i == 0:
+                i = i_init
+                strm.seek(0)
+                stats = self.build_from_corpus(strm, stats)
+                strm.seek(0)
+                strm.truncate(0)
+        strm.seek(0)
+        self.wnstats = self.build_from_corpus(strm, stats)
+        return self.wnstats
 
     def get_suggestions(self, string, suggest_mode=BEST_SUGGESTION):
         """Return list of suggested corrections for the potentially incorrectly spelled word.
