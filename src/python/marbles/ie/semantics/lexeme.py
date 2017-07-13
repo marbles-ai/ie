@@ -166,6 +166,7 @@ def create_empty_drs_production(category, ref=None, span=None):
 class Lexeme(AbstractLexeme):
 
     _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
+    _EventPredicatesPss = ('.THEME', '.AGENT', '.EXTRA')
     _ToBePredicates = ('.AGENT', '.ATTRIBUTE', '.EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
@@ -274,7 +275,8 @@ class Lexeme(AbstractLexeme):
     @property
     def ispreposition(self):
         """Test if the word attached to this lexeme is a preposition."""
-        return self.category == CAT_PREPOSITION
+        return self.category.test_return(CAT_PP, True) or self.category.test_return(CAT_Sfor, True)
+        #return self.category == CAT_PREPOSITION
 
     @property
     def isadverb(self):
@@ -605,7 +607,7 @@ class Lexeme(AbstractLexeme):
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
                     self.drs = DRS([refs[0]], conds)
-                    d = DrsProduction([], self.refs, span=span)
+                    d = DrsProduction([refs[0]], self.refs[1:], span=span)
 
                 elif rcat is not None and (rcat.has_any_features(FEATURE_PSS | FEATURE_TO) or rcat.ismodifier):
                     if len(refs) > 1:
@@ -706,12 +708,19 @@ class Lexeme(AbstractLexeme):
                     # as the spans can be deleted by ProductionList.flatten().
                     d = DrsProduction([], [refs[0]], span=span)
                 else:
-                    self.drs = DRS([], [Rel(self.stem, refs)])
+                    if len(refs) >= 2:
+                        refs = [refs[0], refs[-1]]
+                        self.refs = refs
+                        self.drs = DRS([], [Rel(self.stem, refs)])
+                    else:
+                        self.drs = DRS([], [Rel(self.stem, refs)])
                     d = DrsProduction([], self.refs, span=span)
 
             elif self.pos == POS_PREPOSITION and self.category.test_returns_modifier() \
                     and len(refs) > 1 and not self.category.ismodifier:
                 self.drs = DRS([], [Rel(self.stem, [refs[0], refs[-1]])])
+                refs = [refs[0], refs[-1]]
+                self.refs = refs
                 d = DrsProduction([], self.refs, span=span)
 
             elif final_atom == CAT_Sadj and len(refs) > 1:
