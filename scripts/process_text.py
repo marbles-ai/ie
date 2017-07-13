@@ -174,12 +174,12 @@ if __name__ == '__main__':
                     drs = d.show(SHOW_LINEAR)
                     constituents = []
                     for c in sentence.constituents:
-                        constituents.append(c.vntype.signature + '(' + c.span.text + ')')
+                        constituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     constituents = ' '.join(constituents)
                     vnconstituents = []
                     vsent = sentence.get_verbnet_sentence()
                     for c in vsent.constituents:
-                        vnconstituents.append(c.vntype.signature + '(' + c.span.text + ')')
+                        vnconstituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     vnconstituents = ' '.join(vnconstituents)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
