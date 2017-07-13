@@ -10,7 +10,7 @@ from marbles.ie.ccg import Category, CAT_EMPTY, CAT_NP, CAT_PPNP
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.drt.drs import AbstractDRS, DRS, DRSRef, get_new_drsrefs
 from marbles.ie.drt.utils import iterable_type_check, intersect, union, remove_dups
-from marbles import safe_utf8_encode, future_string
+from marbles import safe_utf8_encode, future_string, UNICODE_STRINGS
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Span
 
@@ -53,6 +53,10 @@ def identity_functor(category, refs=None):
         return FunctorProduction(category, refs[0:-1], d) if len(refs) > 1 else FunctorProduction(category, [refs[0]], d)
 
 
+def can_unify_refs(d1, r1, d2, r2):
+    return not (r1 in d1.universe and r2 in d2.universe)
+
+
 class AbstractProduction(object):
     """An abstract production."""
     def __init__(self, category=None):
@@ -67,6 +71,9 @@ class AbstractProduction(object):
 
     def __eq__(self, other):
         return id(self) == id(other)
+
+    def __repr__(self):
+        return unicode(self) if UNICODE_STRINGS else str(self)
 
     def get_raw_variables(self):
         raise NotImplementedError
@@ -946,7 +953,7 @@ class FunctorProduction(AbstractProduction):
     def set_lambda_refs(self, refs):
         """Disabled for functors"""
         pass
-            
+
     def set_category(self, cat):
         """Set the CCG category.
 
@@ -1198,6 +1205,7 @@ class FunctorProduction(AbstractProduction):
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
+        uy = filter(lambda x: can_unify_refs(fc, x[0], gc, x[1]), uy)
         assert len(uy) != 0
 
         # Build
@@ -1207,7 +1215,7 @@ class FunctorProduction(AbstractProduction):
         pl.push_right(fc)
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify() # merges doc views
+        pl = pl.unify() # merges universes
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
@@ -1287,6 +1295,7 @@ class FunctorProduction(AbstractProduction):
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
+        uy = filter(lambda x: can_unify_refs(fc, x[0], gc, x[1]), uy)
         assert len(uy) != 0
 
         # Build
@@ -1296,7 +1305,7 @@ class FunctorProduction(AbstractProduction):
         pl.push_right(fc)   # first entry sets lambdas
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify()     # merges doc views
+        pl = pl.unify()     # merges universes
         assert isinstance(pl, DrsProduction)
         dollar.push(pl)
         zg.push(dollar)
@@ -1376,6 +1385,7 @@ class FunctorProduction(AbstractProduction):
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
+        uy = filter(lambda x: can_unify_refs(fc, x[0], gc, x[1]), uy)
         assert len(uy) != 0
         self.pop()
 
@@ -1386,7 +1396,7 @@ class FunctorProduction(AbstractProduction):
         pl.push_right(fc)   # first in list sets lambdas
         pl.push_right(gc)
         pl.flatten()
-        pl = pl.unify()     # merges doc views
+        pl = pl.unify()     # merges universes
         assert isinstance(pl, DrsProduction)
         zg.push(pl)
         # Handle atomic X. If X is an atomic type next push() fails because the functor scope
@@ -1513,6 +1523,7 @@ class FunctorProduction(AbstractProduction):
 
             rs = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                     zip(fs, gs, glr, flr)))
+            rs = filter(lambda x: can_unify_refs(g, x[0], self._comp, x[1]), rs)
             # Unify
             g.rename_vars(rs, self)
 
