@@ -153,6 +153,9 @@ if __name__ == '__main__':
             pccg = None
             fol = None
             constituents = None
+            orphaned = None
+            conjoins = None
+            functor_phrases = None
 
             if options.ofmt == 'drs':
                 try:
@@ -181,6 +184,14 @@ if __name__ == '__main__':
                     for c in vsent.constituents:
                         vnconstituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     vnconstituents = ' '.join(vnconstituents)
+                    onps = sentence.get_orphaned_entities()
+                    if onps is not None:
+                        orphaned = '\n'.join(['(' + ', '.join([x.word for x in np]) + ')' for np in onps])
+                    if len(sentence.conjoins) != 0:
+                        conjoins = '\n'.join([sp.text for sp in sentence.conjoins])
+                    functor_phrases = ['VP(' + sp.text + ')' for sp in sentence.get_vp_functors()]
+                    functor_phrases.extend(['NP(' + sp.text + ')' for sp in sentence.get_np_functors()])
+                    functor_phrases = '\n'.join(functor_phrases)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
                     raise
@@ -211,6 +222,18 @@ if __name__ == '__main__':
                     sys.stdout.write('\n')
                     sys.stdout.write(vnconstituents)
                     sys.stdout.write('\n</constituents>\n')
+                if orphaned:
+                    sys.stdout.write('<orphaned>\n')
+                    sys.stdout.write(orphaned)
+                    sys.stdout.write('\n</orphaned>\n')
+                if conjoins:
+                    sys.stdout.write('<conjoins>\n')
+                    sys.stdout.write(conjoins)
+                    sys.stdout.write('\n</conjoins>\n')
+                if functor_phrases:
+                    sys.stdout.write('<functor_phrases>\n')
+                    sys.stdout.write(functor_phrases)
+                    sys.stdout.write('\n</functor_phrases>\n')
             else:
                 with open(outfile, 'w') as fd:
                     if html:
@@ -238,6 +261,18 @@ if __name__ == '__main__':
                         fd.write('\n')
                         fd.write(safe_utf8_encode(vnconstituents))
                         fd.write(b'\n</constituents>\n')
+                    if orphaned:
+                        fd.write(b'<orphaned>\n')
+                        fd.write(safe_utf8_encode(orphaned))
+                        fd.write(b'\n</orphaned>\n')
+                    if conjoins:
+                        fd.write(b'<conjoins>\n')
+                        fd.write(safe_utf8_encode(conjoins))
+                        fd.write(b'\n</conjoins>\n')
+                    if functor_phrases:
+                        fd.write(b'<functor_phrases>\n')
+                        fd.write(safe_utf8_encode(functor_phrases))
+                        fd.write(b'\n</functor_phrases>\n')
 
         elif outfile is None:
             process_file(stub, sys.stdout, args, titleSrch, wordsep, sessionId)
