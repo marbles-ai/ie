@@ -176,9 +176,9 @@ class FunctorTemplate(object):
                     acln = a.clean(True)
                     # Use DRSConst because we never want to modify template refs.
                     if (acln == CAT_Sany and acln != CAT_Sadj) or acln.signature[0] == 'Z':
-                        r = DRSRef(DRSConst('e', gen.next_ei()))
+                        r = DRSRef(DRSConst('E', gen.next_ei()))
                     else:
-                        r = DRSRef(DRSConst('x', gen.next_xi()))
+                        r = DRSRef(DRSConst('X', gen.next_xi()))
                     if key is not None:
                         gen.tag(key, r)
                 else:
@@ -199,9 +199,9 @@ class FunctorTemplate(object):
 
         if key is None or not gen.istagged(key):
             if acln == CAT_Sany and acln != CAT_Sadj:
-                r = DRSRef(DRSConst('e', gen.next_ei()))
+                r = DRSRef(DRSConst('E', gen.next_ei()))
             else:
-                r = DRSRef(DRSConst('x', gen.next_xi()))
+                r = DRSRef(DRSConst('X', gen.next_xi()))
             if key is not None:
                 gen.tag(key, r)
         else:
