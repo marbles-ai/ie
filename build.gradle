@@ -254,6 +254,17 @@ clean {
 
 clean.finalizedBy(cleanPy)
 
+task testPy {
+    doLast {
+        tasks.create('dotestpy', Exec) {
+            workingDir = "${rootDir}"
+            commandLine = ["python", "${rootDir}/scripts/run_python_tests.py"]
+        }.execute()
+    }
+}
+
+test.finalizedBy(testPy)
+
 task buildminpy(dependsOn: grpcOther) {
 	ext.bdir = new File("${rootDir}/site/build")
 	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
