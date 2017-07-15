@@ -789,7 +789,10 @@ class Span(AbstractSentence):
     def add(self, idx):
         """Add an index to the span."""
         u = set(self._indexes)
-        u.add(idx)
+        if isinstance(idx, AbstractLexeme):
+            u.add(idx.idx)
+        else:
+            u.add(idx)
         self._indexes = sorted(u)
         return self
 
@@ -815,7 +818,32 @@ class Span(AbstractSentence):
         Returns:
             A Span instance.
         """
-        return Span(self._sent, filter(lambda i: 0 != (self[i].mask & required) and 0 == (self[i].mask & excluded), self._indexes))
+        return Span(self._sent, filter(lambda i: 0 != (self._sent[i].mask & required) and \
+                                                 0 == (self._sent[i].mask & excluded), self._indexes))
+
+    def contiguous_subspans(self, required, excluded=0):
+        """Refine the span with `required` and `excluded` criteria's.
+
+        Args:
+            required: A mask of RT_? bits.
+            excluded: A mask of RT_? bits.
+
+        Returns:
+            A list of Span instance.
+        """
+        indexes = self.subspan(required, excluded).get_indexes()
+        if len(indexes) == 0:
+            return []
+        csp = []
+        spi = [indexes[0]]
+        for i in indexes[1:]:
+            if (i-1) == spi[-1]:
+                spi.append(i)
+            else:
+                csp.append(Span(self._sent, spi))
+                spi = [i]
+        csp.append(Span(self._sent, spi))
+        return csp
 
     def fullspan(self):
         """Return the span which is a superset of this span but where the indexes are contiguous.
