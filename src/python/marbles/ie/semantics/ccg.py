@@ -170,14 +170,14 @@ def safe_create_empty_functor(category):
     if templ is None:
         if category.isfunctor:
             if category != CAT_CONJ_CONJ and category != CAT_CONJCONJ \
-                    and not category.result_category().isatom and not category.argument_category().isatom:
+                    and (category.result_category().isfunctor or category.argument_category().isfunctor):
                 templ = MODEL.infer_template(category)
                 if templ is not None:
                     return templ.create_empty_functor()
             elif category.result_category().can_unify(category.argument_category()):
                 return identity_functor(category)
             else:
-                return identity_functor(category, [DRSRef('x2'), DRSRef('x1')])
+                return identity_functor(category, [DRSRef('X2'), DRSRef('X1')])
     else:
         return templ.create_empty_functor()
     return None
@@ -281,6 +281,8 @@ class Ccg2Drs(Sentence):
         self.exeque = []
         self.depth = -1
         self.final_prod = None
+        self.drs_extra = []
+        self.conjoins = []
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
@@ -332,19 +334,26 @@ class Ccg2Drs(Sentence):
 
         nlst = ProductionList()
         nlst.set_options(self.options)
-        nlst.set_category(op.category)
 
         d1 = stk.pop()
         d2 = stk.pop()
         markadjunct = True
         if d2.category is CAT_CONJ:
+            if ucat.test_returns_entity_modifier():
+                nlst.set_category(op.category.add_conj_feature())
+            else:
+                nlst.set_category(op.category)
+
             if d1.category.test_returns_entity_modifier():
                 # FIXME: this is a hack to get proper nouns separated by 'and' merged
                 d2.rename_vars(zip(d2.lambda_refs, reversed(d1.lambda_refs)))
             elif op.category.ismodifier and op.category.simplify().test_return(CAT_S_NP) and \
                     (op.category.test_return(d1.category) or op.category.test_return(d2.category)):
                 markadjunct = False
-
+        elif d2.category is CAT_COMMA and ucat.test_returns_entity_modifier():
+            nlst.set_category(op.category.add_conj_feature())
+        else:
+            nlst.set_category(op.category)
 
         nlst.push_right(d1)
         nlst.push_right(d2)
@@ -399,7 +408,9 @@ class Ccg2Drs(Sentence):
         d = stk.pop()   # arg1
         fn = stk.pop()  # arg0
         prevcat = fn.category
+        # Track spans of like items
         stk.append(self._update_constituents(fn.apply(d), prevcat))
+        self._update_conjoins(prevcat, stk)
 
     @dispatchmethod(dispatchmap, RL_BA)
     def _dispatch_ba(self, op, stk):
@@ -408,6 +419,7 @@ class Ccg2Drs(Sentence):
         d = stk.pop()    # arg0
         prevcat = fn.category
         stk.append(self._update_constituents(fn.apply(d), prevcat))
+        self._update_conjoins(prevcat, stk)
 
     @dispatchmethod(dispatchmap, RL_FC, RL_FX)
     def _dispatch_fc(self, op, stk):
@@ -507,6 +519,35 @@ class Ccg2Drs(Sentence):
         method = self.dispatchmap.lookup(op.rule)
         method(self, op, stk)
 
+    def _update_conjoins(self, prevcat, stk):
+        if prevcat.has_any_features(FEATURE_CONJ) and prevcat.test_returns_entity_modifier():
+            sp = stk[-1].span
+            nps = [] if sp is None else sp.fullspan().contiguous_subspans(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS)
+            changed = False
+            for np in nps:
+                ok = False if sp is None else all(map(lambda lx: lx.category in [CAT_COMMA, CAT_CONJ], np.subspan(RT_EMPTY_DRS)))
+                np = np.intersection(sp)
+                if ok and len(np) > 1:  # avoid capturing single 'and'
+                    if len(self.conjoins) == 0:
+                        self.conjoins.append(np)
+                    else:
+                        to_del = []
+                        for i in range(len(self.conjoins)):
+                            c = self.conjoins[i]
+                            if np in c:
+                                np = None
+                                break
+                            elif c in np:
+                                to_del.append(i)
+                        if np is not None:
+                            changed = True
+                            if len(to_del):
+                                self.conjoins = [self.conjoins[i] for i in filter(lambda x: x not in to_del,
+                                                                                 range(len(self.conjoins)))]
+                            self.conjoins.append(np)
+
+            self.conjoins = sorted(self.conjoins)
+
     def _add_constituent(self, c):
         hd = c.get_head().idx
         if hd in self.i2c:
@@ -599,8 +640,19 @@ class Ccg2Drs(Sentence):
                 self._add_constituent(c)
         return d
 
-    def _refine_constituents(self):
+    def _unary_np_map(self):
+        nps = {}
+        for np in itertools.ifilter(lambda x: 0 != (x.mask & (RT_ENTITY|RT_PROPERNAME)), self.lexemes):
+            lst = nps.setdefault(np.refs[0], [])
+            lst.append(np)
+        for lx in itertools.ifilter(lambda x: 0 == (x.mask & (RT_ENTITY|RT_PROPERNAME)), self.lexemes):
+            for r in lx.refs:
+                if r in nps:
+                    del nps[r]
+                    break
+        return nps
 
+    def _refine_constituents(self):
         # Constituents ordering (see span) for sentence AB, AB < A < B
         constituents = sorted(self.constituents)
 
@@ -773,6 +825,82 @@ class Ccg2Drs(Sentence):
         self.constituents = constituents
         self.map_heads_to_constituents()
 
+        # Check possessives
+        nodes = [self.get_constituent_tree()]
+        merge = []
+        while len(nodes) != 0:
+            parent = nodes.pop()
+            parent_head = self.constituents[parent[0]].get_head()
+            for child in parent[1]:
+                nodes.append(child)
+                child_head = self.constituents[child[0]].get_head()
+                if parent_head.pos is POS_POSSESSIVE and (child_head.idx + 1) == parent_head.idx:
+                    merge.append((parent[0], child[0]))
+                elif child_head.pos is POS_POSSESSIVE and (parent_head.idx + 1) == child_head.idx:
+                    merge.append((parent[0], child[0]))
+
+        if len(merge) != 0:
+            pass
+
+    def _post_create_fixup(self):
+        # Special post create rules
+
+        # clear existing
+        self.drs_extra = filter(lambda x: not isinstance(x, Rel) or x.relation != DRSRelation('_ORPHANED'), self.drs_extra)
+        for lx in self.lexemes:
+            lx.mask &= ~RT_ORPHANED
+
+        # Handle NP conjoins to VP
+        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER)
+        vps = self.get_functor_phrases(RT_EVENT, -1)
+        refs = []
+        for r, v in vps.iteritems():
+            assert len(v) == 1
+            refs.extend(v[0].refs[1:])
+
+        # Find conjoins with orphaned nps
+        for cj in self.conjoins:
+            orphaned = Span(self, [x.idx for x in itertools.ifilter(lambda lx: lx.refs[0] in orphaned_nps, cj)])
+            # FIXME: subspan(~RT_EMPTY_DRS) should remove conj but it doesn't
+            not_orphaned = cj.difference(orphaned).subspan(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_DATE|RT_NUMBER)
+            orphaned = orphaned.subspan(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_DATE|RT_NUMBER)
+            if len(not_orphaned) == 1 and not_orphaned[0].refs[0] in refs:
+                for r, v in vps.iteritems():
+                    if not_orphaned[0].refs[0] in v[0].refs:
+                        predicates = ['_AGENT', '_ROLE', '_THEME', '_EXTRA']
+                        for p in predicates:
+                            fc = v[0].drs.find_condition(Rel(p, [r, not_orphaned[0].refs[0]]))
+                            if fc is not None:
+                                conditions = v[0].drs.conditions
+                                for o in orphaned:
+                                    conditions.append(Rel(p, [r, o.refs[0]]))
+                                    v[0].refs.append(o.refs[0])
+                                v[0].drs = DRS(v[0].drs.referents, conditions)
+                                break
+
+        # CCGBank does not specify appositives so attempt to find here
+        nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER, ~RT_EMPTY_DRS)
+        orphaned_nps = self.get_functor_phrases(RT_PROPERNAME)
+        nps_to_remove = []
+        for r, np in orphaned_nps.iteritems():
+            lx = np[-1]
+            if (lx.idx+2) < len(self.lexemes) and self.lexemes[lx.idx+1].category == CAT_COMMA \
+                    and len(self.lexemes[lx.idx+2].refs) == 1 and self.lexemes[lx.idx+2].refs[0] in nps \
+                    and self.lexemes[lx.idx+2].stem in ['a', 'an', 'the']:
+                # OK this looks like an appositive
+                nps_to_remove.append(r)
+                self.drs_extra.append(Rel('_APPOS', [r, self.lexemes[lx.idx+2].refs[0]]))
+
+        # Find orphaned and add to extra's
+        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER)
+        for r in nps_to_remove:
+            del orphaned_nps[r]
+
+        for r, np in orphaned_nps.iteritems():
+            for lx in np:
+                lx.mask |= RT_ORPHANED
+            self.drs_extra.append(Rel('_ORPHANED', [r]))
+
     def create_drs(self):
         """Create a DRS from the execution queue. Must call build_execution_sequence() first."""
         # First create all productions up front
@@ -781,17 +909,21 @@ class Ccg2Drs(Sentence):
             lexeme = self.lexemes[i]
             if lexeme.category.ispunct:
                 prod = DrsProduction([], [], category=lexeme.category, span=Span(self))
-                prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
+                prod.set_lambda_refs([DRSRef(DRSVar('X', self.xid+1))])
                 self.xid += 1
                 prod.set_options(self.options)
             elif lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
                 prod = DrsProduction([], [], category=CAT_EMPTY, span=Span(self))
-                prod.set_lambda_refs([DRSRef(DRSVar('x', self.xid+1))])
+                prod.set_lambda_refs([DRSRef(DRSVar('X', self.xid+1))])
                 self.xid += 1
             else:
                 prod = self.rename_vars(lexeme.get_production(self, self.options))
             prod.set_options(self.options)
             prods[i] = prod
+
+            # Useful for get_functor_phrases
+            if lexeme.drs is None or lexeme.drs.isempty:
+                lexeme.mask |= RT_EMPTY_DRS
         # TODO: Defer special handling of proper nouns
 
         # Process exec queue
@@ -816,8 +948,88 @@ class Ccg2Drs(Sentence):
             d = d.apply_null_left().unify()
         self.final_prod = d
 
+        # Now check prepositions that are orphaned - He waited for them toarrive
+        #   he(x1) wait(e1) arg0(e1, x1) arg1(e1, x2) for(x2, e2) them(x3) arrive(e2) arg0(e2, x3)
+        # becomes:
+        #   he(x1) wait(e1) arg0(e1, x1) arg1(e1, e2) for(e2) them(x3) arrive(e2) arg0(e2, x3)
+        free = set(d.freerefs)
+        if len(free) != 0:
+            fo = set()
+            frem = set()
+            for lex in itertools.ifilter(lambda x: x.ispreposition, self.lexemes):
+                fo = fo.union(free.intersection([lex.refs[0]]))
+            for lex in itertools.ifilter(lambda x: not x.ispreposition and 0 == (x.mask & RT_EVENT) and x.drs is not None, self.lexemes):
+                fo = fo.difference(lex.drs.variables)
+            for lex in itertools.ifilter(lambda x: 0 != (x.mask & RT_EVENT) and x.drs is not None, self.lexemes):
+                frem = frem.union(fo.intersection(lex.drs.variables))
+            for lex in itertools.ifilter(lambda x: x.ispreposition and x.refs[0] in frem and len(x.refs) > 1, self.lexemes):
+                d.rename_vars([(lex.refs[1], lex.refs[0])])
+                lex.refs = lex.refs[1:]
+                lex.drs = DRS([], [Rel(lex.stem, lex.refs)])
+
+        # Fixup conjoins - must have at least one CAT_CONJ
+        self.conjoins = filter(lambda sp: any([x.category is CAT_CONJ for x in sp]), self.conjoins)
         # Refine constituents and we are done
         self._refine_constituents()
+        self._post_create_fixup()
+
+    def get_functor_phrases(self, select_mask, exclude_mask=0, contiguous=True):
+        """Get a map of the functor phrases.
+
+        Args:
+            select_mask: The lexeme selection criteria - a union of RT_? masks.
+            exclude_mask: Additional exclusion applied to unselected lexemes. Zero for no additional
+                exclusions.
+        Returns:
+            A span.
+        """
+        nps = {}
+        for np in itertools.ifilter(lambda x: 0 != (x.mask & select_mask), self.lexemes):
+            lst = nps.setdefault(np.refs[0], Span(self))
+            lst.add(np)
+        for lx in itertools.ifilter(lambda x: 0 == (x.mask & (select_mask|exclude_mask)), self.lexemes):
+            for r in lx.refs:
+                if r in nps:
+                    del nps[r]
+
+        if contiguous:
+            # Contiguous when we allow lexemes with no drs
+            del_marked = []
+            for r, np in nps.iteritems():
+                fnp = np.fullspan()
+                dnp = fnp.difference(np)
+                if not all([x.drs is None or x.drs.isempty for x in dnp]):
+                    del_marked.append(r)
+            for r in del_marked:
+                del nps[r]
+        return nps
+
+    def get_np_functors(self):
+        """Get noun phrases consisting of logical And of functions in the same referent.
+
+        Remarks:
+            This uses the logical model not the consituent model.
+        """
+        nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER, ~RT_EMPTY_DRS)
+        return nps.itervalues()
+
+    def get_vp_functors(self):
+        """Get verb phrases consisting of logical And of functions in the same referent.
+
+        Remarks:
+            This uses the logical model not the consituent model.
+        """
+        vps = self.get_functor_phrases(RT_EVENT_ATTRIB|RT_EVENT_MODAL|RT_EVENT, ~RT_EMPTY_DRS)
+        return vps.itervalues()
+
+    def get_orphaned_entities(self):
+        """Identify orphaned noun phrases and anaphora. This can happen when comma's are inserted incorrectly.
+
+        Remarks:
+            Uses get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME) for results.
+        """
+        nps = self.get_functor_phrases(RT_ORPHANED)
+        return None if len(nps) == 0 else [x for x in nps.itervalues()]
 
     def get_vn_frames(self):
         i2c = {}
@@ -950,6 +1162,10 @@ class Ccg2Drs(Sentence):
             for c in self.constituents:
                 c.span = Span(self, map(lambda y: idxmap[y],
                                         filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
+            for i in range(len(self.conjoins)):
+                self.conjoins[i] = Span(self, map(lambda y: idxmap[y],
+                                                  filter(lambda x: idxmap[x] >= 0, self.conjoins[i].get_indexes())))
+
             self.lexemes = map(lambda y: self.lexemes[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
             for i in range(len(self.lexemes)):
                 lexeme = self.lexemes[i]
@@ -971,7 +1187,7 @@ class Ccg2Drs(Sentence):
             if w.drs:
                 refs.extend(w.drs.universe)
                 conds.extend(w.drs.conditions)
-
+        conds.extend(self.drs_extra)
         return DRS(refs, conds)
 
     def final_rename(self):
@@ -1010,10 +1226,10 @@ class Ccg2Drs(Sentence):
         for u, i in zip(v, idx):
             mask = vtype.setdefault(u, 0)
             if 0 != (mask & RT_EVENT):
-                # ensure events are prefixed 'e'
-                rs.append((u, DRSRef(DRSVar('e', i))))
+                # ensure events are prefixed 'E'
+                rs.append((u, DRSRef(DRSVar('E', i))))
             else:
-                rs.append((u, DRSRef(DRSVar('x', i))))
+                rs.append((u, DRSRef(DRSVar('X', i))))
 
         self.final_prod.rename_vars(rs)
         self.xid = self.limit
@@ -1036,11 +1252,11 @@ class Ccg2Drs(Sentence):
         xlimit = 0
         elimit = 0
         for i in range(10):
-            if DRSRef(DRSVar('x', 1+i)) in v:
+            if DRSRef(DRSVar('X', 1+i)) in v:
                 xlimit = 1 + i
-                if DRSRef(DRSVar('e', 1+i)) in v:
+                if DRSRef(DRSVar('E', 1+i)) in v:
                     elimit = 1 + i
-            elif DRSRef(DRSVar('e', 1+i)) in v:
+            elif DRSRef(DRSVar('E', 1+i)) in v:
                 elimit = 1 + i
             else:
                 break
@@ -1049,13 +1265,13 @@ class Ccg2Drs(Sentence):
             self.xid = xlimit
         else:
             for i in range(xlimit):
-                rs.append((DRSRef(DRSVar('x', 1+i)), DRSRef(DRSVar('x', 1+i+self.xid))))
+                rs.append((DRSRef(DRSVar('X', 1+i)), DRSRef(DRSVar('X', 1+i+self.xid))))
             self.xid += xlimit
         if self.eid == 0:
             self.eid = elimit
         else:
             for i in range(elimit):
-                rs.append((DRSRef(DRSVar('e', 1+i)), DRSRef(DRSVar('e', 1+i+self.eid))))
+                rs.append((DRSRef(DRSVar('E', 1+i)), DRSRef(DRSVar('E', 1+i+self.eid))))
             self.eid += elimit
         if len(rs) != 0:
             rs.reverse()
