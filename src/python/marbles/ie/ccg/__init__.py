@@ -259,35 +259,37 @@ class RegexCategoryClass(AbstractCategoryClass):
         return self._srch.match(category.signature) is not None
 
 
+## @cond
+_TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
+_TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
+_TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
+_TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+|X)\]')
+_TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
+_CleanPredArg1 = re.compile(r':[A-Z]|\{_\*\}')
+_CleanPredArg2 = re.compile(r'\)_\d+')
+_CleanPredArg3 = re.compile(r'_\d+')
+_TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
+_Wildcard = re.compile(r'[X]')
+_Feature = re.compile(r'\[([a-z]+|X)\]')
+_Wildtag = re.compile(r'\{_.*\}')
+_cache = Cache()
+_use_cache = 0
+_OP_EXTRACT_UNIFY_FALSE = 0 # Must be zero
+_OP_EXTRACT_UNIFY_TRUE = 1  # Must be one
+_OP_REMOVE_WILDCARDS = 2
+_OP_SIMPLIFY = 3
+_OP_REMOVE_FEATURES = 4
+_OP_SLASH = 5
+_OP_RESULT_CAT = 6
+_OP_ARG_CAT = 7
+_OP_REMOVE_CONJ_FEATURE = 8
+_OP_ADD_CONJ_FEATURE = 9
+_OP_COUNT = 10
+## @endcond
+
+
 class Category(Freezable):
     """CCG Category"""
-    ## @cond
-    _TypeChangerAll = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?|PP')
-    _TypeChangerNoPP = re.compile(r'S\[adj\]|NP(?:\[[a-z]+\])?|N(?:\[[a-z]+\])?')
-    _TypeChangerS = re.compile(r'S(?!\[adj\])(?:\[[a-z]+\])?')
-    _TypeSimplify = re.compile(r'(?<=NP)\[(nb|conj)\]|(?<=S)\[([a-z]+|X)\]')
-    _TypeChangeNtoNP = re.compile(r'N(?=\\|/|\)|$)')
-    _CleanPredArg1 = re.compile(r':[A-Z]|\{_\*\}')
-    _CleanPredArg2 = re.compile(r'\)_\d+')
-    _CleanPredArg3 = re.compile(r'_\d+')
-    _TrailingFunctorPredArgTag = re.compile(r'^.*\)_(?P<idx>\d+)$')
-    _Wildcard = re.compile(r'[X]')
-    _Feature = re.compile(r'\[([a-z]+|X)\]')
-    _Wildtag = re.compile(r'\{_.*\}')
-    _cache = Cache()
-    _use_cache = 0
-    _OP_EXTRACT_UNIFY_FALSE = 0 # Must be zero
-    _OP_EXTRACT_UNIFY_TRUE = 1  # Must be one
-    _OP_REMOVE_WILDCARDS = 2
-    _OP_SIMPLIFY = 3
-    _OP_REMOVE_FEATURES = 4
-    _OP_SLASH = 5
-    _OP_RESULT_CAT = 6
-    _OP_ARG_CAT = 7
-    _OP_REMOVE_CONJ_FEATURE = 8
-    _OP_COUNT = 9
-    ## @endcond
-
     def __init__(self, signature=None, features=0):
         """Constructor.
 
@@ -663,7 +665,7 @@ class Category(Freezable):
         """
         if 0 != self._use_cache and cacheable:
             if self._ops_cache:
-                return self._ops_cache[self._OP_RESULT_CAT]
+                return self._ops_cache[_OP_RESULT_CAT]
             return self.from_cache(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[0]) if self.isfunctor else CAT_EMPTY
 
@@ -678,7 +680,7 @@ class Category(Freezable):
         """
         if 0 != self._use_cache and cacheable:
             if self._ops_cache:
-                return self._ops_cache[self._OP_ARG_CAT]
+                return self._ops_cache[_OP_ARG_CAT]
             return self.from_cache(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
         return Category(self._splitsig[2]) if self.isfunctor else CAT_EMPTY
 
@@ -688,22 +690,23 @@ class Category(Freezable):
     def initialize_ops_cache(self):
         if 0 >= self._use_cache or self._ops_cache is not None:
             return self
-        ops_cache = [None] * self._OP_COUNT
-        ops_cache[self._OP_SLASH] = ''.join(self._extract_slash_helper([]))
-        ops_cache[self._OP_REMOVE_FEATURES] = self.from_cache(self.remove_features())
-        ops_cache[self._OP_REMOVE_CONJ_FEATURE] = self.from_cache(self.remove_conj_feature())
-        ops_cache[self._OP_SIMPLIFY] = self.from_cache(self.simplify())
-        ops_cache[self._OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
+        ops_cache = [None] * _OP_COUNT
+        ops_cache[_OP_SLASH] = ''.join(self._extract_slash_helper([]))
+        ops_cache[_OP_REMOVE_FEATURES] = self.from_cache(self.remove_features())
+        ops_cache[_OP_REMOVE_CONJ_FEATURE] = self.from_cache(self.remove_conj_feature())
+        ops_cache[_OP_ADD_CONJ_FEATURE] = self.from_cache(self.add_conj_feature())
+        ops_cache[_OP_SIMPLIFY] = self.from_cache(self.simplify())
+        ops_cache[_OP_REMOVE_WILDCARDS] = self.from_cache(self.remove_wildcards())
         if self.extract_unify_atoms(False) is None:
             pass
-        ops_cache[self._OP_EXTRACT_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
-        ops_cache[self._OP_RESULT_CAT] = self.result_category()
-        ops_cache[self._OP_ARG_CAT] = self.argument_category()
+        ops_cache[_OP_EXTRACT_UNIFY_FALSE] = [self.from_cache(x) for x in self.extract_unify_atoms(False)]
+        ops_cache[_OP_RESULT_CAT] = self.result_category()
+        ops_cache[_OP_ARG_CAT] = self.argument_category()
         uatoms = self.extract_unify_atoms(True)
         catoms = []
         for u in uatoms:
             catoms.append([self.from_cache(a) for a in u])
-        ops_cache[self._OP_EXTRACT_UNIFY_TRUE] = catoms
+        ops_cache[_OP_EXTRACT_UNIFY_TRUE] = catoms
         self._ops_cache = ops_cache
         return self
 
@@ -714,8 +717,8 @@ class Category(Freezable):
             A Category instance.
         """
         if self._ops_cache is not None:
-            return self._ops_cache[self._OP_SIMPLIFY]
-        return Category(self._TypeChangeNtoNP.sub('NP', self._TypeSimplify.sub('', self._signature)), features=self._features)
+            return self._ops_cache[_OP_SIMPLIFY]
+        return Category(_TypeChangeNtoNP.sub('NP', _TypeSimplify.sub('', self._signature)), features=self._features)
 
     def clean(self, deep=False):
         """Clean predicate-argument tags from a category.
@@ -727,14 +730,12 @@ class Category(Freezable):
             A Category instance.
         """
         if deep:
-            newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg3.sub('', self.signature)))
+            newcat = Category(_CleanPredArg1.sub('', _CleanPredArg3.sub('', self.signature)))
         else:
-            newcat = Category(self._CleanPredArg1.sub('', self._CleanPredArg2.sub(')', self.signature)))
+            newcat = Category(_CleanPredArg1.sub('', _CleanPredArg2.sub(')', self.signature)))
         while not newcat.isfunctor and len(newcat.signature) >= 2 \
                 and newcat.signature[0] == '(' and newcat.signature[-1] == ')':
             newcat = Category(newcat.signature[1:-1])
-        if len(newcat.signature) == 0:
-            pass
         return newcat if not deep else Category.from_cache(newcat.signature)
 
     def complete_tags(self, tag=900):
@@ -791,7 +792,7 @@ class Category(Freezable):
         """
         if not self.isfunctor:
             if self._signature[0] == '(':
-                m = self._TrailingFunctorPredArgTag.match(self._signature)
+                m = _TrailingFunctorPredArgTag.match(self._signature)
                 if m is not None:
                     tag = m.group('idx')
                     return Category(self._signature[1:-len(tag)-2]), tag
@@ -804,7 +805,7 @@ class Category(Freezable):
             A Category instance.
         """
         if self._ops_cache is not None:
-            return self._ops_cache[self._OP_REMOVE_WILDCARDS]
+            return self._ops_cache[_OP_REMOVE_WILDCARDS]
         if '[X]' in self._signature:
             return Category(self._signature.replace('[X]', ''), self._features)
         return self
@@ -816,17 +817,43 @@ class Category(Freezable):
             A Category instance.
         """
         if self._ops_cache is not None:
-            return self._ops_cache[self._OP_REMOVE_FEATURES]
-        return Category(self._Feature.sub('', self._signature))
+            return self._ops_cache[_OP_REMOVE_FEATURES]
+        return Category(_Feature.sub('', self._signature))
+
+    def add_conj_feature(self):
+        """Add [conj] to a category.
+
+        Returns:
+             A Category instance with the feature
+        """
+        if self._ops_cache is not None:
+            return self._ops_cache[_OP_ADD_CONJ_FEATURE]
+        if self.has_any_features(FEATURE_CONJ):
+            return self
+        elif self.isatom and self in [CAT_N, CAT_PP, CAT_NP]:
+            return Category(self._signature + '[conj]')
+        else:
+            args = [(self.result_category(), self.slash)]
+            cat = self.argument_category()
+            while cat.isfunctor and not cat.simplify().can_unify(CAT_S_NP):
+                args.append((cat.result_category(), cat.slash))
+                cat = cat.argument_category()
+            if cat.isatom and cat in [CAT_N, CAT_PP, CAT_NP]:
+                cat = Category(cat.signature + '[conj]')
+                while args:
+                    rcat = args.pop()
+                    cat = Category.combine(rcat[0], rcat[1], cat, cacheable=False)
+                return cat
+        return self
 
     def remove_conj_feature(self):
         """Remove conj feature from the category.
 
         Returns:
-            A Category instance.
+            A Category instance without the feature.
         """
         if self._ops_cache is not None:
-            return self._ops_cache[self._OP_REMOVE_CONJ_FEATURE]
+            return self._ops_cache[_OP_REMOVE_CONJ_FEATURE]
         return Category(self._signature.replace('[conj]', ''))
 
     def _extract_atoms_helper(self, atoms, cacheable):
@@ -942,9 +969,9 @@ class Category(Freezable):
                     if not a.can_unify_atom(b):
                         return False
             slash1 = ''.join(self._extract_slash_helper([])) if self._ops_cache is None \
-                else self._ops_cache[self._OP_SLASH]
+                else self._ops_cache[_OP_SLASH]
             slash2 = ''.join(other._extract_slash_helper([])) if other._ops_cache is None \
-                else other._ops_cache[other._OP_SLASH]
+                else other._ops_cache[_OP_SLASH]
             return slash1 == slash2
         return self.can_unify_atom(other)
 
