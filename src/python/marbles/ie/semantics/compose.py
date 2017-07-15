@@ -42,7 +42,7 @@ def identity_functor(category, refs=None):
     assert category.argument_category().isatom
     d = DrsProduction([], [], category=category.result_category())
     if refs is None:
-        refs = [DRSRef('x1')]
+        refs = [DRSRef('X1')]
         d.set_lambda_refs(refs)
         return FunctorProduction(category, refs, d)
     elif not isinstance(refs, collections.Iterable):
