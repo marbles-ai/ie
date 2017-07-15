@@ -11,6 +11,7 @@ from moto import mock_s3, mock_sqs
 from marbles import aws
 from marbles.ie import grpc
 from marbles.ie.semantics.compose import CO_NO_WIKI_SEARCH
+from marbles.test import dprint, DPRINT_ON
 
 #from botocore.exceptions import QueueDoesNotExist
 

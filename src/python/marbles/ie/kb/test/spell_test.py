@@ -4,6 +4,7 @@ import os
 import StringIO
 from marbles.ie.kb.spell import SymSpell, BEST_SUGGESTION, NBEST_SUGGESTIONS, ALL_SUGGESTIONS
 from marbles import PROJDIR
+from marbles.test import dprint, DPRINT_ON
 
 
 class SymSpellTestCase(unittest.TestCase):
@@ -62,11 +63,11 @@ class SymSpellTestCase(unittest.TestCase):
                 stats = spellchecker.build_from_corpus(fp, stats)
 
         if True:
-            print("total words processed: %i" % stats[0])
-            print("total unique words in corpus: %i" % stats[1])
-            print("total items in dictionary (corpus words and deletions): %i" % len(spellchecker.dictionary))
-            print("  edit distance for deletions: %i" % spellchecker.max_edit_distance)
-            print("  length of longest word in corpus: %i" % spellchecker.longest_word_length)
+            dprint("total words processed: %i" % stats[0])
+            dprint("total unique words in corpus: %i" % stats[1])
+            dprint("total items in dictionary (corpus words and deletions): %i" % len(spellchecker.dictionary))
+            dprint("  edit distance for deletions: %i" % spellchecker.max_edit_distance)
+            dprint("  length of longest word in corpus: %i" % spellchecker.longest_word_length)
 
         strm = StringIO.StringIO()
         strm.write("excepted except exception exceptional\n")

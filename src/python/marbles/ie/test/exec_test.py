@@ -9,6 +9,7 @@ from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 from marbles.ie.semantics.ccg import Ccg2Drs
+from marbles.test import dprint, DPRINT_ON
 
 
 class ExecTest(unittest.TestCase):

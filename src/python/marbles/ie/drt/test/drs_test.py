@@ -7,6 +7,7 @@ from marbles.ie.drt.common import *
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.utils import compare_lists_eq
 from marbles.ie.parse import parse_drs
+from marbles.test import dprint, DPRINT_ON
 
 
 #from pysmt.shortcuts import Solver

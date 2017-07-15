@@ -7,8 +7,9 @@ import unittest
 from marbles.ie.ccg import datapath
 from marbles.ie.ccg import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
     RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
-from marbles.ie.ccg2drs import Ccg2Drs, PushOp, ExecOp
+from marbles.ie.semantics.ccg import Ccg2Drs, PushOp, ExecOp
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.test import dprint, DPRINT_ON
 
 
 class CcgTest(unittest.TestCase):
@@ -249,7 +250,7 @@ class CcgTest(unittest.TestCase):
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
             for hdr, ccgbank in zip(lines[0::10], lines[1::10]):
-                print(hdr.strip())
+                dprint(hdr.strip())
                 ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
@@ -287,7 +288,7 @@ class CcgTest(unittest.TestCase):
                     self.assertGreater(limit, 0)
 
         for x in ambiguous:
-            print('ambiguous rule: %s {%s}' % x)
+            dprint('ambiguous rule: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
     def test8_RuleUniquenessEasySRL(self):
@@ -314,7 +315,7 @@ class CcgTest(unittest.TestCase):
             for i in range(start, len(lines), 50):
                 start = 0
                 ccgbank = lines[i]
-                print('%s-%04d' % (name, i))
+                dprint('%s-%04d' % (name, i))
                 ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
@@ -347,7 +348,7 @@ class CcgTest(unittest.TestCase):
                     if len(exclude) > 1:
                         ambiguous.append(('%s <- %s <{%s}> %s' % (result, left, rstr, right), exclude))
         for x in ambiguous:
-            print('ambiguous rule in %s-%04d: %s {%s}' % x)
+            dprint('ambiguous rule in %s-%04d: %s {%s}' % x)
         self.assertTrue(len(ambiguous) == 0)
 
     def test9_RuleExecutionEasySRL(self):
@@ -374,7 +375,7 @@ class CcgTest(unittest.TestCase):
             for i in range(start, len(lines), 50):
                 start = 0
                 ccgbank = lines[i]
-                print('%s-%04d' % (name, i))
+                dprint('%s-%04d' % (name, i))
                 ccg = Ccg2Drs()
                 try:
                     pt = parse_ccg_derivation(ccgbank)
@@ -398,15 +399,15 @@ class CcgTest(unittest.TestCase):
                                                                RL_LPASS, RL_RPASS, RL_TYPE_RAISE]:
                         actual = op.rule.apply_rule_to_category(left, right)
                         if not actual.can_unify(result):
-                            print('%s <!> %s' % (actual, result))
-                            print('%s <- %s %s %s', actual, left, op.rule, right)
-                            print(ccgbank)
+                            dprint('%s <!> %s' % (actual, result))
+                            dprint('%s <- %s %s %s', actual, left, op.rule, right)
+                            dprint(ccgbank)
                         self.assertTrue(actual.can_unify(result))
 
         if len(failed_exec) != 0:
-            print('%d rules failed exec' % len(failed_exec))
+            dprint('%d rules failed exec' % len(failed_exec))
             for x in failed_exec:
-                print('%s-%04d: failed exec - {%s}' % x)
+                dprint('%s-%04d: failed exec - {%s}' % x)
 
         self.assertTrue(len(failed_exec) == 0)
 

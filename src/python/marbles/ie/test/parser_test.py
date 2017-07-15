@@ -6,6 +6,7 @@ import unittest
 from marbles.ie.drt.drs import *
 from marbles.ie.drt.pdrs import *
 from marbles.ie.parse import parse_pdrs, parse_drs, parse_ccgtype, parse_ccg_derivation
+from marbles.test import dprint, DPRINT_ON
 
 
 def dirname(filepath, up):

@@ -9,6 +9,7 @@ from marbles import PROJDIR
 from marbles.ie import grpc
 from marbles.ie.core.constants import *
 from marbles.ie.core.marshal import marshal_sentence
+from marbles.test import dprint, DPRINT_ON
 
 
 def get_constituents_string_list(sent):

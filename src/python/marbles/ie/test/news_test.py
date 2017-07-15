@@ -13,6 +13,7 @@ from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.semantics.ccg import process_ccg_pt
 from marbles.ie.core.constants import *
 from marbles.ie.utils.text import preprocess_sentence
+from marbles.test import dprint, DPRINT_ON
 
 datapath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
@@ -59,7 +60,7 @@ class MyTestCase(unittest.TestCase):
                 sp = []
                 j = 0
                 for s in sentences[j:]:
-                    #print('p:s = %d:%d' % (i, j))
+                    dprint('p:s = %d:%d' % (i, j))
                     smod = preprocess_sentence(s)
                     ccgbank = grpc.ccg_parse(self.stub, smod, grpc.DEFAULT_SESSION)
                     pt = parse_ccg_derivation(ccgbank)

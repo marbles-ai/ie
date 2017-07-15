@@ -16,14 +16,7 @@ from marbles.ie.semantics.ccg import process_ccg_pt, Ccg2Drs
 from marbles.ie.semantics.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
     CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.semantics.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
-import inspect
-
-
-def isdebugging():
-    for frame in inspect.stack():
-        if frame[1].endswith("pydevd.py"):
-            return True
-    return False
+from marbles.test import dprint, DPRINT_ON
 
 
 # Like NLTK's dexpr()
@@ -31,31 +24,25 @@ def dexpr(s):
     return parse_drs(s, 'nltk')
 
 
-_PRINT = False or isdebugging()
-
-
 def dprint(*args, **kwargs):
-    global _PRINT
-    if _PRINT:
+    if DPRINT_ON:
         print(*args, **kwargs)
 
 
 def dprint_constituent_tree(ccg, ctree):
-    global _PRINT
-    if _PRINT:
+    if DPRINT_ON:
         ccg.print_constituent_tree(ctree)
 
 
 def dprint_dependency_tree(ccg, dtree):
-    global _PRINT
-    if _PRINT:
+    if DPRINT_ON:
         ccg.print_dependency_tree(dtree)
 
 
 _NDS= re.compile(r'(\(<[TL]|\s\))')
 def dprint_ccgbank(ccgbank):
-    global _PRINT, _NDS
-    if _PRINT:
+    global _NDS
+    if DPRINT_ON:
         nds = filter(lambda s: len(s) != 0, [x.strip() for x in _NDS.sub(r'\n\1', ccgbank).split('\n')])
         level = 0
         for nd in nds:
@@ -88,10 +75,9 @@ class ComposeTest(unittest.TestCase):
 
     def setUp(self):
         # Print log messages to console
-        global _PRINT
         self.logger = logging.getLogger('marbles')
         self.logger.setLevel(logging.DEBUG)
-        if _PRINT:
+        if DPRINT_ON:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.DEBUG)
             self.logger.addHandler(console_handler)

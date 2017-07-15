@@ -4,6 +4,7 @@ from marbles.ie.drt.common import *
 from marbles.ie.drt.drs import DRSRelation
 from marbles.ie.drt.pdrs import *
 from marbles.ie.parse import parse_pdrs
+from marbles.test import dprint, DPRINT_ON
 
 
 class PDrsTest(unittest.TestCase):

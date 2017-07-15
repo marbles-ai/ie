@@ -13,5 +13,5 @@ sys.path.insert(0, pypath)
 
 
 if __name__ == '__main__':
-    suite = unittest.defaultTestLoader.discover(start_dir=os.path.join(pypath, 'marbles', 'ie'), pattern='*_test.py')
+    suite = unittest.defaultTestLoader.discover(start_dir=os.path.join(pypath, 'marbles'), pattern='*_test.py')
     unittest.TextTestRunner().run(suite)
