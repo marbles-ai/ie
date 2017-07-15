@@ -33,7 +33,7 @@ from marbles.ie.drt.drs import Neg, Rel, Prop, Imp, Or, Diamond, Box
 ## @cond
 NegateOp = re.compile(r'not|neg|!')
 BinaryOp = re.compile(r'box|b|necessary|diamond|d|maybe|imp|=>|->|then|or|v')
-Predicate = re.compile(r'[.a-zA-Z][_\w.$-]*')
+Predicate = re.compile(r'[.a-zA-Z_][_\w.$-]*')
 Variable = re.compile(r'[a-zA-Z][_\w.$-]*')
 Number = re.compile(r'-?\d+')
 PosInt = re.compile(r'\d+')
