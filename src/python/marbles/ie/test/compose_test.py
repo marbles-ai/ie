@@ -16,6 +16,14 @@ from marbles.ie.semantics.ccg import process_ccg_pt, Ccg2Drs
 from marbles.ie.semantics.compose import CO_VERIFY_SIGNATURES, CO_NO_VERBNET, \
     CO_FAST_RENAME, CO_NO_WIKI_SEARCH
 from marbles.ie.semantics.compose import DrsProduction, PropProduction, FunctorProduction, ProductionList
+import inspect
+
+
+def isdebugging():
+    for frame in inspect.stack():
+        if frame[1].endswith("pydevd.py"):
+            return True
+    return False
 
 
 # Like NLTK's dexpr()
@@ -23,7 +31,8 @@ def dexpr(s):
     return parse_drs(s, 'nltk')
 
 
-_PRINT = True
+_PRINT = False or isdebugging()
+
 
 def dprint(*args, **kwargs):
     global _PRINT
@@ -90,39 +99,6 @@ class ComposeTest(unittest.TestCase):
     def tearDown(self):
         logging.shutdown()
 
-    def __test1_Compose(self):
-        # λP.[x|me(x),own(x,y)];P(y)
-        fn = FunctorProduction(Category(r'NP/N'), DRSRef('y'), dexpr('([x],[me(x),own(x,y)])'))
-        self.assertEquals('λPλy.([x| me(x),own(x,y)];P(y))', future_string(fn))
-        d = DrsProduction(drs=dexpr('([x],[corner(x)])'), category=Category('N'))
-        d = fn.apply(d)
-
-        fn = PropProduction(Category(r'PP\NP'), DRSRef('p'))
-        self.assertEquals('λPλp.([p| p: P(*)])', repr(fn))
-        d = fn.apply(d)
-
-        fn = FunctorProduction(Category(r'S\NP'), DRSRef('x'), FunctorProduction(Category(r'(S\NP)/NP'), DRSRef('y'),
-                                                                                 dexpr('([],[wheeze(x,y)])')))
-        self.assertEquals('λQλPλxλy.(P(x);[| wheeze(x,y)];Q(y))', repr(fn))
-        fn = fn.apply(d)
-
-        cl1 = ProductionList()
-        # [|exist(x)];[x|school(x)],bus(x)]
-        cl1.push_right(DrsProduction(drs=dexpr('([],[exists(x)])'), category=Category('NP')))
-        cl1.push_right(DrsProduction(drs=dexpr('([],[school(x)])'), category=Category('NP')))
-        cl1.push_right(DrsProduction(drs=dexpr('([x],[bus(x)])'), category=Category('NP')))
-        self.assertEquals(0, len(cl1.freerefs))
-        self.assertTrue(compare_lists_eq([DRSRef('x')], cl1.universe))
-        cl1.set_category(Category('NP'))
-        d = cl1.unify()
-
-        d = fn.apply(d)
-
-        d = d.drs.simplify_props()
-        s = d.show(SHOW_SET)
-        x = u'<{x2,y1},{exists(x2),school(x2),bus(x2),wheeze(x2,y1),y1: <{x1,y},{me(x1),own(x1,y),corner(y)}>}>'
-        self.assertEquals(x, s)
-
     def test1_Plural(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT A NP/N>) (<L N NN NN farmer N>) ) (<T S[dcl]\NP 0 2>
         (<L (S[dcl]\NP)/PP VBN VBN protested (S[dcl]\NP)/PP>) (<T PP 0 2> (<L PP/NP IN IN against PP/NP>)
@@ -151,7 +127,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = '[x1,e2,e3,x4| boy(x1),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
+        x = '[X1,E2,E3,X4| boy(X1),want(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,E3),believe(E3),_EVENT(E3),_AGENT(E3,X1),_THEME(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
         s = get_constituent_string(ccg)
         dprint(s)
@@ -178,7 +154,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = '[x1,e2,e3,x4| boy(x1),will(e2),.MODAL(e2),want(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,e3),believe(e3),.EVENT(e3),.AGENT(e3,x1),.THEME(e3,x4),girl(x4)]'
+        x = '[X1,E2,E3,X4| boy(X1),will(E2),_MODAL(E2),want(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,E3),believe(E3),_EVENT(E3),_AGENT(E3,X1),_THEME(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
         a = get_constituents_string_list(ccg)
         dprint('\n'.join(a))
@@ -193,6 +169,73 @@ class ComposeTest(unittest.TestCase):
         self.assertListEqual(x, a)
         s = get_constituent_string(ccg.get_verbnet_sentence())
         self.assertEqual('NP(#The boy) VP(#will want) S_INF(#to believe) NP(#the girl)', s)
+
+    def test1_EasySrl(self):
+        # Welcome to MerryWeather High
+        txt = r'''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
+            (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        x = u'[E1,X2| welcome(E1),_EVENT(E1),_AGENT(E1,X3),_THEME(E1,X2),to(X2),Merryweather(X2),High(X2)]'
+        self.assertEquals(x, s)
+        ccg.resolve_proper_names()
+        x = u'[E1,X2| welcome(E1),_EVENT(E1),_AGENT(E1,X3),_THEME(E1,X2),to(X2),Merryweather-High(X2)]'
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        self.assertEquals(x, s)
+
+        # The door opens and I step up.
+        # (<T S[dcl] 1 2>
+        #   (<T S[dcl] 1 2>
+        #       (<T NP 0 2>
+        #           (<L NP/N DT DT The NP/N>)
+        #           (<L N NN NN door N>)
+        #       )
+        #       (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>)
+        #   )
+        #   (<T S[dcl]\S[dcl] 1 2>
+        #       (<L conj CC CC and conj>)
+        #       (<T S[dcl] 1 2>
+        #           (<L NP PRP PRP I NP>)
+        #           (<T S[dcl]\NP 0 2>
+        #               (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
+        #               (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>)
+        #           )
+        #       )
+        #   )
+        # )
+        txt = r'''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
+            (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
+            (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
+            (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        x = u'[X1,E2,E3| door(X1),open(E2),_EVENT(E2),_AGENT(E2,X1),i(X4),step(E3),_EVENT(E3),_AGENT(E3,X4),up(E3),direction(E3)]'
+        self.assertEquals(x, s)
+
+        # The school bus wheezes to my corner.
+        txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>)
+            (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
+            (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
+            (<L N NN NN corner. N>) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.final_rename()
+        s = ccg.get_drs().show(SHOW_LINEAR)
+        x = u'[X1,E2,X3| school(X1),bus(X1),wheeze(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,X3),to(X3),i(X4),_POSS(X4,X3),corner(X3)]'
+        self.assertEquals(x, s)
 
     def test2_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -340,7 +383,7 @@ class ComposeTest(unittest.TestCase):
         a = sent.get_constituent_tree()
         dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
-        ccg.add_wikipedia_links()
+        #ccg.add_wikipedia_links(browser=)
 
     def test2_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -999,7 +1042,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = u'[x1,x2,x3,e4,e5,x6| .EXISTS(x1),AIDS-DIRECTORY(x1),from(x1,x2),American-Foundation(x2),for(x2,x3),AIDS-Research(x3),rat(e4),.EVENT(e4),.AGENT(e4,x1),.THEME(e4,x6),review(e5),.EVENT(e5),.AGENT(e5,x7),.THEME(e5,x8),educational(x6),materials(x6)]'
+        x = u'[X1,X2,X3,E4,E5,X6| AIDS-DIRECTORY(X1),from(X1,X2),American-Foundation(X2),for(X2,X3),AIDS-Research(X3),rat(E4),_EVENT(E4),_AGENT(E4,X1),_THEME(E4,X6),review(E5),_EVENT(E5),_AGENT(E5,X7),_THEME(E5,X8),educational(X6),materials(X6)]'
         self.assertEqual(x, s)
         dtree = ccg.get_dependency_tree()
         dprint_dependency_tree(ccg, dtree)
@@ -1134,73 +1177,6 @@ class ComposeTest(unittest.TestCase):
         ctree = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, ctree)
 
-    def test3_EasySrl(self):
-        # Welcome to MerryWeather High
-        txt = r'''(<T S[b]\NP 0 2> (<L (S[b]\NP)/PP VB VB Welcome (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/NP TO TO to PP/NP>)
-            (<T NP 0 1> (<T N 1 2> (<L N/N NNP NNP Merryweather N/N>) (<L N NNP NNP High. N>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_FAST_RENAME | CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
-        ccg.build_execution_sequence(pt)
-        ccg.create_drs()
-        ccg.final_rename()
-        s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather(x2),High(x2)]'
-        self.assertEquals(x, s)
-        ccg.resolve_proper_names()
-        x = u'[e1,x2| welcome(e1),.EVENT(e1),.AGENT(e1,x3),.THEME(e1,x2),to(x2),Merryweather-High(x2)]'
-        s = ccg.get_drs().show(SHOW_LINEAR)
-        self.assertEquals(x, s)
-
-        # The door opens and I step up.
-        # (<T S[dcl] 1 2>
-        #   (<T S[dcl] 1 2>
-        #       (<T NP 0 2>
-        #           (<L NP/N DT DT The NP/N>)
-        #           (<L N NN NN door N>)
-        #       )
-        #       (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>)
-        #   )
-        #   (<T S[dcl]\S[dcl] 1 2>
-        #       (<L conj CC CC and conj>)
-        #       (<T S[dcl] 1 2>
-        #           (<L NP PRP PRP I NP>)
-        #           (<T S[dcl]\NP 0 2>
-        #               (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
-        #               (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>)
-        #           )
-        #       )
-        #   )
-        # )
-        txt = r'''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<L N NN NN door N>) )
-            (<L S[dcl]\NP VBZ VBZ opens S[dcl]\NP>) ) (<T S[dcl]\S[dcl] 1 2> (<L conj CC CC and conj>) (<T S[dcl] 1 2>
-            (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBP VBP step S[dcl]\NP>)
-            (<L (S\NP)\(S\NP) RB RB up. (S\NP)\(S\NP)>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
-        ccg.build_execution_sequence(pt)
-        ccg.create_drs()
-        ccg.final_rename()
-        s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[x1,e2,e3| door(x1),open(e2),.EVENT(e2),.AGENT(e2,x1),i(x4),step(e3),.EVENT(e3),.AGENT(e3,x4),up(e3),direction(e3)]'
-        self.assertEquals(x, s)
-
-        # The school bus wheezes to my corner.
-        txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT The NP/N>) (<T N 1 2> (<L N/N NN NN school N/N>)
-            (<L N NN NN bus N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBZ VBZ wheezes (S[dcl]\NP)/PP>)
-            (<T PP 0 2> (<L PP/NP TO TO to PP/NP>) (<T NP 0 2> (<L NP/N PRP$ PRP$ my NP/N>)
-            (<L N NN NN corner. N>) ) ) ) )'''
-        pt = parse_ccg_derivation(txt)
-        self.assertIsNotNone(pt)
-        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
-        ccg.build_execution_sequence(pt)
-        ccg.create_drs()
-        ccg.final_rename()
-        s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[x1,e2,x3| school(x1),bus(x1),wheeze(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,x3),to(x3),i(x4),.POSS(x4,x3),corner(x3)]'
-        self.assertEquals(x, s)
-
     def test3_EasySrl_00_1200(self):
         # The department 's roof-crush proposal would apply to vehicles weighing 10,000 pounds or less.
         txt = r'''
@@ -1273,6 +1249,38 @@ class ComposeTest(unittest.TestCase):
         dprint(' '.join(s))
         ctree = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, ctree)
+
+    def test3_EasySrl_00_1096(self):
+        txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP We NP>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2>
+        (<L (S[dcl]\NP)/(S[b]\NP) MD MD would (S[dcl]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/(S[to]\NP) VB VB like (S[b]\NP)/(S[to]\NP)>) (<T S[to]\NP 0 2>
+        (<L (S[to]\NP)/(S[b]\NP) TO TO to (S[to]\NP)/(S[b]\NP)>) (<T S[b]\NP 0 2>
+        (<L (S[b]\NP)/PP VB VB apologize (S[b]\NP)/PP>) (<T PP 0 2> (<L PP/(S[ng]\NP) IN IN for PP/(S[ng]\NP)>)
+        (<T S[ng]\NP 0 2> (<L (S[ng]\NP)/(S[pt]\NP) VBG VBG having (S[ng]\NP)/(S[pt]\NP)>) (<T S[pt]\NP 0 2>
+        (<L (S[pt]\NP)/NP VBN VBN caused (S[pt]\NP)/NP>) (<T NP 0 2> (<T NP 0 1> (<T N 1 2> (<L N/N JJ JJ huge N/N>)
+        (<L N NN NN trouble N>) ) ) (<T NP\NP 1 2> (<L , , , , ,>) (<T NP 0 1> (<T N 1 2> (<T N/N 1 2>
+        (<L (N/N)/(N/N) NNP NNP Fujitsu (N/N)/(N/N)>) (<L N/N NNP NNP President N/N>) ) (<T N 1 2>
+        (<L N/N NNP NNP Takuma N/N>) (<L N NNP NNP Yamamoto N>) ) ) ) ) ) ) ) ) ) ) ) ) (<T (S[dcl]\NP)\(S[dcl]\NP) 1 2>
+        (<L , , , , ,>) (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBD VBD read (S[dcl]\NP)/PP>)
+        (<T PP 0 2> (<L PP/NP IN IN from PP/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2>
+        (<L N/N JJ JJ prepared N/N>) (<L N NN NN statement N>) ) ) ) ) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/S[dcl] IN IN as ((S\NP)\(S\NP))/S[dcl]>) (<T S[dcl] 1 2> (<L NP PRP PRP he NP>)
+        (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBD VBD stood S[dcl]\NP>) (<T (S\NP)\(S\NP) 0 2>
+        (<L ((S\NP)\(S\NP))/NP IN IN before ((S\NP)\(S\NP))/NP>) (<T NP 0 2> (<L NP/N DT DT a NP/N>) (<T N 1 2>
+        (<L N/N JJ JJ packed N/N>) (<T N 1 2> (<L N/N NN NN news N/N>) (<L N NN NN conference N>) ) ) ) ) )
+        (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN at ((S\NP)\(S\NP))/NP>) (<T NP 0 2> (<T NP/(N/PP) 1 2>
+        (<T NP 0 2> (<L NP/N PRP$ PRP$ his NP/N>) (<L N NN NN company N>) )
+        (<L (NP/(N/PP))\NP POS POS 's (NP/(N/PP))\NP>) ) (<T N/PP 1 2> (<L N/N NN NN downtown N/N>)
+        (<L N/PP NN NN headquarters N/PP>) ) ) ) ) ) ) ) ) ) )'''
+        pt = parse_ccg_derivation(txt)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
 
     def test4_Asbestos(self):
         txt=r'''(<T S[dcl] 1 2> (<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N DT DT A NP/N>) (<T N 0 2> (<L N/PP NN NN form N/PP>)
@@ -1533,7 +1541,7 @@ class ComposeTest(unittest.TestCase):
         dprint(' '.join(s))
         a = ccg.get_constituent_tree()
         dprint_constituent_tree(ccg, a)
-        ccg.add_wikipedia_links()
+        #ccg.add_wikipedia_links(browser=)
         dprint(ccg.get_drs().show(SHOW_LINEAR))
 
     def test6_Pronouns(self):
@@ -1784,7 +1792,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         dprint(d)
 
-    def test7_AdjPhrase1(self):
+    def test7_AdjPhrasE1(self):
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 2> (<L NP/N PRP$ PRP$ Your NP/N>) (<T N 1 2> (<L N/N NN NN apple N/N>) (<L N NN NN pie N>) ) ) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBZ VBZ smells S[dcl]\NP>) (<T (S\NP)\(S\NP) 1 2> (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) RB RB very ((S\NP)\(S\NP))/((S\NP)\(S\NP))>) (<L (S\NP)\(S\NP) JJ JJ tempting. (S\NP)\(S\NP)>) ) ) )'''
         # (<T S[dcl] 1 2>
         #   (<T NP 0 2>
@@ -1802,7 +1810,7 @@ class ComposeTest(unittest.TestCase):
         #     )
         #   )
         # )
-        # [x1,e2,x3| .ENTITY(x1),.ENTITY(x1),[| your(x3)] ⇒ [| you(x1),owns(x1,x3)],apple(x1),pie(x1),.EVENT(e2),smells(e2),.AGENT(e2,x3),very(e2),tempting(e2)]
+        # [X1,E2,X3| _ENTITY(X1),_ENTITY(X1),[| your(X3)] ⇒ [| you(X1),owns(X1,X3)],apple(X1),pie(X1),_EVENT(E2),smells(E2),_AGENT(E2,X3),very(E2),tempting(E2)]
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
@@ -1811,7 +1819,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         dprint(d)
 
-    def test8_CopularToBe1(self):
+    def test8_CopularToBE1(self):
         # I am sorry
         txt=r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
         (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L S[adj]\NP IN IN sorry. S[adj]\NP>) ) )'''
@@ -1823,7 +1831,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         dprint(d)
 
-    def test8_NonCopularToBe1(self):
+    def test8_NonCopularToBE1(self):
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2>
         (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 1 2>
         (<L (S[adj]\NP)/(S[adj]\NP) RB RB really (S[adj]\NP)/(S[adj]\NP)>) (<T S[adj]\NP 0 2>
@@ -1837,7 +1845,7 @@ class ComposeTest(unittest.TestCase):
         self.assertIsNotNone(d)
         dprint(d)
 
-    def test8_NonCopularToBe2(self):
+    def test8_NonCopularToBE2(self):
         # I am really sorry
         txt = r'''(<T S[dcl] 1 2> (<L NP PRP PRP I NP>) (<T S[dcl]\NP 0 2> (<T (S[dcl]\NP)/(S[adj]\NP) 0 2>
         (<L (S[dcl]\NP)/(S[adj]\NP) VBP VBP am (S[dcl]\NP)/(S[adj]\NP)>) (<L (S\NP)\(S\NP) RB RB really (S\NP)\(S\NP)>)
@@ -1894,10 +1902,10 @@ class ComposeTest(unittest.TestCase):
     def test9_ApposExtraposition(self):
         # Factory inventories fell 0.1% in September , the first decline since February 1987.
         #
-        # [x1,e2,x3,x4,x5| factory(x1),inventories(x1),fell(e2),.EVENT(e2),.AGENT(e2,x1),.THEME(e2,x6),0.1%(x6),
-        # in(e2,x4),September(x3),first(x4),decline(x4),since(x4,x5),February(x5),1987(x5),.NUM(x5)]
+        # [X1,E2,X3,X4,X5| factory(X1),inventories(X1),fell(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,X6),0.1%(X6),
+        # in(E2,X4),September(X3),first(X4),decline(X4),since(X4,X5),February(X5),1987(X5),_NUM(X5)]
         #
-        # should be in(e2, x3)
+        # should be in(E2, X3)
         txt = r'''(<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NN NN Factory N/N>) (<L N NNS NNS inventories N>) ) )
         (<T S[dcl]\NP 0 2> (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/PP VBD VBD fell (S[dcl]\NP)/PP>) (<L PP CD CD 0.1% PP>) )
         (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN in ((S\NP)\(S\NP))/NP>) (<T NP 0 2> (<T NP 0 1>
