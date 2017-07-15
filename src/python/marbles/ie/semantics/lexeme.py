@@ -25,49 +25,49 @@ FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
 
 
 ## @cond
-# The pronouns must always be referent x1
+# The pronouns must always be referent X1
 __pron = [
     # 1st person singular
-    ('i',       '([x1],[])',    '([],[i(x1)])', RT_HUMAN|RT_1P),
-    ('me',      '([x1],[])',    '([],[i(x1)])', RT_HUMAN|RT_1P),
-    ('myself',  '([x1],[])',    '([],[i(x1),.REFLEX(x1)])', RT_HUMAN|RT_1P),
-    ('mine',    '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
-    ('my',      '([x2],[])',    '([],[i(x1),.POSS(x1,x2)])', RT_HUMAN|RT_1P),
+    ('i',       '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
+    ('me',      '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
+    ('myself',  '([X1],[])',    '([],[i(X1),_REFLEX(X1)])', RT_HUMAN|RT_1P),
+    ('mine',    '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P),
+    ('my',      '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P),
     # 2nd person singular
-    ('you',     '([x1],[])',    '([],[you(x1)])', RT_HUMAN|RT_2P),
-    ('yourself','([x1],[])',    '([],[you(x1),.REFLEX(x1)])', RT_HUMAN|RT_2P),
-    ('yours',   '([x2],[])',    '([],[you(x1),.OWN(x1,x2)])', RT_HUMAN|RT_2P),
-    ('your',    '([x2],[])',    '([],[you(x1),.POSS(x1,x2)])', RT_HUMAN|RT_2P),
+    ('you',     '([X1],[])',    '([],[you(X1)])', RT_HUMAN|RT_2P),
+    ('yourself','([X1],[])',    '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_2P),
+    ('yours',   '([X2],[])',    '([],[you(X1),_OWN(X1,X2)])', RT_HUMAN|RT_2P),
+    ('your',    '([X2],[])',    '([],[you(X1),_POSS(X1,X2)])', RT_HUMAN|RT_2P),
     # 3rd person singular
-    ('he',      '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('she',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('him',     '([x1],[])',    '([],[he(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('her',     '([x1],[])',    '([],[she(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('himself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('herself', '([x1],[])',    '([],[she(x1),.REFLEX(x1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('hisself', '([x1],[])',    '([],[he(x1),.REFLEX(x1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('his',     '([x2],[])',    '([],[he(x1),.POSS(x1,x2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('hers',    '([x2],[])',    '([],[she(x1),.POSS(x1,x2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('he',      '([X1],[])',    '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('she',     '([X1],[])',    '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('him',     '([X1],[])',    '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('her',     '([X1],[])',    '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('himself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('herself', '([X1],[])',    '([],[she(X1),_REFLEX(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('hisself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('his',     '([X2],[])',    '([],[he(X1),_POSS(X1,X2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('hers',    '([X2],[])',    '([],[she(X1),_POSS(X1,X2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     # 1st person plural
-    ('we',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('us',      '([x1],[])',    '([],[we(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ourself', '([x1],[])',    '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ourselves','([x1],[])',   '([],[we(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ours',    '([x2],[])',    '([],[we(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('our',     '([x2],[])',    '([],[we(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('we',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('us',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourself', '([X1],[])',    '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourselves','([X1],[])',   '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ours',    '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('our',     '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
     # 2nd person plural
-    ('yourselves', '([x1],[])', '([],[([],[yourselves(x1)])->([],[you(x1)])])', RT_HUMAN|RT_PLURAL|RT_2P),
+    ('yourselves', '([X1],[])', '([],[([],[yourselves(X1)])->([],[you(X1)])])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
-    ('they',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('them',    '([x1],[])',    '([],[they(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('themself','([x1],[])',    '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('themselves','([x1],[])',  '([],[they(x1),.REFLEX(x1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('theirs',  '([x2],[])',    '([],[they(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('their',   '([x2],[])',    '([],[they(x1),.POSS(x1,x2)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('they',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('them',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themself','([X1],[])',    '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themselves','([X1],[])',  '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('theirs',  '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('their',   '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P),
     # it
-    ('it',      '([x1],[])',    '([],[it(x1)])', RT_ANAPHORA|RT_3P),
-    ('its',     '([x2],[])',    '([],[it(x1),.POSS(x1,x2)])', RT_ANAPHORA|RT_3P),
-    ('itself',  '([x1],[])',    '([],[it(x1),.REFLEX(x1)])', RT_ANAPHORA|RT_3P),
+    ('it',      '([X1],[])',    '([],[it(X1)])', RT_ANAPHORA|RT_3P),
+    ('its',     '([X2],[])',    '([],[it(X1),_POSS(X1,X2)])', RT_ANAPHORA|RT_3P),
+    ('itself',  '([X1],[])',    '([],[it(X1),_REFLEX(X1)])', RT_ANAPHORA|RT_3P),
 ]
 _PRON = {}
 for k,r,v,u in __pron:
@@ -76,10 +76,10 @@ for k,r,v,u in __pron:
 
 # Order of referents is lambda_ref binding order
 __adv = [
-    ('up',      '([e1],[])', '([],[up(e1),direction(e1)])', RT_LOCATION),
-    ('down',    '([e1],[])', '([],[down(e1),direction(e1)])', RT_LOCATION),
-    ('left',    '([e1],[])', '([],[left(e1),direction(e1)])', RT_LOCATION),
-    ('right',   '([e1],[])', '([],[right(e1),direction(e1)])', RT_LOCATION),
+    ('up',      '([E1],[])', '([],[up(E1),direction(E1)])', RT_LOCATION),
+    ('down',    '([E1],[])', '([],[down(E1),direction(E1)])', RT_LOCATION),
+    ('left',    '([E1],[])', '([],[left(E1),direction(E1)])', RT_LOCATION),
+    ('right',   '([E1],[])', '([],[right(E1),direction(E1)])', RT_LOCATION),
 ]
 _ADV = {}
 for k,r,v,u in __adv:
@@ -158,16 +158,16 @@ def create_empty_drs_production(category, ref=None, span=None):
     """
     d = DrsProduction([], [], category=category, span=span)
     if ref is None:
-        ref = DRSRef('x1')
+        ref = DRSRef('X1')
     d.set_lambda_refs([ref])
     return d
 
 
 class Lexeme(AbstractLexeme):
 
-    _EventPredicates = ('.AGENT', '.THEME', '.EXTRA')
-    _EventPredicatesPss = ('.THEME', '.AGENT', '.EXTRA')
-    _ToBePredicates = ('.AGENT', '.ATTRIBUTE', '.EXTRA')
+    _EventPredicates = ('_AGENT', '_THEME', '_EXTRA')
+    _EventPredicatesPss = ('_THEME', '_AGENT', '_EXTRA')
+    _ToBePredicates = ('_AGENT', '_ATTRIBUTE', '_EXTRA')
     _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
     _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
     _Punct= '?.,:;'
@@ -199,6 +199,7 @@ class Lexeme(AbstractLexeme):
             self.conditions = None
             self.wnsynsets = None
             self.vnclasses = None
+
             return
         else:
             super(Lexeme, self).__init__()
@@ -366,9 +367,9 @@ class Lexeme(AbstractLexeme):
                 else:
                     conds.append(Rel(self.stem, [self.refs[0]]))
                 if template.isfinalevent:
-                    conds.append(Rel('.DATE', self.refs[0:2]))
+                    conds.append(Rel('_DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('.DATE', self.refs))
+                    conds.append(Rel('_DATE', self.refs))
             elif self._TypeWeekday.match(self.stem):
                 self.mask |= RT_DATE
                 if self.stem in _WEEKDAYS:
@@ -376,15 +377,15 @@ class Lexeme(AbstractLexeme):
                 else:
                     conds.append(Rel(self.stem, [self.refs[0]]))
                 if template.isfinalevent:
-                    conds.append(Rel('.DATE', self.refs[0:2]))
+                    conds.append(Rel('_DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('.DATE', self.refs))
+                    conds.append(Rel('_DATE', self.refs))
             else:
                 conds.append(Rel(self.stem, [self.refs[0]]))
         elif self.isnumber:
             self.mask |= RT_NUMBER
             conds.append(Rel(self.stem, [self.refs[0]]))
-            conds.append(Rel('.NUM', self.refs))
+            conds.append(Rel('_NUM', self.refs))
         elif self.pos == POS_PREPOSITION and not self.ispreposition:
             conds.append(Rel(self.stem, self.refs))
         else:
@@ -425,9 +426,9 @@ class Lexeme(AbstractLexeme):
                 sp = self._p.plural(self.stem)
             self.wnsynsets = wn.wordnet.synsets(self._wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
             if False and self.stem != sp:
-                rp = DRSRef(DRSVar('x', len(self.refs)+1))
+                rp = DRSRef(DRSVar('X', len(self.refs)+1))
                 self.drs = DRS([self.refs[0], rp],
-                               [Rel(self.stem, [self.refs[0]]), Rel(sp, [rp]), Rel('.ISMEMBER', [self.refs[0], rp])])
+                               [Rel(self.stem, [self.refs[0]]), Rel(sp, [rp]), Rel('_ISMEMBER', [self.refs[0], rp])])
                 d = DrsProduction([self.refs[0], rp], self.refs[1:], category=self.category, span=span)
                 d.set_lambda_refs([self.refs[0]])
                 return d
@@ -457,7 +458,7 @@ class Lexeme(AbstractLexeme):
             # Simple type
             # Handle prepositions
             if self.category in [CAT_CONJ, CAT_NPthr]:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 if self.stem == 'or':
                     self.mask |= RT_UNION
                 elif self.stem == 'nor':
@@ -468,14 +469,14 @@ class Lexeme(AbstractLexeme):
                 self.drs = DRS([], [])
                 return create_empty_drs_production(self.category, self.refs[0], span=span)
             elif self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 return identity_functor(self.category, self.refs[0])
             elif self.ispronoun and self.stem in _PRON:
                 d = self._copy_production_from_sample(_PRON[self.stem], span)
                 d.set_category(self.category)
                 return d
             elif self.category == CAT_N:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 if self.isproper_noun:
                     self.mask |= RT_PROPERNAME
                 elif self.pos == POS_NOUN_S:
@@ -484,7 +485,7 @@ class Lexeme(AbstractLexeme):
                     self.mask |= RT_ENTITY
                 return self._get_noun_drs(span)
             elif self.category == CAT_NOUN:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 if self.isnumber:
                     self.mask |= RT_NUMBER
                 elif self.pos == POS_NOUN_S:
@@ -493,7 +494,7 @@ class Lexeme(AbstractLexeme):
                     self.mask |= RT_ENTITY
                 return self._get_noun_drs(span)
             elif self.category == CAT_CONJ_CONJ or self.category == CAT_CONJCONJ:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 return create_empty_drs_production(CAT_CONJ, self.refs[0])
                 #return identity_functor(self.category)
             elif self.isadverb and self.stem in _ADV:
@@ -501,7 +502,7 @@ class Lexeme(AbstractLexeme):
                 d.set_category(self.category)
                 return d
             else:
-                self.refs = [DRSRef(DRSVar('x', 1))]
+                self.refs = [DRSRef('X1')]
                 self.drs = DRS([], [Rel(self.stem, [self.refs[0]])])
                 d = DrsProduction([], self.refs, category=self.category, span=span)
                 d.set_lambda_refs([self.refs[0]])
@@ -519,10 +520,11 @@ class Lexeme(AbstractLexeme):
                 return FunctorProduction(self.category, d.lambda_refs, d)
 
             else:
-                nref = DRSRef(DRSVar('x', 1))
+                nref = DRSRef('X1')
                 self.refs = [nref]
                 if self.stem in ['a', 'an']:
-                    self.drs = DRS([], [Rel('.EXISTS', [nref])])
+                    #self.drs = DRS([], [Rel('_EXISTS', [nref])])
+                    self.drs = DRS([], [])
                     fn = DrsProduction([], [nref], category=CAT_NP, span=span)
                 elif self.stem in ['the', 'thy']:
                     self.drs = DRS([], [])
@@ -572,15 +574,15 @@ class Lexeme(AbstractLexeme):
                 try:
                     vnclasses = [] if no_vn else VERBNETDB.name_index[self.stem]
                     if len(vnclasses) == 1:
-                        vncond = Rel('.VN.' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
+                        vncond = Rel('_vn_' + vnclasses[0].ID.encode('utf-8'), [refs[0]])
                     elif len(vnclasses) >= 2:
-                        xconds = [Rel('.VN.' + vnclasses[-1].ID.encode('utf-8'), [refs[0]])] \
-                            if len(vnclasses) & 0x1 else []
+                        xconds = [Rel('_vn_' + vnclasses[-1].ID.encode('utf-8'), [refs[0]])] \
+                            if len(vnclasses) & 0X1 else []
 
                         # TODO: for vn classes A,B,C should really have (A&!B&!C)|(!A&B&!C)|(!A&!B&C)
                         for vna, vnb in zip(vnclasses[0::2],vnclasses[1::2]):
-                            xconds.append(Or(DRS([], [Rel('.VN.' + vna.ID.encode('utf-8'), [refs[0]])]),
-                                             DRS([], [Rel('.VN.' + vnb.ID.encode('utf-8'), [refs[0]])])))
+                            xconds.append(Or(DRS([], [Rel('_vn_' + vna.ID.encode('utf-8'), [refs[0]])]),
+                                             DRS([], [Rel('_vn_' + vnb.ID.encode('utf-8'), [refs[0]])])))
                         while len(xconds) != 1:
                             c2 = xconds.pop()
                             c1 = xconds.pop()
@@ -600,7 +602,7 @@ class Lexeme(AbstractLexeme):
                 rcat = self.category.test_return_and_get(CAT_VPMODX, False)
                 if rcat is not None and rcat.argument_category().has_any_features(FEATURE_VARG) \
                         and rcat.result_category().has_any_features(FEATURE_VRES):
-                    conds.append(Rel('.EVENT', [refs[0]]))
+                    conds.append(Rel('_EVENT', [refs[0]]))
                     pred = zip(refs[1:], self._EventPredicates)
                     for v, e in pred[0:2]:
                         conds.append(Rel(e, [refs[0], v]))
@@ -613,13 +615,13 @@ class Lexeme(AbstractLexeme):
                     if len(refs) > 1:
                         # passive case
                         self.mask |= RT_EVENT_ATTRIB
-                        conds.append(Rel('.MOD', [refs[0], refs[-1]]))
+                        conds.append(Rel('_MOD', [refs[0], refs[-1]]))
                         self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
 
                 elif self.category == CAT_MODAL_PAST:
                     self.mask |= RT_EVENT_MODAL
-                    conds.append(Rel('.MODAL', [refs[0]]))
+                    conds.append(Rel('_MODAL', [refs[0]]))
                     self.drs = DRS([], conds)
                     d = DrsProduction([], self.refs, span=span)
 
@@ -633,13 +635,13 @@ class Lexeme(AbstractLexeme):
                     self.vnclasses = vnclasses
                     if self.stem == 'be':
                         # Discard conditions
-                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
-                                      Rel('.ROLE', [refs[0], refs[2]])])
+                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_AGENT', [refs[0], refs[1]]),
+                                      Rel('_ROLE', [refs[0], refs[2]])])
 
                     else:
-                        conds.append(Rel('.EVENT', [refs[0]]))
-                        conds.append(Rel('.AGENT', [refs[0], refs[1]]))
-                        conds.append(Rel('.ROLE', [refs[0], refs[2]]))
+                        conds.append(Rel('_EVENT', [refs[0]]))
+                        conds.append(Rel('_AGENT', [refs[0], refs[1]]))
+                        conds.append(Rel('_ROLE', [refs[0], refs[2]]))
                     self.drs = DRS([refs[0]], conds)
                     d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
                 elif self.category == CAT_VPdcl:
@@ -647,8 +649,8 @@ class Lexeme(AbstractLexeme):
                         pass
                     assert len(refs) == 2, "VP[dcl] expects 2 referents"
 
-                    conds.append(Rel('.EVENT', [refs[0]]))
-                    conds.append(Rel('.AGENT', [refs[0], refs[1]]))
+                    conds.append(Rel('_EVENT', [refs[0]]))
+                    conds.append(Rel('_AGENT', [refs[0], refs[1]]))
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
 
@@ -662,17 +664,17 @@ class Lexeme(AbstractLexeme):
                     self.vnclasses = vnclasses
                     if self.stem == 'be' and self.category.can_unify(CAT_TV):
                         # Discard conditions
-                        conds.extend([Rel('.EVENT', [refs[0]]), Rel('.AGENT', [refs[0], refs[1]]),
-                                      Rel('.ROLE', [refs[0], refs[2]])])
+                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_AGENT', [refs[0], refs[1]]),
+                                      Rel('_ROLE', [refs[0], refs[2]])])
                     else:
-                        conds.append(Rel('.EVENT', [refs[0]]))
+                        conds.append(Rel('_EVENT', [refs[0]]))
                         pred = zip(refs[1:], self._EventPredicates)
                         for v, e in pred:
                             conds.append(Rel(e, [refs[0], v]))
                         if (len(refs)-1) > len(pred):
                             rx = [refs[0]]
                             rx.extend(refs[len(pred)+1:])
-                            conds.append(Rel('.EXTRA', rx))
+                            conds.append(Rel('_EXTRA', rx))
                     self.drs = DRS([refs[0]], conds)
                     d = DrsProduction([refs[0]], refs[1:], span=span)
 
@@ -752,7 +754,7 @@ class Lexeme(AbstractLexeme):
                         self.drs = DRS([], [])
                     elif self.pos == POS_MODAL:
                         self.mask |= RT_EVENT_MODAL
-                        self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('.MODAL', [refs[0]])])
+                        self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('_MODAL', [refs[0]])])
                         d = DrsProduction([], self.refs, span=span)
                     else:
                         self.drs = DRS([], self._build_conditions([], refs, template))
