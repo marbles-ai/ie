@@ -311,6 +311,14 @@ class Lexeme(AbstractLexeme):
         """Test if the word attached to this lexeme is an adjective."""
         return self.category == CAT_ADJECTIVE
 
+    def promote_to_propernoun(self):
+        """Promote an entity to a proper noun."""
+        if 0 == (self.mask & RT_PROPERNAME):
+            self.stem = self.word.title()
+            self.mask &= ~RT_ENTITY
+            self.mask |= RT_PROPERNAME
+            self.drs = DRS(self.drs.referents, [Rel(self.stem, self.drs.referents)])
+
     def clone(self):
         return Lexeme(self, None, None)
 
@@ -768,4 +776,6 @@ class Lexeme(AbstractLexeme):
             fn = template.create_functor(rule_map, d)
             return fn
 
-
+    def get_variables(self):
+        """Safe access to DRS variables."""
+        return [] if self.drs is None or self.drs.isempty else self.drs.variables
