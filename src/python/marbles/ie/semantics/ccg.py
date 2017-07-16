@@ -726,8 +726,6 @@ class Ccg2Drs(Sentence):
         constituents = sorted(set(constituents))
 
         allspan = Span(self)
-        lastwiki_result = None
-        lastwiki_idx = 0
         for i in range(len(constituents)):
             c = constituents[i]
             allspan = allspan.union(c.span)
@@ -736,11 +734,6 @@ class Ccg2Drs(Sentence):
                             x.pos in POS_LIST_PERSON_PRONOUN or x.pos in POS_LIST_PUNCT or
                             x.pos in [POS_PREPOSITION, POS_DETERMINER], c.span)) or c.span.isempty:
                 to_remove.add(i)
-                continue
-            elif c.vntype is not ct.CONSTITUENT_NP:
-                continue
-
-            if 0 != (self.options & CO_NO_WIKI_SEARCH):
                 continue
 
         # Remove irrelevent entries
@@ -826,6 +819,7 @@ class Ccg2Drs(Sentence):
         self.map_heads_to_constituents()
 
         # Check possessives
+        '''
         nodes = [self.get_constituent_tree()]
         merge = []
         while len(nodes) != 0:
@@ -838,9 +832,79 @@ class Ccg2Drs(Sentence):
                     merge.append((parent[0], child[0]))
                 elif child_head.pos is POS_POSSESSIVE and (parent_head.idx + 1) == child_head.idx:
                     merge.append((parent[0], child[0]))
+        '''
+        # Check possessives - get leaves of tree
+        nodes = [self.get_constituent_tree()]
+        leaves = []
+        possessives = []
+        while len(nodes) != 0:
+            nd = nodes.pop()
+            hd = self.constituents[nd[0]].get_head()
+            if hd.pos is POS_POSSESSIVE and hd.idx > 0:
+                possessives.append(nd[0])
+            if len(nd[1]) == 0:
+                leaves.append(nd[0])
+            nodes.extend(nd[1])
 
-        if len(merge) != 0:
-            pass
+        # Trim spans so they are unique
+        constituents = [c.clone() for c in self.constituents]
+        for i in leaves:
+            c = constituents[i]
+            sp = c.span
+            while c.chead != i:
+                ch = constituents[c.chead]
+                ch.span = ch.span.difference(sp)
+                sp = sp.union(ch.span)
+                i = c.chead
+                c = ch
+
+        owners = []
+        for i in possessives:
+            hd = self.constituents[i].get_head()
+            nx = self.lexemes[hd.idx - 1]
+            prevlen = len(owners)
+            for nd in leaves:
+                while True:
+                    c = constituents[nd]    # Use trimmed version
+                    if nx in c.span:
+                        owners.append(nd)
+                        break
+                    if nd == c.chead:
+                        break
+                    nd = c.chead
+                if len(owners) != prevlen:
+                    break
+
+        if len(owners) == len(possessives):
+            # Attempt merge
+            merged = False
+            for i, j in zip(owners, possessives):
+                cp = self.constituents[j]
+                co = self.constituents[i]
+                cphd = cp.get_head()
+                psp = cp.span.union(Span(self, [cphd.idx-1]))
+                osp = co.span.difference(Span(self, [cphd.idx-1]))
+                if len(psp.get_head_span()) == 1 and (len(osp) == 0 or len(osp.get_head_span()) == 1):
+                    # Can merge
+                    constituents[i].span.remove(cphd.idx-1)
+                    constituents[j].span.add(cphd.idx-1)
+                    lx = self.lexemes[cphd.idx-1]
+                    cphd.drs = DRS(cphd.drs.referents, [Rel('_POSS', [lx.refs[0], cphd.refs[0]])])
+                    merged = True
+            if merged:
+                for i in leaves:
+                    c = constituents[i]
+                    while c.chead != i:
+                        ch = constituents[c.chead]
+                        ch.span = ch.span.union(c.span)
+                        i = c.chead
+                        c = ch
+                self.constituents = sorted(set(filter(lambda x: len(x.span) != 0, constituents)))
+                self.map_heads_to_constituents()
+        else:
+            global _logger
+            _logger.warning('mismatch when processing possessive constituent heads #owners=%d, #poss=%d',
+                            len(owners), len(possessives))
 
     def _post_create_fixup(self):
         # Special post create rules
@@ -934,9 +998,6 @@ class Ccg2Drs(Sentence):
             else:
                 # ExecOp dispatch based on rule
                 self._dispatch(op, stk)
-
-            if not (stk[-1].verify() and stk[-1].category.can_unify(op.category)):
-                pass
 
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
