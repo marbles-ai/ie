@@ -744,8 +744,9 @@ class Span(AbstractSentence):
             return len(item) != 0 and len(set(item._indexes).difference(self._indexes)) == 0
         elif isinstance(item, int):
             return item in self._indexes
-        # Must be a Lexeme
-        # FIXME: raise exception if not isinstance Lexeme
+        elif not isinstance(item, AbstractLexeme):
+            raise TypeError('Span.__contains__ expects a Span, Lexeme, or int type')
+        # Lexeme
         return item.idx in self._indexes
 
     @property
@@ -793,6 +794,16 @@ class Span(AbstractSentence):
             u.add(idx.idx)
         else:
             u.add(idx)
+        self._indexes = sorted(u)
+        return self
+
+    def remove(self, idx):
+        """Remove an index from the span."""
+        u = set(self._indexes)
+        if isinstance(idx, AbstractLexeme):
+            u.remove(idx.idx)
+        else:
+            u.remove(idx)
         self._indexes = sorted(u)
         return self
 
