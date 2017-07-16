@@ -377,7 +377,7 @@ class Lexeme(AbstractLexeme):
                 if template.isfinalevent:
                     conds.append(Rel('_DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('_DATE', self.refs))
+                    conds.append(Rel('_DATE', self.refs[0]))
             elif self._TypeWeekday.match(self.stem):
                 self.mask |= RT_DATE
                 if self.stem in _WEEKDAYS:
@@ -387,7 +387,7 @@ class Lexeme(AbstractLexeme):
                 if template.isfinalevent:
                     conds.append(Rel('_DATE', self.refs[0:2]))
                 else:
-                    conds.append(Rel('_DATE', self.refs))
+                    conds.append(Rel('_DATE', self.refs[0]))
             else:
                 conds.append(Rel(self.stem, [self.refs[0]]))
         elif self.isnumber:
