@@ -39,10 +39,8 @@ class ECS:
 
     # ---- TASKS ----
 
-    def list_tasks(self, cluster, containerInstance):
-        response = self.ecs.list_tasks(
-            cluster=cluster,
-            containerInstance=containerInstance)
+    def list_tasks(self):
+        response = self.ecs.list_tasks()
         return response
 
     def list_task_definitions(self):
@@ -66,17 +64,15 @@ class ECS:
                                        containerInstances=instances)
         return response
 
-    def run_task(self, cluster, taskDefinition, count):
+    def run_task(self, taskDefinition):
         response = self.ecs.run_task(
-            cluster=cluster,
             taskDefinition=taskDefinition,
             count=1
         )
         return response
 
-    def stop_task(self, cluster, task):
+    def stop_task(self, task):
         response = self.ecs.stop_task(
-            cluster=cluster,
             task=task
         )
         return response
