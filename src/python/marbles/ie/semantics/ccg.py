@@ -652,7 +652,63 @@ class Ccg2Drs(Sentence):
                     break
         return nps
 
+    def _trim_constituents(self, head_selector_fn=None):
+        # Trim spans so they are unique, return a triplet
+        constituents = [c.clone() for c in self.constituents]
+
+        # Check possessives - get leaves of tree
+        nodes = [self.get_constituent_tree()]
+        leaves = []
+        if head_selector_fn is None:
+            head_selector_fn = lambda x: False
+            selections = None
+        else:
+            selections = []
+        while len(nodes) != 0:
+            nd = nodes.pop()
+            hd = self.constituents[nd[0]].get_head()
+            if head_selector_fn(hd):
+                selections.append(nd[0])
+            if len(nd[1]) == 0:
+                leaves.append(nd[0])
+            nodes.extend(nd[1])
+
+        for i in leaves:
+            c = constituents[i]
+            sp = c.span
+            while c.chead != i:
+                ch = constituents[c.chead]
+                ch.span = ch.span.difference(sp)
+                sp = sp.union(ch.span)
+                i = c.chead
+                c = ch
+        return constituents, leaves, selections
+
+    @staticmethod
+    def _untrim_constituents(constituents, leaves):
+        for i in leaves:
+            c = constituents[i]
+            while c.chead != i:
+                ch = constituents[c.chead]
+                ch.span = ch.span.union(c.span)
+                i = c.chead
+                c = ch
+        return sorted(set(filter(lambda x: len(x.span) != 0, constituents)))
+
+    @staticmethod
+    def _ref_to_constituent_map(trimmed_constituents):
+        # Only use on trimmed constituents else it will assert
+        r2c = {}
+        for c in trimmed_constituents:
+            for lx in c.span:
+                refs = lx.get_variables()
+                if len(refs) == 1:
+                    r2c.setdefault(refs[0], [])
+                    r2c[refs[0]].append(c)
+        return r2c
+
     def _refine_constituents(self):
+        global _logger
         # Constituents ordering (see span) for sentence AB, AB < A < B
         constituents = sorted(self.constituents)
 
@@ -814,49 +870,43 @@ class Ccg2Drs(Sentence):
         if resort:
             constituents = sorted(set(filter(lambda c: not c.span.isempty, constituents)))
 
-        # And finally set constituent heads and map lexeme heads to constituents
+        # Set constituent heads and map lexeme heads to constituents
         self.constituents = constituents
         self.map_heads_to_constituents()
 
-        # Check possessives
-        '''
-        nodes = [self.get_constituent_tree()]
-        merge = []
-        while len(nodes) != 0:
-            parent = nodes.pop()
-            parent_head = self.constituents[parent[0]].get_head()
-            for child in parent[1]:
-                nodes.append(child)
-                child_head = self.constituents[child[0]].get_head()
-                if parent_head.pos is POS_POSSESSIVE and (child_head.idx + 1) == parent_head.idx:
-                    merge.append((parent[0], child[0]))
-                elif child_head.pos is POS_POSSESSIVE and (parent_head.idx + 1) == child_head.idx:
-                    merge.append((parent[0], child[0]))
-        '''
-        # Check possessives - get leaves of tree
-        nodes = [self.get_constituent_tree()]
-        leaves = []
-        possessives = []
-        while len(nodes) != 0:
-            nd = nodes.pop()
-            hd = self.constituents[nd[0]].get_head()
-            if hd.pos is POS_POSSESSIVE and hd.idx > 0:
-                possessives.append(nd[0])
-            if len(nd[1]) == 0:
-                leaves.append(nd[0])
-            nodes.extend(nd[1])
+        # Ensure functor phrases are not split across constituents
+        nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER, ~RT_EMPTY_DRS)
+        constituents, leaves, _ = self._trim_constituents()
+        cmap = self._ref_to_constituent_map(constituents)
+        merged = False
+        for r, np in nps.iteritems():
+            cs = cmap[r]
+            merge = []
+            for c in cs:
+                sp = c.span.intersection(np)
+                if len(sp) == 0 or len(sp) == len(np):
+                    continue
+                merge.append(c)
+            assert len(merge) == 0 or len(merge) > 1
+            if len(merge) != 0:
+                # Lower head indexes are toward root
+                merge = sorted(merge, key=lambda x: x.chead)
+                m = reduce(lambda x, y: x.span.union(y.span), merge)
+                if len(m.get_head_span()) == 1:
+                    for c in merge[1:]:
+                        c.span.clear()
+                    merge[0].span = m
+                    merged = True
+                else:
+                    # Span for constituents must be single headed
+                    _logger.warning('Cannot merge functor phrases into single constituent [%s]', np.text)
 
-        # Trim spans so they are unique
-        constituents = [c.clone() for c in self.constituents]
-        for i in leaves:
-            c = constituents[i]
-            sp = c.span
-            while c.chead != i:
-                ch = constituents[c.chead]
-                ch.span = ch.span.difference(sp)
-                sp = sp.union(ch.span)
-                i = c.chead
-                c = ch
+        if merged:
+            self.constituents = self._untrim_constituents(constituents, leaves)
+            self.map_heads_to_constituents()
+
+        # Check possessives
+        constituents, leaves, possessives = self._trim_constituents(lambda hd: hd.pos is POS_POSSESSIVE and hd.idx > 0)
 
         owners = []
         for i in possessives:
@@ -889,20 +939,13 @@ class Ccg2Drs(Sentence):
                     constituents[i].span.remove(cphd.idx-1)
                     constituents[j].span.add(cphd.idx-1)
                     lx = self.lexemes[cphd.idx-1]
-                    cphd.drs = DRS(cphd.drs.referents, [Rel('_POSS', [lx.refs[0], cphd.refs[0]])])
+                    lx.refs = [lx.refs[0], cphd.refs[0]]
+                    cphd.drs = DRS(cphd.drs.referents, [Rel('_POSS', lx.refs)])
                     merged = True
             if merged:
-                for i in leaves:
-                    c = constituents[i]
-                    while c.chead != i:
-                        ch = constituents[c.chead]
-                        ch.span = ch.span.union(c.span)
-                        i = c.chead
-                        c = ch
-                self.constituents = sorted(set(filter(lambda x: len(x.span) != 0, constituents)))
+                self.constituents = self._untrim_constituents(constituents, leaves)
                 self.map_heads_to_constituents()
         else:
-            global _logger
             _logger.warning('mismatch when processing possessive constituent heads #owners=%d, #poss=%d',
                             len(owners), len(possessives))
 
@@ -943,17 +986,32 @@ class Ccg2Drs(Sentence):
                                 break
 
         # CCGBank does not specify appositives so attempt to find here
-        nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER, ~RT_EMPTY_DRS)
-        orphaned_nps = self.get_functor_phrases(RT_PROPERNAME)
+        trimmed_constituents, _, _ = self._trim_constituents()
+        nps = self._ref_to_constituent_map(trimmed_constituents)
+        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME)
         nps_to_remove = []
-        for r, np in orphaned_nps.iteritems():
-            lx = np[-1]
-            if (lx.idx+2) < len(self.lexemes) and self.lexemes[lx.idx+1].category == CAT_COMMA \
-                    and len(self.lexemes[lx.idx+2].refs) == 1 and self.lexemes[lx.idx+2].refs[0] in nps \
-                    and self.lexemes[lx.idx+2].stem in ['a', 'an', 'the']:
-                # OK this looks like an appositive
-                nps_to_remove.append(r)
-                self.drs_extra.append(Rel('_APPOS', [r, self.lexemes[lx.idx+2].refs[0]]))
+        for r, npL in orphaned_nps.iteritems():
+            lx = npL[-1]
+            if (lx.idx+2) < len(self.lexemes) and self.lexemes[lx.idx+1].category is CAT_COMMA \
+                    and len(self.lexemes[lx.idx+2].get_variables()) == 1 and self.lexemes[lx.idx+2].refs[0] in nps:
+                if self.lexemes[lx.idx+2].stem in ['a', 'an', 'the']:
+                    # OK this looks like an appositive
+                    nps_to_remove.append(r)
+                    self.drs_extra.append(Rel('_AKA', [r, self.lexemes[lx.idx+2].refs[0]]))
+                else:
+                    # Check possessives - constituents should be well-formed here so functor phrases map
+                    # to a single constituent.
+                    cs = nps[self.lexemes[lx.idx+2].refs[0]]
+                    assert len(cs) == 1
+                    npR = cs[0].span
+                    if len(npR) > 1 and ((0 != (npR[0].mask & RT_PROPERNAME) and npR[1].pos is POS_POSSESSIVE) or \
+                                          npR.get_head().pos is POS_POSSESSIVE):
+                        # OK this looks like an appositive
+                        nps_to_remove.append(r)
+                        self.drs_extra.append(Rel('_AKA', [r, self.lexemes[lx.idx+2].refs[0]]))
+                        # See if it looks like a proper noun
+                        if len(npL) == 1 and (lx.idx == 0 or self.lexemes[lx.idx-1] not in ['a', 'an', 'the']):
+                            lx.promote_to_propernoun()
 
         # Find orphaned and add to extra's
         orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER)
@@ -1049,7 +1107,8 @@ class Ccg2Drs(Sentence):
             lst = nps.setdefault(np.refs[0], Span(self))
             lst.add(np)
         for lx in itertools.ifilter(lambda x: 0 == (x.mask & (select_mask|exclude_mask)), self.lexemes):
-            for r in lx.refs:
+            refs = [] if lx.drs is None or lx.drs.isempty else lx.drs.variables
+            for r in refs:
                 if r in nps:
                     del nps[r]
 
