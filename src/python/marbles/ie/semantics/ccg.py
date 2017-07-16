@@ -703,8 +703,9 @@ class Ccg2Drs(Sentence):
             for lx in c.span:
                 refs = lx.get_variables()
                 if len(refs) == 1:
-                    r2c.setdefault(refs[0], [])
-                    r2c[refs[0]].append(c)
+                    lst = r2c.setdefault(refs[0], [])
+                    if c not in lst:
+                        lst.append(c)
         return r2c
 
     def _refine_constituents(self):
@@ -988,8 +989,12 @@ class Ccg2Drs(Sentence):
         # CCGBank does not specify appositives so attempt to find here
         trimmed_constituents, _, _ = self._trim_constituents()
         nps = self._ref_to_constituent_map(trimmed_constituents)
-        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME)
         nps_to_remove = []
+        # Look for patterns:
+        #   Name-of-thing, a NP
+        #   Name-of-thing, possessive NP
+        # where Name-of-thing is orphaned
+        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME)
         for r, npL in orphaned_nps.iteritems():
             lx = npL[-1]
             if (lx.idx+2) < len(self.lexemes) and self.lexemes[lx.idx+1].category is CAT_COMMA \
@@ -1003,15 +1008,85 @@ class Ccg2Drs(Sentence):
                     # to a single constituent.
                     cs = nps[self.lexemes[lx.idx+2].refs[0]]
                     assert len(cs) == 1
-                    npR = cs[0].span
-                    if len(npR) > 1 and ((0 != (npR[0].mask & RT_PROPERNAME) and npR[1].pos is POS_POSSESSIVE) or \
-                                          npR.get_head().pos is POS_POSSESSIVE):
+                    cnpR = cs[0]
+                    if not cs[0].get_head().pos is POS_POSSESSIVE and cs[0].get_chead().get_head().pos is POS_POSSESSIVE:
+                        cnpR = cs[0].get_chead()
+                    if len(cnpR.span) > 1 and cnpR.get_head().pos is POS_POSSESSIVE and len(cnpR.get_head().refs) > 1:
                         # OK this looks like an appositive
                         nps_to_remove.append(r)
-                        self.drs_extra.append(Rel('_AKA', [r, self.lexemes[lx.idx+2].refs[0]]))
+                        self.drs_extra.append(Rel('_AKA', [r, cnpR.get_head().refs[0]]))
                         # See if it looks like a proper noun
                         if len(npL) == 1 and (lx.idx == 0 or self.lexemes[lx.idx-1] not in ['a', 'an', 'the']):
                             lx.promote_to_propernoun()
+
+        # Look for patterns:
+        #   a NP, Name-of-thing
+        #   possessive NP, Name-of-thing
+        # where Name-of-thing is orphaned
+        for r, npR in orphaned_nps.iteritems():
+            cnpR = Constituent(npR, ct.CONSTITUENT_NP)  # temp
+            lx = npR[-1]
+            if (lx.idx-2) >= 0 and self.lexemes[lx.idx-1].category is CAT_COMMA \
+                and len(self.lexemes[lx.idx-2].get_variables()) == 1 and self.lexemes[lx.idx-2].refs[0] in nps:
+                cs = nps[self.lexemes[lx.idx-2].refs[0]]
+                if len(cs) != 1:
+                    continue
+                cnpL = cs[0]
+                # right NP is orphaned
+                if cnpL.span[0].stem in ['a', 'an', 'the']:
+                    # OK this looks like an appositive
+                    nps_to_remove.append(r)
+                    self.drs_extra.append(Rel('_AKA', [r, cnpL.get_head().refs[0]]))
+                else:
+                    # Check possessives - constituents should be well-formed here so functor phrases map
+                    # to a single constituent.
+                    if not cnpL.get_head().pos is POS_POSSESSIVE and cnpL.get_chead().get_head().pos is POS_POSSESSIVE:
+                        cnpL = cnpL.get_chead()
+
+                    if len(cnpL.span) > 1 and cnpL.get_head().pos is POS_POSSESSIVE and len(cnpL.get_head().refs) > 1:
+                        # OK this looks like an appositive
+                        nps_to_remove.append(r)
+                        self.drs_extra.append(Rel('_AKA', [r, cnpL.get_head().refs[0]]))
+                        # See if it looks like a proper noun
+                        if len(npR) == 1 or npR[0].stem not in ['a', 'an', 'the']:
+                            # TODO: handle multiword nouns - maybe this should be done afer propernoun resolution
+                            lx.promote_to_propernoun()
+
+        # Look for patterns:
+        #   Name-of-thing, a NP
+        #   Name-of-thing, possessive NP
+        # where the right NP is orphaned
+        orphaned_nps = self.get_functor_phrases(~RT_PROPERNAME)
+        for r, npR in orphaned_nps.iteritems():
+            lx = npR[0]
+            if (lx.idx-2) >= 0 and self.lexemes[lx.idx-1].category is CAT_COMMA \
+                    and len(self.lexemes[lx.idx-2].get_variables()) == 1 and self.lexemes[lx.idx-2].refs[0] in nps:
+                cs = nps[self.lexemes[lx.idx-2].refs[0]]
+                if len(cs) != 1:
+                    continue
+                cnpL = cs[0]
+                # right NP is orphaned
+                if 0 != (cnpL.get_head().mask & (RT_ENTITY|RT_PROPERNAME)):
+                    if lx.stem in ['a', 'an', 'the']:
+                        # OK this looks like an appositive
+                        nps_to_remove.append(r)
+                        self.drs_extra.append(Rel('_AKA', [self.lexemes[lx.idx-2].refs[0], r]))
+                    else:
+                        # Check possessives - constituents should be well-formed here so functor phrases map
+                        # to a single constituent.
+                        cs = nps[lx.refs[0]]
+                        assert len(cs) == 1
+                        cnpR = cs[0]
+                        if not cs[0].get_head().pos is POS_POSSESSIVE and cs[0].get_chead().get_head().pos is POS_POSSESSIVE:
+                            cnpR = cs[0].get_chead()
+
+                        if len(cnpR.span) > 1 and cnpR.get_head().pos is POS_POSSESSIVE and len(cnpR.get_head().refs) > 1:
+                            # OK this looks like an appositive
+                            nps_to_remove.append(r)
+                            self.drs_extra.append(Rel('_AKA', [self.lexemes[lx.idx-2].refs[0], cnpR.get_head().refs[0]]))
+                            # See if it looks like a proper noun
+                            if len(npL) == 1 and (npL[0].idx == 0 or npL[0].stem not in ['a', 'an', 'the']):
+                                lx.promote_to_propernoun()
 
         # Find orphaned and add to extra's
         orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER)
@@ -1103,7 +1178,7 @@ class Ccg2Drs(Sentence):
             A span.
         """
         nps = {}
-        for np in itertools.ifilter(lambda x: 0 != (x.mask & select_mask), self.lexemes):
+        for np in itertools.ifilter(lambda x: 0 != (x.mask & select_mask) and len(x.refs) != 0, self.lexemes):
             lst = nps.setdefault(np.refs[0], Span(self))
             lst.add(np)
         for lx in itertools.ifilter(lambda x: 0 == (x.mask & (select_mask|exclude_mask)), self.lexemes):
