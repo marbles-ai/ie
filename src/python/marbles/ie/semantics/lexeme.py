@@ -56,7 +56,7 @@ __pron = [
     ('ours',    '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('our',     '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
     # 2nd person plural
-    ('yourselves', '([X1],[])', '([],[([],[yourselves(X1)])->([],[you(X1)])])', RT_HUMAN|RT_PLURAL|RT_2P),
+    ('yourselves', '([X1],[])', '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
     ('they',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('them',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
