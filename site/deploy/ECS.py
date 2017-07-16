@@ -6,100 +6,77 @@ class ECS:
     def __init__(self):
         self.ecs = boto3.client('ecs')
 
-    # Describe passed clusters
-    def describe_cluster(self, clusters):
-        response = self.ecs.describe_clusters(
-            clusters = clusters
-        )
-        return response
+    # ---- CLUSTERS ----
 
     def list_clusters(self):
-        # Do stuff
+        response = self.ecs.list_clusters()
+        return response
 
-    def describe_container_instances(self, cluster, containerInstance):
-        response = self.ecs.describe_container_instances(
-            cluster = cluster,
-            containerInstance = containerInstance
-        )
+    def describe_clusters(self, clusters):
+        response = self.ecs.describe_clusters(clusters=clusters)
         return response
 
     def create_cluster(self, name):
         response = self.ecs.create_cluster(clusterName=name)
         return response
 
-    # Can't delete a cluster without first deregistering the containers from it
     def delete_cluster(self, name):
         response = self.ecs.delete_cluster(cluster=name)
         return response
 
-    # Deregister an ECS container instance from a cluster; this cluster can't run tasks anymore
-    def deregister_container_instance(self, cluster, containerInstance):
-        response = self.ecs.register_container_instance(
-            cluster = cluster,
-            containerInstance = containerInstance
-        )
+    # ---- CONTAINERS ----
 
-
-    def list_services(self):
-        # Do stuff
-
-    def describe_services(self):
-        # do stuff
-
-    # Run & maintain a number of tasks
-    def create_service(self, cluster, serviceName, taskDefinition, loadBalancers, desiredCount, ct, role):
-        response = self.ecs.create_services(
+    def list_container_instances(self, cluster, nextToken, maxResults):
+        response = self.ecs.list_container_instances(
             cluster=cluster,
-            serviceName=serviceName,
-            taskDefinition=taskDefinition,
-            loadBalancers=loadBalancers,
-            desiredCount=desiredCount,
-            clientToken=ct,
-            role=role
-        )
+            nextToken=nextToken,
+            maxResults=maxResults)
         return response
 
-    # Delete a service from within a cluster
-    def delete_service(self, cluster, service):
-        response = self.ecs.delete_service(
-            cluster = cluster,
-            service = service
-        )
+    def describe_container_instance(self, cluster, containerInstance):
+        response = self.ecs.describe_container_instance(cluster=cluster, containerInstance=containerInstance)
+        return response
 
+    # ---- TASKS ----
 
-
-
-
-    ################### TASKS ###################
-
-    def describe_task_definitions(self):
-        # Do stuff
-
-    def describe_tasks(self):
-        # Do sdtuff
-
-    def list_tasks(self):
-        # Do stuff
+    def list_tasks(self, cluster, containerInstance):
+        response = self.ecs.list_tasks(
+            cluster=cluster,
+            containerInstance=containerInstance)
+        return response
 
     def list_task_definitions(self):
-        # Do stuff
-
-    def start_task(self, cluster, definition, start_task, instance, group):
-        response = self.ecs.start_task(cluster=cluster,
-                                    taskDefinition=definition,
-                                    containerInstances=instances,
-                                    group=group)
+        response = self.ecs.list_task_definitions()
         return response
 
-    def run_task(self):
-        # do stuff
+    def describe_tasks(self, cluster, tasks):
+        response = self.ecs.describe_tasks(
+            cluster=cluster,
+            tasks=tasks)
+        return response
 
-    def stop_task(self):
-        # do stuff
+    def describe_task_definitions(self, task_definition):
+        response = self.ecs.describe_task_definition(
+            taskDefinition=task_definition)
+        return response
 
-    def deregister_task_definition(self, taskDefinition):
-        response = self.ecs.deregister_task_definition(
-            taskDefinition=taskDefinition
+    def start_task(self, cluster, definition, start_task, instances):
+        response = self.ecs.start_task(cluster=cluster,
+                                       taskDefinition=definition,
+                                       containerInstances=instances)
+        return response
+
+    def run_task(self, cluster, taskDefinition, count):
+        response = self.ecs.run_task(
+            cluster=cluster,
+            taskDefinition=taskDefinition,
+            count=1
         )
         return response
 
+    def stop_task(self, cluster, task):
+        response = self.ecs.stop_task(
+            cluster=cluster,
+            task=task
+        )
+        return response

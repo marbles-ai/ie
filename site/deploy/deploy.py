@@ -1,35 +1,88 @@
+import sys
 from EC2 import *
+from ECS import *
 
-# Check what's running and stopped
-def get_status(ec2):
+TASKS = ['start', 'stop', 'status']
+YES = ['y', 'Y', 'YES', 'yes']
+WARNING = 'WARNING: Are you sure you want to start AWS Service?'
 
-    # Check running instances:
-    print "--- Running Instances ---"
-    running = ec2.running()
-    print(running)
-    print "--- Stopped Instances ---"
-    stopped = ec2.stopped()
-    print(stopped)
+# ECS-Optimized AMI
+#   http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html
+#   ami-7d664a1d
+
+# site_instance_id = 'asi instance id'
+# infox_instance_id = 'infox instance id'
+# ccg_instance_id = 'ccg instance id'
+# news_instance_id = 'news reader instance id'
 
 if __name__ == "__main__":
 
-    # First start by checking the status of the instances and start them
-    ec2 = EC2()
+    service = sys.argv[1]
+    task = sys.argv[2]
+    argument = None
 
-    # Get the status
-    get_status(ec2)
+    if len(sys.argv) > 3:
+        argument = sys.argv[3]
 
-    # To stop an instance
-    #ec2.stop('i-0947507900f47f445')
+    if task not in TASKS:
+        print("Available Tasks: ", TASKS)
 
-    # To see the existing VPCs and their status
-    print("--- VPCs and their status ---")
-    print(ec2.get_vpcs())
-    print("--- Security Groups ---")
-    print(ec2.get_security_groups())
+    # ---- For the website ---- #
 
+    if service in ['site', 'website']:
 
+        if task == 'start':
 
+            if str(raw_input(WARNING)) not in YES:
+                print("You decided not to start AWS services")
+                exit(0)
 
+            # Start EC2 Instance
+            ec2 = EC2()
+            ec2.start(site_instance_id)
+
+        elif task == 'stop':
+
+            # Stop EC2 Instance
+            ec2 = EC2()
+            ec2.stop(site_instance_id)
+
+    # ---- For the infox service ---- #
+
+    elif service in ['infox']:
+
+        if task == 'start':
+
+            if str(raw_input(WARNING)) not in YES:
+                print("You decided not to start AWS services")
+                exit(0)
+
+            # Start EC2 Instance
+            ec2 = EC2()
+            ec2.start(infox_instance_id)
+
+        elif task == 'stop':
+
+            ec2 = EC2()
+            ec2.stop(infox_instance_id)
+
+    # ---- For the ccgparser ---- #
+
+    elif service in ['ccg', 'ccgparser']:
+
+        if task == 'start':
+
+            if str(raw_input(WARNING)) not in YES:
+                print("You decided not to start AWS services")
+                exit(0)
+
+            # Start EC2 Instance
+            ec2 = EC2()
+            ec2.start(ccg_instance_id)
+
+        elif task == 'stop':
+
+            ec2 = EC2()
+            ec2.stop(ccg_instance_id)
 
 

@@ -1,15 +1,14 @@
 import boto3
 from botocore.exceptions import ClientError
 
+
 # Class for EC2 functions
 class EC2:
 
-
-    ######################## Instances ########################
+    # ------ Instances -----
     def __init__(self):
         self.ec2r = boto3.resource('ec2')
         self.ec2c = boto3.client('ec2')
-
 
     def running(self):
 
@@ -39,14 +38,14 @@ class EC2:
 
         try:
             self.ec2r.instances.start(InstanceIds=[instance_id],
-                                    DryRun=True)
+                                      DryRun=True)
         except ClientError as ce:
             if 'DryRunOperation' not in str(ce):
                 raise
 
         try:
             response = self.ec2r.instances.start(InstanceIds=[instance_id],
-                                               DryRun=False)
+                                                 DryRun=False)
             return response
 
         except ClientError as ce:
@@ -56,14 +55,14 @@ class EC2:
     def stop(self, instance_id):
         try:
             self.ec2r.instances.stop(InstanceIds=[instance_id],
-                                    DryRun=True)
+                                     DryRun=True)
         except ClientError as ce:
             if 'DryRunOperation' not in str(ce):
                 raise
 
         try:
             response = self.ec2r.instances.stop(InstanceIds=[instance_id],
-                                               DryRun=False)
+                                                DryRun=False)
             return response
         except ClientError as ce:
             print(ce)
@@ -72,7 +71,7 @@ class EC2:
     def reboot(self, instance_id):
         try:
             self.ec2r.instances.reboot(InstanceIds=[instance_id],
-                                      DryRun=True)
+                                       DryRun=True)
         except ClientError as ce:
             if 'DryRunOperation' not in str(ce):
                 print("Don't have permissions to reboot")
@@ -80,7 +79,7 @@ class EC2:
 
         try:
             response = self.ec2r.instances.reboot(InstanceIds=[instance_id],
-                                                 DryRun=True)
+                                                  DryRun=True)
             print("Success: ", response)
         except ClientError as ce:
             print("Error: ", ce)
@@ -89,37 +88,37 @@ class EC2:
     def terminate(self, instance_id):
         try:
             self.ec2r.instances.terminate(InstanceIds=[instance_id],
-                                     DryRun=True)
+                                          DryRun=True)
         except ClientError as ce:
             if 'DryRunOperation' not in str(ce):
                 raise
 
         try:
             response = self.ec2r.instances.terminate(InstanceIds=[instance_id],
-                                                DryRun=False)
+                                                     DryRun=False)
             return response
         except ClientError as ce:
             print(ce)
 
-
-    ######################## VPCs ########################
+    # ---- VPCs ----
 
     # Get VPC id
     def get_vpcs(self):
-        vpcs = [(vpc['VpcId'], vpc['State']) for vpc in self.ec2c.describe_vpcs()['Vpcs']]
+        vpcs = [(vpc['VpcId'], vpc['State']) for
+                vpc in self.ec2c.describe_vpcs()['Vpcs']]
         return vpcs
 
     # Create security group
     def create_security_group(self, group_name, description, vpc, permissions):
         try:
             response = self.ec2c.create_security_group(GroupName=group_name,
-                                                      Description=description,
-                                                      VpcId=vpc)
+                                                       Description=description,
+                                                       VpcId=vpc)
             group_id = response['GroupId']
             print('Security Group Created %s in vpc %s.' % (group_id, vpc))
 
             data = self.ec2c.authorize_security_group_ingress(GroupId=group_id,
-                                                             IpPermissions=permissions)
+                                                              IpPermissions=permissions)
 
             print("Ingress set %s" % data)
         except ClientError as ce:
@@ -132,11 +131,3 @@ class EC2:
             return response['SecurityGroups']
         except ClientError as ce:
             print("Failed to return security groups: ", ce)
-
-    ######################## TASKS ########################
-
-    def start_task(self, cluster):
-        self.ec2c.start_task(
-            cluster=cluster,
-            taskDefinition
-        )
