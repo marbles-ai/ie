@@ -31,13 +31,13 @@ __pron = [
     ('i',       '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
     ('me',      '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
     ('myself',  '([X1],[])',    '([],[i(X1),_REFLEX(X1)])', RT_HUMAN|RT_1P),
-    ('mine',    '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P),
-    ('my',      '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P),
+    ('mine',    '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
+    ('my',      '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
     # 2nd person singular
     ('you',     '([X1],[])',    '([],[you(X1)])', RT_HUMAN|RT_2P),
     ('yourself','([X1],[])',    '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_2P),
     ('yours',   '([X2],[])',    '([],[you(X1),_OWN(X1,X2)])', RT_HUMAN|RT_2P),
-    ('your',    '([X2],[])',    '([],[you(X1),_POSS(X1,X2)])', RT_HUMAN|RT_2P),
+    ('your',    '([X2],[])',    '([],[you(X1),_POSS(X1,X2)])', RT_HUMAN|RT_2P|RT_POSSESSIVE),
     # 3rd person singular
     ('he',      '([X1],[])',    '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
     ('she',     '([X1],[])',    '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
@@ -46,15 +46,15 @@ __pron = [
     ('himself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
     ('herself', '([X1],[])',    '([],[she(X1),_REFLEX(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
     ('hisself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('his',     '([X2],[])',    '([],[he(X1),_POSS(X1,X2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('hers',    '([X2],[])',    '([],[she(X1),_POSS(X1,X2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('his',     '([X2],[])',    '([],[he(X1),_POSS(X1,X2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
+    ('hers',    '([X2],[])',    '([],[she(X1),_POSS(X1,X2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
     # 1st person plural
     ('we',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('us',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('ourself', '([X1],[])',    '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
     ('ourselves','([X1],[])',   '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ours',    '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('our',     '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ours',    '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
+    ('our',     '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
     # 2nd person plural
     ('yourselves', '([X1],[])', '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
@@ -62,11 +62,11 @@ __pron = [
     ('them',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('themself','([X1],[])',    '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
     ('themselves','([X1],[])',  '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('theirs',  '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('their',   '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('theirs',  '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
+    ('their',   '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
     # it
     ('it',      '([X1],[])',    '([],[it(X1)])', RT_ANAPHORA|RT_3P),
-    ('its',     '([X2],[])',    '([],[it(X1),_POSS(X1,X2)])', RT_ANAPHORA|RT_3P),
+    ('its',     '([X2],[])',    '([],[it(X1),_POSS(X1,X2)])', RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
     ('itself',  '([X1],[])',    '([],[it(X1),_REFLEX(X1)])', RT_ANAPHORA|RT_3P),
 ]
 _PRON = {}
@@ -446,6 +446,18 @@ class Lexeme(AbstractLexeme):
         d.set_lambda_refs([self.refs[0]])
         return d
 
+    def _set_noun_mask(self):
+        if self.isnumber:
+            self.mask |= RT_NUMBER
+        elif self.isproper_noun:
+            self.mask |= RT_PROPERNAME
+        elif self.pos == POS_NOUN_S:
+            self.mask |= RT_ENTITY | RT_PLURAL
+        else:
+            self.mask |= RT_ENTITY
+        if self.pos == POS_POSSESSIVE:
+            self.mask |= RT_POSSESSIVE
+
     def get_production(self, sentence, options=0):
         """Get the production model for this category.
 
@@ -485,21 +497,11 @@ class Lexeme(AbstractLexeme):
                 return d
             elif self.category == CAT_N:
                 self.refs = [DRSRef('X1')]
-                if self.isproper_noun:
-                    self.mask |= RT_PROPERNAME
-                elif self.pos == POS_NOUN_S:
-                    self.mask |= RT_ENTITY | RT_PLURAL
-                else:
-                    self.mask |= RT_ENTITY
+                self._set_noun_mask()
                 return self._get_noun_drs(span)
             elif self.category == CAT_NOUN:
                 self.refs = [DRSRef('X1')]
-                if self.isnumber:
-                    self.mask |= RT_NUMBER
-                elif self.pos == POS_NOUN_S:
-                    self.mask |= RT_ENTITY | RT_PLURAL
-                else:
-                    self.mask |= RT_ENTITY
+                self._set_noun_mask()
                 return self._get_noun_drs(span)
             elif self.category == CAT_CONJ_CONJ or self.category == CAT_CONJCONJ:
                 self.refs = [DRSRef('X1')]
@@ -752,6 +754,8 @@ class Lexeme(AbstractLexeme):
                 elif len(self.refs) == 1 and final_atom == CAT_N \
                         and (self.category.ismodifier or self.category.test_returns_modifier()):
                     self.mask |= RT_ATTRIBUTE
+                if self.pos == POS_POSSESSIVE:
+                    self.mask |= RT_POSSESSIVE
 
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
