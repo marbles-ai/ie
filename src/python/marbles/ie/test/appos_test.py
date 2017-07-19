@@ -15,7 +15,7 @@ from marbles.ie.utils.text import preprocess_sentence
 from marbles.test import dprint, DPRINT_ON
 
 
-class PostComposeTest(unittest.TestCase):
+class ApposTest(unittest.TestCase):
     def setUp(self):
         self.svc = grpc.CcgParserService('easysrl')
         self.stub = self.svc.open_client()
@@ -105,6 +105,7 @@ class PostComposeTest(unittest.TestCase):
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
 
     def test5_ApposAtEnd(self):
+        # FIXME: this test fails. Need wordnet to disambiguate.
         text = r"Upset by the bad call, the crowd cheered Robbie, a hot-tempered tennis player who charged the umpire and tried to crack the poor man's skull with a racket."
         mtext = preprocess_sentence(text)
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
