@@ -624,10 +624,22 @@ class Lexeme(AbstractLexeme):
                 elif rcat is not None and (rcat.has_any_features(FEATURE_PSS | FEATURE_TO) or rcat.ismodifier):
                     if len(refs) > 1:
                         # passive case
-                        self.mask |= RT_EVENT_ATTRIB
-                        conds.append(Rel('_MOD', [refs[0], refs[-1]]))
-                        self.drs = DRS([], conds)
-                    d = DrsProduction([], self.refs, span=span)
+                        if rcat.ismodifier or self.stem in ['be', 'get']:
+                            self.mask |= RT_EVENT_ATTRIB
+                            conds.append(Rel('_MOD', [refs[0], refs[-1]]))
+                            self.drs = DRS([], conds)
+                            d = DrsProduction([], self.refs, span=span)
+                        else:
+                            conds.append(Rel('_EVENT', [refs[0]]))
+                            pred = zip(refs[1:], self._EventPredicates)
+                            for v, e in pred[0:2]:
+                                conds.append(Rel(e, [refs[0], v]))
+                            self.mask |= RT_EVENT
+                            self.vnclasses = vnclasses
+                            self.drs = DRS([refs[0]], conds)
+                            d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                    else:
+                        d = DrsProduction([], self.refs, span=span)
 
                 elif self.category == CAT_MODAL_PAST:
                     self.mask |= RT_EVENT_MODAL
