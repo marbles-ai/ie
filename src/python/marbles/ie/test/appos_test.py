@@ -39,6 +39,7 @@ class PostComposeTest(unittest.TestCase):
         Y = temper[0]
         d = sentence.get_drs()
         dprint(d)
+        self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
 
@@ -58,6 +59,8 @@ class PostComposeTest(unittest.TestCase):
         X = dog[0]
         Y = breed[0]
         d = sentence.get_drs()
+        dprint(d)
+        self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
 
@@ -76,10 +79,32 @@ class PostComposeTest(unittest.TestCase):
         X = robbie[0]
         Y = temper[0]
         d = sentence.get_drs()
+        dprint(d)
+        self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
 
-    def test4_ApposAtEnd(self):
+    def test4_ApposInterrupt(self):
+        text = r"Bell, a telecommunications company, which is located in Los Angeles, makes and distributes electronics, computers, and building products"
+        mtext = preprocess_sentence(text)
+        derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
+        pt = parse_ccg_derivation(derivation)
+        sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        f = sentence.get_np_functors()
+        phrases = [sp.text for r, sp in f]
+        self.assertTrue('Bell' in phrases)
+        self.assertTrue('a telecommunications company' in phrases)
+        np1 = filter(lambda x: 'Bell' == x[1].text, f)[0]
+        np2 = filter(lambda x: 'a telecommunications company' == x[1].text, f)[0]
+        X = np1[0]
+        Y = np2[0]
+        d = sentence.get_drs()
+        dprint(d)
+        self.assertNotEqual(X, Y)
+        self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
+        self.assertTrue(len(repr(d).split('_AKA')) == 2)
+
+    def test5_ApposAtEnd(self):
         text = r"Upset by the bad call, the crowd cheered Robbie, a hot-tempered tennis player who charged the umpire and tried to crack the poor man's skull with a racket."
         mtext = preprocess_sentence(text)
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
@@ -94,6 +119,8 @@ class PostComposeTest(unittest.TestCase):
         X = robbie[0]
         Y = temper[0]
         d = sentence.get_drs()
+        dprint(d)
+        self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
 

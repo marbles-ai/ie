@@ -1196,6 +1196,7 @@ class Ccg2Drs(Sentence):
                 for r in refs:
                     if r in nps:
                         del nps[r]
+
         for lx in itertools.ifilter(lambda x: 0 != (x.mask & RT_EMPTY_DRS) and len(x.refs) != 0, self.lexemes):
             if lx.refs[0] in nps:
                 np = nps[lx.refs[0]]
@@ -1208,10 +1209,17 @@ class Ccg2Drs(Sentence):
             for r, np in nps.iteritems():
                 fnp = np.fullspan()
                 dnp = fnp.difference(np)
-                if not all([x.drs is None or x.drs.isempty for x in dnp]):
+                # This happends because we assign a variable to conjoins so we
+                # can see it in functor phrases - RT_EMPTY_DRS
+                while len(dnp) != 0 and np[-1].stem in ['or', 'and', 'neither', 'nor', '-LRB-', '-RRB-', '-LQU-', '-RQU-']:
+                    np.remove(np[-1].idx)
+                    fnp = np.fullspan()
+                    dnp = fnp.difference(np)
+                if len(dnp) != 0 and not all([x.drs is None or x.drs.isempty for x in dnp]):
                     del_marked.append(r)
             for r in del_marked:
                 del nps[r]
+
         return nps
 
     def get_np_functors(self):

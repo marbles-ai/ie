@@ -611,7 +611,9 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'(S[X]_1026\NP_2026)\(S[X]_1026\NP_2026)', r'S_1026/S[dcl]_1026'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1027', r'N_1027'))
     # TODO: Makes sense for appositives <NP, NP>. Need to check if other usages exist.
-    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_2028'))
+    # See test case conj_test.py[test5_OrOfVerb_OrInBrackets] fails due to this rule
+    # Reverted since APPOS processing has been improved
+    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_1028'))
     # Wildcards incur more string processing so cover main rules
     _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[pss]_2030\NP_1030'))
     _rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))
