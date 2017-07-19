@@ -162,17 +162,16 @@ def create_empty_drs_production(category, ref=None, span=None):
     d.set_lambda_refs([ref])
     return d
 
+_EventPredicates = ('_AGENT', '_THEME', '_EXTRA')
+_EventPredicatesPss = ('_THEME', '_AGENT', '_EXTRA')
+_ToBePredicates = ('_AGENT', '_ATTRIBUTE', '_EXTRA')
+_TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
+_TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
+_Punct= '?.,:;'
+_Wnl = wn.WordNetLemmatizer()
+_Ieng = inflect.engine()
 
 class Lexeme(AbstractLexeme):
-
-    _EventPredicates = ('_AGENT', '_THEME', '_EXTRA')
-    _EventPredicatesPss = ('_THEME', '_AGENT', '_EXTRA')
-    _ToBePredicates = ('_AGENT', '_ATTRIBUTE', '_EXTRA')
-    _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
-    _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
-    _Punct= '?.,:;'
-    _wnl = wn.WordNetLemmatizer()
-    _p = inflect.engine()
 
     def get_json(self):
         result = {
@@ -194,6 +193,7 @@ class Lexeme(AbstractLexeme):
         return result
 
     def __init__(self, category, word, pos_tags, idx=0):
+        global _Punct, _Ieng, _Wnl
         if isinstance(Category, Lexeme):
             super(Lexeme, self).__init__(category)
             self.conditions = None
@@ -231,7 +231,7 @@ class Lexeme(AbstractLexeme):
         elif word == "'nt":
             word = 'not'
 
-        if word in self._Punct:
+        if word in _Punct:
             self.word = word
             self.stem = word
         else:
@@ -240,21 +240,21 @@ class Lexeme(AbstractLexeme):
             wd = strip_apostrophe_s(word)
             if (self.category == CAT_NOUN or self.pos == POS_NOUN or self.pos == POS_NOUN_S) and wd.upper() == wd:
                 # If all uppercase then keep it that way
-                self.stem = word.rstrip(self._Punct)
+                self.stem = word.rstrip(_Punct)
             elif self.pos == POS_PROPER_NOUN or self.pos == POS_PROPER_NOUN_S:
                 # Proper noun
                 if wd.upper() == wd:
-                    self.stem = word.rstrip(self._Punct)
+                    self.stem = word.rstrip(_Punct)
                 else:
-                    self.stem = word.title().rstrip(self._Punct)
+                    self.stem = word.title().rstrip(_Punct)
             else:
-                stem = word.lower().rstrip(self._Punct)
+                stem = word.lower().rstrip(_Punct)
                 if self.pos in POS_LIST_VERB or self.pos == POS_GERUND:
                     # FIXME: move to python 3 so its all unicode
                     if isinstance(stem, unicode):
-                        self.stem = self._wnl.lemmatize(stem, pos='v')
+                        self.stem = _Wnl.lemmatize(stem, pos='v')
                     else:
-                        self.stem = self._wnl.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
+                        self.stem = _Wnl.lemmatize(stem.decode('utf-8'), pos='v').encode('utf-8')
                 else:
                     self.stem = stem
 
@@ -365,10 +365,11 @@ class Lexeme(AbstractLexeme):
         """
 
         # Note. Proper noun handling requires any extra predicates appear after the noun.
+        global _TypeMonth, _TypeWeekday
         if self.isproper_noun:
             # If we are a functor and a proper noun then argument type if the
             # correct referent for the noun
-            if self._TypeMonth.match(self.stem):
+            if _TypeMonth.match(self.stem):
                 self.mask |= RT_DATE
                 if self.stem in _MONTHS:
                     conds.append(Rel(_MONTHS[self.stem], [self.refs[0]]))
@@ -378,7 +379,7 @@ class Lexeme(AbstractLexeme):
                     conds.append(Rel('_DATE', self.refs[0:2]))
                 else:
                     conds.append(Rel('_DATE', self.refs[0]))
-            elif self._TypeWeekday.match(self.stem):
+            elif _TypeWeekday.match(self.stem):
                 self.mask |= RT_DATE
                 if self.stem in _WEEKDAYS:
                     conds.append(Rel(_WEEKDAYS[self.stem], [self.refs[0]]))
@@ -422,6 +423,7 @@ class Lexeme(AbstractLexeme):
         return d
 
     def _get_noun_drs(self, span):
+        global _Wnl, _Ieng
         if not self.isproper_noun and not self.pos == POS_POSSESSIVE:
             # TODO: cache nouns
             # pattern.en.pluralize(self.stem)
@@ -431,8 +433,8 @@ class Lexeme(AbstractLexeme):
             # inflect will generate an exception for single character nouns. This can happen for
             # bad pos tagging (like EasySRL)
             if len(self.stem) > 1:
-                sp = self._p.plural(self.stem)
-            self.wnsynsets = wn.wordnet.synsets(self._wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
+                sp = _Ieng.plural(self.stem)
+            self.wnsynsets = wn.wordnet.synsets(_Wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
             if False and self.stem != sp:
                 rp = DRSRef(DRSVar('X', len(self.refs)+1))
                 self.drs = DRS([self.refs[0], rp],
@@ -464,6 +466,7 @@ class Lexeme(AbstractLexeme):
         Returns:
             A Production instance.
         """
+        global _EventPredicates
         no_vn = 0 != (CO_NO_VERBNET & options)
         span = Span(sentence, [self.idx])
         template = self.get_template()
