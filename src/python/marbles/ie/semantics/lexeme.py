@@ -27,63 +27,66 @@ FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
 ## @cond
 # The pronouns must always be referent X1
 __pron = [
+    # word          final       DRS             Properties
+    #               referent
     # 1st person singular
-    ('i',       '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
-    ('me',      '([X1],[])',    '([],[i(X1)])', RT_HUMAN|RT_1P),
-    ('myself',  '([X1],[])',    '([],[i(X1),_REFLEX(X1)])', RT_HUMAN|RT_1P),
-    ('mine',    '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
-    ('my',      '([X2],[])',    '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
+    ('i',           'X1',       '([],[i(X1)])', RT_HUMAN|RT_1P),
+    ('me',          'X1',       '([],[i(X1)])', RT_HUMAN|RT_1P),
+    ('myself',      'X1',       '([],[i(X1),_REFLEX(X1)])', RT_HUMAN|RT_1P),
+    ('mine',        'X2',       '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
+    ('my',          'X2',       '([],[i(X1),_POSS(X1,X2)])', RT_HUMAN|RT_1P|RT_POSSESSIVE),
     # 2nd person singular
-    ('you',     '([X1],[])',    '([],[you(X1)])', RT_HUMAN|RT_2P),
-    ('yourself','([X1],[])',    '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_2P),
-    ('yours',   '([X2],[])',    '([],[you(X1),_OWN(X1,X2)])', RT_HUMAN|RT_2P),
-    ('your',    '([X2],[])',    '([],[you(X1),_POSS(X1,X2)])', RT_HUMAN|RT_2P|RT_POSSESSIVE),
+    ('you',         'X1',       '([],[you(X1)])', RT_HUMAN|RT_2P),
+    ('yourself',    'X1',       '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_2P),
+    ('yours',       'X2',       '([],[you(X1),_OWN(X1,X2)])', RT_HUMAN|RT_2P),
+    ('your',        'X2',       '([],[you(X1),_POSS(X1,X2)])', RT_HUMAN|RT_2P|RT_POSSESSIVE),
     # 3rd person singular
-    ('he',      '([X1],[])',    '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('she',     '([X1],[])',    '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('him',     '([X1],[])',    '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('her',     '([X1],[])',    '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('himself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('herself', '([X1],[])',    '([],[she(X1),_REFLEX(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
-    ('hisself', '([X1],[])',    '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
-    ('his',     '([X2],[])',    '([],[he(X1),_POSS(X1,X2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
-    ('hers',    '([X2],[])',    '([],[she(X1),_POSS(X1,X2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
+    ('he',          'X1',       '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('she',         'X1',       '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('him',         'X1',       '([],[he(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('her',         'X1',       '([],[she(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('himself',     'X1',       '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('herself',     'X1',       '([],[she(X1),_REFLEX(X1)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P),
+    ('hisself',     'X1',       '([],[he(X1),_REFLEX(X1)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P),
+    ('his',         'X2',       '([],[he(X1),_POSS(X1,X2)])', RT_HUMAN|RT_MALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
+    ('hers',        'X2',       '([],[she(X1),_POSS(X1,X2)])', RT_HUMAN|RT_FEMALE|RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
     # 1st person plural
-    ('we',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('us',      '([X1],[])',    '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ourself', '([X1],[])',    '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ourselves','([X1],[])',   '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
-    ('ours',    '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
-    ('our',     '([X2],[])',    '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
+    ('we',          'X1',       '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('us',          'X1',       '([],[we(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourself',     'X1',       '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ourselves',   'X1',       '([],[we(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_1P),
+    ('ours',        'X2',       '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
+    ('our',         'X2',       '([],[we(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_1P|RT_POSSESSIVE),
     # 2nd person plural
-    ('yourselves', '([X1],[])', '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_2P),
+    ('yourselves',  'X1',       '([],[you(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_2P),
     # 3rd person plural
-    ('they',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('them',    '([X1],[])',    '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('themself','([X1],[])',    '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('themselves','([X1],[])',  '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
-    ('theirs',  '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
-    ('their',   '([X2],[])',    '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
+    ('they',        'X1',       '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('them',        'X1',       '([],[they(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themself',    'X1',       '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('themselves',  'X1',       '([],[they(X1),_REFLEX(X1)])', RT_HUMAN|RT_PLURAL|RT_3P),
+    ('theirs',      'X2',       '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
+    ('their',       'X2',       '([],[they(X1),_POSS(X1,X2)])', RT_HUMAN|RT_PLURAL|RT_3P|RT_POSSESSIVE),
     # it
-    ('it',      '([X1],[])',    '([],[it(X1)])', RT_ANAPHORA|RT_3P),
-    ('its',     '([X2],[])',    '([],[it(X1),_POSS(X1,X2)])', RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
-    ('itself',  '([X1],[])',    '([],[it(X1),_REFLEX(X1)])', RT_ANAPHORA|RT_3P),
+    ('it',          'X1',       '([],[it(X1)])', RT_ANAPHORA|RT_3P),
+    ('its',         'X2',       '([],[it(X1),_POSS(X1,X2)])', RT_ANAPHORA|RT_3P|RT_POSSESSIVE),
+    ('itself',      'X1',       '([],[it(X1),_REFLEX(X1)])', RT_ANAPHORA|RT_3P),
 ]
 _PRON = {}
 for k,r,v,u in __pron:
-    _PRON[k] = (parse_drs(v, 'nltk'), u, parse_drs(r, 'nltk').universe)
+    _PRON[k] = (parse_drs(v, 'nltk'), u, [DRSRef(r)])
 
 
-# Order of referents is lambda_ref binding order
 __adv = [
-    ('up',      '([E1],[])', '([],[up(E1),direction(E1)])', RT_LOCATION),
-    ('down',    '([E1],[])', '([],[down(E1),direction(E1)])', RT_LOCATION),
-    ('left',    '([E1],[])', '([],[left(E1),direction(E1)])', RT_LOCATION),
-    ('right',   '([E1],[])', '([],[right(E1),direction(E1)])', RT_LOCATION),
+    # word      final       DRS                                 Properties
+    #           referent
+    ('up',      'E1',       '([],[up(E1),direction(E1)])',      RT_LOCATION),
+    ('down',    'E1',       '([],[down(E1),direction(E1)])',    RT_LOCATION),
+    ('left',    'E1',       '([],[left(E1),direction(E1)])',    RT_LOCATION),
+    ('right',   'E1',       '([],[right(E1),direction(E1)])',   RT_LOCATION),
 ]
 _ADV = {}
 for k,r,v,u in __adv:
-    _ADV[k] = (parse_drs(v, 'nltk'), u, parse_drs(r, 'nltk').universe)
+    _ADV[k] = (parse_drs(v, 'nltk'), u, [DRSRef(r)])
 
 # Special behavior for prepositions
 _PREPS = {
@@ -91,6 +94,12 @@ _PREPS = {
     'on':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
 }
 
+
+_RELPRON = {
+    'that', 'when', 'which', 'whichever', 'whichsoever', 'who', 'whoever',
+    'whosoever', 'whom', 'whomever', 'whomsoever', 'whose', 'whosesoever',
+    'whatever', 'whatsoever'
+}
 
 _MONTHS = {
     'Jan':  'January',
@@ -500,8 +509,16 @@ class Lexeme(AbstractLexeme):
                 return d
             elif self.category == CAT_N:
                 self.refs = [DRSRef('X1')]
-                self._set_noun_mask()
-                return self._get_noun_drs(span)
+                # Relative pronouns don't get a universe. This can happen for cases such as 'That which is...'
+                if self.stem in _RELPRON:
+                    self.mask |= RT_ENTITY
+                    self.drs = DRS([], [Rel(self.stem, [self.refs[0]])])
+                    d = DrsProduction([], self.refs, category=self.category, span=span)
+                    d.set_lambda_refs([self.refs[0]])
+                    return d
+                else:
+                    self._set_noun_mask()
+                    return self._get_noun_drs(span)
             elif self.category == CAT_NOUN:
                 self.refs = [DRSRef('X1')]
                 self._set_noun_mask()
@@ -616,7 +633,7 @@ class Lexeme(AbstractLexeme):
                 if rcat is not None and rcat.argument_category().has_any_features(FEATURE_VARG) \
                         and rcat.result_category().has_any_features(FEATURE_VRES):
                     conds.append(Rel('_EVENT', [refs[0]]))
-                    pred = zip(refs[1:], self._EventPredicates)
+                    pred = zip(refs[1:], _EventPredicates)
                     for v, e in pred[0:2]:
                         conds.append(Rel(e, [refs[0], v]))
                     self.mask |= RT_EVENT
@@ -634,7 +651,7 @@ class Lexeme(AbstractLexeme):
                             d = DrsProduction([], self.refs, span=span)
                         else:
                             conds.append(Rel('_EVENT', [refs[0]]))
-                            pred = zip(refs[1:], self._EventPredicates)
+                            pred = zip(refs[1:], _EventPredicates)
                             for v, e in pred[0:2]:
                                 conds.append(Rel(e, [refs[0], v]))
                             self.mask |= RT_EVENT
@@ -693,7 +710,7 @@ class Lexeme(AbstractLexeme):
                                       Rel('_ROLE', [refs[0], refs[2]])])
                     else:
                         conds.append(Rel('_EVENT', [refs[0]]))
-                        pred = zip(refs[1:], self._EventPredicates)
+                        pred = zip(refs[1:], _EventPredicates)
                         for v, e in pred:
                             conds.append(Rel(e, [refs[0], v]))
                         if (len(refs)-1) > len(pred):

@@ -520,6 +520,8 @@ class Ccg2Drs(Sentence):
         method(self, op, stk)
 
     def _update_conjoins(self, prevcat, stk):
+        # TODO: if the span has an empty universe and the prevcat has the [conj] feature
+        # then take prevspan and carry RT_ATTRIBUTE and RT_EVENT_ATTRIB forward
         if prevcat.has_any_features(FEATURE_CONJ) and prevcat.test_returns_entity_modifier():
             sp = stk[-1].span
             nps = [] if sp is None else sp.fullspan().contiguous_subspans(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS)
@@ -1173,11 +1175,12 @@ class Ccg2Drs(Sentence):
         """Get a map of the functor phrases.
 
         Args:
-            select_fn: The lexeme selection function. If an interger mask is passed then select function
+            select_fn: The lexeme selection function. If an integer mask is passed then select function
                 is set to lambda x: 0 != (x.mask & select_fn)
             exclude_fn: Exclusion function applied to unselected lexemes. Default is no exclusion. If
                 lexemes in the exclusion set have a n-ary predicate connected to the selected set then the
-                selected entry is excluded from the result.
+                selected entry is excluded from the result. If an integer mask is passed then exclusion
+                function is set to lambda x: 0 != (x.mask & exclude_fn)
 
         Returns:
             A list of Span instances.
@@ -1191,16 +1194,22 @@ class Ccg2Drs(Sentence):
             lst = nps.setdefault(np.refs[0], Span(self))
             lst.add(np)
         if exclude_fn is not None:
+            if isinstance(exclude_fn, (long, int)):
+                emask = exclude_fn
+                exclude_fn = (lambda x: 0 != (x.mask & emask))
             for lx in itertools.ifilter(lambda x: len(x.refs) != 0 and not select_fn(x) and exclude_fn(x), self.lexemes):
                 refs = [] if lx.drs is None or lx.drs.isempty else lx.drs.variables
+                if len(refs) < 2:
+                    continue
                 for r in refs:
                     if r in nps:
                         del nps[r]
 
+        # Remove solo empty entries
         for lx in itertools.ifilter(lambda x: 0 != (x.mask & RT_EMPTY_DRS) and len(x.refs) != 0, self.lexemes):
             if lx.refs[0] in nps:
                 np = nps[lx.refs[0]]
-                if len(np) == 1:
+                if len(np) == 1 and 0 != (np[0].mask & RT_EMPTY_DRS):
                     del nps[lx.refs[0]]
 
         if contiguous:
