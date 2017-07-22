@@ -9,7 +9,7 @@ import unittest
 from marbles.ie import grpc
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.drt.drs import Rel
-from marbles.ie.semantics.ccg import process_ccg_pt
+from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
 from marbles.ie.core.constants import *
 from marbles.ie.utils.text import preprocess_sentence
 from marbles.test import dprint, DPRINT_ON
@@ -29,6 +29,9 @@ class ApposTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_np_functors()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
@@ -37,8 +40,6 @@ class ApposTest(unittest.TestCase):
         temper = filter(lambda x: 'A hot-tempered tennis player' == x[1].text, f)[0]
         X = robbie[0]
         Y = temper[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
@@ -49,6 +50,9 @@ class ApposTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_np_functors()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Reliable' in phrases)
@@ -58,8 +62,6 @@ class ApposTest(unittest.TestCase):
         breed = filter(lambda x: "eleven-year-old beagle" == x[1].text, f)[0]
         X = dog[0]
         Y = breed[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
@@ -70,6 +72,9 @@ class ApposTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_np_functors()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
@@ -78,8 +83,6 @@ class ApposTest(unittest.TestCase):
         temper = filter(lambda x: 'a hot-tempered tennis player' == x[1].text, f)[0]
         X = robbie[0]
         Y = temper[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
@@ -90,6 +93,9 @@ class ApposTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_np_functors()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Bell' in phrases)
@@ -98,8 +104,6 @@ class ApposTest(unittest.TestCase):
         np2 = filter(lambda x: 'a telecommunications company' == x[1].text, f)[0]
         X = np1[0]
         Y = np2[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)
@@ -111,6 +115,9 @@ class ApposTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_np_functors()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
@@ -119,8 +126,6 @@ class ApposTest(unittest.TestCase):
         temper = filter(lambda x: 'a hot-tempered tennis player' == x[1].text, f)[0]
         X = robbie[0]
         Y = temper[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertNotEqual(X, Y)
         self.assertTrue(d.find_condition(Rel('_AKA', [X, Y])) is not None)
         self.assertTrue(len(repr(d).split('_AKA')) == 2)

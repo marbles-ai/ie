@@ -26,6 +26,9 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('John' in phrases)
@@ -37,8 +40,6 @@ class ConjTest(unittest.TestCase):
         J = john[0]
         P = paul[0]
         E = went[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('go', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
@@ -52,6 +53,9 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('John' in phrases)
@@ -63,8 +67,6 @@ class ConjTest(unittest.TestCase):
         J = john[0]
         P = paul[0]
         E = saw[0]
-        d = sentence.get_drs()
-        dprint(d)
         # FIXME: wn lemmatizer does not convert saw to see - I guess to to ambiguity
         self.assertTrue(d.find_condition(Rel('_EVENT', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('saw', [E])) is not None)
@@ -79,6 +81,9 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_functor_phrases(RT_ENTITY|RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('participate' in phrases)
@@ -90,8 +95,6 @@ class ConjTest(unittest.TestCase):
         X1 = noun1[0]
         X2 = noun2[0]
         E = verb[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('participate', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('games', [X1])) is not None)
@@ -105,6 +108,9 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
@@ -119,8 +125,6 @@ class ConjTest(unittest.TestCase):
         X2 = theme[0]
         E1 = verb1[0]
         E2 = verb2[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
@@ -134,6 +138,9 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT|RT_ATTRIBUTE)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
@@ -156,8 +163,6 @@ class ConjTest(unittest.TestCase):
         Y3 = theme3[0]
         E1 = verb1[0]
         E2 = verb2[0]
-        d = sentence.get_drs()
-        dprint(d)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
         self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
