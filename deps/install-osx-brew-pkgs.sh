@@ -20,7 +20,7 @@ brew_install gradle
 
 # pseudo terminal
 brew tap homebrew/dupes
-brew_install screen 
+brew_install screen
 
 # STP
 brew_install boost
@@ -43,3 +43,8 @@ else
 		fi
 	fi
 fi
+
+# Z3 prover
+# 	--with-python3 for py3 bindings
+# 	--without-python to remove py2 bindings
+brew_install z3
