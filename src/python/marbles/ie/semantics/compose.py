@@ -15,6 +15,9 @@ from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Span
 
 
+_FCHR = u'p'
+
+
 class DrsComposeError(Exception):
     """AbstractProduction Error."""
     pass
@@ -288,8 +291,13 @@ class DrsProduction(AbstractProduction):
             raise TypeError('DrsProduction expects universe of referents')
         if not isinstance(freerefs, list) or not iterable_type_check(freerefs, DRSRef):
             raise TypeError('DrsProduction expects freerefs of referents')
-        self._freerefs = freerefs
-        self._universe = universe
+        self._universe = []
+        self._freerefs = []
+        self._freerefs.extend(universe)
+        self._freerefs.extend(freerefs)
+
+        #self._freerefs = freerefs
+        #self._universe = universe
         self._span = span
 
     def __unicode__(self):
@@ -663,8 +671,9 @@ class FunctorProduction(AbstractProduction):
             return u'%s(%s)' % (v, r)
 
     def __unicode__(self):
-        return self._repr_helper1(ord(u'P')) + ''.join([u'λ'+unicode(v.var) for v in self.lambda_refs]) \
-               + u'.<' + self._repr_helper2(ord(u'P')) + u'>'
+        global _FCHR
+        return self._repr_helper1(ord(_FCHR)) + ''.join([u'λ'+unicode(v.var) for v in self.lambda_refs]) \
+               + u'.<' + self._repr_helper2(ord(_FCHR)) + u'>'
 
     def __str__(self):
         return safe_utf8_encode(self.__unicode__())
@@ -1483,6 +1492,7 @@ class FunctorProduction(AbstractProduction):
         Returns:
             An AbstractProduction instance.
         """
+        global _FCHR
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(g)
             if self._comp.isfunctor:
@@ -1492,7 +1502,7 @@ class FunctorProduction(AbstractProduction):
         assert self._comp is not None
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord('P')+self._get_position()), future_string(g)))
+            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord(_FCHR)+self._get_position()), future_string(g)))
 
         # Ensure names do not conflict. Need to execute at outer scope so all variables are covered.
         # Try to keep var subscripts increasing left to right.
@@ -1625,6 +1635,7 @@ class PropProduction(FunctorProduction):
         Returns:
             A AbstractProduction instance.
         """
+        global _FCHR
         if self._comp is not None and self._comp.isfunctor:
             self._comp = self._comp.apply(d)
             if self._comp.isfunctor:
@@ -1632,7 +1643,7 @@ class PropProduction(FunctorProduction):
             return self
 
         if 0 != (self.compose_options & CO_PRINT_DERIVATION):
-            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord('P')+self._get_position()), future_string(d)))
+            print('DERIVATION:= %s {%s=%s}' % (future_string(self.outer_scope), chr(ord(_FCHR)+self._get_position()), future_string(d)))
         if isinstance(d, ProductionList):
             d = d.unify()
         assert isinstance(d, DrsProduction)
