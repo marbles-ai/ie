@@ -571,9 +571,9 @@ try:
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
     _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
-    _tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
+    #_tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
     #_tcache.addinit(Model.build_template(r'PP_1002/NP_1002'), replace=True)
-    _tcache.addinit(Model.build_template(r'N_1003/PP_2003'), replace=True)
+    _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
     _tcache.addinit(Model.build_template(r'NP_1005/(N_1005/PP_1005)'), replace=True)
@@ -613,7 +613,7 @@ try:
     # TODO: Makes sense for appositives <NP, NP>. Need to check if other usages exist.
     # See test case conj_test.py[test5_OrOfVerb_OrInBrackets] fails due to this rule
     # Reverted since APPOS processing has been improved
-    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_1028', r'NP_1028'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_2028', r'NP_1028'))
     # Wildcards incur more string processing so cover main rules
     _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[pss]_2030\NP_1030'))
     _rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))

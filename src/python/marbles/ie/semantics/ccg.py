@@ -965,7 +965,6 @@ class Ccg2Drs(Sentence):
         vps = self.get_functor_phrases(lambda x: 0 != (x.mask & RT_EVENT))
         refs = []
         for r, v in vps.iteritems():
-            assert len(v) == 1
             refs.extend(v[0].refs[1:])
 
         # Find conjoins with orphaned nps
