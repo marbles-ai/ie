@@ -1,7 +1,5 @@
 import sys
 import time
-import os
-import subprocess
 from EC2 import *   # Elastic Cloud Computing
 from ECS import *   # Elastic Container Service
 from ECR import *   # Elastic Container Registry
@@ -42,7 +40,18 @@ newsreader_task = 'newsreader-task:1'
 # Need to complete
 newsreader_task_id = None
 
+
+def usage():
+    print("python -m deploy <service> <task> <argument>")
+    print("\t Where service = {website, infox, ccg, newsreader}")
+    print("\t Where task = {start (start service), stop (stop service), update (update docker image)}")
+    exit(0)
+
+
 if __name__ == "__main__":
+
+    if len(sys.argv) < 3:
+        usage()
 
     service = sys.argv[1]
     task = sys.argv[2]
