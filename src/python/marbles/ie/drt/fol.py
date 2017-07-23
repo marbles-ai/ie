@@ -1,7 +1,6 @@
 from __future__ import unicode_literals, print_function
 from utils import iterable_type_check
-from common import Showable
-from common import SHOW_BOX
+from common import Showable, SHOW_BOX, DRSVar
 from pysmt import shortcuts as sc
 #import Solver, get_model
 #from pysmt.shortcuts import Symbol, Bool, Implies, And, Not, Equals
@@ -11,23 +10,24 @@ from pysmt.typing import REAL, FunctionType
 from pysmt.exceptions import SolverReturnedUnknownResultError
 from pysmt.environment import get_env
 import os
-from marbles import future_string, safe_utf8_encode
+from marbles import future_string, safe_utf8_encode, ROOTDIR, PROJDIR
 
 
 z3name = "z3"
-if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'src')):
+if os.path.exists(os.path.join(PROJDIR, 'src', 'python')):
     # Path to the solver in devel tree
-    z3path = [os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', '..', 'scripts'))]
+    z3path = [os.path.abspath(os.path.join(ROOTDIR, 'ie', 'semantics', 'lib'))]
 else:
     # Path to the solver in install tree
-    z3path = [os.path.abspath(os.path.join(os.path.dirname(__file__), 'solvers'))]
+    z3path = [os.path.abspath(os.path.join(ROOTDIR, 'ie', 'semantics', 'lib'))]
+    #z3path = [os.path.abspath(os.path.join(os.path.dirname(__file__), 'solvers'))]
 
 logics = [QF_UFLRA, QF_UFIDL] # Some of the supported logics
 
 env = sc.get_env()
 
 # Add the solver to the environment
-env.factory.add_generic_solver(z3name, z3path, logics)
+#env.factory.add_generic_solver(z3name, z3path, logics)
 
 
 
@@ -36,7 +36,7 @@ class FOLConversionError(Exception):
     pass
 
 
-FOLVar = future_string
+FOLVar = DRSVar
 FOLPred = future_string
 
 
@@ -46,6 +46,9 @@ class FOLForm(Showable):
     ## remarks Original code in FOL/Show.hs
     def show(self):
         raise NotImplementedError
+
+    def __repr__(self):
+        return future_string(self)
 
     def __str__(self):
         return unicode(self).encode('utf-8')
@@ -64,7 +67,7 @@ class Exists(FOLForm):
     def __init__(self, folVar, folForm):
         if not isinstance(folVar, FOLVar) or not isinstance(folForm, FOLForm):
             raise TypeError
-        self._var = folVar.decode('utf-8')
+        self._var = folVar
         self._fol = folForm
 
     def __eq__(self, other):
@@ -77,7 +80,7 @@ class Exists(FOLForm):
         return u'\u2203%s%s' % (self._var, self._fol)
 
     def to_smt(self):
-        return sc.Exists(sc.Symbol(self._var), self._fol.to_smt())
+        return sc.Exists(sc.Symbol(self._var.to_string()), self._fol.to_smt())
 
 
 class ForAll(FOLForm):
@@ -85,7 +88,7 @@ class ForAll(FOLForm):
     def __init__(self, folVar, folForm):
         if not isinstance(folVar, FOLVar) or not isinstance(folForm, FOLForm):
             raise TypeError
-        self._var = folVar.decode('utf-8')
+        self._var = folVar
         self._fol = folForm
 
     def __eq__(self, other):
@@ -98,7 +101,7 @@ class ForAll(FOLForm):
         return u'\u2200%s%s' % (self._var, self._fol)
 
     def to_smt(self):
-        return sc.ForAll(sc.Symbol(self._var), self.to_smt())
+        return sc.ForAll(sc.Symbol(self._var.to_string()), self.to_smt())
 
 
 class And(FOLForm):
@@ -190,7 +193,7 @@ class Rel(FOLForm):
         if not isinstance(folPred, FOLVar) and not iterable_type_check(folVars, FOLVar):
             raise TypeError('Expected type FOLVar')
         self._pred = folPred.decode('utf-8')
-        self._vars = [v.decode('utf-8') for v in folVars]
+        self._vars = [v for v in folVars]
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self._pred == other._pred and self._vars == other._vars
@@ -199,10 +202,10 @@ class Rel(FOLForm):
         return self.__class__ != other.__class__ or self._pred != other._pred or self._vars != other._vars
 
     def __unicode__(self):
-        return u'%s(%s)' % (self._pred, u','.join(self._vars))
+        return u'%s(%s)' % (self._pred, u','.join([v.to_string() for v in self._vars]))
 
     def to_smt(self):
-        return sc.Function(sc.Symbol(self._pred), [sc.Symbol(x) for x in self._vars])
+        return sc.Function(sc.Symbol(self._pred), [sc.Symbol(x.to_string()) for x in self._vars])
 
 
 class Acc(FOLForm):
@@ -210,7 +213,7 @@ class Acc(FOLForm):
     def __init__(self, folVars):
         if not iterable_type_check(folVars, FOLVar):
             raise TypeError
-        self._vars = [v.decode('utf-8') for v in folVars]
+        self._vars = [v for v in folVars]
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self._vars == other._vars
@@ -219,10 +222,10 @@ class Acc(FOLForm):
         return self.__class__ != other.__class__ or self._vars != other._vars
 
     def __unicode__(self):
-        return u'Acc(%s)' % u','.join(self._vars)
+        return u'Acc(%s)' % u','.join([v.to_string() for v in self._vars])
 
     def to_smt(self):
-        return sc.Function(sc.Function(u'Acc'), [sc.Symbol(x) for x in self._vars])
+        return sc.Function(sc.Function(u'Acc'), [sc.Symbol(x.to_string()) for x in self._vars])
 
 
 class Top(FOLForm):

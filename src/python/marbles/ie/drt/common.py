@@ -205,6 +205,8 @@ class DRSVar(AbstractDRSVar):
     _NumSuffix = re.compile(r'^([A-Za-z$@._-]+)(\d*)$')
 
     def __init__(self, name, idx=0):
+        if isinstance(name, DRSVar):
+            name = future_string(name)
         m = self._NumSuffix.match(name)
         if m is None:
             self._name = name

@@ -420,8 +420,8 @@ class AbstractDRS(Showable):
             ie.fol.FOLConversionError
         """
         global WORLD_VAR
-        worlds = [WORLD_VAR]
-        mfol = self.to_mfol(WORLD_VAR, worlds)
+        worlds = [DRSVar(WORLD_VAR)]
+        mfol = self.to_mfol(worlds[0], worlds)
         return mfol, worlds
 
     ## @remarks Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Translate.hs">/Data/DRS/Translate.hs:drsToMFOL</a>
@@ -740,7 +740,8 @@ class DRS(AbstractDRS):
         if len(self._refs) == 0:
             return conds_to_mfol(self._conds, world, worlds)
         # FIXME: remove recursion
-        return fol.Exists(fol.FOLVar(self._refs[0].var), DRS(self._refs[1:], self._conds).to_mfol(world, worlds))
+        #return fol.Exists(fol.FOLVar(self._refs[0].var), DRS(self._refs[1:], self._conds).to_mfol(world, worlds))
+        return fol.Exists(self._refs[0].var, DRS(self._refs[1:], self._conds).to_mfol(world, worlds))
 
     # Original haskell code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Show.hs">/Data/DRS/Show.hs::showUniverse</a>
     def _show_universe(self, d, notation):
@@ -1466,7 +1467,7 @@ class Rel(AbstractDRSCond):
     def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
         v = [world]
-        v.extend([x.var.to_string() for x in self._refs])
+        v.extend([x.var for x in self._refs])
         return fol.Rel(self._rel.to_string(), v)
 
     def show(self, notation):
@@ -1775,7 +1776,7 @@ class Imp(AbstractDRSCond):
         f = fol.Imp(conds_to_mfol(self._drsA._conds, world, worlds), self._drsB.to_mfol(world, worlds))
         refs.reverse()
         for r in refs:
-            f = fol.ForAll(r.var.to_string(), f)
+            f = fol.ForAll(r.var, f)
         return f
 
     def show(self, notation):
@@ -2098,7 +2099,7 @@ class Prop(AbstractDRSCond):
     ##
     def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        return fol.And(fol.Acc([world, self._ref.var.to_string()]), self._drs.to_mfol(world, worlds))
+        return fol.And(fol.Acc([world, self._ref.var]), self._drs.to_mfol(world, worlds))
 
     def show(self, notation):
         """Helper for DRS function of same name."""
@@ -2237,7 +2238,7 @@ class Diamond(AbstractDRSCond):
     ##
     def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        v = world + "'"
+        v = world.increase_new()
         worlds.append(v)
         return fol.Exists(v, fol.And(fol.Acc([world,v]),self._drs.to_mfol(v, worlds)))
 
@@ -2378,7 +2379,7 @@ class Box(AbstractDRSCond):
     ##
     def to_mfol(self, world, worlds):
         """Helper for DRS function of same name."""
-        v = world + "'"
+        v = world.increase_new()
         worlds.append(v)
         return fol.ForAll(v, fol.Imp(fol.Acc([world,v]),self._drs.to_mfol(v, worlds)))
 
