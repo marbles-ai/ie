@@ -883,6 +883,8 @@ class Ccg2Drs(Sentence):
         cmap = self._ref_to_constituent_map(constituents)
         merged = False
         for r, np in nps.iteritems():
+            if r not in cmap:
+                continue
             cs = cmap[r]
             merge = []
             for c in cs:
