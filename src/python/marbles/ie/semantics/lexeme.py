@@ -92,6 +92,14 @@ for k,r,v,u in __adv:
 _PREPS = {
     'of':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
     'on':           MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'between':      MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'with':         MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'without':      MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'about':        MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'among':        MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'despite':      MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'except':       MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
+    'regarding':    MODEL.build_template(r'PP_1002/NP_2002', construct_empty=False)[1],
 }
 
 
@@ -639,7 +647,8 @@ class Lexeme(AbstractLexeme):
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
                     self.drs = DRS([refs[0]], conds)
-                    d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                    #d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                    d = DrsProduction([], self.refs, span=span)
 
                 elif rcat is not None and (rcat.has_any_features(FEATURE_PSS | FEATURE_TO) or rcat.ismodifier):
                     if len(refs) > 1:
@@ -657,7 +666,8 @@ class Lexeme(AbstractLexeme):
                             self.mask |= RT_EVENT
                             self.vnclasses = vnclasses
                             self.drs = DRS([refs[0]], conds)
-                            d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                            #d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                            d = DrsProduction([], self.refs, span=span)
                     else:
                         d = DrsProduction([], self.refs, span=span)
 
@@ -685,7 +695,8 @@ class Lexeme(AbstractLexeme):
                         conds.append(Rel('_AGENT', [refs[0], refs[1]]))
                         conds.append(Rel('_ROLE', [refs[0], refs[2]]))
                     self.drs = DRS([refs[0]], conds)
-                    d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
+                    #d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
+                    d = DrsProduction([], refs, category=final_atom, span=span)
                 elif self.category == CAT_VPdcl:
                     if len(refs) != 2:
                         pass
@@ -698,7 +709,8 @@ class Lexeme(AbstractLexeme):
 
                     # Special handling
                     self.drs = DRS([refs[0]], conds)
-                    d = DrsProduction([refs[0]], self.refs[1:], category=final_atom, span=span)
+                    #d = DrsProduction([refs[0]], self.refs[1:], category=final_atom, span=span)
+                    d = DrsProduction([], self.refs, category=final_atom, span=span)
 
                 else:
                     # TODO: use verbnet to get semantics
@@ -718,7 +730,8 @@ class Lexeme(AbstractLexeme):
                             rx.extend(refs[len(pred)+1:])
                             conds.append(Rel('_EXTRA', rx))
                     self.drs = DRS([refs[0]], conds)
-                    d = DrsProduction([refs[0]], refs[1:], span=span)
+                    #d = DrsProduction([refs[0]], refs[1:], span=span)
+                    d = DrsProduction([], refs, span=span)
 
             elif self.isadverb and template.isfinalevent:
                 if self.stem in _ADV:

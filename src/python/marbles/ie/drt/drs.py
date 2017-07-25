@@ -483,6 +483,12 @@ class DRS(AbstractDRS):
         return type(self) == type(other) and compare_lists_eq(self._refs, other._refs) \
                and compare_lists_eq(self._conds, other._conds)
 
+    def __hash__(self):
+        refs = set(self.universe)
+        refs.union(self.freerefs)
+        conds = set(self._conds)
+        return hash(conds) ^ hash(refs)
+
     def _set_accessible(self, d):
         if self._accessible_drs is None:
             self._accessible_drs = weakref.ref(d)

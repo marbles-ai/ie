@@ -44,7 +44,6 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('go', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E, P])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E, J])) is not None)
 
     def test02_AndOfObj(self):
@@ -72,7 +71,6 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('saw', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E, P])) is not None)
         self.assertTrue(d.find_condition(Rel('_THEME', [E, J])) is not None)
 
     def test03_OrOfObj(self):
@@ -99,7 +97,6 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('participate', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('games', [X1])) is not None)
         self.assertTrue(d.find_condition(Rel('sport', [X2])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E, X1])) is not None)
         self.assertTrue(d.find_condition(Rel('_THEME', [E, X2])) is not None)
 
     def test04_AndOfVerb(self):
@@ -114,23 +111,17 @@ class ConjTest(unittest.TestCase):
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
-        self.assertTrue('makes' in phrases)
-        self.assertTrue('distributes' in phrases)
+        self.assertTrue('makes distributes' in phrases)
         self.assertTrue('computers' in phrases)
-        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
+        verb1 = filter(lambda x: 'makes distributes' == x[1].text, f.iteritems())[0]
         agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
         theme = filter(lambda x: 'computers' == x[1].text, f.iteritems())[0]
         X1 = agent[0]
         X2 = theme[0]
         E1 = verb1[0]
-        E2 = verb2[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E2, X1])) is not None)
         self.assertTrue(d.find_condition(Rel('_THEME', [E1, X2])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E2, X2])) is not None)
 
     def test05_AndOfVerb_AndOfObj(self):
         text = "Bell makes and distributes computers, electronics, and building products"
@@ -144,15 +135,13 @@ class ConjTest(unittest.TestCase):
         f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT|RT_ATTRIBUTE)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
-        self.assertTrue('makes' in phrases)
-        self.assertTrue('distributes' in phrases)
+        self.assertTrue('makes distributes' in phrases)
         self.assertTrue('computers' in phrases)
         self.assertTrue('electronics' in phrases)
         # Note if we add RT_EMPTY_DRS to the selection criteria then this phrase becomes 'and building products'
         self.assertTrue('building products' in phrases)
-        self.assertEqual(6, len(phrases))
-        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
+        self.assertEqual(5, len(phrases))
+        verb1 = filter(lambda x: 'makes distributes' == x[1].text, f.iteritems())[0]
         agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
         theme1 = filter(lambda x: 'computers' == x[1].text, f.iteritems())[0]
         theme2 = filter(lambda x: 'electronics' == x[1].text, f.iteritems())[0]
@@ -162,17 +151,10 @@ class ConjTest(unittest.TestCase):
         Y2 = theme2[0]
         Y3 = theme3[0]
         E1 = verb1[0]
-        E2 = verb2[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E2, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E1, Y1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E1, Y2])) is not None)
+        # TODO: should we add proposition for multi NP's conjoined?
         self.assertTrue(d.find_condition(Rel('_THEME', [E1, Y3])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E2, Y1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E2, Y2])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E2, Y3])) is not None)
 
     def test10_OrOfVerb_OrInBrackets(self):
         text = "That which is perceived or known or inferred to have its own distinct existence (living or nonliving)"
@@ -180,7 +162,7 @@ class ConjTest(unittest.TestCase):
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
         pt = parse_ccg_derivation(derivation)
         sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
-        d = sentence.get_drs()
+        d = sentence.get_drs(nodups=True)
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         # RT_EMPTY_DRS adds 'or' to phrases
@@ -188,23 +170,22 @@ class ConjTest(unittest.TestCase):
                                                    0 == (x.mask & RT_EMPTY_DRS),
                                          contiguous=False)
         phrases = [sp.text for r, sp in f.iteritems()]
-        self.assertTrue('That which living nonliving' in phrases)
-        self.assertTrue('perceived' in phrases)
-        self.assertTrue('known' in phrases)
-        self.assertTrue('inferred' in phrases)
+        self.assertTrue('That which' in phrases)
         self.assertTrue('have' in phrases)
-        self.assertTrue('is' in phrases)
-        verb1 = filter(lambda x: 'perceived' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'known' == x[1].text, f.iteritems())[0]
-        verb3 = filter(lambda x: 'inferred' == x[1].text, f.iteritems())[0]
-        agent = filter(lambda x: 'That which living nonliving' == x[1].text, f.iteritems())[0]
+        self.assertTrue('is perceived known inferred' in phrases)
+        self.assertTrue('its own distinct existence' in phrases)
+        verb1 = filter(lambda x: 'is perceived known inferred' == x[1].text, f.iteritems())[0]
+        verb2 = filter(lambda x: 'have' == x[1].text, f.iteritems())[0]
+        agent = filter(lambda x: 'That which' == x[1].text, f.iteritems())[0]
+        theme = filter(lambda x: 'its own distinct existence' == x[1].text, f.iteritems())[0]
         X1 = agent[0]
         E1 = verb1[0]
         E2 = verb2[0]
-        E3 = verb3[0]
+        X2 = theme[1][0].refs[1]
+        X3 = theme[1][1].refs[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
-        self.assertTrue(d.find_condition(Rel('_EVENT', [E3])) is not None)
         self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E2, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E3, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_THEME', [E1, E2])) is not None)
+        # TODO: should the theme attach to X2?
+        self.assertTrue(d.find_condition(Rel('_THEME', [E2, X3])) is not None)
+        self.assertTrue(d.find_condition(Rel('_POSS', [X2, X3])) is not None)

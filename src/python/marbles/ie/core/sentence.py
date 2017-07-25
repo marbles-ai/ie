@@ -866,7 +866,7 @@ class Span(AbstractSentence):
             return self
         return Span(self._sent, [x for x in range(self._indexes[0], self._indexes[-1] + 1)])
 
-    def get_drs(self):
+    def get_drs(self, nodups=False):
         """Get a DRS view of the span.
 
         Returns:

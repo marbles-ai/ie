@@ -10,7 +10,7 @@ import logging
 import numpy as np
 
 from marbles.ie.ccg import *
-from marbles.ie.ccg.model import MODEL
+from marbles.ie.ccg.model import MODEL, UCONJ
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
@@ -213,9 +213,13 @@ class AbstractOperand(object):
     def __init__(self, idx, depth):
         self.idx = idx
         self.depth = depth
+        self.conjoin = False    # Set during construction
 
     @property
     def category(self):
+        raise NotImplementedError
+
+    def union_span(self, sp):
         raise NotImplementedError
 
 
@@ -231,6 +235,10 @@ class PushOp(AbstractOperand):
     @property
     def category(self):
         return self.lexeme.category
+
+    def union_span(self, sp):
+        sp.add(self.lexeme.idx)
+        return sp
 
 
 class ExecOp(AbstractOperand):
@@ -251,6 +259,9 @@ class ExecOp(AbstractOperand):
     def category(self):
         return self.result_category
 
+    def union_span(self, sp):
+        return sp.union(Span(sp.sentence, range(self.lex_range[0], self.lex_range[1])))
+
 
 CcgArgSep = re.compile(r'/|\\')
 TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+\$?|-[A-Z]+-)*)')
@@ -259,6 +270,8 @@ LWord = re.compile(r'[^>\s]+(?=\s)')
 CcgComplexTypeBegin = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+|[.,:;])+(?=\s)')
 CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+|[.,:;]|_\d+)+(?=[>])')
 PosInt = re.compile(r'\d+')
+POS_NOUN_CHECK1 = [POS_POSSESSIVE, POS_PROPER_NOUN, POS_PROPER_NOUN_S]
+POS_NOUN_CHECK2 = [POS_NOUN, POS_NOUN_S]
 
 
 class Ccg2Drs(Sentence):
@@ -318,11 +331,42 @@ class Ccg2Drs(Sentence):
             self._dispatch_ba(op, stk)
         self._mark_if_adjunct(ucat, stk[-1])
 
+
+    def _can_use_conjoin_rules(self, op):
+        global POS_NOUN_CHECK1, POS_NOUN_CHECK2
+
+        # First check dependency tree
+        assert isinstance(op.sub_ops[0], PushOp)
+        lx = op.sub_ops[0].lexeme
+        hds = []
+        while lx.head != lx.idx:
+            lx = self.lexemes[lx.head]
+            hds.append(lx)
+
+        # Currenty we only use this rule on verbs so could remove noun checks.
+        if len(hds) >= 2 and (hds[0].pos == hds[1].pos \
+                or (hds[0].pos in POS_NOUN_CHECK1 and hds[1].pos in POS_NOUN_CHECK1) \
+                or (hds[0].pos in POS_NOUN_CHECK2 and hds[1].pos in POS_NOUN_CHECK2)):
+            sp = op.sub_ops[0].union_span(Span(self))
+            sp = op.sub_ops[1].union_span(sp)
+            return (hds[1].idx in sp and sp[0] == hds[1]) or hds[1].idx == (sp[0].idx - 1)
+        return False
+
     @dispatchmethod(dispatchmap, RL_TCR_UNARY)
     def _dispatch_runary(self, op, stk):
         assert len(op.sub_ops) == 2
         assert len(stk) >= 2
-        unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
+        unary = None
+        if op.sub_ops[0].category == CAT_CONJ and self._can_use_conjoin_rules(op):
+            # Conj has different unification rules
+            unary = UCONJ.lookup_unary(op.category, op.sub_ops[1].category)
+            op.conjoin = True
+        elif op.sub_ops[0].category == CAT_COMMA:
+            # TODO: Check if this is a conj rule
+            op.conjoin = self._can_use_conjoin_rules(op)
+
+        if unary is None:
+            unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
         if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
             unary = MODEL.infer_unary(op.category)
         assert unary is not None
@@ -402,6 +446,12 @@ class Ccg2Drs(Sentence):
         g = stk.pop()
         stk.append(f.type_raise(g))
 
+    def _update_conjoins(self, op, stk):
+        if len(op.sub_ops) == 2 and (op.sub_ops[0].conjoin or op.sub_ops[1].conjoin):
+            sp = stk[-1].span.fullspan()
+            self.conjoins = filter(lambda cj: cj not in sp, self.conjoins)
+            self.conjoins.append(sp)
+
     @dispatchmethod(dispatchmap, RL_FA)
     def _dispatch_fa(self, op, stk):
         # Forward application.
@@ -410,7 +460,8 @@ class Ccg2Drs(Sentence):
         prevcat = fn.category
         # Track spans of like items
         stk.append(self._update_constituents(fn.apply(d), prevcat))
-        self._update_conjoins(prevcat, stk)
+        #self._update_conjoins(prevcat, stk)
+        self._update_conjoins(op, stk)
 
     @dispatchmethod(dispatchmap, RL_BA)
     def _dispatch_ba(self, op, stk):
@@ -419,7 +470,8 @@ class Ccg2Drs(Sentence):
         d = stk.pop()    # arg0
         prevcat = fn.category
         stk.append(self._update_constituents(fn.apply(d), prevcat))
-        self._update_conjoins(prevcat, stk)
+        #self._update_conjoins(prevcat, stk)
+        self._update_conjoins(op, stk)
 
     @dispatchmethod(dispatchmap, RL_FC, RL_FX)
     def _dispatch_fc(self, op, stk):
@@ -519,7 +571,7 @@ class Ccg2Drs(Sentence):
         method = self.dispatchmap.lookup(op.rule)
         method(self, op, stk)
 
-    def _update_conjoins(self, prevcat, stk):
+    def _update_conjoins2(self, prevcat, stk):
         # TODO: if the span has an empty universe and the prevcat has the [conj] feature
         # then take prevspan and carry RT_ATTRIBUTE and RT_EVENT_ATTRIB forward
         if prevcat.has_any_features(FEATURE_CONJ) and prevcat.test_returns_entity_modifier():
@@ -909,6 +961,7 @@ class Ccg2Drs(Sentence):
             self.constituents = self._untrim_constituents(constituents, leaves)
             self.map_heads_to_constituents()
 
+    def fixup_possessives(self):
         # Check possessives
         constituents, leaves, possessives = self._trim_constituents(lambda hd: hd.pos is POS_POSSESSIVE and hd.idx > 0)
 
@@ -953,7 +1006,7 @@ class Ccg2Drs(Sentence):
             _logger.warning('mismatch when processing possessive constituent heads #owners=%d, #poss=%d',
                             len(owners), len(possessives))
 
-    def _post_create_fixup(self):
+    def post_create_fixup(self):
         # Special post create rules
 
         # clear existing
@@ -971,7 +1024,7 @@ class Ccg2Drs(Sentence):
 
         # Find conjoins with orphaned nps
         for cj in self.conjoins:
-            orphaned = Span(self, [x.idx for x in itertools.ifilter(lambda lx: lx.refs[0] in orphaned_nps, cj)])
+            orphaned = Span(self, [x.idx for x in itertools.ifilter(lambda lx: len(lx.refs) != 0 and lx.refs[0] in orphaned_nps, cj)])
             # FIXME: subspan(~RT_EMPTY_DRS) should remove conj but it doesn't
             not_orphaned = cj.difference(orphaned).subspan(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_DATE|RT_NUMBER)
             orphaned = orphaned.subspan(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_DATE|RT_NUMBER)
@@ -995,6 +1048,10 @@ class Ccg2Drs(Sentence):
         akas = set()
 
         disjoint_spans = self.get_disjoint_drs_spans()
+        all_conjoins = Span(self)
+        for c in self.conjoins:
+            all_conjoins = all_conjoins.union(c)
+
         if len(disjoint_spans) > 1:
             i2dsp = {}
             for dsp in disjoint_spans:
@@ -1017,6 +1074,8 @@ class Ccg2Drs(Sentence):
                 r = nps[i][0]
                 npL = nps[i][1]
                 npR = nps[i+1][1]
+                if npR in all_conjoins or npL in all_conjoins:
+                    continue
                 lx = npL[-1]
                 if not rfilter_test(lx, npR):
                     continue
@@ -1027,6 +1086,8 @@ class Ccg2Drs(Sentence):
                     # Check possessives - constituents should be well-formed here so functor phrases map
                     # to a single constituent.
                     cs = r2c[self.lexemes[lx.idx+2].refs[0]]
+                    if len(cs) != 1:
+                        pass
                     assert len(cs) == 1
                     # TODO: Not sure we need this here, see to-do help in loop below this one
                     cnpR = Constituent(cs[0].span.subspan(~RT_EMPTY_DRS), cs[0].vntype)
@@ -1054,9 +1115,11 @@ class Ccg2Drs(Sentence):
 
             for r, npR in nps:
                 lx = npR[0]
+                if npR in all_conjoins:
+                    continue
                 if not lfilter_test(lx):
                     continue
-                cs = r2c[self.lexemes[lx.idx-2].refs[0]]
+                cs = filter(lambda x: x.vntype == ct.CONSTITUENT_NP, r2c[self.lexemes[lx.idx-2].refs[0]])
                 if len(cs) != 1:
                     continue
                 # TODO: Is there a better way to do this - cnpL.span could become empty
@@ -1064,14 +1127,18 @@ class Ccg2Drs(Sentence):
                 # cs[0].span[0].refs[0] will be the correct referent irrespective.
                 cnpL = Constituent(cs[0].span.subspan(~RT_EMPTY_DRS), cs[0].vntype)
                 # right NP is orphaned
+                if cnpL.span in all_conjoins:
+                    continue
                 if 0 != (cnpL.get_head().mask & (RT_ENTITY|RT_PROPERNAME)):
                     if cs[0].span[0].stem in ['a', 'an', 'the']:
                         # OK this looks like an appositive
                         akas.add((cnpL.get_head().refs[0], r))
                     else:
                         # Check possessives - constituents should be well-formed here so functor phrases map
-                        # to a single constituent.
-                        cs = r2c[lx.refs[0]]
+                        # to a single constituent - need to filter PP
+                        cs = filter(lambda x: x.vntype == ct.CONSTITUENT_NP, r2c[lx.refs[0]])
+                        if len(cs) == 0:
+                            continue
                         assert len(cs) == 1
                         # TODO: do we need to remove empty drs?
                         cnpR = Constituent(cs[0].span.subspan(~RT_EMPTY_DRS), cs[0].vntype)
@@ -1170,7 +1237,6 @@ class Ccg2Drs(Sentence):
         self.conjoins = filter(lambda sp: any([x.category is CAT_CONJ for x in sp]), self.conjoins)
         # Refine constituents and we are done
         self._refine_constituents()
-        self._post_create_fixup()
 
     def get_functor_phrases(self, select_fn, exclude_fn=None, contiguous=True):
         """Get a map of the functor phrases.
@@ -1194,6 +1260,14 @@ class Ccg2Drs(Sentence):
         for np in itertools.ifilter(lambda x: len(x.refs) != 0 and select_fn(x), self.lexemes):
             lst = nps.setdefault(np.refs[0], Span(self))
             lst.add(np)
+
+        # Trim leading and trailing conjoins
+        for r, np in nps.iteritems():
+            while len(np) != 0 and np[0].category in [CAT_COMMA, CAT_CONJ]:
+                np.remove(np[0])
+            while len(np) != 0 and np[-1].category in [CAT_COMMA, CAT_CONJ]:
+                np.remove(np[-1])
+
         if exclude_fn is not None:
             if isinstance(exclude_fn, (long, int)):
                 emask = exclude_fn
@@ -1210,7 +1284,7 @@ class Ccg2Drs(Sentence):
         for lx in itertools.ifilter(lambda x: 0 != (x.mask & RT_EMPTY_DRS) and len(x.refs) != 0, self.lexemes):
             if lx.refs[0] in nps:
                 np = nps[lx.refs[0]]
-                if len(np) == 1 and 0 != (np[0].mask & RT_EMPTY_DRS):
+                if len(np) == 0 or (len(np) == 1 and 0 != (np[0].mask & RT_EMPTY_DRS)):
                     del nps[lx.refs[0]]
 
         if contiguous:
@@ -1408,7 +1482,7 @@ class Ccg2Drs(Sentence):
 
             self.map_heads_to_constituents()
 
-    def get_drs(self):
+    def get_drs(self, nodups=False):
         refs = []
         conds = []
         for w in self.lexemes:
@@ -1416,7 +1490,22 @@ class Ccg2Drs(Sentence):
                 refs.extend(w.drs.universe)
                 conds.extend(w.drs.conditions)
         conds.extend(self.drs_extra)
-        return DRS(refs, conds)
+        if not nodups:
+            return DRS(refs, conds)
+        cs = set(conds)
+        rs = set(refs)
+        # Remove dups but keep ordering. Ordering is not necessary but makes it easier to read.
+        nrefs = []
+        nconds = []
+        for r in refs:
+            if r in rs:
+                rs.remove(r)
+                nrefs.append(r)
+        for c in conds:
+            if c in cs:
+                cs.remove(c)
+                nconds.append(c)
+        return DRS(nrefs, nconds)
 
     def final_rename(self):
         """Rename to ensure:
@@ -1860,6 +1949,8 @@ def process_ccg_pt(pt, options=0, browser=None):
     ccg.build_execution_sequence(pt)
     ccg.create_drs()
     ccg.resolve_proper_names()
+    ccg.fixup_possessives()
+    ccg.post_create_fixup()
     if 0 == (options & CO_NO_WIKI_SEARCH):
         ccg.add_wikipedia_links(browser)
     ccg.final_rename()

@@ -630,10 +630,6 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'PP_1042/PP_1042', r'PP_1042'))
     _rcache.addinit(Model.build_unary_rule(r'PP_1043\PP_1043', r'PP_1043'))
     _rcache.addinit(Model.build_unary_rule(r'(N_1044\N_1044)\(N_1044\N_1044)', r'(N_1044\N_1044)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', r'S[X]_1045\NP_2045'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_3047\NP_2047)_3047/((S_3047\NP_2047)_3047\(S_3047\NP_2047)_3047)_1047)_3047', r'(S[dcl]_3047\NP_2047)_3047'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_3048\NP_2048)_3048/((S_3048\NP_2048)_3048\(S_3048\NP_2048)_3048)_1048)_3048', r'(S[pss]_3048\NP_2048)_3048'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_3049\NP_2049)_3049/((S_3049\NP_2049)_3049\(S_3049\NP_2049)_3049)_1049)_3049', r'(S[b]_3049\NP_2049)_3049'))
     _rcache.addinit(Model.build_unary_rule(r'((S[ng]_3050\NP_2050)_3050/((S_3050\NP_2050)_3050\(S_3050\NP_2050)_3050)_1050)_3050', r'(S[ng]_3050\NP_2050)_3050'))
     _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_2051)'))
@@ -678,14 +674,32 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'N_2089\N_2089', r'S[X]_1089/NP_2089'))
     _rcache.addinit(Model.build_unary_rule(r'N_2090\N_2090', r'S_1090/NP_2090'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))\((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))', r'(S_1091\NP_2091)/(S[adj]_3091\NP_2091)'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
     _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', r'S[dcl]_1095/S[dcl]_1095'))
     _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', r'S[X]_1096/S[X]_1096'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_4045\NP_2045)', r'S[X]_1045\NP_2045'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_4046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_4092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_4093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_4094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_3047\NP_2047)/((S_3047\NP_2047)\(S_3047\NP_2047))', r'(S[dcl]_3047\NP_2047)_3047'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_3048\NP_2048)/((S_3048\NP_2048)\(S_3048\NP_2048))', r'(S[pss]_3048\NP_2048)_3048'))
+
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
+
+    # Special rules for conj
+    _rcache = Cache()
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', r'S[X]_1045\NP_2045'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
+    UCONJ = Model(templates=Cache(), unary_rules=_rcache)
+
 except Exception as e:
     print(e)
     # Allow module to load else we cannot create the dat file.
     MODEL = Model()
+    UCONJ = Model()
 ## @endcond

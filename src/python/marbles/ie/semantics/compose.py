@@ -291,13 +291,8 @@ class DrsProduction(AbstractProduction):
             raise TypeError('DrsProduction expects universe of referents')
         if not isinstance(freerefs, list) or not iterable_type_check(freerefs, DRSRef):
             raise TypeError('DrsProduction expects freerefs of referents')
-        self._universe = []
-        self._freerefs = []
-        self._freerefs.extend(universe)
-        self._freerefs.extend(freerefs)
-
-        #self._freerefs = freerefs
-        #self._universe = universe
+        self._universe = universe
+        self._freerefs = freerefs
         self._span = span
 
     def __unicode__(self):
