@@ -6,11 +6,12 @@ import regex as re  # Has better support for unicode
 _UPUNCT = re.compile(r'([(),:;\u00a1\u00a7\u00b6\u00b7\u00bf])', re.UNICODE)
 _UDQUOTE = re.compile(r'["\u2033\u2034\u2036\u2037\u201c\u201d]', re.UNICODE)
 _USQUOTE = re.compile(r"\u2032([^\u2032\u2035]+)\u2035", re.UNICODE)
-_USQL1 = re.compile(r"(?<=[a-z])(['](?:ll|s|ve|nt|m|re|d))(?=\s|$)", re.UNICODE | re.IGNORECASE)
-_USQL2 = re.compile(r"(?<=[.])([']s)(?=\s|$)", re.UNICODE | re.IGNORECASE)
-_USQR  = re.compile(r"(['])(?!(?:ll|s|ve|nt|m|re|d)(?:\s|$))", re.UNICODE | re.IGNORECASE)
-_UFS = re.compile(r"(\s+(?:[^\W.]+|[']s))(\.)$", re.UNICODE | re.IGNORECASE)
-
+_SQL1 = re.compile(r"(?<=[a-z])(['](?:ll|s|ve|nt|m|re|d))(?=\s|.?$)", re.UNICODE | re.IGNORECASE)
+_SQL2 = re.compile(r"(?<=[.])([']s)(?=\s|.?$)", re.UNICODE | re.IGNORECASE)
+_SQR  = re.compile(r"(')(?!(?:ll|s|ve|nt|m|re|d)(?:\s|.?$))", re.UNICODE | re.IGNORECASE)
+_SQ = re.compile(r"(?<=s)([']\s|.?$)", re.UNICODE | re.IGNORECASE)
+_FS = re.compile(r"(\s+(?:[^\W.]+|'s|s'))(\.)$", re.UNICODE | re.IGNORECASE)
+_SP = re.compile(r'\s\s+')
 
 def preprocess_sentence(text):
     """Pre-process a sentence.
@@ -25,10 +26,12 @@ def preprocess_sentence(text):
     text = _USQUOTE.sub(r"'\1'", text).replace('\u2019', "'")
     text = _UDQUOTE.sub(r' " ', text)
     text = _UPUNCT.sub(r' \1 ', text)
-    text = _USQL1.sub(r' \1', text)
-    text = _USQL2.sub(r' \1', text)
-    text = _USQR.sub(r'\1 ', text)
-    text = _UFS.sub(r'\1', text)
+    text = _SQL1.sub(r' \1', text)
+    text = _SQL2.sub(r' \1', text)
+    text = _SQR.sub(r'\1 ', text)
+    text = _SQ.sub(r' \1', text)
+    text = _FS.sub(r'\1', text)
+    text = _SP.sub(r' ', text)
     # wa, ca, sha are not part of the vocab
     text = text.replace("wo n't", "won't")
     text = text.replace("ca n't", "can't")

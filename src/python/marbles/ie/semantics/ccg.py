@@ -272,6 +272,7 @@ CcgComplexTypeEnd = re.compile(r'([()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A
 PosInt = re.compile(r'\d+')
 POS_NOUN_CHECK1 = [POS_POSSESSIVE, POS_PROPER_NOUN, POS_PROPER_NOUN_S]
 POS_NOUN_CHECK2 = [POS_NOUN, POS_NOUN_S]
+NPP_Appos_S = re.compile(r"-'[sS]")
 
 
 class Ccg2Drs(Sentence):
@@ -963,8 +964,9 @@ class Ccg2Drs(Sentence):
 
     def fixup_possessives(self):
         # Check possessives
-        constituents, leaves, possessives = self._trim_constituents(lambda hd: hd.pos is POS_POSSESSIVE and hd.idx > 0)
-
+        constituents, leaves, possessives = \
+            self._trim_constituents(lambda hd: hd.pos is POS_POSSESSIVE and hd.idx > 0
+                                    and hd.category in [CAT_POSSESSIVE_PRONOUN, CAT_POSSESSIVE_ARGUMENT])
         owners = []
         for i in possessives:
             hd = self.constituents[i].get_head()
@@ -1385,6 +1387,11 @@ class Ccg2Drs(Sentence):
                     spans.append((startIdx, endIdx))
 
                 for s, e in spans:
+                    # Handle cases like  "according to Donoghue 's ." and "go to Paul 's"
+                    if c.span[e].word == "'s":
+                        if e == (s+1):
+                            continue
+                        e -= 1
                     # Preserve heads
                     hdspan = c.span[s:e+1].get_head_span()
                     if len(hdspan) > 1:

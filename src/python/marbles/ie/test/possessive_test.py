@@ -20,6 +20,30 @@ class PossessiveTest(unittest.TestCase):
     def tearDown(self):
         self.svc.shutdown()
 
+    def test10_Ccgbank_00_0036(self):
+        text = "Average maturity of the funds' investments lengthened by a day to 41 days, the longest since early August, according to Donoghue's."
+        etext = "Average maturity of the funds ' investments lengthened by a day to 41 days , the longest since early August , according to Donoghue 's ."
+        mtext = preprocess_sentence(text)
+        self.assertEqual(etext, mtext)
+        derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)
+        pt = parse_ccg_derivation(derivation)
+        sentence = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sentence.get_drs()
+        dprint(pt_to_ccg_derivation(pt))
+        dprint(d)
+        fnps = sentence.get_np_functors()
+        nps = [sp.text for r, sp in fnps]
+        #self.assertTrue('Average maturity' in nps)
+        self.assertTrue('the funds' in nps)
+        self.assertTrue('a day' in nps)
+        self.assertTrue('41 days' in nps)
+        self.assertTrue('the longest' in nps)
+        self.assertTrue('early August' in nps)
+        fvps = sentence.get_vp_functors()
+        vps = [sp.text for r, sp in fvps]
+        self.assertTrue('lengthened' in vps)
+        self.assertTrue('according' in vps)
+
     def test10_Ccgbank_00_0099(self):
         text = "Plans that give advertisers discounts for maintaining or increasing ad spending have become permanent fixtures at the news weeklies and underscore the fierce competition between Newsweek, Time Warner Inc.'s Time magazine, and Mortimer B. Zuckerman's U.S. News & World Report."
         mtext = preprocess_sentence(text)
