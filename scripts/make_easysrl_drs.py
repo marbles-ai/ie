@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     failed_parse = 0
     failed_ccg2drs = []
-    start = 119
+    start = 99
     progress = -1
     for fn in allfiles:
         idx = idsrch.match(fn)
@@ -100,7 +100,7 @@ if __name__ == '__main__':
                 continue
 
             try:
-                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_ADD_STATE_PREDICATES).get_drs()
+                d = process_ccg_pt(pt, CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH).get_drs()
                 assert d is not None
                 assert isinstance(d, DRS)
                 d = d.show(SHOW_LINEAR).strip()
