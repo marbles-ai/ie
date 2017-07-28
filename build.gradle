@@ -5,147 +5,147 @@ def grpcVersion = '1.1.2'
 
 // Use allprojects scope so dependencies are passed down to subprojects.
 allprojects {
-	apply plugin: 'java'
-	//apply plugin: 'com.github.johnrengelman.shadow'
+    apply plugin: 'java'
+    //apply plugin: 'com.github.johnrengelman.shadow'
 
-	// If using TLS then change to 1.8
-	//sourceCompatibility = 1.7
-	//targetCompatibility = 1.7
-	version = '0.1.0'
-	group = 'ai.marbles'
-	ext.pysrcDir = "${rootDir}/src/python"
+    // If using TLS then change to 1.8
+    //sourceCompatibility = 1.7
+    //targetCompatibility = 1.7
+    version = '0.1.0'
+    group = 'ai.marbles'
+    ext.pysrcDir = "${rootDir}/src/python"
 
-	repositories {
-		mavenCentral()
-		mavenLocal()
-	}
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
 
-	dependencies {
-		testCompile 'junit:junit:4.12'
-		//compile "org.slf4j:slf4j-log4j12:1.7.21"
-		compile "log4j:log4j:1.2.16"
-		//compile fileTree(dir: 'ext/aws/', include: ['*.jar'])
-		compile "com.amazonaws:aws-java-sdk:1.11.158"
-	}
+    dependencies {
+        testCompile 'junit:junit:4.12'
+        compile "org.slf4j:slf4j-log4j12:1.7.21"
+        compile "log4j:log4j:1.2.16"
+        //compile fileTree(dir: 'ext/aws/', include: ['*.jar'])
+        compile "com.amazonaws:aws-java-sdk:1.11.158"
+    }
 
-	// Java8 has strict javadoc html rules which breaks the build.
-	// Revert to Java7's permissive behavior.
-	if (JavaVersion.current().isJava8Compatible()) {
-		tasks.withType(Javadoc) {
-			options.addStringOption('Xdoclint:none', '-quiet')
-		}
-	}
+    // Java8 has strict javadoc html rules which breaks the build.
+    // Revert to Java7's permissive behavior.
+    if (JavaVersion.current().isJava8Compatible()) {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
 
-	// Path to JNI libs
-	tasks.withType(Test) {
-		systemProperty "java.library.path", "${rootDir}/ext/easysrl"
-	}
+    // Path to JNI libs
+    tasks.withType(Test) {
+        systemProperty "java.library.path", "${rootDir}/ext/easysrl"
+    }
 }
 
 // All subprojects depend on the root project
 subprojects {
-	//startScripts.enabled = false
-	dependencies {
-		compile project(':')
-	}
+    //startScripts.enabled = false
+    dependencies {
+        compile project(':')
+    }
 }
 
 jar {
-	manifest {
-		attributes 'Implementation-Title': 'Information Extraction Service',
-					'Implementation-Version': version
-	}
+    manifest {
+        attributes 'Implementation-Title': 'Information Extraction Service',
+                    'Implementation-Version': version
+    }
 }
 
 buildscript {
-	repositories {
-		mavenCentral()
-		//maven {
-		//	url 'https://plugins.gradle.org/m2/'
-		//}
-	}
-	dependencies {
+    repositories {
+        mavenCentral()
+        //maven {
+        //	url 'https://plugins.gradle.org/m2/'
+        //}
+    }
+    dependencies {
         // From Google:
-		// ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
-		// gradle versions
-		classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+        // ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
+        // gradle versions
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
 
-		// MAKES FAT JARS
-		//classpath 'com.github.rholder:gradle-one-jar:1.0.4'
-	}
+        // MAKES FAT JARS
+        //classpath 'com.github.rholder:gradle-one-jar:1.0.4'
+    }
 }
 
 // Root project dependencies
 dependencies {
-	compile "io.grpc:grpc-netty:${grpcVersion}"
-	compile "io.grpc:grpc-protobuf:${grpcVersion}"
-	compile "io.grpc:grpc-stub:${grpcVersion}"
+    compile "io.grpc:grpc-netty:${grpcVersion}"
+    compile "io.grpc:grpc-protobuf:${grpcVersion}"
+    compile "io.grpc:grpc-stub:${grpcVersion}"
 }
 
 protobuf {
-	protoc {
-		// FIXME: This should be set globally during configuration of deps
-		// The version of protoc must match protobuf-java. If you don't depend on
-		// protobuf-java directly, you will be transitively depending on the
-		// protobuf-java version that grpc depends on.
-		artifact = 'com.google.protobuf:protoc:3.2.0'
-	}
-	plugins {
-		grpc {
-			artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
-		}
-	}
-	generateProtoTasks {
-		all()*.plugins {
-			grpc {
-				// To generate deprecated interfaces and static bindService method,
-				// turn the enable_deprecated option to true below:
-				option 'enable_deprecated=false'
+    protoc {
+        // FIXME: This should be set globally during configuration of deps
+        // The version of protoc must match protobuf-java. If you don't depend on
+        // protobuf-java directly, you will be transitively depending on the
+        // protobuf-java version that grpc depends on.
+        artifact = 'com.google.protobuf:protoc:3.2.0'
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {
+                // To generate deprecated interfaces and static bindService method,
+                // turn the enable_deprecated option to true below:
+                option 'enable_deprecated=false'
 
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
 // Inform IntelliJ projects about the generated code.
 apply plugin: 'idea'
 
 idea {
-	project {
-		languageLevel = '1.7'
-		vcs = 'Git'
-		ipr {
-			withXml { provider ->
-				def node = provider.node.component.find { it.@name == 'JavadocGenerationManager' };
-				// Ensure gradle and idea save javadoc to same location
-				node.option.find { it.@name == 'OUTPUT_DIRECTORY' }.@value = '$PROJECT_DIR$/build/docs/javadoc';
-				// Java8 has strict javadoc html rules which breaks the build.
-				// Revert to Java7's permissive behavior.
-				node.option.find { it.@name == 'OTHER_OPTIONS' }.@value = '-Xdoclint:none -quiet';
-			}
-		}
-	}
-	workspace.iws {
-	    // FIXME: keep for the moment
-		// OpenEphra loads files from qna/OpenEphyra. Ensure we pass this info the Idea.
-		withXml { provider ->
-			def cnode = provider.node.component.find { it.@name == 'RunManager' };
-			def anode = cnode.configuration.find { it.@type == 'Application' };
-			def jnode = cnode.configuration.find { it.@type == 'JUnit' };
-			anode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
-			jnode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
-		}
-	}
-	module {
-		// Not using generatedSourceDirs because of
-		// https://discuss.gradle.org/t/support-for-intellij-2016/15294/8
-		// sourceDirs += file("${projectDir}/build/generated/source/proto/main/java");
-		// sourceDirs += file("${projectDir}/build/generated/source/proto/main/grpc");
-		sourceDirs += file("${rootDir}/build/generated/source/proto/main/java");
-		sourceDirs += file("${rootDir}/build/generated/source/proto/main/grpc");
-		downloadJavadoc = true
-		downloadSources = true
-	}
+    project {
+        languageLevel = '1.7'
+        vcs = 'Git'
+        ipr {
+            withXml { provider ->
+                def node = provider.node.component.find { it.@name == 'JavadocGenerationManager' };
+                // Ensure gradle and idea save javadoc to same location
+                node.option.find { it.@name == 'OUTPUT_DIRECTORY' }.@value = '$PROJECT_DIR$/build/docs/javadoc';
+                // Java8 has strict javadoc html rules which breaks the build.
+                // Revert to Java7's permissive behavior.
+                node.option.find { it.@name == 'OTHER_OPTIONS' }.@value = '-Xdoclint:none -quiet';
+            }
+        }
+    }
+    workspace.iws {
+        // FIXME: keep for the moment
+        // OpenEphra loads files from qna/OpenEphyra. Ensure we pass this info the Idea.
+        withXml { provider ->
+            def cnode = provider.node.component.find { it.@name == 'RunManager' };
+            def anode = cnode.configuration.find { it.@type == 'Application' };
+            def jnode = cnode.configuration.find { it.@type == 'JUnit' };
+            anode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
+            jnode.option.find { it.@name == 'WORKING_DIRECTORY' }.@value = '$PROJECT_DIR$/ext/easysrl';
+        }
+    }
+    module {
+        // Not using generatedSourceDirs because of
+        // https://discuss.gradle.org/t/support-for-intellij-2016/15294/8
+        // sourceDirs += file("${projectDir}/build/generated/source/proto/main/java");
+        // sourceDirs += file("${projectDir}/build/generated/source/proto/main/grpc");
+        sourceDirs += file("${rootDir}/build/generated/source/proto/main/java");
+        sourceDirs += file("${rootDir}/build/generated/source/proto/main/grpc");
+        downloadJavadoc = true
+        downloadSources = true
+    }
 }
 
 task (wrapper, type: Wrapper) {
@@ -154,76 +154,86 @@ task (wrapper, type: Wrapper) {
 
 // FIXME: there must be a better way to get this list
 def exportedProjects= [
-	":",
-	":ext",
-	":ext:easysrl",
-	":ext:easyccg",
+    ":",
+    ":ext",
+    ":ext:easysrl",
+    ":ext:neuralccg",
 ]
 
 // Build documentation for all projects
 task alljavadoc(type: Javadoc) {
-	source exportedProjects.collect {
-		project(it).sourceSets.main.allJava
-	}
-	classpath = files(exportedProjects.collect {
-		project(it).sourceSets.main.compileClasspath
-	})
-	destinationDir = file("${buildDir}/docs/javadoc")
+    source exportedProjects.collect {
+        project(it).sourceSets.main.allJava
+    }
+    classpath = files(exportedProjects.collect {
+        project(it).sourceSets.main.compileClasspath
+    })
+    destinationDir = file("${buildDir}/docs/javadoc")
 }
 
 // Create gRPC interfaces for otherlanguages
 task grpcOther {
-	description "Build Python and CPP gRPC interface."
+    description "Build Python and CPP gRPC interface."
 
-	doFirst {
-		new ByteArrayOutputStream().withStream { os ->
-			def result = exec {
-				commandLine 'which', 'grpc_python_plugin'
-				standardOutput = os
-			}
-			ext.pyPlugin = os.toString().trim()
-		}
-		logger.info("Found Python gRPC plugin ${pyPlugin}")
-		new ByteArrayOutputStream().withStream { os ->
-			def result = exec {
-				commandLine 'which', 'grpc_cpp_plugin'
-				standardOutput = os
-			}
-			ext.cppPlugin = os.toString().trim()
-		}
-		logger.info("Found C++ gRPC plugin ${pyPlugin}")
-	}
+    doFirst {
+        new ByteArrayOutputStream().withStream { os ->
+            def result = exec {
+                commandLine 'which', 'grpc_python_plugin'
+                standardOutput = os
+            }
+            ext.pyPlugin = os.toString().trim()
+        }
+        logger.info("Found Python gRPC plugin ${pyPlugin}")
+        new ByteArrayOutputStream().withStream { os ->
+            def result = exec {
+                commandLine 'which', 'grpc_cpp_plugin'
+                standardOutput = os
+            }
+            ext.cppPlugin = os.toString().trim()
+        }
+        logger.info("Found C++ gRPC plugin ${pyPlugin}")
+    }
 
     // Add some extension properties
     ext.cppout = new File("${buildDir}/grpc/cpp")
     ext.pyout  = new File("${rootDir}/src/python/marbles/ie/grpc")
     ext.proto_dirname = "${rootDir}/src/main/proto"
-	ext.proto_filenames = ["marbles_service.proto", "infox_service.proto"]
+    ext.proto_filenames = [
+        "marbles_service.proto",
+        "infox_service.proto",
+        "analysis.proto",
+        "html.proto",
+        "plot.proto",
+        "serialization.proto",
+        "syntax.proto",
+        "table.proto",
+        "tensor.proto",
+    ]
 
 
     // Set io for up-to-date checks
     //inputs.files(["${proto_dirname}/marbles_service.proto", "${proto_dirname}/infox.proto"])
     inputs.files(proto_filenames.collect { "${proto_dirname}/$it" })
     outputs.files(proto_filenames.collect {
-		"${pyout}" + "/" + "$it".replaceFirst(/\.proto/, "_pb2.py")
-	})
+        "${pyout}" + "/" + "$it".replaceFirst(/\.proto/, "_pb2.py")
+    })
 
     // Execute protoc compiler with plugin
     doLast {
-		// Create output directories first
+        // Create output directories first
         cppout.mkdirs()
         pyout.mkdirs()
         // By separating the exec phase we allow incremetal executions of this task
         // - could not get it to work when this task was Exec type
         tasks.create("grpcPython", Exec) {
-			workingDir = "${proto_dirname}"
-			commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}",
-						   "--plugin=protoc-gen-grpc=${pyPlugin}"] + proto_filenames
+            workingDir = "${proto_dirname}"
+            commandLine = ['protoc', "--python_out=${pyout}", '-I./', "--grpc_out=${pyout}",
+                           "--plugin=protoc-gen-grpc=${pyPlugin}"] + proto_filenames
         }.execute()
         tasks.create("grpcCpp", Exec) {
             workingDir = "${proto_dirname}"
             commandLine = ['protoc', "--cpp_out=${cppout}", '-I./', "--grpc_out=${cppout}",
-						   "--plugin=protoc-gen-grpc=${cppPlugin}"] + proto_filenames
+                           "--plugin=protoc-gen-grpc=${cppPlugin}"] + proto_filenames
         }.execute()
     }
 }
@@ -232,24 +242,24 @@ task grpcOther {
 build.finalizedBy(grpcOther)
 
 task cleanPy {
-	ext.srcDir = "${rootDir}/src/python"
-	doLast {
-		tasks.create('docleanpy', Exec) {
-			workingDir = "${srcDir}"
-			commandLine = ['python', 'setup.py', "clean", '--all']
-		}.execute()
-	}
+    ext.srcDir = "${rootDir}/src/python"
+    doLast {
+        tasks.create('docleanpy', Exec) {
+            workingDir = "${srcDir}"
+            commandLine = ['python', 'setup.py', "clean", '--all']
+        }.execute()
+    }
 }
 
 clean {
-	delete "${rootDir}/site/build"
-	delete "${rootDir}/src/python/services/ccgparser/build"
-	delete "${rootDir}/src/python/services/infox/build"
-	delete "${rootDir}/src/python/services/newsreader/build"
-	delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2.py"
-	delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2_grpc.py"
-	delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2.py"
-	delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2_grpc.py"
+    delete "${rootDir}/site/build"
+    delete "${rootDir}/src/python/services/ccgparser/build"
+    delete "${rootDir}/src/python/services/infox/build"
+    delete "${rootDir}/src/python/services/newsreader/build"
+    delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2.py"
+    delete "${rootDir}/src/python/marbles/ie/grpc/infox_service_pb2_grpc.py"
+    delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2.py"
+    delete "${rootDir}/src/python/marbles/ie/grpc/marbles_service_pb2_grpc.py"
 }
 
 clean.finalizedBy(cleanPy)
@@ -266,126 +276,126 @@ task testPy {
 test.finalizedBy(testPy)
 
 task buildminpy(dependsOn: grpcOther) {
-	ext.bdir = new File("${rootDir}/site/build")
-	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
-	ext.wheelfile = "marbles_min-${pyver}-py2.py3-none-any.whl"
-	ext.sources = fileTree("${rootDir}/src/python/marbles")
-	description "Building ${wheelfile}"
+    ext.bdir = new File("${rootDir}/site/build")
+    ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
+    ext.wheelfile = "marbles_min-${pyver}-py2.py3-none-any.whl"
+    ext.sources = fileTree("${rootDir}/src/python/marbles")
+    description "Building ${wheelfile}"
 
-	// Set these so we only build if source changes
-	inputs.files(sources)
-	outputs.files(["${bdir}/${wheelfile}"])
+    // Set these so we only build if source changes
+    inputs.files(sources)
+    outputs.files(["${bdir}/${wheelfile}"])
 
-	doLast {
-		bdir.mkdirs()
-		tasks.create('dobuildminpy', Exec) {
-			workingDir = "${rootDir}/src/python"
-			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", 'minimal', "bdist_wheel"]
+    doLast {
+        bdir.mkdirs()
+        tasks.create('dobuildminpy', Exec) {
+            workingDir = "${rootDir}/src/python"
+            commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", 'minimal', "bdist_wheel"]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                     && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
-	}
+        }.execute()
+    }
 }
 
 task cpminpy(type: Copy, dependsOn: buildminpy) {
-	from "${rootDir}/src/python/dist"
-	into "${rootDir}/site/build"
-	include 'marbles_min*.whl'
+    from "${rootDir}/src/python/dist"
+    into "${rootDir}/site/build"
+    include 'marbles_min*.whl'
 }
 
 task buildstdpy(dependsOn: cpminpy) {
-	ext.bdir1 = new File("${rootDir}/src/python/services/ccgparser/build")
-	ext.bdir2 = new File("${rootDir}/src/python/services/infox/build")
-	ext.bdir3 = new File("${rootDir}/src/python/services/newsreader/build")
-	ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
-	ext.wheelfile = "marbles_std-${pyver}-py2.py3-none-any.whl"
-	ext.sources = fileTree("${rootDir}/src/python/marbles")
-	description "Building ${wheelfile}"
+    ext.bdir1 = new File("${rootDir}/src/python/services/ccgparser/build")
+    ext.bdir2 = new File("${rootDir}/src/python/services/infox/build")
+    ext.bdir3 = new File("${rootDir}/src/python/services/newsreader/build")
+    ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
+    ext.wheelfile = "marbles_std-${pyver}-py2.py3-none-any.whl"
+    ext.sources = fileTree("${rootDir}/src/python/marbles")
+    description "Building ${wheelfile}"
 
-	// Set these so we only build if source changes
-	inputs.files(sources)
-	outputs.files(["${bdir1}/${wheelfile}", "${bdir2}/${wheelfile}", "${bdir3}/${wheelfile}"])
+    // Set these so we only build if source changes
+    inputs.files(sources)
+    outputs.files(["${bdir1}/${wheelfile}", "${bdir2}/${wheelfile}", "${bdir3}/${wheelfile}"])
 
-	doLast {
-		bdir1.mkdirs()
-		bdir2.mkdirs()
-		bdir3.mkdirs()
-		tasks.create('dobuildstdpy', Exec) {
-			workingDir = "${rootDir}/src/python"
-			commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", "bdist_wheel"]
+    doLast {
+        bdir1.mkdirs()
+        bdir2.mkdirs()
+        bdir3.mkdirs()
+        tasks.create('dobuildstdpy', Exec) {
+            workingDir = "${rootDir}/src/python"
+            commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", "bdist_wheel"]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                 && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
-		tasks.create('downloadAWSlogs', Exec) {
-			workingDir = "${rootDir}"
-			commandLine = ["./scripts/download_awslogs.sh", "${bdir1}", "${bdir2}", "${bdir3}"]
+        }.execute()
+        tasks.create('downloadAWSlogs', Exec) {
+            workingDir = "${rootDir}"
+            commandLine = ["./scripts/download_awslogs.sh", "${bdir1}", "${bdir2}", "${bdir3}"]
             // Trash output- doesn't work with this script
-		}.execute()
-	}
+        }.execute()
+    }
 }
 
 task cpstdpy1(type: Copy, dependsOn: buildstdpy) {
-	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/ccgparser/build"
-	include 'marbles_std*.whl'
+    from "${rootDir}/src/python/dist"
+    into "${rootDir}/src/python/services/ccgparser/build"
+    include 'marbles_std*.whl'
 }
 
 task cpstdpy2(type: Copy, dependsOn: buildstdpy) {
-	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/infox/build"
-	include 'marbles_std*.whl'
+    from "${rootDir}/src/python/dist"
+    into "${rootDir}/src/python/services/infox/build"
+    include 'marbles_std*.whl'
 }
 
 task cpstdpy3(type: Copy, dependsOn: buildstdpy) {
-	from "${rootDir}/src/python/dist"
-	into "${rootDir}/src/python/services/newsreader/build"
-	include 'marbles_std*.whl'
+    from "${rootDir}/src/python/dist"
+    into "${rootDir}/src/python/services/newsreader/build"
+    include 'marbles_std*.whl'
 }
 
 task cpawslogs_helper1(type: Copy, dependsOn: cpstdpy1) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/ccgparser/build"
-	include 'cp_env_credentials_to_awslogs.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/ccgparser/build"
+    include 'cp_env_credentials_to_awslogs.sh'
 }
 
 task cpawslogs_helper2(type: Copy, dependsOn: cpstdpy2) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/infox/build"
-	include 'cp_env_credentials_to_awslogs.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/infox/build"
+    include 'cp_env_credentials_to_awslogs.sh'
 }
 
 task cpawslogs_helper3(type: Copy, dependsOn: cpstdpy3) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/newsreader/build"
-	include 'cp_env_credentials_to_awslogs.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/newsreader/build"
+    include 'cp_env_credentials_to_awslogs.sh'
 }
 
 task cpmsvc1(type: Copy, dependsOn: cpawslogs_helper1) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/ccgparser/build"
-	include 'mservice.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/ccgparser/build"
+    include 'mservice.sh'
 }
 
 task cpmsvc2(type: Copy, dependsOn: cpawslogs_helper2) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/infox/build"
-	include 'mservice.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/infox/build"
+    include 'mservice.sh'
 }
 
 task cpmsvc3(type: Copy, dependsOn: cpawslogs_helper3) {
-	from "${rootDir}/scripts"
-	into "${rootDir}/src/python/services/newsreader/build"
-	include 'mservice.sh'
+    from "${rootDir}/scripts"
+    into "${rootDir}/src/python/services/newsreader/build"
+    include 'mservice.sh'
 }
 
 task pydist {
-	// Dummy task so we can exec from command line
+    // Dummy task so we can exec from command line
 }
 
 pydist.dependsOn cpmsvc1
@@ -393,31 +403,31 @@ pydist.dependsOn cpmsvc2
 pydist.dependsOn cpmsvc3
 
 task cpmodel1(type: Copy, dependsOn: buildstdpy) {
-	from "${rootDir}/ext/easysrl/model"
-	into "${rootDir}/src/python/services/infox/build"
-	include 'model.tar.gz'
+    from "${rootDir}/ext/easysrl/model"
+    into "${rootDir}/src/python/services/infox/build"
+    include 'model.tar.gz'
 }
 
 task cpmodel2(type: Copy, dependsOn: buildstdpy) {
-	from "${rootDir}/ext/easysrl/model"
-	into "${rootDir}/src/python/services/ccgparser/build"
-	include 'model.tar.gz'
+    from "${rootDir}/ext/easysrl/model"
+    into "${rootDir}/src/python/services/ccgparser/build"
+    include 'model.tar.gz'
 }
 
 task cpjar1(type: Copy, dependsOn: ':ext:easysrl:build') {
-	from "${rootDir}/ext/easysrl/build/libs"
-	into "${rootDir}/src/python/services/infox/build"
-	include '*-capsule.jar'
+    from "${rootDir}/ext/easysrl/build/libs"
+    into "${rootDir}/src/python/services/infox/build"
+    include '*-capsule.jar'
 }
 
 task cpjar2(type: Copy, dependsOn: ':ext:easysrl:build') {
-	from "${rootDir}/ext/easysrl/build/libs"
-	into "${rootDir}/src/python/services/ccgparser/build"
-	include '*-capsule.jar'
+    from "${rootDir}/ext/easysrl/build/libs"
+    into "${rootDir}/src/python/services/ccgparser/build"
+    include '*-capsule.jar'
 }
 
 task dockerdeps {
-	// Dummy task so we can exec from command line
+    // Dummy task so we can exec from command line
 }
 dockerdeps.dependsOn pydist
 dockerdeps.dependsOn cpmodel1
@@ -426,49 +436,49 @@ dockerdeps.dependsOn cpjar1
 dockerdeps.dependsOn cpjar2
 
 task dockerize(dependsOn: dockerdeps) {
-	description "Dockerizing services."
-	ext.python_source = "${rootDir}/src/python"
+    description "Dockerizing services."
+    ext.python_source = "${rootDir}/src/python"
 
-	doLast {
-		tasks.create("dockerCcgparser", Exec) {
-			workingDir = "${python_source}/services/ccgparser"
-			commandLine = ['docker', 'build', "-t", "ccg", "."]
+    doLast {
+        tasks.create("dockerCcgparser", Exec) {
+            workingDir = "${python_source}/services/ccgparser"
+            commandLine = ['docker', 'build', "-t", "ccg", "."]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                     && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
+        }.execute()
 
-		tasks.create("dockerInfox", Exec) {
-			workingDir = "${python_source}/services/infox"
-			commandLine = ['docker', 'build', "-t", "infox", "."]
+        tasks.create("dockerInfox", Exec) {
+            workingDir = "${python_source}/services/infox"
+            commandLine = ['docker', 'build', "-t", "infox", "."]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                     && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
+        }.execute()
 
-		tasks.create("dockerNewsreader", Exec) {
-			workingDir = "${python_source}/services/newsreader"
-			commandLine = ['docker', 'build', "-t", "newsreader", "."]
+        tasks.create("dockerNewsreader", Exec) {
+            workingDir = "${python_source}/services/newsreader"
+            commandLine = ['docker', 'build', "-t", "newsreader", "."]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                     && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
+        }.execute()
 
-		tasks.create("dockerWebsite", Exec) {
-			workingDir = "${rootDir}/site"
-			commandLine = ['docker', 'build', "-t", "website", "."]
+        tasks.create("dockerWebsite", Exec) {
+            workingDir = "${rootDir}/site"
+            commandLine = ['docker', 'build', "-t", "website", "."]
             if (gradle.startParameter.logLevel != LogLevel.DEBUG
                     && gradle.startParameter.logLevel != LogLevel.INFO) {
                 // Trash output
                 standardOutput = new ByteArrayOutputStream()
             }
-		}.execute()
-	}
+        }.execute()
+    }
 }
 

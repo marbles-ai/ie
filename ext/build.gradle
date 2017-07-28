@@ -8,7 +8,7 @@ plugins {
 
 dependencies {
 	compile project(':ext:easysrl')
-	compile project(':ext:easyccg')
+	compile project(':ext:neuralccg')
 }
 
 test {
