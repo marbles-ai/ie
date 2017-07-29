@@ -1,0 +1,2 @@
+libtaggerflow.so filter=lfs diff=lfs merge=lfs -text
+libtaggerflow.jnilib filter=lfs diff=lfs merge=lfs -text
