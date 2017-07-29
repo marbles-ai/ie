@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
-import com.github.kentonl.pipegraph.util.tuple.Pair;
+import edu.uw.neuralccg.util.functional.tuple.Pair;
 
 public class ChartUtil {
 

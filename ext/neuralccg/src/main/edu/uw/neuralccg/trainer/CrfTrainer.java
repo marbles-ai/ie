@@ -1,6 +1,6 @@
 package edu.uw.neuralccg.trainer;
 
-import com.github.kentonl.pipegraph.util.CollectionUtil;
+import edu.uw.neuralccg.util.functional.CollectionUtil;
 
 import java.util.List;
 import java.util.Objects;

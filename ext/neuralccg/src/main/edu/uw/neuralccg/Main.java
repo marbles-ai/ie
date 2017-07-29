@@ -7,16 +7,28 @@ import ai.marbles.grpc.ServiceAcceptor;
 import ai.marbles.aws.log4j.CloudwatchAppender;
 
 import com.google.protobuf.Any;
+import com.hp.gagawa.java.elements.Br;
+import com.hp.gagawa.java.elements.Pre;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigResolveOptions;
 import edu.uw.easysrl.main.EasySRL;
+import edu.uw.easysrl.main.InputReader;
+import edu.uw.easysrl.main.ParsePrinter;
 import edu.uw.easysrl.syntax.grammar.Category;
-import edu.uw.easysrl.syntax.parser.SRLParser;
+import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.tagger.Tagger;
 import edu.uw.easysrl.syntax.tagger.TaggerEmbeddings;
 import edu.uw.easysrl.util.Util;
+import edu.uw.easysrl.syntax.parser.Parser;
+import edu.uw.easysrl.main.InputReader.InputToParser;
+import edu.uw.easysrl.util.Util.Scored;
 
 import edu.uw.neuralccg.model.TreeFactoredModel;
 import edu.uw.neuralccg.util.EasySRLUtil;
+
+import edu.uw.neuralccg.util.GateUtil;
+import edu.uw.neuralccg.util.SyntaxUtil;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
@@ -37,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 public class Main {
 	private static final Logger logger = LogManager.getLogger(Main.class);
@@ -49,6 +62,9 @@ public class Main {
 
 		@Option(shortName = "m", description = "Path to the config file")
 		String getConfig();
+
+		@Option(shortName = "f", defaultValue = "", description = "(Optional) Path to the input text file. Otherwise, the parser will read from stdin.")
+		String getInputFile();
 
 		@Option(helpRequest = true, description = "Display this message.", shortName = "h")
 		boolean getHelp();
@@ -66,15 +82,23 @@ public class Main {
 	public static void main(String[] args) throws IOException, InterruptedException {
 		try {
 			final CommandLineArguments commandLineOptions = CliFactory.parseArguments(CommandLineArguments.class, args);
-			final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
-			final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
+			//final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
+			final File modelFolder = Util.getFile(EasySRL.absolutePath(commandLineOptions.getModel()));
+			final File configFile = Util.getFile(EasySRL.absolutePath(commandLineOptions.getConfig()));
 
 			if (!modelFolder.exists()) {
-				throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
+				throw new InputMismatchException("Couldn't load model from from: " + modelFolder.toString());
 			}
 
-			// PWG: run as a gRPC service
+			if (!configFile.exists()) {
+				throw new InputMismatchException("Couldn't load config from from: " + configFile.toString());
+			}
+
+			Config parameters = ConfigFactory.parseFileAnySyntax(configFile)
+					.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+			/*
 			if (commandLineOptions.getDaemonize()) {
+				// PWG: run as a gRPC service
 				// Modify AWS Cloudlogger
 				PatternLayout layout = new org.apache.log4j.PatternLayout();
 				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
@@ -122,6 +146,23 @@ public class Main {
 				server.blockUntilShutdown();
 				return;
 			}
+			*/
+
+			final InputReader reader = InputReader.make(EasySRL.InputFormat.TOKENIZED);
+			final boolean readingFromStdin;
+			final Iterator<String> inputLines;
+			if (commandLineOptions.getInputFile().isEmpty()) {
+				// Read from STDIN
+				inputLines = new Scanner(System.in, "UTF-8");
+				readingFromStdin = true;
+			} else {
+				// Read from file
+				inputLines = Util.readFile(Util.getFile(commandLineOptions.getInputFile())).iterator();
+				readingFromStdin = false;
+			}
+
+			Parser parser = initializeModel(parameters, EasySRL.absolutePath(commandLineOptions.getModel()));
+			ParsePrinter printer = ParsePrinter.CCGBANK_PRINTER;
 			System.err.println("===Model loaded: parsing...===");
 
 			final Stopwatch timer = Stopwatch.createStarted();
@@ -133,9 +174,9 @@ public class Main {
 			int id = 0;
 			while (inputLines.hasNext()) {
 				// Read each sentence, either from STDIN or a parse.
-				final String line = inputLines instanceof Scanner ? ((Scanner) inputLines).nextLine().trim()
+				final String sentence = inputLines instanceof Scanner ? ((Scanner) inputLines).nextLine().trim()
 					: inputLines.next();
-				if (!line.isEmpty() && !line.startsWith("#")) {
+				if (!sentence.isEmpty() && !sentence.startsWith("#")) {
 					id++;
 					final int id2 = id;
 
@@ -143,20 +184,26 @@ public class Main {
 					executorService.execute(new Runnable() {
 						@Override
 						public void run() {
-
-							final List<SRLParser.CCGandSRLparse> parses = parser.parseTokens(reader.readInput(line)
-								.getInputWords());
-							final String output = printer.printJointParses(parses, id2);
-							parsedSentences.getAndIncrement();
+							final InputToParser input = InputToParser.fromTokens(Arrays.asList(sentence.split(" ")));
 							synchronized (printer) {
 								try {
-									// It's a bit faster to buffer output than use
-									// System.out.println() directly.
-									sysout.write(output);
-									sysout.newLine();
+									// List of nbest-parse root nodes
+									final List<Scored<SyntaxTreeNode>> result = parser.doParsing(input);
+									if (result != null) {
+										parsedSentences.getAndIncrement();
+										List<SyntaxTreeNode> lst = result.stream()
+												.map(p -> p.getObject())
+												.collect(Collectors.toList());
+										final String output = printer.print(lst, -1);
 
-									if (readingFromStdin) {
-										sysout.flush();
+										sysout.write(output);
+										sysout.newLine();
+
+										if (readingFromStdin) {
+											sysout.flush();
+										}
+									} else {
+										sysout.write("Parse failed.");
 									}
 								} catch (final IOException e) {
 									throw new RuntimeException(e);
@@ -183,8 +230,11 @@ public class Main {
 		}
     }
 
-	public void initializeModel(Config parameters, File modelFolder) {
+	public static Parser initializeModel(Config parameters, String modelDir) {
+		final File modelFolder = new File(modelDir);
 		final File checkpointPath = new File(modelFolder, "llz2016.model.pb");
+		TreeFactoredModel.TreeFactoredModelFactory modelFactory;
+		Parser parser;
 
 		final Collection<Category> categories;
 		try {
@@ -193,7 +243,7 @@ public class Main {
 			throw new RuntimeException(e);
 		}
 
-		final Tagger tagger = EasySRLUtil.loadTagger(parameters);
+		final Tagger tagger = EasySRLUtil.loadTagger(parameters, modelDir);
 
 		TreeFactoredModel.TreeFactoredModelFactory.initializeCNN(TrainProto.RunConfig.newBuilder()
 			.setMemory(parameters.getInt("native_memory")).build());
@@ -210,19 +260,11 @@ public class Main {
 				Optional.empty(),
 				Optional.empty());
 
-			parser = EasySRLUtil.parserBuilder(parameters)
+			parser = EasySRLUtil.parserBuilder(parameters, modelDir)
 				.modelFactory(modelFactory)
 				.listeners(Collections.singletonList(modelFactory))
 				.build();
-
-			try {
-				while (true) {
-					Thread.sleep(Long.MAX_VALUE);
-				}
-			} catch (final InterruptedException e) {
-				throw new RuntimeException(e);
-			}
 		}
+		return parser;
 	}
-
 }

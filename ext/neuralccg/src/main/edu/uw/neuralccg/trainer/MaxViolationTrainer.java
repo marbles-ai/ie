@@ -8,7 +8,7 @@ import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.model.AgendaItem;
 import edu.uw.easysrl.syntax.parser.Agenda;
 import edu.uw.easysrl.util.Util.Scored;
-import com.github.kentonl.pipegraph.util.tuple.Triplet;
+import edu.uw.neuralccg.util.functional.tuple.Triplet;
 
 public class MaxViolationTrainer extends ViolationTrainer {
     private Optional<Triplet<AgendaItem, AgendaItem, Double>> maxViolation;

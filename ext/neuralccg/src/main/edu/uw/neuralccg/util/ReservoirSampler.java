@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
 
-import com.github.kentonl.pipegraph.util.tuple.Pair;
+import edu.uw.neuralccg.util.functional.tuple.Pair;
 
 public class ReservoirSampler<T> {
     private final MinMaxPriorityQueue<Pair<Double, T>> minQueue;

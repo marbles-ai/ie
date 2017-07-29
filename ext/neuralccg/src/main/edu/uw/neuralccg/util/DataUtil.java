@@ -1,9 +1,9 @@
 package edu.uw.neuralccg.util;
 
-import com.github.kentonl.pipegraph.util.CollectionUtil;
-import com.github.kentonl.pipegraph.util.LambdaUtil;
-import com.github.kentonl.pipegraph.util.LambdaUtil.SideEffect;
-import com.github.kentonl.pipegraph.util.tuple.Pair;
+import edu.uw.neuralccg.util.functional.CollectionUtil;
+import edu.uw.neuralccg.util.functional.LambdaUtil;
+import edu.uw.neuralccg.util.functional.LambdaUtil.SideEffect;
+import edu.uw.neuralccg.util.functional.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Arrays;

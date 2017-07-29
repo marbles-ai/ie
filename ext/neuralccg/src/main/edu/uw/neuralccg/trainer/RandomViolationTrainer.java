@@ -9,7 +9,7 @@ import edu.uw.easysrl.syntax.model.AgendaItem;
 import edu.uw.easysrl.syntax.parser.Agenda;
 import edu.uw.easysrl.util.Util.Scored;
 import edu.uw.neuralccg.util.ReservoirSampler;
-import com.github.kentonl.pipegraph.util.tuple.Pair;
+import edu.uw.neuralccg.util.functional.tuple.Pair;
 
 public class RandomViolationTrainer extends ViolationTrainer {
     private final static int NUM_SAMPLES = 1;

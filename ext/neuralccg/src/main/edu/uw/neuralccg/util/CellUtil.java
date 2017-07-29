@@ -9,7 +9,7 @@ import java.util.List;
 
 import edu.uw.easysrl.syntax.model.AgendaItem;
 import edu.uw.easysrl.syntax.parser.ChartCell;
-import com.github.kentonl.pipegraph.util.LambdaUtil.SideEffect;
+import edu.uw.neuralccg.util.functional.LambdaUtil.SideEffect;
 
 public class CellUtil {
     public static class BeamSearchChartCell extends ChartCell {

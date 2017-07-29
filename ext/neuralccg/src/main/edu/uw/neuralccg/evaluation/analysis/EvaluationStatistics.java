@@ -2,7 +2,7 @@ package edu.uw.neuralccg.evaluation.analysis;
 
 import com.google.common.base.Stopwatch;
 
-import com.github.kentonl.pipegraph.util.CollectionUtil;
+import edu.uw.neuralccg.util.functional.CollectionUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

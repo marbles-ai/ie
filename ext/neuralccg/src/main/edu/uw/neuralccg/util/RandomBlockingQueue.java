@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import com.github.kentonl.pipegraph.util.LambdaUtil.SideEffect;
+import edu.uw.neuralccg.util.functional.LambdaUtil.SideEffect;
 
 public class RandomBlockingQueue<E> {
     private final Object[] elements;

@@ -8,7 +8,7 @@ import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.model.AgendaItem;
 import edu.uw.easysrl.syntax.parser.Agenda;
 import edu.uw.easysrl.util.Util.Scored;
-import com.github.kentonl.pipegraph.util.tuple.Pair;
+import edu.uw.neuralccg.util.functional.tuple.Pair;
 
 public class GreedyTrainer extends ViolationTrainer {
     private Optional<Pair<AgendaItem, AgendaItem>> earliestViolation;

@@ -12,7 +12,7 @@ import edu.uw.easysrl.util.Util.Scored;
 import edu.uw.neuralccg.evaluation.analysis.ParserStatistics;
 import edu.uw.neuralccg.model.TrainableAgendaItem;
 import edu.uw.neuralccg.model.TrainableModel;
-import com.github.kentonl.pipegraph.registry.IRegisterable;
+import edu.uw.neuralccg.util.registry.IRegisterable;
 
 public abstract class Trainer implements IRegisterable, ParserListener {
     private ParserStatistics stats;

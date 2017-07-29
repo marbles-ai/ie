@@ -19,7 +19,7 @@ import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode.SyntaxTreeNodeVisitor;
 import edu.uw.neuralccg.TrainProto.GatesProto;
 import edu.uw.neuralccg.TrainProto.InitialGatesProto;
 import edu.uw.neuralccg.model.TreeFactoredModel;
-import com.github.kentonl.pipegraph.util.map.DefaultHashMap;
+import edu.uw.neuralccg.util.functional.map.DefaultHashMap;
 import neuralccg.Tensor.TensorProto;
 
 public class GateUtil {

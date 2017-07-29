@@ -30,7 +30,7 @@ import edu.uw.neuralccg.SyntaxProto.CategoryProto;
 import edu.uw.neuralccg.SyntaxProto.ParseProto;
 import edu.uw.neuralccg.SyntaxProto.RuleTypeProto;
 import edu.uw.neuralccg.SyntaxProto.SlashProto;
-import com.github.kentonl.pipegraph.util.CollectionUtil;
+import ai.marbles.util.CollectionUtil;
 
 public class SyntaxUtil {
     private SyntaxUtil() {

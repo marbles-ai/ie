@@ -20,10 +20,10 @@ public class EasySRLUtil {
     private EasySRLUtil() {
     }
 
-    public static Tagger loadTagger(final Config arguments) {
+    public static Tagger loadTagger(final Config arguments, final String modelDir) {
         try {
             return Tagger.make(
-                    new File(arguments.getString("model_dir")),
+                    new File(modelDir),
                     arguments.getDouble("supertagger_beam"),
                     50,
                     null);
@@ -41,12 +41,12 @@ public class EasySRLUtil {
                 .normalForm(new NormalFormCustom());
     }
 
-    public static ParserAStar.Builder parserBuilder(final Config arguments) {
-        return parserBuilder(new ParserAStar.Builder(new File(arguments.getString("model_dir"))), arguments);
+    public static ParserAStar.Builder parserBuilder(final Config arguments, final String modelDir) {
+        return parserBuilder(new ParserAStar.Builder(new File(modelDir)), arguments);
     }
 
-    public static ParserBuilder backoffParserBuilder(final Config arguments) {
-        final ParserBuilder<?> builder = new ParserAStar.Builder(new File(arguments.getString("model_dir")));
+    public static ParserBuilder backoffParserBuilder(final Config arguments, final String modelDir) {
+        final ParserBuilder<?> builder = new ParserAStar.Builder(new File(modelDir));
         return builder
                 .modelFactory(new SupertagFactoredModelFactory(null, builder.getLexicalCategories(), false))
                 .maximumSentenceLength(arguments.getInt("max_sentence_length"))
