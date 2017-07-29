@@ -75,9 +75,9 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
         return x1.equals(x2);
     }
 
-    public static <X, Y, Z> boolean isTransitive(Pair<X, Y> first, Pair<Y, Z> second){
-        Y y1 = first.getSecond();
-        Y y2 = second.getFirst();
+    public static <X, Y, Z> boolean isTransitive(Pair<X, Y> first_, Pair<Y, Z> second_){
+        Y y1 = first_.getSecond();
+        Y y2 = second_.getFirst();
 
         if (y1 == null && y2 == null) return true;
         if (y1 == null && y2 != null) return false;
@@ -100,12 +100,12 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
             }
 
             @Override
-            public void setFirst(X first) {
+            public void setFirst(X first_) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public void setSecond(Y second) {
+            public void setSecond(Y second_) {
                 throw new UnsupportedOperationException();
             }
 
@@ -152,8 +152,8 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
             }
 
             @Override
-            public synchronized void setFirst(X first) {
-                wrapped.setFirst(first);
+            public synchronized void setFirst(X first_) {
+                wrapped.setFirst(first_);
             }
 
             @Override
@@ -162,8 +162,8 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
             }
 
             @Override
-            public synchronized void setSecond(Y second) {
-                wrapped.setSecond(second);
+            public synchronized void setSecond(Y second_) {
+                wrapped.setSecond(second_);
             }
 
             @Override
@@ -199,48 +199,48 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
         };
     }
 
-    public Pair(T1 first, T2 second) {
+    public Pair(T1 first_, T2 second_) {
         super();
-        this.first = first;
-        this.second = second;
+        this.first_ = first_;
+        this.second_ = second_;
     }
 
-    public Pair(){
+    public Pair() {
         super();
-        this.first = null;
-        this.second = null;
+        this.first_ = null;
+        this.second_ = null;
     }
 
     public Pair(Pair<T1, T2> copy) {
-        first = copy.first;
-        second = copy.second;
+        first_ = copy.first_;
+        second_ = copy.second_;
     }
 
-    private T1 first;
-    private T2 second;
+    private T1 first_;
+    private T2 second_;
 
     public T1 getFirst() {
-        return first;
+        return first_;
     }
 
-    public void setFirst(T1 first) {
-        this.first = first;
+    public void setFirst(T1 first_) {
+        this.first_ = first_;
     }
 
     public T2 getSecond() {
-        return second;
+        return second_;
     }
 
-    public void setSecond(T2 second) {
-        this.second = second;
+    public void setSecond(T2 second_) {
+        this.second_ = second_;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((first == null) ? 0 : first.hashCode());
-        result = prime * result + ((second == null) ? 0 : second.hashCode());
+        result = prime * result + ((first_ == null) ? 0 : first_.hashCode());
+        result = prime * result + ((second_ == null) ? 0 : second_.hashCode());
         return result;
     }
 
@@ -254,22 +254,22 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
             return false;
         @SuppressWarnings("rawtypes")
         Pair other = (Pair) obj;
-        if (first == null) {
-            if (other.first != null)
+        if (first_ == null) {
+            if (other.first_ != null)
                 return false;
-        } else if (!first.equals(other.first))
+        } else if (!first_.equals(other.first_))
             return false;
-        if (second == null) {
-            if (other.second != null)
+        if (second_ == null) {
+            if (other.second_ != null)
                 return false;
-        } else if (!second.equals(other.second))
+        } else if (!second_.equals(other.second_))
             return false;
         return true;
     }
 
     @Override
     public String toString() {
-        return "(" + first + ", " + second + ")";
+        return "(" + first_ + ", " + second_ + ")";
     }
 
     @Override
@@ -284,7 +284,7 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
 
             @Override
             public Object next() {
-                return (it++) == 0 ? first : second;
+                return (it++) == 0 ? first_ : second_;
             }
 
             @Override
@@ -301,6 +301,6 @@ public class Pair<T1, T2> implements Iterable<Object>, Cloneable{
     }
 
     public Pair<T1, T2> copy(){
-        return makePair(first, second);
+        return makePair(first_, second_);
     }
 }
