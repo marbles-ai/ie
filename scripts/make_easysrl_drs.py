@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     failed_parse = 0
     failed_ccg2drs = []
-    start = 99
+    start = 0
     progress = -1
     for fn in allfiles:
         idx = idsrch.match(fn)
