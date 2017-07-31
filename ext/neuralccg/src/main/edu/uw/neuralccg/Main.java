@@ -17,6 +17,7 @@ import edu.uw.easysrl.main.InputReader;
 import edu.uw.easysrl.main.ParsePrinter;
 import edu.uw.easysrl.syntax.grammar.Category;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
+import edu.uw.easysrl.syntax.tagger.POSTagger;
 import edu.uw.easysrl.syntax.tagger.Tagger;
 import edu.uw.easysrl.syntax.tagger.TaggerEmbeddings;
 import edu.uw.easysrl.util.Util;
@@ -161,6 +162,7 @@ public class Main {
 			}
 
 			Parser parser = initializeModel(parameters, EasySRL.absolutePath(commandLineOptions.getModel()));
+            POSTagger posTagger = POSTagger.getStanfordTagger(new File(modelFolder, "posTagger"));
 			ParsePrinter printer = ParsePrinter.CCGBANK_PRINTER;
 			System.err.println("===Model loaded: parsing...===");
 
@@ -183,7 +185,7 @@ public class Main {
 					executorService.execute(new Runnable() {
 						@Override
 						public void run() {
-							final InputToParser input = InputToParser.fromTokens(Arrays.asList(sentence.split(" ")));
+							final InputToParser input = posTagger.tag(InputToParser.fromTokens(Arrays.asList(sentence.split(" "))));
 							synchronized (printer) {
 								try {
 									// List of nbest-parse root nodes

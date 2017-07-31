@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import com.typesafe.config.Config;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.parser.Parser;
+import edu.uw.easysrl.syntax.tagger.POSTagger;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -37,6 +38,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 	public interface Session {
 		Parser getParser();
+        POSTagger getPosTagger();
 		InputReader getReader();
 		ParsePrinter getPrinter();
 		EasySRL.OutputFormat getOutputFormat();
@@ -46,11 +48,13 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 	public class SynchronizedSession implements Session  {
 		private Parser parser_;
-		private InputReader reader_;
+        private POSTagger posTagger_;
+        private InputReader reader_;
 		private EasySRL.OutputFormat outputFormat_;
 		private Lock inferLock_;
 
 		public Parser getParser() { return parser_; }
+		public POSTagger getPosTagger() { return posTagger_; }
 		public InputReader getReader() { return reader_; }
 		public ParsePrinter getPrinter() { return outputFormat_.printer; }
 		public EasySRL.OutputFormat getOutputFormat() { return outputFormat_; }
@@ -62,8 +66,9 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 			inferLock_.unlock();
 		}
 
-		public SynchronizedSession(Parser parser, InputReader reader, EasySRL.OutputFormat outputFmt) {
+		public SynchronizedSession(Parser parser, POSTagger posTagger, InputReader reader, EasySRL.OutputFormat outputFmt) {
 			this.parser_ = parser;
+			this.posTagger_ = posTagger;
 			this.reader_  = reader;
 			this.outputFormat_ = outputFmt;
 			this.inferLock_ = new ReentrantLock();
@@ -96,7 +101,9 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		}
 
         Parser parser = Main.initializeModel(parameters_, EasySRL.absolutePath(commandLineOptions_.getModel()));
-		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(oformat);
+		POSTagger posTagger = POSTagger.getStanfordTagger(new File(modelFolder, "posTagger"));
+
+        final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(oformat);
 		ParsePrinter printer = outputFormat.printer;
 
 		InputReader reader;
@@ -107,7 +114,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 		logger.info("Model loaded: gRPC parser ready");
 
-		return new SynchronizedSession(parser, reader, outputFormat);
+		return new SynchronizedSession(parser, posTagger, reader, outputFormat);
 	}
 
 	/**
@@ -121,8 +128,8 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 	public static String parse(Session session, String sentence) {
 		if (session.getParser() != null) {
-            final List<Util.Scored<SyntaxTreeNode>> scored_parses = session.getParser().doParsing(session.getReader().
-                readInput(sentence));
+            final List<Util.Scored<SyntaxTreeNode>> scored_parses = session.getParser()
+                    .doParsing(session.getPosTagger().tag(session.getReader().readInput(sentence)));
             if (scored_parses != null) {
                 List<SyntaxTreeNode> parses = scored_parses.stream()
                     .map(p -> p.getObject())
