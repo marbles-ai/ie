@@ -26,7 +26,7 @@ public class TaggerLSTM extends Tagger {
 	}
 
 	private static DeepTagger makeDeepTagger(final File modelFolder) throws IOException {
-		LibraryUtil.setLibraryPath("lib");
+		//LibraryUtil.setLibraryPath("lib");
 		return DeepTagger.make(modelFolder);
 	}
 

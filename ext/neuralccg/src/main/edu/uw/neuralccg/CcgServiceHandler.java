@@ -3,17 +3,11 @@ package edu.uw.neuralccg;
 // Java packages
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigResolveOptions;
-import edu.uw.easysrl.semantics.lexicon.CompositeLexicon;
-import edu.uw.easysrl.semantics.lexicon.Lexicon;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.parser.Parser;
 import org.apache.log4j.LogManager;
@@ -27,13 +21,6 @@ import ai.marbles.grpc.Request;
 import ai.marbles.grpc.Response;
 import ai.marbles.grpc.QueryInput;
 
-import edu.uw.easysrl.syntax.grammar.Category;
-import edu.uw.easysrl.syntax.parser.SRLParser;
-import edu.uw.easysrl.syntax.parser.SRLParser.BackoffSRLParser;
-import edu.uw.easysrl.syntax.parser.SRLParser.CCGandSRLparse;
-import edu.uw.easysrl.syntax.parser.SRLParser.JointSRLParser;
-import edu.uw.easysrl.syntax.parser.SRLParser.PipelineSRLParser;
-import edu.uw.easysrl.syntax.tagger.POSTagger;
 import edu.uw.easysrl.util.Util;
 import edu.uw.easysrl.main.EasySRL;
 import edu.uw.easysrl.main.InputReader;

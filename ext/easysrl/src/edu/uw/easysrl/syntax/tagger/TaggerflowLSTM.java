@@ -32,7 +32,7 @@ public class TaggerflowLSTM extends Tagger {
 	}
 
 	private static Taggerflow makeTaggerflow(final File modelFolder, final double beta) {
-		LibraryUtil.setLibraryPath("lib");
+		//LibraryUtil.setLibraryPath("lib");
         return new Taggerflow(new File(modelFolder, "taggerflow"), beta);
 	}
 

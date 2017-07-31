@@ -32,7 +32,7 @@ public class TaggerflowServer {
 	public TaggerflowServer(String[] args) {
 		try {
 			final CommandLineArguments cmd = CliFactory.parseArguments(CommandLineArguments.class, args);
-			LibraryUtil.setLibraryPath("lib");
+			//LibraryUtil.setLibraryPath("lib");
 			this.taggerflow = new Taggerflow(new File(cmd.getModel(), "taggerflow"), cmd.getBeam());
 			this.port = cmd.getPort();
 		} catch (ArgumentValidationException e) {

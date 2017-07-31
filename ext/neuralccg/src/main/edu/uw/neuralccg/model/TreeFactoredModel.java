@@ -399,7 +399,7 @@ public class TreeFactoredModel extends TrainableModel {
             if (hasInitializedCNN) {
                 log.info("CNN already initialized. Ignoring second run configuration.");
             } else {
-                System.setProperty("java.library.path", "lib");
+                //System.setProperty("java.library.path", "lib");
                 System.loadLibrary("decoder");
                 TreeFactoredModel.initializeCNN(runConfig.toByteArray());
                 hasInitializedCNN = true;
