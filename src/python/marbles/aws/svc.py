@@ -184,6 +184,7 @@ class ServiceExecutor(object):
                 print('%s is not a directory' % self.state.rundir)
                 sys.exit(1)
             print('Starting service')
+            self.logger.info('Starting service...')
 
             context = daemon.DaemonContext(working_directory=workdir,
                                            umask=0o022,
