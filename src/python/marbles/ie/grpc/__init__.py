@@ -15,8 +15,8 @@ _logger = logging.getLogger(__name__)
 ## EasySRL gRPC service port
 EASYSRL_PORT = 8084
 
-## EasyCCG gRPC service port
-EASYCCG_PORT = 8085
+## NeuralCCG gRPC service port
+NEURALCCG_PORT = 8090
 
 INFOX_PORT = 8086
 
@@ -42,7 +42,7 @@ def get_client_transport(host, port):
 
     Args:
         host: The host domain name. Set to local_host if running locally.
-        port: The service port. Either EASYSRL_PORT or EASYCCG_PORT.
+        port: The service port. Either EASYSRL_PORT or NEURALCCG_PORT.
 
     Returns:
         A tuple of the client end-point stub and channel
@@ -129,7 +129,7 @@ class CcgParserService:
         """Create a CCG Parse Service.
 
         Args:
-            daemon: 'easysrl' or 'easyccg'.
+            daemon: 'easysrl' or 'neuralccg'.
             workdir: Optional path to daemon if in release mode.
         """
         global _logger
@@ -170,8 +170,8 @@ class CcgParserService:
     @property
     def daemon_port(self):
         """Get the port of the gRPC service"""
-        global EASYSRL_PORT, EASYCCG_PORT
-        return EASYSRL_PORT if self.daemon_name == 'easysrl' else EASYCCG_PORT
+        global EASYSRL_PORT, NEURALCCG_PORT
+        return EASYSRL_PORT if self.daemon_name == 'easysrl' else NEURALCCG_PORT
 
     def open_client(self):
         """Open a connection to the gRPC service"""

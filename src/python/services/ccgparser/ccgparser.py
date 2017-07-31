@@ -64,7 +64,7 @@ if __name__ == '__main__':
     usage = 'Usage: %prog [options] [news-queue-name [ccg-queue-name]] '
     parser = OptionParser(usage)
     parser.add_option('-g', '--grpc-daemon', type='string', action='store', dest='grpc_daemon',
-                      help='gRPC parser daemon name, [easysrl (default),easyccg]')
+                      help='gRPC parser daemon name, [easysrl (default), neuralccg]')
     parser.add_option('-j', '--jar', type='string', action='store', dest='jar_file',
                       help='Jar file. Must be combined with -m.')
     parser.add_option('-m', '--model', type='string', action='store', dest='model_dir',

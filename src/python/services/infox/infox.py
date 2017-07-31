@@ -151,7 +151,7 @@ if __name__ == '__main__':
     usage = 'Usage: %prog [options]'
     parser = OptionParser(usage)
     parser.add_option('-g', '--grpc-daemon', type='string', action='store', dest='grpc_daemon',
-                      help='gRPC parser daemon name, [easysrl (default),easyccg]')
+                      help='gRPC parser daemon name, [easysrl (default), neuralccg]')
     parser.add_option('-P', '--port', type='int', action='store', dest='port', default=gsvc.INFOX_PORT,
                       help='Port to accept connection, defaults to %d.' % gsvc.INFOX_PORT)
     parser.add_option('-j', '--jar', type='string', action='store', dest='jar_file',
