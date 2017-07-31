@@ -5,12 +5,14 @@ source $(dirname $0)/../scripts/common_source.sh
 NCCGPATH="$PROJROOT/ext/neuralccg"
 PIDFILE=$1
 LOGFILE=$2
+shift
+shift
 VERSION="0.1.0"
 
 [ -e $NCCGPATH/build/libs/neuralccg-${VERSION}-capsule.jar ] || die "$NCCGPATH/build/libs/neuralccg-$VERSION-capsule.jar missing, run gradle build"
-[ -e $NCCGPATH/model/text/categories ] || die "$NCCGPATH/model/text missing, run scripts/extract_lfs.sh"
+[ -e $NCCGPATH/model/model_tritrain_finetune_long/categories ] || die "$NCCGPATH/model/model_tritrain_finetune_long missing, run scripts/extract_lfs.sh"
 
-EXEC="java -jar $NCCGPATH/build/libs/neuralccg-$VERSION-capsule.jar --model $NCCGPATH/model/model_tritrain_finetune_long --daemonize"
+EXEC="java -jar $NCCGPATH/build/libs/neuralccg-$VERSION-capsule.jar -m $NCCGPATH/model/model_tritrain_finetune_long -c $NCCGPATH/experiments/demo.conf --daemonize $*"
 if [ "x$PIDFILE" == "x" ]; then
 	$EXEC
 else
