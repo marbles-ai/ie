@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-import json
-import os
 import unittest
 from marbles.ie import grpc
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
@@ -9,7 +7,7 @@ from marbles.ie.drt.drs import Rel
 from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
 from marbles.ie.core.constants import *
 from marbles.ie.utils.text import preprocess_sentence
-from marbles.test import dprint, DPRINT_ON
+from marbles.test import dprint
 
 
 class PossessiveTest(unittest.TestCase):
