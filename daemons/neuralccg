@@ -1,0 +1,24 @@
+#!/bin/bash
+
+source $(dirname $0)/../scripts/common_source.sh
+
+NCCGPATH="$PROJROOT/ext/neuralccg"
+PIDFILE=$1
+LOGFILE=$2
+VERSION="0.1.0"
+
+[ -e $NCCGPATH/build/libs/neuralccg-${VERSION}-capsule.jar ] || die "$NCCGPATH/build/libs/neuralccg-$VERSION-capsule.jar missing, run gradle build"
+[ -e $NCCGPATH/model/text/categories ] || die "$NCCGPATH/model/text missing, run scripts/extract_lfs.sh"
+
+EXEC="java -jar $NCCGPATH/build/libs/neuralccg-$VERSION-capsule.jar --model $NCCGPATH/model/model_tritrain_finetune_long --daemonize"
+if [ "x$PIDFILE" == "x" ]; then
+	$EXEC
+else
+	if [ "x$LOGFILE" == "x" ]; then
+		nohup $EXEC &
+	else
+		nohup $EXEC > $LOGFILE &
+	fi
+	PID="$!"
+	echo "$PID" > $PIDFILE
+fi
