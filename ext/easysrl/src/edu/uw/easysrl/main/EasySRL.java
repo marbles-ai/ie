@@ -84,7 +84,7 @@ public class EasySRL {
 		@Option(shortName = "a", description = "(Optional) Parsing algorithm: one of \"astar\" or \"cky\"", defaultValue = "astar")
 		String getParsingAlgorithm();
 
-		@Option(shortName = "l", defaultValue = "70", description = "(Optional) Maximum length of sentences in words. Defaults to 70.")
+		@Option(shortName = "l", defaultValue = "250", description = "(Optional) Maximum length of sentences in words. Defaults to 250.")
 		int getMaxLength();
 
 		@Option(shortName = "n", defaultValue = "1", description = "(Optional) Number of parses to return per sentence. Values >1 are only supported for A* parsing. Defaults to 1.")
