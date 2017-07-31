@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
-
 from __future__ import unicode_literals, print_function
 import os
 import unittest
 
-from marbles.ie.ccg import datapath
-from marbles.ie.ccg import Category, get_rule, CAT_EMPTY, RL_TCL_UNARY, RL_TCR_UNARY, RL_LPASS, RL_RPASS, \
-    RL_TC_ATOM, RL_TC_CONJ, RL_TYPE_RAISE, CAT_Sem
+from marbles.ie.ccg import *
 from marbles.ie.semantics.ccg import Ccg2Drs, PushOp, ExecOp
-from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.test import dprint, DPRINT_ON
+parse_ccg_derivation = parse_ccg_derivation2
 
 
 class CcgTest(unittest.TestCase):
@@ -367,12 +364,14 @@ class CcgTest(unittest.TestCase):
         failed_parse = 0
         failed_exec = []
         start = 0
+        analysis = []
         for fn in allfiles[0:]:
             with open(fn, 'r') as fd:
                 lines = fd.readlines()
 
             name, _ = os.path.splitext(os.path.basename(fn))
             for i in range(start, len(lines), 50):
+            #for i in range(start, len(lines)):
                 start = 0
                 ccgbank = lines[i]
                 dprint('%s-%04d' % (name, i))
@@ -399,17 +398,33 @@ class CcgTest(unittest.TestCase):
                                                                RL_LPASS, RL_RPASS, RL_TYPE_RAISE]:
                         actual = op.rule.apply_rule_to_category(left, right)
                         if not actual.can_unify(result):
-                            dprint('%s <!> %s' % (actual, result))
-                            dprint('%s <- %s %s %s', actual, left, op.rule, right)
-                            dprint(ccgbank)
+                            failed_exec.append('%s-%04d: %s <!> %s' % (name, i, actual, result))
+                            failed_exec.append('%s <- %s %s %s' % (actual, left, op.rule, right))
+                            failed_exec.append(ccgbank)
+                        else:
+                            # Can add analysis here
+                            if left == CAT_NP and right == CAT_NP_NP and op.rule == RL_BA and op.head != 0:
+                                # Expected: NP(x) <- λx.NP(x) -BA- λxλy.NP(y)\NP(x)
+                                # Actual: NP(y) <- λx.NP(x) -BA- λxλy.NP(y)\NP(x)
+                                analysis.append('%s-%04d: NP <ba> NP\\NP' % (name, i))
+
                         self.assertTrue(actual.can_unify(result))
 
+        if len(analysis) != 0:
+            dprint('-----------------------')
+            print('%d rules failed analysis')
+            dprint('--')
+            for ln in analysis:
+                dprint(ln)
         if len(failed_exec) != 0:
-            dprint('%d rules failed exec' % len(failed_exec))
-            for x in failed_exec:
-                dprint('%s-%04d: failed exec - {%s}' % x)
+            dprint('-----------------------')
+            print('%d rules failed exec' % len(failed_exec)/3)
+            dprint('--')
+            for ln in failed_exec:
+                dprint(ln)
 
         self.assertTrue(len(failed_exec) == 0)
+        self.assertTrue(len(analysis) == 0)
 
     # Test disabled for the moment
     def __test9A_Parser(self):
