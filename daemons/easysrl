@@ -12,10 +12,10 @@ VERSION="0.1.0"
 [ -e $ESRLPATH/build/libs/easysrl-${VERSION}-capsule.jar ] || die "$ESRLPATH/build/libs/easysrl-$VERSION-capsule.jar missing, run gradle build"
 [ -e $ESRLPATH/model/text/categories ] || die "$ESRLPATH/model/text missing, run scripts/extract_lfs.sh"
 
-EXEC="java -jar $ESRLPATH/build/libs/easysrl-$VERSION-capsule.jar --model $ESRLPATH/model/text --daemonize -l 250 $*"
+EXEC="java -jar $ESRLPATH/build/libs/easysrl-$VERSION-capsule.jar --model $ESRLPATH/model/text --daemonize $*"
 if [ "x$PIDFILE" == "x" ]; then
 	$EXEC
-else 
+else
 	if [ "x$LOGFILE" == "x" ]; then
 		nohup $EXEC &
 	else
