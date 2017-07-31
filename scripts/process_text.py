@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser = OptionParser(usage)
     parser.add_option('-f', '--file', type='string', action='store', dest='outfile', help='output file name')
     parser.add_option('-o', '--output-format', type='string', action='store', dest='ofmt', help='output format')
-    parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default),easyccg]')
+    parser.add_option('-d', '--daemon', type='string', action='store', dest='daemon', help='CCG daemon name, [easysrl (default), neuralccg]')
     parser.add_option('-B', '--book', action='store_true', dest='book', default=False, help='book mode, default is input from command line args')
     parser.add_option('-N', '--no-vn', action='store_true', dest='no_vn', default=False, help='disable verbnet, default is enabled')
     parser.add_option('-I', '--no-wp', action='store_true', dest='no_wp', default=False, help='disable wikipedia, default is enabled')
@@ -125,8 +125,8 @@ if __name__ == '__main__':
     if len(args) == 0:
         die('missing filename')
 
-    if daemon not in ['easysrl', 'easyccg']:
-        die('daemon must be easysrl or easyccg')
+    if daemon not in ['easysrl', 'neuralccg']:
+        die('daemon must be easysrl or neuralccg')
 
     svc = grpc.CcgParserService(daemon)
     stub = svc.open_client()
@@ -156,6 +156,10 @@ if __name__ == '__main__':
             orphaned = None
             conjoins = None
             functor_phrases = None
+            vnconstituents = ''
+            constituents = ''
+            vsent = None
+            sentence = None
 
             if options.ofmt == 'drs':
                 try:
@@ -184,13 +188,13 @@ if __name__ == '__main__':
                     for c in vsent.constituents:
                         vnconstituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     vnconstituents = ' '.join(vnconstituents)
-                    onps = sentence.get_orphaned_entities()
+                    onps = sentence.get_orphaned_np_functors()
                     if onps is not None:
-                        orphaned = '\n'.join(['(' + ', '.join([x.word for x in np]) + ')' for np in onps])
+                        orphaned = '\n'.join(['NP(' + np.text + ')' for r, np in onps])
                     if len(sentence.conjoins) != 0:
                         conjoins = '\n'.join([sp.text for sp in sentence.conjoins])
-                    functor_phrases = ['VP(' + sp.text + ')' for sp in sentence.get_vp_functors()]
-                    functor_phrases.extend(['NP(' + sp.text + ')' for sp in sentence.get_np_functors()])
+                    functor_phrases = ['VP(' + sp.text + ')' for r, sp in sentence.get_vp_functors()]
+                    functor_phrases.extend(['NP(' + sp.text + ')' for r, sp in sentence.get_np_functors()])
                     functor_phrases = '\n'.join(functor_phrases)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
@@ -218,9 +222,11 @@ if __name__ == '__main__':
                     sys.stdout.write('\n</fol>\n')
                 if constituents:
                     sys.stdout.write('<constituents>\n')
-                    sys.stdout.write(constituents)
+                    sys.stdout.write(sentence.get_constituent_tree_as_string(sentence.get_constituent_tree()))
                     sys.stdout.write('\n')
-                    sys.stdout.write(vnconstituents)
+                    sys.stdout.write(sentence.get_dependency_tree_as_string(sentence.get_dependency_tree()))
+                    sys.stdout.write('\n')
+                    sys.stdout.write(vsent.get_constituent_tree_as_string(vsent.get_constituent_tree()))
                     sys.stdout.write('\n</constituents>\n')
                 if orphaned:
                     sys.stdout.write('<orphaned>\n')
@@ -258,7 +264,7 @@ if __name__ == '__main__':
                     if constituents:
                         fd.write(b'<constituents>\n')
                         fd.write(safe_utf8_encode(constituents))
-                        fd.write('\n')
+                        fd.write(b'\n')
                         fd.write(safe_utf8_encode(vnconstituents))
                         fd.write(b'\n</constituents>\n')
                     if orphaned:
