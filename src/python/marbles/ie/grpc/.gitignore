@@ -1,4 +1,2 @@
-marbles_service_pb2.py
-marbles_service_pb2_grpc.py
-infox_service_pb2.py
-infox_service_pb2_grpc.py
+*_pb2.py
+*_pb2_grpc.py
