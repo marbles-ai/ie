@@ -60,7 +60,7 @@ public class Main {
 		@Option(shortName = "m", description = "Path to the parser model")
 		String getModel();
 
-		@Option(shortName = "m", description = "Path to the config file")
+		@Option(shortName = "c", description = "Path to the config file")
 		String getConfig();
 
 		@Option(shortName = "f", defaultValue = "", description = "(Optional) Path to the input text file. Otherwise, the parser will read from stdin.")
@@ -96,7 +96,7 @@ public class Main {
 
 			Config parameters = ConfigFactory.parseFileAnySyntax(configFile)
 					.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
-			/*
+
 			if (commandLineOptions.getDaemonize()) {
 				// PWG: run as a gRPC service
 				// Modify AWS Cloudlogger
@@ -107,7 +107,7 @@ public class Main {
 				Logger.getRootLogger().addAppender(cloudwatchAppender);
 
 				// Now start service
-				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
+				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions, parameters);
 				logger.info("starting gRPC CCG parser service...");
 				// Want start routine to exit quickly else connections to gRPC service fail.
 				ExecutorService executorService = Executors.newFixedThreadPool(1);
@@ -146,7 +146,6 @@ public class Main {
 				server.blockUntilShutdown();
 				return;
 			}
-			*/
 
 			final InputReader reader = InputReader.make(EasySRL.InputFormat.TOKENIZED);
 			final boolean readingFromStdin;
@@ -226,8 +225,8 @@ public class Main {
 
 		} catch (final ArgumentValidationException e) {
 			System.err.println(e.getMessage());
-			System.err.println(CliFactory.createCli(EasySRL.CommandLineArguments.class).getHelpMessage());
 		}
+		System.exit(0);
     }
 
 	public static Parser initializeModel(Config parameters, String modelDir) {
@@ -236,6 +235,7 @@ public class Main {
 		TreeFactoredModel.TreeFactoredModelFactory modelFactory;
 		Parser parser;
 
+        logger.info(String.format("Loading model from %s ...", modelDir));
 		final Collection<Category> categories;
 		try {
 			categories = TaggerEmbeddings.loadCategories(new File(modelFolder, "categories"));
@@ -243,16 +243,17 @@ public class Main {
 			throw new RuntimeException(e);
 		}
 
-		final Tagger tagger = EasySRLUtil.loadTagger(parameters, modelDir);
+        final Config args = parameters.getConfig("demo.args");
+		final Tagger tagger = EasySRLUtil.loadTagger(args, modelDir);
 
 		TreeFactoredModel.TreeFactoredModelFactory.initializeCNN(TrainProto.RunConfig.newBuilder()
-			.setMemory(parameters.getInt("native_memory")).build());
+			.setMemory(args.getInt("native_memory")).build());
 
 		synchronized (TreeFactoredModel.TreeFactoredModelFactory.class) {
 			modelFactory = new TreeFactoredModel.TreeFactoredModelFactory(
 				Optional.of(tagger),
 				categories,
-				parameters,
+				args,
 				true,
 				true,
 				Optional.empty(),
@@ -260,7 +261,7 @@ public class Main {
 				Optional.empty(),
 				Optional.empty());
 
-			parser = EasySRLUtil.parserBuilder(parameters, modelDir)
+			parser = EasySRLUtil.parserBuilder(args, modelDir)
 				.modelFactory(modelFactory)
 				.listeners(Collections.singletonList(modelFactory))
 				.build();
