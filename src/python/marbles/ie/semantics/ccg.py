@@ -336,6 +336,8 @@ class Ccg2Drs(Sentence):
     def _can_use_conjoin_rules(self, op):
         global POS_NOUN_CHECK1, POS_NOUN_CHECK2
 
+        if not isinstance(op.sub_ops[0], PushOp):
+            pass
         # First check dependency tree
         assert isinstance(op.sub_ops[0], PushOp)
         lx = op.sub_ops[0].lexeme
@@ -358,11 +360,12 @@ class Ccg2Drs(Sentence):
         assert len(op.sub_ops) == 2
         assert len(stk) >= 2
         unary = None
-        if op.sub_ops[0].category == CAT_CONJ and self._can_use_conjoin_rules(op):
+        if op.sub_ops[0].category is CAT_CONJ and isinstance(op.sub_ops[0], PushOp) and \
+                op.sub_ops[1].category is not CAT_CONJ_CONJ and self._can_use_conjoin_rules(op):
             # Conj has different unification rules
             unary = UCONJ.lookup_unary(op.category, op.sub_ops[1].category)
             op.conjoin = True
-        elif op.sub_ops[0].category == CAT_COMMA:
+        elif op.sub_ops[0].category is CAT_COMMA and isinstance(op.sub_ops[0], PushOp):
             # TODO: Check if this is a conj rule
             op.conjoin = self._can_use_conjoin_rules(op)
 
