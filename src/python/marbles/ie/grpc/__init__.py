@@ -155,13 +155,13 @@ class CcgParserService:
                 cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize']
                 if extra_args is not None:
                     cmdline.extend(extra_args)
-                self.child = subprocess.Popen(cmdline, stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
-                time.sleep(5)
+                self.child = subprocess.Popen(cmdline, stderr=open('/dev/null', 'w'))
+                time.sleep(30)
                 os.kill(self.child.pid, 0)
                 _logger.info('started child daemon with pid %d', self.child.pid)
             else:
                 raise ValueError('CcgParserService.__init__()')
-            time.sleep(5)   # Give it some time to lock session access
+            time.sleep(30)   # Give it some time to lock session access
             self.stub, _ = get_client_transport('localhost', self.daemon_port)
             # Call asynchronously - will wait until default session is created
             ccg_parse(self.stub, '', timeout=120)

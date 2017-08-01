@@ -25,6 +25,9 @@ RUN apt-get update \
     && apt-get install -y gcc apt-utils anacron libfontconfig \
     && apt-get install -y python2.7 python-pip
 
+RUN apt-get update
+RUN apt-get install -y openjdk-8-jdk
+
 # Install any needed packages specified in requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
@@ -35,6 +38,11 @@ RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDepe
 # This is useful if you want to debug the container and mount ~/.aws here
 # docker run -v ~/.aws:/root/.aws ...
 RUN mkdir -p /root/.aws
+
+# Set AWS Environmental variables
+ENV AWS_ACCESS_KEY_ID=AKIAJ273EGWTPFTL5NXA
+ENV AWS_SECRET_ACCESS_KEY=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
+ENV AWS_DEFAULT_REGION=us-west-1
 
 # This is the command to be executed when done creating our container
 CMD ["./mservice.sh", "./infox.py", "start", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]
