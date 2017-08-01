@@ -30,3 +30,14 @@ class Properties(object):
     # Exception rate limit. Exceptions of the same type, from same caller and line number are
     # are rate limited to 1 every `exception_rlimit` seconds.
     exception_rlimit = 2.0
+
+
+try:
+    from marbles.test import isdebugging
+    from marbles.test import dprint
+except:
+    def isdebugging():
+        return False
+    def dprint(*args, **kwargs):
+        pass
+
