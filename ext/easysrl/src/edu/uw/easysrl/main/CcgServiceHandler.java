@@ -54,7 +54,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		public String getParsingAlgorithm() { return "astar"; }
 
 		// "(Optional) Maximum length of sentences in words. Defaults to 70.")
-		public int getMaxLength() { return 70; }
+		public int getMaxLength() { return 250; }
 
 		// "(Optional) Number of parses to return per sentence. Values >1 are only supported for A* parsing. Defaults to 1.")
 		public int getNbest() { return 1; }
@@ -83,6 +83,8 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		public int getPort() { return 8084; }
 
 		public String getAwsLogStream() { return "easysrl"; }
+
+        public String getLogLevel() { return "info"; }
 	}
 
 	public interface Session {
@@ -274,8 +276,8 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 	/** {@inheritDoc} */
     public void infer(Request request, StreamObserver<Response> responseObserver) {
 		logger.debug(String.format("Infer(%s)", request.getLUCID()));
-		
-	    if (request.getSpec().getContentList().isEmpty() || 
+
+	    if (request.getSpec().getContentList().isEmpty() ||
                 request.getSpec().getContentList().get(0).getDataList().isEmpty()) {
             logger.info("empty content passed to service");
 	        throw new IllegalArgumentException();

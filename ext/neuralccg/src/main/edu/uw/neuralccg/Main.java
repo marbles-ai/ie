@@ -33,7 +33,7 @@ import edu.uw.neuralccg.util.SyntaxUtil;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
-import org.apache.log4j.Priority;
+import org.apache.log4j.Level;
 
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
@@ -78,6 +78,9 @@ public class Main {
 
 		@Option(shortName = "A", defaultValue = "neuralccg", description = "(Optional) AWS log stream name")
 		String getAwsLogStream();
+
+        @Option(shortName = "L", defaultValue = "info", description = "(Optional) AWS log level")
+        String getLogLevel();
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -86,6 +89,9 @@ public class Main {
 			//final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
 			final File modelFolder = Util.getFile(EasySRL.absolutePath(commandLineOptions.getModel()));
 			final File configFile = Util.getFile(EasySRL.absolutePath(commandLineOptions.getConfig()));
+            final Level level = Level.toLevel(commandLineOptions.getLogLevel().toUpperCase());
+
+            Logger.getRootLogger().setLevel(level);
 
 			if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder.toString());
@@ -104,7 +110,7 @@ public class Main {
 				PatternLayout layout = new org.apache.log4j.PatternLayout();
 				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
 				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
-				cloudwatchAppender.setThreshold(Priority.INFO);
+				cloudwatchAppender.setThreshold(level);
 				Logger.getRootLogger().addAppender(cloudwatchAppender);
 
 				// Now start service

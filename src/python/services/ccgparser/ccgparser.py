@@ -4,6 +4,7 @@ from __future__ import unicode_literals, print_function
 import os
 import sys
 from optparse import OptionParser
+from logging import getLevelName
 
 
 # Modify python path if in development mode
@@ -111,5 +112,6 @@ if __name__ == '__main__':
 
     svc = CcgParserExecutor(state, news_queue_name=news_queue_name, ccg_queue_name=ccg_queue_name,
                             grpc_daemon_name=grpc_daemon_name, jar_file=jar_file,
-                            extra_args=['-m', model_dir, '-A', stream_name])
+                            extra_args=['-m', model_dir, '-A', stream_name,
+                                        '-l', getLevelName(state.root_logger.level)])
     svc.run(thisdir)

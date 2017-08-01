@@ -8,6 +8,7 @@ import grpc
 import requests
 from concurrent import futures
 from google.protobuf import empty_pb2
+from logging import getLevelName
 
 
 # Modify python path if in development mode
@@ -187,6 +188,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     svc = InfoxExecutor(state, grpc_daemon_name, jar_file,
-                        ['-m', model_dir, '-A', stream_name],
+                        ['-m', model_dir, '-A', stream_name, '-l', getLevelName(state.root_logger.level)],
                         options.port)
     svc.run(thisdir)

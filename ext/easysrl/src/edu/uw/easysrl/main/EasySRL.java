@@ -25,7 +25,7 @@ import ai.marbles.aws.log4j.CloudwatchAppender;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
-import org.apache.log4j.Priority;
+import org.apache.log4j.Level;
 
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
@@ -84,7 +84,7 @@ public class EasySRL {
 		@Option(shortName = "a", description = "(Optional) Parsing algorithm: one of \"astar\" or \"cky\"", defaultValue = "astar")
 		String getParsingAlgorithm();
 
-		@Option(shortName = "l", defaultValue = "250", description = "(Optional) Maximum length of sentences in words. Defaults to 250.")
+		@Option(shortName = "L", defaultValue = "250", description = "(Optional) Maximum length of sentences in words. Defaults to 250.")
 		int getMaxLength();
 
 		@Option(shortName = "n", defaultValue = "1", description = "(Optional) Number of parses to return per sentence. Values >1 are only supported for A* parsing. Defaults to 1.")
@@ -110,6 +110,9 @@ public class EasySRL {
 
 		@Option(shortName = "A", defaultValue = "easysrl", description = "(Optional) AWS log stream name")
 		String getAwsLogStream();
+
+        @Option(shortName = "l", defaultValue = "info", description = "(Optional) AWS log level")
+        String getLogLevel();
 	}
 
 	// Set of supported InputFormats
@@ -137,8 +140,10 @@ public class EasySRL {
 			final CommandLineArguments commandLineOptions = CliFactory.parseArguments(CommandLineArguments.class, args);
 			final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
 			final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
+			final Level level = Level.toLevel(commandLineOptions.getLogLevel().toUpperCase());
 
-			if (!modelFolder.exists()) {
+            Logger.getRootLogger().setLevel(level);
+            if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
 			}
 
@@ -148,7 +153,7 @@ public class EasySRL {
 				PatternLayout layout = new org.apache.log4j.PatternLayout();
 				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
 				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
-				cloudwatchAppender.setThreshold(Priority.INFO);
+				cloudwatchAppender.setThreshold(level);
 				Logger.getRootLogger().addAppender(cloudwatchAppender);
 
 				// Now start service
