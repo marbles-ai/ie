@@ -41,11 +41,12 @@ def print_progress(progress, tick=1, done=False):
 idsrch = re.compile(r'^.*ccg_derivation(?P<id>\d+)\.txt')
 
 
-if __name__ == '__main__':
+def make_lexicon(daemon):
+    global pypath, projdir, datapath, idsrch
     allfiles = []
     projdir = os.path.dirname(os.path.dirname(__file__))
 
-    easysrl_path = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'lexicon')
+    easysrl_path = os.path.join(projdir, 'data', 'ldc', daemon, 'lexicon')
     if not os.path.exists(easysrl_path):
         os.makedirs(easysrl_path)
     if not os.path.exists(os.path.join(easysrl_path, 'rt')):
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(easysrl_path, 'az'))
 
     # Get files
-    ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
+    ldcpath = os.path.join(projdir, 'data', 'ldc', daemon, 'ccgbank')
     dirlist1 = sorted(os.listdir(ldcpath))
     #dirlist1 = ['ccg_derivation00.txt']
     for fname in dirlist1:
@@ -97,6 +98,7 @@ if __name__ == '__main__':
                 s = sentence_from_pt(pt).strip()
             except Exception:
                 failed_parse += 1
+                raise
                 continue
 
             uid = '%s-%04d' % (idx, i)
@@ -105,11 +107,12 @@ if __name__ == '__main__':
                 dictionary = extract_lexicon_from_pt(pt, dictionary, uid=uid)
             except Exception as e:
                 print(e)
+                raise
                 continue
 
     rtdict = {}
     for idx in range(len(dictionary)):
-        fname = unichr(idx+0x41)
+        fname = unichr(idx+0x40)
         filepath = os.path.join(easysrl_path, 'az', fname + '.txt')
         with open(filepath, 'w') as fd:
             d = dictionary[idx]
@@ -151,7 +154,9 @@ if __name__ == '__main__':
                 fd.write(b'</category>\n\n')
 
 
-
+if __name__ == '__main__':
+    make_lexicon('easysrl')
+    make_lexicon('neuralccg')
 
 
 

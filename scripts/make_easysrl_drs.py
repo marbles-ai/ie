@@ -43,16 +43,17 @@ def print_progress(progress, tick=1, done=False):
 idsrch = re.compile(r'^.*ccg_derivation(?P<id>\d+)\.txt')
 
 
-if __name__ == '__main__':
+def make_drs(daemon):
+    global pypath, projdir, datapath, idsrch
     allfiles = []
     projdir = os.path.dirname(os.path.dirname(__file__))
 
-    easysrl_path = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'drs')
+    easysrl_path = os.path.join(projdir, 'data', 'ldc', daemon, 'drs')
     if not os.path.exists(easysrl_path):
         os.makedirs(easysrl_path)
 
     # Get files
-    ldcpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
+    ldcpath = os.path.join(projdir, 'data', 'ldc', daemon, 'ccgbank')
     dirlist1 = os.listdir(ldcpath)
     for fname in dirlist1:
         if 'ccg_derivation' not in fname:
@@ -128,4 +129,6 @@ if __name__ == '__main__':
             print('%s-%04d failed: {%s}' % x)
 
 
-
+if __name__ == '__main__':
+    make_drs('easysrl')
+    make_drs('neuralccg')

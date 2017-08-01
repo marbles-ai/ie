@@ -33,14 +33,16 @@ def print_progress(progress, tick=1, done=False):
 
 idsrch = re.compile(r'[^.]+\.(?P<id>\d+)\.raw')
 
-if __name__ == '__main__':
+
+def make_derivations(daemon):
+    global pypath, projdir, datapath, idsrch
     allfiles = []
-    esrlpath = os.path.join(projdir, 'data', 'ldc', 'easysrl', 'ccgbank')
+    esrlpath = os.path.join(projdir, 'data', 'ldc', daemon, 'ccgbank')
     if not os.path.exists(esrlpath):
         os.makedirs(esrlpath)
 
     progress = 0
-    svc = grpc.CcgParserService('easysrl')
+    svc = grpc.CcgParserService(daemon)
     stub = svc.open_client()
 
     failed_total = 0
@@ -79,10 +81,14 @@ if __name__ == '__main__':
                 with open(os.path.join(esrlpath, 'ccg_failed%s.txt' % id), 'w') as fd:
                     fd.write(b'\n'.join(failed_parse))
     finally:
-        progress = print_progress(progress, 10, done=True)
+        print_progress(progress, 10, done=True)
         svc.shutdown()
 
     if failed_total != 0:
         print('THERE WERE %d PARSE FAILURES' % failed_total)
 
+
+if __name__ == '__main__':
+    make_derivations('easysrl')
+    make_derivations('neuralccg')
 
