@@ -78,6 +78,12 @@ if __name__ == '__main__':
     from marbles.ie.core.constants import CO_NO_WIKI_SEARCH
 
     grpc_daemon_name = options.grpc_daemon or 'easysrl'
+    if ':' in grpc_daemon_name:
+        gargs = grpc_daemon_name.split(':')
+        grpc_daemon_name = gargs[0]
+        gargs = gargs[1:]
+    else:
+        gargs = []
     news_queue_name = 'default-queue'
     ccg_queue_name = news_queue_name
     if len(args) == 1:
@@ -110,8 +116,8 @@ if __name__ == '__main__':
         print('-j|--jar option must be combined with -m|--model option')
         sys.exit(1)
 
+    gargs.extend(['-m', model_dir, '-A', stream_name, '-l', getLevelName(state.root_logger.level)])
     svc = CcgParserExecutor(state, news_queue_name=news_queue_name, ccg_queue_name=ccg_queue_name,
                             grpc_daemon_name=grpc_daemon_name, jar_file=jar_file,
-                            extra_args=['-m', model_dir, '-A', stream_name,
-                                        '-l', getLevelName(state.root_logger.level)])
+                            extra_args=gargs)
     svc.run(thisdir)
