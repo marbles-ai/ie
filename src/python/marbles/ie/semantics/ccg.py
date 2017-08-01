@@ -9,6 +9,7 @@ import logging
 
 import numpy as np
 
+from marbles import isdebugging
 from marbles.ie.ccg import *
 from marbles.ie.ccg.model import MODEL, UCONJ
 from marbles.ie.ccg.utils import pt_to_utf8
@@ -305,6 +306,10 @@ class Ccg2Drs(Sentence):
             unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
             if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
                 unary = MODEL.infer_unary(op.category)
+            # DEBUG HELPER
+            if isdebugging() and unary is None:
+                unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
+                unary = MODEL.infer_unary(op.category)
             assert unary is not None
             fn = self.rename_vars(unary.get())
             ucat = fn.category
@@ -323,6 +328,10 @@ class Ccg2Drs(Sentence):
         else:
             unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
             if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
+                unary = MODEL.infer_unary(op.category)
+            # DEBUG HELPER
+            if isdebugging() and unary is None:
+                unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
                 unary = MODEL.infer_unary(op.category)
             assert unary is not None
             fn = self.rename_vars(unary.get())
@@ -372,6 +381,10 @@ class Ccg2Drs(Sentence):
         if unary is None:
             unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
         if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
+            unary = MODEL.infer_unary(op.category)
+        # DEBUG HELPER
+        if isdebugging() and unary is None:
+            unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
             unary = MODEL.infer_unary(op.category)
         assert unary is not None
         fn = self.rename_vars(unary.get())
@@ -2006,7 +2019,7 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
     if future_string != unicode:
         pt = pt_to_utf8(pt)
     if dictionary is None:
-        dictionary = map(lambda x: {}, [None]*26)
+        dictionary = map(lambda x: {}, [None]*27)
     if uid is None:
         uid = ''
 
@@ -2026,14 +2039,14 @@ def extract_lexicon_from_pt(pt, dictionary=None, uid=None):
 
             N = lexeme.stem[0].upper()
             if N not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-                continue
+                N = '@'
 
-            idx = ord(N) - 0x41
+            idx = ord(N) - 0x40
             template = lexeme.get_template()
             if template is None:
                 continue
             fn = lexeme.get_production(TestSentence([lexeme]), options=CO_NO_VERBNET)
-            if lexeme.drs is None or len(fn.lambda_refs) == 1:
+            if lexeme.drs is None or lexeme.drs.isempty or len(fn.lambda_refs) == 0:
                 continue
 
             atoms = template.predarg_category.extract_unify_atoms(False)
