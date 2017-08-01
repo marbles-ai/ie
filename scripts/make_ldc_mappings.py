@@ -47,10 +47,16 @@ if __name__ == '__main__':
                 wsjnm, _ = os.path.splitext(dir2)
                 if os.path.isfile(ldcpath2):
                     id = 1
+                    missing = False
                     with open(ldcpath2, 'r') as fd:
                         lines = fd.readlines()
                         for hdr,ccgbank in zip(lines[0::2], lines[1::2]):
-                            mapping.append(b'%s.%d' % (wsjnm, id))
+                            hdrid = hdr.split(' ')[0][3:].strip()
+                            expected_hdrid = '%s.%d' % (wsjnm, id)
+                            if not missing and hdrid != expected_hdrid:
+                                missing = True
+                                print('missing entry, expected %s, actual %s' % (expected_hdrid, hdrid))
+                            mapping.append(safe_utf8_encode(hdrid))
                             id += 1
             with open(os.path.join(outpath, 'ccg_map%s.txt' % dir1), 'w') as fd:
                 fd.write(b'\n'.join(mapping))
