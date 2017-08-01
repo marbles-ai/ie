@@ -23,6 +23,19 @@ INFOX_PORT = 8086
 ## Default Session Id
 DEFAULT_SESSION='default'
 
+_GRPC_RUNNING = set()
+
+
+def kill_all_grpc():
+    global _GRPC_RUNNING
+    # Copy because shutdown removes entries
+    running = [x for x in _GRPC_RUNNING]
+    for g in running:
+        try:
+            g.shutdown()
+        except:
+            pass
+
 
 def create_query_input(typename, data):
     """Build query input. Typically not required since ccg_parse() does this for you.
@@ -124,19 +137,21 @@ def ccg_parse(client, sentence, session_id=DEFAULT_SESSION, timeout=0):
 
 class CcgParserService:
     """Ccg Parser Service"""
+    _WAIT_TIME = 30
 
-    def __init__(self, daemon, workdir=None, jarfile=None, extra_args=None):
+    def __init__(self, daemon, workdir=None, jarfile=None, extra_args=None, debug=False):
         """Create a CCG Parse Service.
 
         Args:
             daemon: 'easysrl' or 'neuralccg'.
             workdir: Optional path to daemon if in release mode.
         """
-        global _logger
+        global _logger, _GRPC_RUNNING
         self.workdir = safe_utf8_encode(workdir) if workdir else os.getcwd()
         self.grpc_stop_onclose = False
         self.daemon_name = safe_utf8_encode(daemon)
         self.child = None
+        extra_args = None if extra_args is None else [safe_utf8_encode(a) for a in extra_args]
         try:
             # Check if easyxxx service has started. If not start it.
             self.grpc_stub, _ = get_client_transport('localhost', self.daemon_port)
@@ -150,18 +165,24 @@ class CcgParserService:
                 if extra_args is not None:
                     cmdline.extend(extra_args)
                 subprocess.call(cmdline)
+                time.sleep(self._WAIT_TIME)   # Give it some time to lock session access
             elif jarfile is not None:
                 log_file = os.path.join(workdir, self.daemon_name + '.log')
-                cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize']
+                cmdline = ['/usr/bin/java', '-Dlog4j.debug', '-jar', jarfile, '--daemonize']
                 if extra_args is not None:
                     cmdline.extend(extra_args)
-                self.child = subprocess.Popen(cmdline, stderr=open('/dev/null', 'w'))
-                time.sleep(30)
+                _logger.debug(cmdline)
+                if debug:
+                    self.child = subprocess.Popen(cmdline)
+                else:
+                    self.child = subprocess.Popen(cmdline, stderr=open('/dev/null', 'w'))
+                time.sleep(self._WAIT_TIME)
                 os.kill(self.child.pid, 0)
+                self.grpc_stop_onclose = True
                 _logger.info('started child daemon with pid %d', self.child.pid)
             else:
                 raise ValueError('CcgParserService.__init__()')
-            time.sleep(30)   # Give it some time to lock session access
+            _GRPC_RUNNING.add(self)
             self.stub, _ = get_client_transport('localhost', self.daemon_port)
             # Call asynchronously - will wait until default session is created
             ccg_parse(self.stub, '', timeout=120)
@@ -183,8 +204,10 @@ class CcgParserService:
 
     def shutdown(self):
         """Shutdown the gRPC service if it was opened by this application."""
-        global _logger
+        global _logger, _GRPC_RUNNING
         if self.grpc_stop_onclose:
+            self.grpc_stop_onclose = False
+            _GRPC_RUNNING.remove(self)
             _logger.info('Stopping %s gRPC daemon', self.daemon_name)
             if self.child is None:
                 subprocess.call([os.path.join(PROJDIR, 'scripts', 'stop_server.sh'),

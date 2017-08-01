@@ -12,6 +12,7 @@ import watchtower
 import pwd
 import grp
 from marbles.log import ExceptionRateLimitedLogAdaptor, set_log_format
+from marbles.ie import grpc
 
 
 _module_logger = logging.getLogger(__name__)
@@ -245,6 +246,7 @@ class ServiceExecutor(object):
         except Exception as e:
             logger.exception('Exception caught', exc_info=e)
 
+        grpc.kill_all_grpc()
         self.logger.info('Service stopped')
         logging.shutdown()
         if self.state.daemonize:

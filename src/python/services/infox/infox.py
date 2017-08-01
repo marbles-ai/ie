@@ -122,7 +122,8 @@ class InfoxExecutor(svc.ServiceExecutor):
         self.grpc_daemon = gsvc.CcgParserService(self.grpc_daemon_name,
                                             workdir=workdir,
                                             extra_args=self.extra_args,
-                                            jarfile=self.jar_file)
+                                            jarfile=self.jar_file,
+                                            debug=not self.state.daemonize)
         # Start InfoX gRPC service
         svc_handler = InfoxService(self.grpc_daemon.open_client(), self.state)
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -140,11 +141,6 @@ class InfoxExecutor(svc.ServiceExecutor):
                 self.logger.debug('Immediate shutdown of gRPC main service')
                 self.server.stop(0)
             self.logger.info('gRPC main service stopped')
-
-    def on_shutdown(self):
-        if self.grpc_daemon is not None:
-            self.grpc_daemon.shutdown()
-            self.logger.info('gRPC ccg parser service stopped')
 
 
 #-jar $ESRLPATH/build/libs/easysrl-$VERSION-standalone.jar --model $ESRLPATH/model/text
@@ -168,6 +164,12 @@ if __name__ == '__main__':
     from marbles.ie.utils.text import preprocess_sentence
 
     grpc_daemon_name = options.grpc_daemon or 'easysrl'
+    if ':' in grpc_daemon_name:
+        gargs = grpc_daemon_name.split(':')
+        grpc_daemon_name = gargs[0]
+        gargs = gargs[1:]
+    else:
+        gargs = []
     svc_name = os.path.splitext(os.path.basename(__file__))[0]
     stream_name = 'svc-' + svc_name
     state = svc.process_parser_options(options, svc_name, stream_name)
@@ -175,8 +177,8 @@ if __name__ == '__main__':
     model_dir = None
     jar_file = None
     if options.model_dir is not None and options.jar_file is not None:
-        jar_file = os.path.abspath(options.jar_file)
-        model_dir = os.path.abspath(options.model_dir)
+        jar_file = os.path.abspath(os.path.expanduser(options.jar_file))
+        model_dir = os.path.abspath(os.path.expanduser(options.model_dir))
         if not os.path.isdir(model_dir):
             print('%s is not a directory' % model_dir)
             sys.exit(1)
@@ -187,7 +189,6 @@ if __name__ == '__main__':
         print('-j|--jar option must be combined with -m|--model option')
         sys.exit(1)
 
-    svc = InfoxExecutor(state, grpc_daemon_name, jar_file,
-                        ['-m', model_dir, '-A', stream_name, '-l', getLevelName(state.root_logger.level)],
-                        options.port)
+    gargs.extend(['-m', model_dir, '-A', stream_name, '-l', getLevelName(state.root_logger.level)])
+    svc = InfoxExecutor(state, grpc_daemon_name, jar_file, gargs, options.port)
     svc.run(thisdir)
