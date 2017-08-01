@@ -58,10 +58,6 @@ celerybeat-schedule
 # dotenv
 .env
 
-# virtualenv
-venv/
-ENV/
-
 # Spyder project settings
 .spyderproject
 
@@ -77,9 +73,3 @@ ENV/
 ie.iml
 ie.iws
 ie.ipr
-
-# nohup
-nohup.out
-
-# Stuff specific to easyccg
-ext/easyccg-0.2/bin/
