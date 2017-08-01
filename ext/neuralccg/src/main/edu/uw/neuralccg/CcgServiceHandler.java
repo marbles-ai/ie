@@ -11,8 +11,8 @@ import com.typesafe.config.Config;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
 import edu.uw.easysrl.syntax.parser.Parser;
 import edu.uw.easysrl.syntax.tagger.POSTagger;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 
 import io.grpc.stub.StreamObserver;
 import com.google.protobuf.Empty;
@@ -34,7 +34,7 @@ import edu.uw.neuralccg.Main;
  * Implementation of the easysrl ccg parser interface.
  */
 public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
-	private static final Logger logger = LogManager.getLogger(CcgServiceHandler.class);
+	private static final Logger logger = LoggerFactory.getLogger(CcgServiceHandler.class);
 
 	public interface Session {
 		Parser getParser();
@@ -87,6 +87,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 	public void init() throws IOException, InterruptedException {
 		// Lock in thread so calls to gRPC service are blocked until the default session is created.
+        logger.info("Creating default configuration");
 		defaultSession_ = getSessionFromId("default", "CCGBANK");
 	}
 
@@ -102,6 +103,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
         Parser parser = Main.initializeModel(parameters_, EasySRL.absolutePath(commandLineOptions_.getModel()));
 		POSTagger posTagger = POSTagger.getStanfordTagger(new File(modelFolder, "posTagger"));
+        logger.debug("Loaded POSTagger");
 
         final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(oformat);
 		ParsePrinter printer = outputFormat.printer;

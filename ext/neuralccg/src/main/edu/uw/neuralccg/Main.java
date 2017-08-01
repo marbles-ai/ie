@@ -31,9 +31,11 @@ import edu.uw.neuralccg.util.EasySRLUtil;
 import edu.uw.neuralccg.util.GateUtil;
 import edu.uw.neuralccg.util.SyntaxUtil;
 import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.Level;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
@@ -53,7 +55,7 @@ import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 public class Main {
-	private static final Logger logger = LogManager.getLogger(Main.class);
+	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 	/**
 	 * Command Line Interface
 	 */
@@ -79,7 +81,7 @@ public class Main {
 		@Option(shortName = "A", defaultValue = "neuralccg", description = "(Optional) AWS log stream name")
 		String getAwsLogStream();
 
-        @Option(shortName = "L", defaultValue = "info", description = "(Optional) AWS log level")
+        @Option(shortName = "l", defaultValue = "info", description = "(Optional) AWS log level")
         String getLogLevel();
 	}
 
@@ -89,9 +91,15 @@ public class Main {
 			//final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
 			final File modelFolder = Util.getFile(EasySRL.absolutePath(commandLineOptions.getModel()));
 			final File configFile = Util.getFile(EasySRL.absolutePath(commandLineOptions.getConfig()));
-            final Level level = Level.toLevel(commandLineOptions.getLogLevel().toUpperCase());
 
-            Logger.getRootLogger().setLevel(level);
+			/*
+			if (! commandLineOptions.getLogLevel().isEmpty()) {
+                final Level level = Level.toLevel(commandLineOptions.getLogLevel().toUpperCase());
+                LogManager.getRootLogger().setLevel(level);
+                CloudwatchAppender cloudwatchAppender = (CloudwatchAppender)LogManager.getRootLogger().getAppender("CloudW");
+                cloudwatchAppender.setThreshold(level);
+            } // else use default from log4j.properties
+            */
 
 			if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder.toString());
@@ -104,14 +112,16 @@ public class Main {
 			Config parameters = ConfigFactory.parseFileAnySyntax(configFile)
 					.resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-			if (commandLineOptions.getDaemonize()) {
+            if (commandLineOptions.getDaemonize()) {
 				// PWG: run as a gRPC service
 				// Modify AWS Cloudlogger
-				PatternLayout layout = new org.apache.log4j.PatternLayout();
-				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
-				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
-				cloudwatchAppender.setThreshold(level);
-				Logger.getRootLogger().addAppender(cloudwatchAppender);
+                //PatternLayout layout = new org.apache.log4j.PatternLayout();
+                //Logger.getRootLogger().removeAppender("CloudW");
+                //layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
+                //CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
+                //cloudwatchAppender.setThreshold(level);
+                //Logger.getRootLogger().addAppender(cloudwatchAppender);
+                //Logger.getRootLogger().removeAppender("A1");
 
 				// Now start service
 				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions, parameters);
@@ -243,19 +253,22 @@ public class Main {
 		TreeFactoredModel.TreeFactoredModelFactory modelFactory;
 		Parser parser;
 
-        logger.info(String.format("Loading model from %s ...", modelDir));
+        logger.info("Loading model from {} ...", modelDir);
 		final Collection<Category> categories;
 		try {
 			categories = TaggerEmbeddings.loadCategories(new File(modelFolder, "categories"));
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+        logger.debug("Categories loaded");
 
         final Config args = parameters.getConfig("demo.args");
 		final Tagger tagger = EasySRLUtil.loadTagger(args, modelDir);
+        logger.debug("Tagger loaded");
 
 		TreeFactoredModel.TreeFactoredModelFactory.initializeCNN(TrainProto.RunConfig.newBuilder()
 			.setMemory(args.getInt("native_memory")).build());
+        logger.debug("CNN initialized");
 
 		synchronized (TreeFactoredModel.TreeFactoredModelFactory.class) {
 			modelFactory = new TreeFactoredModel.TreeFactoredModelFactory(
@@ -268,11 +281,13 @@ public class Main {
 				checkpointPath,
 				Optional.empty(),
 				Optional.empty());
+            logger.debug("TreeFactoredModel loaded");
 
 			parser = EasySRLUtil.parserBuilder(args, modelDir)
 				.modelFactory(modelFactory)
 				.listeners(Collections.singletonList(modelFactory))
 				.build();
+            logger.debug("Parser loaded");
 		}
 		return parser;
 	}

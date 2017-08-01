@@ -25,7 +25,7 @@ import ai.marbles.aws.log4j.CloudwatchAppender;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
-import org.apache.log4j.Level;
+import org.apache.log4j.Priority;
 
 import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
 import uk.co.flamingpenguin.jewel.cli.CliFactory;
@@ -140,9 +140,12 @@ public class EasySRL {
 			final CommandLineArguments commandLineOptions = CliFactory.parseArguments(CommandLineArguments.class, args);
 			final InputFormat input = InputFormat.valueOf(commandLineOptions.getInputFormat().toUpperCase());
 			final File modelFolder = Util.getFile(absolutePath(commandLineOptions.getModel()));
-			final Level level = Level.toLevel(commandLineOptions.getLogLevel().toUpperCase());
+			final Priority level = Priority.toPriority(commandLineOptions.getLogLevel().toUpperCase());
 
-            Logger.getRootLogger().setLevel(level);
+            //LogManager.getRootLogger().setPriority(level);
+            //CloudwatchAppender cloudwatchAppender = (CloudwatchAppender)LogManager.getRootLogger().getAppender("CloudW");
+            //cloudwatchAppender.setThreshold(level);
+
             if (!modelFolder.exists()) {
 				throw new InputMismatchException("Couldn't load model from from: " + modelFolder);
 			}
@@ -150,15 +153,20 @@ public class EasySRL {
 			// PWG: run as a gRPC service
 			if (commandLineOptions.getDaemonize()) {
 				// Modify AWS Cloudlogger
+                /*
 				PatternLayout layout = new org.apache.log4j.PatternLayout();
+                Logger.getRootLogger().removeAppender("CloudW");
 				layout.setConversionPattern("%p %d{yyyy-MM-dd HH:mm:ssZ} %c [%t] - %m%n");
 				CloudwatchAppender cloudwatchAppender = new CloudwatchAppender(layout, "core-nlp-services", commandLineOptions.getAwsLogStream());
 				cloudwatchAppender.setThreshold(level);
 				Logger.getRootLogger().addAppender(cloudwatchAppender);
+                Logger.getRootLogger().setPriority(level);
+                Logger.getRootLogger().removeAppender("A1");
+                */
 
 				// Now start service
 				CcgServiceHandler svc = new CcgServiceHandler(commandLineOptions);
-				logger.info("starting gRPC CCG parser service...");
+                logger.info("starting gRPC CCG parser service...");
 				// Want start routine to exit quickly else connections to gRPC service fail.
 				ExecutorService executorService = Executors.newFixedThreadPool(1);
 				executorService.execute(new Runnable() {

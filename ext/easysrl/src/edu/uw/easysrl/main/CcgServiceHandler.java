@@ -139,6 +139,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 
 	public void init() throws IOException, InterruptedException {
 		// Lock in thread so calls to gRPC service are blocked until the default session is created.
+        logger.debug("Creating default session");
 		defaultSession_ = getSessionFromId("default", "CCGBANK");
 	}
 
@@ -153,7 +154,7 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		}
 
 		final File pipelineFolder = new File(modelFolder, "/pipeline");
-		logger.info(String.format("Loading model from %s ...", commandLineOptions_.getModel()));
+		logger.info(String.format("Loading model [fmt=%s] from %s ...", oformat, commandLineOptions_.getModel()));
 		final EasySRL.OutputFormat outputFormat = EasySRL.OutputFormat.valueOf(oformat);
 		ParsePrinter printer = outputFormat.printer;
 		SRLParser parser2;
@@ -161,22 +162,26 @@ public class CcgServiceHandler extends LucidaServiceGrpc.LucidaServiceImplBase {
 		if (pipelineFolder.exists()) {
 			// Joint model
 			final POSTagger posTagger = POSTagger.getStanfordTagger(new File(pipelineFolder, "posTagger"));
+            logger.debug("Loaded POSTagger");
 			final PipelineSRLParser pipeline = EasySRL.makePipelineParser(pipelineFolder, commandLineOptions_, 0.000001,
 					printer.outputsDependencies());
+            logger.debug("Loaded PipelineSRLParser");
 			parser2 = new BackoffSRLParser(new JointSRLParser(EasySRL.getParserBuilder(commandLineOptions_).build(),
 					posTagger), pipeline);
+            logger.debug("Loaded BackoffSRLParser");
 		} else {
 			// Pipeline
 			parser2 = EasySRL.makePipelineParser(modelFolder, commandLineOptions_, 0.000001, printer.outputsDependencies());
+            logger.debug("Loaded SRLParser");
 		}
 
-		final SRLParser parser;
 		if (printer.outputsLogic()) {
 			// If we're outputing logic, load a lexicon
 			final File lexiconFile = new File(modelFolder, "lexicon");
 			final Lexicon lexicon = lexiconFile.exists() ? CompositeLexicon.makeDefault(lexiconFile)
 					: CompositeLexicon.makeDefault();
 			parser2 = new SRLParser.SemanticParser(parser2, lexicon);
+            logger.debug("Loaded SRLParser.SemanticParser");
 		}
 
 		InputReader reader;

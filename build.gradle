@@ -22,7 +22,6 @@ allprojects {
 
     dependencies {
         testCompile 'junit:junit:4.12'
-        compile "org.slf4j:slf4j-log4j12:1.7.21"
         compile "log4j:log4j:1.2.16"
         //compile fileTree(dir: 'ext/aws/', include: ['*.jar'])
         compile "com.amazonaws:aws-java-sdk:1.11.158"
@@ -44,7 +43,6 @@ allprojects {
 
 // All subprojects depend on the root project
 subprojects {
-    //startScripts.enabled = false
     dependencies {
         compile project(':')
     }
@@ -68,7 +66,7 @@ buildscript {
         // From Google:
         // ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
         // gradle versions
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.0'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.2'
 
         // MAKES FAT JARS
         //classpath 'com.github.rholder:gradle-one-jar:1.0.4'
@@ -112,7 +110,7 @@ apply plugin: 'idea'
 
 idea {
     project {
-        languageLevel = '1.7'
+        languageLevel = '1.8'
         vcs = 'Git'
         ipr {
             withXml { provider ->
@@ -153,7 +151,7 @@ task (wrapper, type: Wrapper) {
 }
 
 // FIXME: there must be a better way to get this list
-def exportedProjects= [
+def exportedProjects = [
     ":",
     ":ext",
     ":ext:easysrl",
@@ -238,8 +236,8 @@ task grpcOther {
     }
 }
 
-// Ensure our task is called after build
-build.finalizedBy(grpcOther)
+// Ensure our task is called before build
+build.dependsOn(grpcOther)
 
 task cleanPy {
     ext.srcDir = "${rootDir}/src/python"
