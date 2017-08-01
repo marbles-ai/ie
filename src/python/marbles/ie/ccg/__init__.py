@@ -42,7 +42,7 @@ NDS = re.compile(r'(?:\s*\(<)|(?:\s*>\s*\)\s*)', re.MULTILINE)
 
 
 ## @ingroup gfn
-def parse_ccg_derivation2(ccgbank):
+def parse_ccg_derivation2(ccgbank, nbest=1):
     """Parse a ccg derivation and return a parse tree."""
     nodes = filter(lambda y: len(y) != 0, map(lambda x: x.strip(), NDS.split(ccgbank)))
     root = []
@@ -76,14 +76,10 @@ def parse_ccg_derivation2(ccgbank):
                 pt.append('T')
                 stk.pop()
                 pt = stk[-1]
-    # TODO: remove debug code below
-    '''
-    if level != 0 or len(root) != 1:
-        pass
-    '''
     assert level == 0
-    assert len(root) == 1
-    return root[0]
+    # nbest parsing returns multiple trees
+    assert len(root) == nbest
+    return root[0] if len(root) == 1 else root
 
 
 ## @ingroup gfn
