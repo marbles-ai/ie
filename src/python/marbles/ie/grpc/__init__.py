@@ -152,7 +152,7 @@ class CcgParserService:
                 subprocess.call(cmdline)
             elif jarfile is not None:
                 log_file = os.path.join(workdir, self.daemon_name + '.log')
-                cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize', '-l', '250']
+                cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize']
                 if extra_args is not None:
                     cmdline.extend(extra_args)
                 self.child = subprocess.Popen(cmdline, stdout=open('/dev/null', 'w'), stderr=open(log_file, 'a'))
