@@ -1207,31 +1207,29 @@ class AbstractDRSRelation(object):
 
 class DRSRelation(AbstractDRSRelation):
     """DRS Relation"""
-    def __init__(self, drsVar):
-        if isinstance(drsVar, (str, unicode)):
-            drsVar = DRSVar(drsVar)
-        elif not isinstance(drsVar, DRSVar):
-            raise TypeError('DRSRelation expects DRSVar')
-        self._var = drsVar
+    def __init__(self, name):
+        if isinstance(name, (str, unicode)):
+            self._name = name
+        else:
+            raise TypeError('DRSRelation expects a string')
 
     def __ne__(self, other):
-        return type(self) != type(other) or self._var != other._var
+        return type(self) != type(other) or self._name != other._name
 
     def __eq__(self, other):
-        return type(self) == type(other) and self._var == other._var
+        return type(self) == type(other) and self._name == other._name
 
     ## @remarks Original code in <a href="https://github.com/hbrouwer/pdrt-sandbox/tree/master/src/Data/DRS/Variables.hs">/Data/DRS/Variables.hs:drsRelToString</a>
     ##
     def to_string(self):
         """Converts this instance into a string."""
-        return self._var.to_string()
+        return self._name
 
-    def rename(self, drsVar):
-        if isinstance(drsVar, (str, unicode)):
-            drsVar = DRSVar(drsVar)
-        elif not isinstance(drsVar, DRSVar):
-            raise TypeError('DRSRelation expects DRSVar')
-        self._var = drsVar
+    def rename(self, name):
+        if isinstance(name, (str, unicode)):
+            self._name = name
+        else:
+            raise TypeError('DRSRelation expects a string')
 
 
 class AbstractDRSCond(Showable):
