@@ -113,7 +113,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = '[X1,E2,E3,X4| boy(X1),want(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,E3),believe(E3),_EVENT(E3),_AGENT(E3,X1),_THEME(E3,X4),girl(X4)]'
+        x = '[X1,E2,E3,X4| boy(X1),want(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,E3),believe(E3),_EVENT(E3),_ARG0(E3,X1),_ARG1(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
         s = get_constituent_string(ccg)
         dprint(s)
@@ -132,10 +132,10 @@ class ComposeTest(unittest.TestCase):
         ccg.create_drs()
         ccg.final_rename()
         s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[E1,X2| welcome(E1),_EVENT(E1),_AGENT(E1,X3),_THEME(E1,X2),to(X2),Merryweather(X2),High(X2)]'
+        x = u'[E1,X2| welcome(E1),_EVENT(E1),_ARG0(E1,X3),_ARG1(E1,X2),to(X2),Merryweather(X2),High(X2)]'
         self.assertEquals(x, s)
         ccg.resolve_proper_names()
-        x = u'[E1,X2| welcome(E1),_EVENT(E1),_AGENT(E1,X3),_THEME(E1,X2),to(X2),Merryweather-High(X2)]'
+        x = u'[E1,X2| welcome(E1),_EVENT(E1),_ARG0(E1,X3),_ARG1(E1,X2),to(X2),Merryweather-High(X2)]'
         s = ccg.get_drs().show(SHOW_LINEAR)
         self.assertEquals(x, s)
 
@@ -170,7 +170,7 @@ class ComposeTest(unittest.TestCase):
         ccg.create_drs()
         ccg.final_rename()
         s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[X1,E2,E3| door(X1),open(E2),_EVENT(E2),_AGENT(E2,X1),i(X4),step(E3),_EVENT(E3),_AGENT(E3,X4),up(E3),direction(E3)]'
+        x = u'[X1,E2,E3| door(X1),open(E2),_EVENT(E2),_ARG0(E2,X1),i(X4),step(E3),_EVENT(E3),_ARG0(E3,X4),up(E3),direction(E3)]'
         self.assertEquals(x, s)
 
         # The school bus wheezes to my corner.
@@ -185,7 +185,7 @@ class ComposeTest(unittest.TestCase):
         ccg.create_drs()
         ccg.final_rename()
         s = ccg.get_drs().show(SHOW_LINEAR)
-        x = u'[X1,E2,X3| school(X1),bus(X1),wheeze(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,X3),to(X3),i(X4),_POSS(X4,X3),corner(X3)]'
+        x = u'[X1,E2,X3| school(X1),bus(X1),wheeze(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,X3),to(X3),i(X4),_POSS(X4,X3),corner(X3)]'
         self.assertEquals(x, s)
 
     def test2_Wsj0004_1(self):
@@ -429,7 +429,7 @@ class ComposeTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = u'[X1,X2,X3,E4,E5,X6| AIDS-DIRECTORY(X1),from(X1,X2),American-Foundation(X2),for(X2,X3),AIDS-Research(X3),rat(E4),_EVENT(E4),_AGENT(E4,X1),_THEME(E4,X6),review(E5),_EVENT(E5),_AGENT(E5,X7),_THEME(E5,X8),educational(X6),materials(X6)]'
+        x = u'[X1,X2,X3,E4,E5,X6| AIDS-DIRECTORY(X1),from(X1,X2),American-Foundation(X2),for(X2,X3),AIDS-Research(X3),rat(E4),_EVENT(E4),_ARG0(E4,X1),_ARG1(E4,X6),review(E5),_EVENT(E5),_ARG0(E5,X7),_ARG1(E5,X8),educational(X6),materials(X6)]'
         self.assertEqual(x, s)
         dtree = ccg.get_dependency_tree()
         dprint_dependency_tree(ccg, dtree)
@@ -1197,7 +1197,7 @@ class ComposeTest(unittest.TestCase):
         #     )
         #   )
         # )
-        # [X1,E2,X3| _ENTITY(X1),_ENTITY(X1),[| your(X3)] ⇒ [| you(X1),owns(X1,X3)],apple(X1),pie(X1),_EVENT(E2),smells(E2),_AGENT(E2,X3),very(E2),tempting(E2)]
+        # [X1,E2,X3| _ENTITY(X1),_ENTITY(X1),[| your(X3)] ⇒ [| you(X1),owns(X1,X3)],apple(X1),pie(X1),_EVENT(E2),smells(E2),_ARG0(E2,X3),very(E2),tempting(E2)]
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)
@@ -1289,7 +1289,7 @@ class ComposeTest(unittest.TestCase):
     def test9_ApposExtraposition(self):
         # Factory inventories fell 0.1% in September , the first decline since February 1987.
         #
-        # [X1,E2,X3,X4,X5| factory(X1),inventories(X1),fell(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,X6),0.1%(X6),
+        # [X1,E2,X3,X4,X5| factory(X1),inventories(X1),fell(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,X6),0.1%(X6),
         # in(E2,X4),September(X3),first(X4),decline(X4),since(X4,X5),February(X5),1987(X5),_NUM(X5)]
         #
         # should be in(E2, X3)

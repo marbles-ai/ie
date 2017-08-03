@@ -29,7 +29,7 @@ class ConjTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_functor_phrases(RT_PROPERNAME|RT_EVENT)
+        f = sentence.select_phrases(RT_PROPERNAME | RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
@@ -44,7 +44,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('go', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E, J])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E, J])) is not None)
 
     def test02_AndOfObj(self):
         text = "He saw John and Paul"
@@ -55,7 +55,7 @@ class ConjTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_functor_phrases(RT_PROPERNAME|RT_EVENT)
+        f = sentence.select_phrases(RT_PROPERNAME | RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
@@ -71,7 +71,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('saw', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E, J])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E, J])) is not None)
 
     def test03_OrOfObj(self):
         text = "To participate in games or sport"
@@ -82,7 +82,7 @@ class ConjTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_functor_phrases(RT_ENTITY|RT_EVENT)
+        f = sentence.select_phrases(RT_ENTITY | RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('participate' in phrases)
         self.assertTrue('games' in phrases)
@@ -97,7 +97,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('participate', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('games', [X1])) is not None)
         self.assertTrue(d.find_condition(Rel('sport', [X2])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E, X2])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E, X2])) is not None)
 
     def test04_AndOfVerb(self):
         text = "Bell makes and distributes computers"
@@ -108,7 +108,7 @@ class ConjTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT)
+        f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
         self.assertTrue('makes distributes' in phrases)
@@ -120,8 +120,8 @@ class ConjTest(unittest.TestCase):
         X2 = theme[0]
         E1 = verb1[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E1, X2])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E1, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E1, X2])) is not None)
 
     def test05_AndOfVerb_AndOfObj(self):
         text = "Bell makes and distributes computers, electronics, and building products"
@@ -132,7 +132,7 @@ class ConjTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_functor_phrases(RT_PROPERNAME|RT_ENTITY|RT_EVENT|RT_ATTRIBUTE)
+        f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT | RT_ATTRIBUTE)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
         self.assertTrue('makes distributes' in phrases)
@@ -152,9 +152,9 @@ class ConjTest(unittest.TestCase):
         Y3 = theme3[0]
         E1 = verb1[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E1, X1])) is not None)
         # TODO: should we add proposition for multi NP's conjoined?
-        self.assertTrue(d.find_condition(Rel('_THEME', [E1, Y3])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E1, Y3])) is not None)
 
     def test10_OrOfVerb_OrInBrackets(self):
         text = "That which is perceived or known or inferred to have its own distinct existence (living or nonliving)"
@@ -166,9 +166,9 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         # RT_EMPTY_DRS adds 'or' to phrases
-        f = sentence.get_functor_phrases(lambda x: x.pos is POS.from_cache('WDT') or \
+        f = sentence.select_phrases(lambda x: x.pos is POS.from_cache('WDT') or \
                                                    0 == (x.mask & RT_EMPTY_DRS),
-                                         contiguous=False)
+                                    contiguous=False)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('That which' in phrases)
         self.assertTrue('have' in phrases)
@@ -184,8 +184,8 @@ class ConjTest(unittest.TestCase):
         X2 = theme[1][0].refs[1]
         X3 = theme[1][1].refs[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [E1, X1])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [E1, E2])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E1, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E1, E2])) is not None)
         # TODO: should the theme attach to X2?
-        self.assertTrue(d.find_condition(Rel('_THEME', [E2, X3])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E2, X3])) is not None)
         self.assertTrue(d.find_condition(Rel('_POSS', [X2, X3])) is not None)

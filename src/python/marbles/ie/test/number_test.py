@@ -14,7 +14,7 @@ from marbles.test import dprint, DPRINT_ON
 
 class PossessiveTest(unittest.TestCase):
     def setUp(self):
-        self.svc = grpc.CcgParserService('easysrl')
+        self.svc = grpc.CcgParserService('neuralccg')
         self.stub = self.svc.open_client()
 
     def tearDown(self):
@@ -31,7 +31,7 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs(nodups=True)
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        fnps = sentence.get_np_functors()
+        fnps = sentence.get_np_nominals()
         nps = [sp.text for r, sp in fnps]
         self.assertTrue('the Cray-3 research and development expenses' in nps)
         self.assertTrue('the company' in nps)
@@ -40,7 +40,7 @@ class PossessiveTest(unittest.TestCase):
         self.assertTrue('the first half' in nps)
         self.assertTrue('the $ 5.9 million' in nps)
         self.assertTrue('1989' in nps)
-        fvps = sentence.get_vp_functors()
+        fvps = sentence.get_vp_nominals()
         vps = [sp.text for r, sp in fvps]
         self.assertTrue('would have been' in vps)
         self.assertTrue('report' in vps)
@@ -56,13 +56,13 @@ class PossessiveTest(unittest.TestCase):
         n19_3M = filter(lambda x: '$ 19.3 million' == x[1].text, fnps)[0][0]
         n5_9M = filter(lambda x: 'the $ 5.9 million' == x[1].text, fnps)[0][0]
         self.assertTrue(d.find_condition(Rel('without', [would_have_been, cray_rnd])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [would_have_been, company])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [report, company])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [report, profit])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [would_have_been, company])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [report, company])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [report, profit])) is not None)
         self.assertTrue(d.find_condition(Rel('of', [profit, n19_3M])) is not None)
-        self.assertTrue(d.find_condition(Rel('for', [n19_3M, first_half])) is not None)
+        self.assertTrue(d.find_condition(Rel('for', [profit, first_half])) is not None)
         self.assertTrue(d.find_condition(Rel('of', [first_half, n1989])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [posted, profit])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [posted, n5_9M])) is not None)
 
     def test1_Currency_00_0195(self):
         text = r"On the other hand, had it existed then, Cray Computer would have incurred a $20.5 million loss."
@@ -75,12 +75,12 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        fnps = sentence.get_np_functors()
+        fnps = sentence.get_np_nominals()
         nps = [sp.text for r, sp in fnps]
         self.assertTrue('the other hand' in nps)
         self.assertTrue('Cray-Computer' in nps)
         self.assertTrue('$ 20.5 million' in nps)
-        fvps = sentence.get_vp_functors()
+        fvps = sentence.get_vp_nominals()
         vps = [sp.text for r, sp in fvps]
         self.assertTrue('had' in vps)
         self.assertTrue('existed' in vps)
@@ -97,7 +97,7 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        fnps = sentence.get_np_functors()
+        fnps = sentence.get_np_nominals()
         nps = [sp.text for r, sp in fnps]
         self.assertTrue('The reduced dividend' in nps)
         self.assertTrue('payable' in nps)
@@ -118,7 +118,7 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        fnps = sentence.get_np_functors()
+        fnps = sentence.get_np_nominals()
         nps = [sp.text for r, sp in fnps]
         self.assertTrue('Annualized interest rates' in nps)
         self.assertTrue('certain investments' in nps)

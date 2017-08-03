@@ -32,7 +32,7 @@ class ApposTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
         self.assertTrue('A hot-tempered tennis player' in phrases)
@@ -53,7 +53,7 @@ class ApposTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Reliable' in phrases)
         self.assertTrue("eleven-year-old beagle" in phrases)
@@ -75,7 +75,7 @@ class ApposTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
         self.assertTrue('a hot-tempered tennis player' in phrases)
@@ -96,7 +96,7 @@ class ApposTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Bell' in phrases)
         self.assertTrue('a telecommunications company' in phrases)
@@ -118,7 +118,7 @@ class ApposTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Robbie' in phrases)
         self.assertTrue('a hot-tempered tennis player' in phrases)

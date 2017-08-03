@@ -101,7 +101,7 @@ class ConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        x = '[X1,E2,E3,X4| boy(X1),will(E2),_MODAL(E2),want(E2),_EVENT(E2),_AGENT(E2,X1),_THEME(E2,E3),believe(E3),_EVENT(E3),_AGENT(E3,X1),_THEME(E3,X4),girl(X4)]'
+        x = '[X1,E2,E3,X4| boy(X1),will(E2),_MODAL(E2),want(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,E3),believe(E3),_EVENT(E3),_ARG0(E3,X1),_ARG1(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
         a = get_constituents_string_list(ccg)
         dprint('\n'.join(a))

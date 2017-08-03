@@ -29,7 +29,7 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        fnps = sentence.get_np_functors()
+        fnps = sentence.get_np_nominals()
         nps = [sp.text for r, sp in fnps]
         #self.assertTrue('Average maturity' in nps)
         self.assertTrue('the funds' in nps)
@@ -37,7 +37,7 @@ class PossessiveTest(unittest.TestCase):
         self.assertTrue('41 days' in nps)
         self.assertTrue('the longest' in nps)
         self.assertTrue('early August' in nps)
-        fvps = sentence.get_vp_functors()
+        fvps = sentence.get_vp_nominals()
         vps = [sp.text for r, sp in fvps]
         self.assertTrue('lengthened' in vps)
         self.assertTrue('according' in vps)
@@ -51,7 +51,7 @@ class PossessiveTest(unittest.TestCase):
         d = sentence.get_drs()
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
-        f = sentence.get_np_functors()
+        f = sentence.get_np_nominals()
         phrases = [sp.text for r, sp in f]
         self.assertTrue('Plans' in phrases)
         self.assertTrue('advertisers' in phrases)
@@ -65,7 +65,7 @@ class PossessiveTest(unittest.TestCase):
         self.assertTrue("Time-magazine" in phrases)
         self.assertTrue("Mortimer-B.-Zuckerman" in phrases)
         self.assertTrue("U.S.-News-&-World-Report" in phrases)
-        vf = sentence.get_vp_functors()
+        vf = sentence.get_vp_nominals()
         vphrases = [sp.text for r, sp in vf]
         self.assertTrue('give' in vphrases)
         self.assertTrue('maintaining increasing' in vphrases)
@@ -85,13 +85,13 @@ class PossessiveTest(unittest.TestCase):
         timemag = filter(lambda x: 'Time-magazine' == x[1].text, f)[0][0]
         mortimer = filter(lambda x: 'Mortimer-B.-Zuckerman' == x[1].text, f)[0][0]
         uswr = filter(lambda x: 'U.S.-News-&-World-Report' == x[1].text, f)[0][0]
-        self.assertTrue(d.find_condition(Rel('_AGENT', [give, plans])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [give, advertisers])) is not None)
-        self.assertTrue(d.find_condition(Rel('_EXTRA', [give, discounts])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [minc, plans])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [minc, spending])) is not None)
-        self.assertTrue(d.find_condition(Rel('_AGENT', [become, plans])) is not None)
-        self.assertTrue(d.find_condition(Rel('_THEME', [become, fixtures])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [give, plans])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [give, advertisers])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG2', [give, discounts])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [minc, plans])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [minc, spending])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [become, plans])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [become, fixtures])) is not None)
         self.assertTrue(d.find_condition(Rel('_POSS', [mortimer, uswr])) is not None)
         self.assertTrue(d.find_condition(Rel('_POSS', [timeinc, timemag])) is not None)
 
