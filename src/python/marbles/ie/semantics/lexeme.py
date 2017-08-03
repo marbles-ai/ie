@@ -122,7 +122,7 @@ _MONTHS = {
     'Sept': 'September',
     'Oct':  'October',
     'Nov':  'November',
-    'Dec:': 'December',
+    'Dec':  'December',
 }
 
 _WEEKDAYS = {
@@ -179,9 +179,9 @@ def create_empty_drs_production(category, ref=None, span=None):
     d.set_lambda_refs([ref])
     return d
 
-_EventPredicates = ('_AGENT', '_THEME', '_EXTRA')
-_EventPredicatesPss = ('_THEME', '_AGENT', '_EXTRA')
-_ToBePredicates = ('_AGENT', '_ATTRIBUTE', '_EXTRA')
+_EventPredicates = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
+_EventPredicatesPss = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
+_ToBePredicates = ('_ARG0', '_ATTRIBUTE', '_ARG2')
 _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
 _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 _Punct= '?.,:;'
@@ -350,7 +350,7 @@ class Lexeme(AbstractLexeme):
             DrsComposeError
 
         See Also:
-            marbles.ie.ccg.category.Category
+            marbles.ie.ccg.Category
         """
         if self.category.isfunctor and self.category != CAT_CONJ_CONJ and self.category != CAT_CONJCONJ:
             try:
@@ -412,6 +412,12 @@ class Lexeme(AbstractLexeme):
             self.mask |= RT_NUMBER
             conds.append(Rel(self.stem, [self.refs[0]]))
             conds.append(Rel('_NUM', self.refs))
+        elif self.ispunct:
+            if len(self.refs) > 1:
+                if self.word == ':':
+                    conds.append(Rel('_IE', [self.refs[0], self.refs[-1]]))
+                elif self.word == ';':
+                    conds.append(Rel('_LINK', [self.refs[0], self.refs[-1]]))
         elif self.pos == POS_PREPOSITION and not self.ispreposition:
             conds.append(Rel(self.stem, self.refs))
         else:
@@ -588,12 +594,13 @@ class Lexeme(AbstractLexeme):
                     stk.append(rule_map[c[1]])
                 argcat = argcat.result_category()
 
-            refs.append(rule_map[template.final_ref])
+            final_ref = rule_map[template.final_ref]
+            final_atom = template.final_atom.remove_wildcards()
+            refs.append(final_ref)
             refs.extend(reversed(lstk))
             refs.extend(rstk)
             refs = remove_dups(refs)
-            final_atom = template.final_atom.remove_wildcards()
-            final_ref = refs[0]
+            # refs[0] is always final_ref
             self.refs = refs
 
             # Verbs can also be adjectives so check event
@@ -682,18 +689,18 @@ class Lexeme(AbstractLexeme):
                         pass
                     assert len(refs) == 3, "copular expects 3 referents"
 
-                    # Special handling
+                    # Special handling - ARG1 is a ROLE?
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
                     if self.stem == 'be':
                         # Discard conditions
-                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_AGENT', [refs[0], refs[1]]),
-                                      Rel('_ROLE', [refs[0], refs[2]])])
+                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_ARG0', [refs[0], refs[1]]),
+                                      Rel('_ARG1', [refs[0], refs[2]])])
 
                     else:
                         conds.append(Rel('_EVENT', [refs[0]]))
-                        conds.append(Rel('_AGENT', [refs[0], refs[1]]))
-                        conds.append(Rel('_ROLE', [refs[0], refs[2]]))
+                        conds.append(Rel('_ARG0', [refs[0], refs[1]]))
+                        conds.append(Rel('_ARG1', [refs[0], refs[2]]))
                     self.drs = DRS([refs[0]], conds)
                     #d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
                     d = DrsProduction([], refs, category=final_atom, span=span)
@@ -703,7 +710,7 @@ class Lexeme(AbstractLexeme):
                     assert len(refs) == 2, "VP[dcl] expects 2 referents"
 
                     conds.append(Rel('_EVENT', [refs[0]]))
-                    conds.append(Rel('_AGENT', [refs[0], refs[1]]))
+                    conds.append(Rel('_ARG0', [refs[0], refs[1]]))
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
 
@@ -717,9 +724,9 @@ class Lexeme(AbstractLexeme):
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
                     if self.stem == 'be' and self.category.can_unify(CAT_TV):
-                        # Discard conditions
-                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_AGENT', [refs[0], refs[1]]),
-                                      Rel('_ROLE', [refs[0], refs[2]])])
+                        # Discard conditions - ARG1 is a ROLE?
+                        conds.extend([Rel('_EVENT', [refs[0]]), Rel('_ARG0', [refs[0], refs[1]]),
+                                      Rel('_ARG1', [refs[0], refs[2]])])
                     else:
                         conds.append(Rel('_EVENT', [refs[0]]))
                         pred = zip(refs[1:], _EventPredicates)
@@ -728,7 +735,7 @@ class Lexeme(AbstractLexeme):
                         if (len(refs)-1) > len(pred):
                             rx = [refs[0]]
                             rx.extend(refs[len(pred)+1:])
-                            conds.append(Rel('_EXTRA', rx))
+                            conds.append(Rel('_ARG2', rx))
                     self.drs = DRS([refs[0]], conds)
                     #d = DrsProduction([refs[0]], refs[1:], span=span)
                     d = DrsProduction([], refs, span=span)
@@ -757,7 +764,7 @@ class Lexeme(AbstractLexeme):
                     ers = complement(d.variables, pron[2])
                     d.rename_vars(zip([pron[2][0], ers[0]], refs))
                 else:
-                    d.rename_vars([(pron[2][0], final_ref)])
+                    d.rename_vars([(pron[2][0], refs[0])])
 
             elif self.ispreposition:
                 if template.construct_empty:
@@ -785,16 +792,27 @@ class Lexeme(AbstractLexeme):
                         self.category.test_returns_modifier():
                     self.drs = DRS([], [Rel(self.stem, refs[0])])
                     d = DrsProduction([], self.refs, span=span)
+                elif self.category.test_return(CAT_AP) and self.category.isarg_right and \
+                        self.category.argument_category() == CAT_NP:
+                    self.mask |= RT_ATTRIBUTE
+                    self.drs = DRS([], [Rel(self.stem, [refs[0], refs[-1]])])
+                    d = DrsProduction([], self.refs, span=span)
                 else:
                     self.mask |= RT_ATTRIBUTE
                     self.drs = DRS([], [Rel(self.stem, refs[0])])
                     d = DrsProduction([], self.refs, span=span)
 
             else:
+                universe = []
+                freerefs = self.refs
                 if self.isproper_noun:
+                    #universe.append(self.refs[0])
+                    #freerefs = self.refs[1:]
                     self.mask |= RT_PROPERNAME
                 elif final_atom == CAT_N and not self.category.ismodifier \
                         and not self.category.test_returns_modifier():
+                    #universe.append(self.refs[0])
+                    #freerefs = self.refs[1:]
                     self.mask |= (RT_ENTITY | RT_PLURAL) if self.pos == POS_NOUN_S else RT_ENTITY
                 elif len(self.refs) == 1 and final_atom == CAT_N \
                         and (self.category.ismodifier or self.category.test_returns_modifier()):
@@ -817,8 +835,8 @@ class Lexeme(AbstractLexeme):
                         self.drs = DRS([], self._build_conditions([], refs, template))
                         d = DrsProduction([], self.refs, span=span)
                 else:
-                    self.drs = DRS([], self._build_conditions([], refs, template))
-                    d = DrsProduction([], self.refs, span=span)
+                    self.drs = DRS(universe, self._build_conditions([], refs, template))
+                    d = DrsProduction(universe, freerefs, span=span)
 
             d.set_lambda_refs([final_ref])
             d.set_category(final_atom)
