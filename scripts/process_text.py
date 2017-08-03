@@ -188,13 +188,13 @@ if __name__ == '__main__':
                     for c in vsent.constituents:
                         vnconstituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     vnconstituents = ' '.join(vnconstituents)
-                    onps = sentence.get_orphaned_np_functors()
+                    onps = sentence.get_orphaned_np_nominals()
                     if onps is not None:
                         orphaned = '\n'.join(['NP(' + np.text + ')' for r, np in onps])
                     if len(sentence.conjoins) != 0:
                         conjoins = '\n'.join([sp.text for sp in sentence.conjoins])
-                    functor_phrases = ['VP(' + sp.text + ')' for r, sp in sentence.get_vp_functors()]
-                    functor_phrases.extend(['NP(' + sp.text + ')' for r, sp in sentence.get_np_functors()])
+                    functor_phrases = ['VP(' + sp.text + ')' for r, sp in sentence.get_vp_nominals()]
+                    functor_phrases.extend(['NP(' + sp.text + ')' for r, sp in sentence.get_np_nominals()])
                     functor_phrases = '\n'.join(functor_phrases)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
