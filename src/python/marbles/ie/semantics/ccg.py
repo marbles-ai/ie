@@ -947,7 +947,7 @@ class Ccg2Drs(Sentence):
         self.map_heads_to_constituents()
 
         # Ensure functor phrases are not split across constituents
-        nps = self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS)
+        nps = self.select_phrases(RT_ENTITY | RT_PROPERNAME | RT_ATTRIBUTE | RT_DATE | RT_NUMBER | RT_EMPTY_DRS)
         constituents, leaves, _ = self._trim_constituents()
         cmap = self._ref_to_constituent_map(constituents)
         merged = False
@@ -1033,9 +1033,9 @@ class Ccg2Drs(Sentence):
             lx.mask &= ~RT_ORPHANED
 
         # Handle NP conjoins to VP
-        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS,
-                                                lambda x: True)
-        vps = self.get_functor_phrases(lambda x: 0 != (x.mask & RT_EVENT))
+        orphaned_nps = self.select_phrases(RT_ENTITY | RT_ANAPHORA | RT_PROPERNAME | RT_ATTRIBUTE | RT_DATE | RT_NUMBER | RT_EMPTY_DRS,
+                                           lambda x: True)
+        vps = self.select_phrases(lambda x: 0 != (x.mask & RT_EVENT))
         refs = []
         for r, v in vps.iteritems():
             refs.extend(v[0].refs[1:])
@@ -1049,7 +1049,7 @@ class Ccg2Drs(Sentence):
             if len(not_orphaned) == 1 and not_orphaned[0].refs[0] in refs:
                 for r, v in vps.iteritems():
                     if not_orphaned[0].refs[0] in v[0].refs:
-                        predicates = ['_AGENT', '_ROLE', '_THEME', '_EXTRA']
+                        predicates = ['_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5']
                         for p in predicates:
                             fc = v[0].drs.find_condition(Rel(p, [r, not_orphaned[0].refs[0]]))
                             if fc is not None:
@@ -1080,7 +1080,7 @@ class Ccg2Drs(Sentence):
             #   Name-of-thing, a NP
             #   Name-of-thing, possessive NP
             # where graph connecting Name-of-thing is disjoint with NP
-            nps = [x for x in self.get_functor_phrases(RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_EMPTY_DRS).iteritems()]
+            nps = [x for x in self.select_phrases(RT_ENTITY | RT_PROPERNAME | RT_ATTRIBUTE | RT_EMPTY_DRS).iteritems()]
             nps = sorted(nps, key=lambda x: x[1])
             def rfilter_test(lx, npR):
                 return (lx.idx+2) < len(self.lexemes) and len(self.lexemes[lx.idx+2].refs) != 0 \
@@ -1123,8 +1123,8 @@ class Ccg2Drs(Sentence):
             #   a NP, Name-of-thing
             #   possessive NP, Name-of-thing
             # where graph connecting Name-of-thing is disjoint with NP
-            nps = [x for x in self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|
-                                                       RT_DATE|RT_NUMBER|RT_EMPTY_DRS).iteritems()]
+            nps = [x for x in self.select_phrases(RT_ENTITY | RT_ANAPHORA | RT_PROPERNAME | RT_ATTRIBUTE |
+                                                  RT_DATE | RT_NUMBER | RT_EMPTY_DRS).iteritems()]
             nps = sorted(nps, key=lambda x: x[1])
             def lfilter_test(lx):
                 return (lx.idx-2) >= 0 and self.lexemes[lx.idx-1].category is CAT_COMMA \
@@ -1175,8 +1175,8 @@ class Ccg2Drs(Sentence):
             self.drs_extra.append(Rel('_AKA', [x, y]))
 
         # Find orphaned and add to extra's
-        orphaned_nps = self.get_functor_phrases(RT_ENTITY|RT_ANAPHORA|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS,
-                                                lambda x: True)
+        orphaned_nps = self.select_phrases(RT_ENTITY | RT_ANAPHORA | RT_PROPERNAME | RT_ATTRIBUTE | RT_DATE | RT_NUMBER | RT_EMPTY_DRS,
+                                           lambda x: True)
         for x, y in akas:
             if x in orphaned_nps:
                 del orphaned_nps[x]
@@ -1208,7 +1208,7 @@ class Ccg2Drs(Sentence):
             prod.set_options(self.options)
             prods[i] = prod
 
-            # Useful for get_functor_phrases
+            # Useful for select_phrases
             if lexeme.drs is None or lexeme.drs.isempty:
                 lexeme.mask |= RT_EMPTY_DRS
         # TODO: Defer special handling of proper nouns
@@ -1256,8 +1256,8 @@ class Ccg2Drs(Sentence):
         # Refine constituents and we are done
         self._refine_constituents()
 
-    def get_functor_phrases(self, select_fn, exclude_fn=None, contiguous=True):
-        """Get a map of the functor phrases.
+    def select_phrases(self, select_fn, exclude_fn=None, contiguous=True):
+        """Get a map of the phrases match the selection/exclusion criteria.
 
         Args:
             select_fn: The lexeme selection function. If an integer mask is passed then select function
@@ -1266,9 +1266,10 @@ class Ccg2Drs(Sentence):
                 lexemes in the exclusion set have a n-ary predicate connected to the selected set then the
                 selected entry is excluded from the result. If an integer mask is passed then exclusion
                 function is set to lambda x: 0 != (x.mask & exclude_fn)
+            contiguous: If True (default) then only allow contiguous spans.
 
         Returns:
-            A list of Span instances.
+            A dictionary of referent(key):Span(value) instances.
         """
         if isinstance(select_fn, (long, int)):
             mask = select_fn
@@ -1324,43 +1325,32 @@ class Ccg2Drs(Sentence):
 
         return nps
 
-    def get_np_functors(self):
+    def get_np_nominals(self):
         """Get noun phrases consisting of logical And of functions in the same referent.
 
         Remarks:
-            This uses the logical model not the consituent model.
+            This uses the logical model not the constituent model.
         """
-        nps = self.get_functor_phrases(lambda x: 0 != (x.mask & (RT_ENTITY|RT_PROPERNAME|RT_ATTRIBUTE|RT_DATE|RT_NUMBER|RT_EMPTY_DRS)))
+        nps = self.select_phrases(lambda x: 0 != (x.mask & (RT_ENTITY | RT_PROPERNAME | RT_ATTRIBUTE | RT_DATE | RT_NUMBER | RT_EMPTY_DRS)))
         return nps.items()
 
-    def get_vp_functors(self):
+    def get_vp_nominals(self):
         """Get verb phrases consisting of logical And of functions in the same referent.
 
         Remarks:
-            This uses the logical model not the consituent model.
+            This uses the logical model not the constituent model.
         """
-        vps = self.get_functor_phrases(lambda x: 0 != (x.mask & (RT_EVENT_ATTRIB|RT_EVENT_MODAL|RT_EVENT)))
+        vps = self.select_phrases(lambda x: 0 != (x.mask & (RT_EVENT_ATTRIB | RT_EVENT_MODAL | RT_EVENT)))
         return vps.items()
 
-    def get_orphaned_np_functors(self):
+    def get_orphaned_np_nominals(self):
         """Identify orphaned noun phrases and anaphora. This can happen when comma's are inserted incorrectly.
 
         Remarks:
-            Uses get_functor_phrases(lambda x: 0 != (x.mask & RT_ORPHANED)) for results.
+            Uses select_phrases(lambda x: 0 != (x.mask & RT_ORPHANED)) for results.
         """
-        nps = self.get_functor_phrases(lambda x: 0 != (x.mask & RT_ORPHANED))
+        nps = self.select_phrases(lambda x: 0 != (x.mask & RT_ORPHANED))
         return None if len(nps) == 0 else nps.items()
-
-    def get_vn_frames(self):
-        i2c = {}
-        attribs = set()
-        # find head of the constituents
-        for c in self.constituents:
-            hd = c.get_head()
-            i2c[hd.idx] = c
-            if 0 != (hd.mask & RT_ATTRIBUTE):
-                attribs.add(hd.idx)
-        # If a head is an RT_ATTRIBUTE then all direct NP descendents are also attributes
 
     def resolve_proper_names(self):
         """Merge proper names."""
