@@ -168,14 +168,17 @@ class CcgParserService:
                 time.sleep(self._WAIT_TIME)   # Give it some time to lock session access
             elif jarfile is not None:
                 log_file = os.path.join(workdir, self.daemon_name + '.log')
-                cmdline = ['/usr/bin/java', '-Dlog4j.debug', '-jar', jarfile, '--daemonize']
+                if debug:
+                    cmdline = ['/usr/bin/java', '-Dlog4j.debug', '-jar', jarfile, '--daemonize']
+                else:
+                    cmdline = ['/usr/bin/java', '-jar', jarfile, '--daemonize']
                 if extra_args is not None:
                     cmdline.extend(extra_args)
                 _logger.debug(cmdline)
                 if debug:
                     self.child = subprocess.Popen(cmdline)
                 else:
-                    self.child = subprocess.Popen(cmdline, stderr=open('/dev/null', 'w'))
+                    self.child = subprocess.Popen(cmdline, stdout=open('/dev/null', 'w'), stderr=open('/dev/null', 'w'))
                 time.sleep(self._WAIT_TIME)
                 os.kill(self.child.pid, 0)
                 self.grpc_stop_onclose = True
