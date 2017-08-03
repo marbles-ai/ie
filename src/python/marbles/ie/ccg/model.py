@@ -215,6 +215,12 @@ class FunctorTemplate(object):
                                construct_empty=construct_empty)
 
     def create_constructor_rule_map(self):
+        """The constuctor rule map is a dictionary mapping immutable DRSRef's to mutable DRSRef's. During
+        composition the DRSRef's are modified so we cannot use DRSRef's that are part of immutable templates.
+
+        Returns:
+            A dictionary mapping immutable DRSRef's to mutable DRSRef's.
+        """
         rule_map = {self.final_ref: DRSRef(DRSVar(self.final_ref.var.name, self.final_ref.var.idx))}
         for c in self._constructor_rule:
             if isinstance(c[1], DRSRef):
@@ -277,7 +283,11 @@ class UnaryRule(object):
         if not isinstance(argument, Category):
             raise TypeError('UnaryRule expects a argument Category')
         # We implement unary rules using backward application of the functor below
-        self._template = FunctorTemplate.create_from_category(Category.combine(result.clean(), '\\', argument.clean(), False))
+        ucat = Category.combine(result.clean(), '\\', argument.clean(), cacheable=False)
+        result, final_tag = result.trim_functor_tag()
+        if final_tag is not None:
+            ucat = Category('(%s)_%s' % (ucat, final_tag))
+        self._template = FunctorTemplate.create_from_category(ucat)
 
     @property
     def template(self):
@@ -566,6 +576,7 @@ class Model(object):
 try:
     _tcache = Model.load_templates(os.path.join(datapath.DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
+
     _tcache.addinit(Model.build_template(r'(S[b]_238\NP_237)/(S[b]_238\NP_237)'), replace=True)
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
@@ -603,6 +614,12 @@ try:
     _tcache.addinit(Model.build_template(r'(S[X]_1201\NP_2201)\((S[X]_1201\NP_2201)/PP)'))
     _tcache.addinit(Model.build_template(r'PP_2202/(S[ng]_1202\NP_2202)'), replace=True)
 
+    # TODO: $ maps to N/N[num]_591 but want an adjective - need to check all cases
+    _tcache.addinit(Model.build_template(r'N_1203/N[num]_1203'), replace=True)
+    _tcache.addinit(Model.build_template(r'(N_1204\N_1204)/N[num]_1204'), replace=True)
+    # NP(x) <ba> NP(y)\NP(x) should always return NP(x) as the final atom
+    # PWG: I have checked this on EasySRL's parse of CCGBANK sentences, the head is always NP(x)
+    #_tcache.addinit(Model.build_template(r'(NP_1204\NP_2204)_2204'), replace=True)
 
     # Add unary rules
     _rcache = Cache()
@@ -613,7 +630,8 @@ try:
     # TODO: Makes sense for appositives <NP, NP>. Need to check if other usages exist.
     # See test case conj_test.py[test5_OrOfVerb_OrInBrackets] fails due to this rule
     # Reverted since APPOS processing has been improved
-    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_2028', r'NP_1028'))
+    # PWG: I have checked this on EasySRL's parse of CCGBANK sentences, the head is always NP(x)
+    _rcache.addinit(Model.build_unary_rule(r'(NP_1028\NP_2028)_2028', r'NP_1028'))
     # Wildcards incur more string processing so cover main rules
     _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[pss]_2030\NP_1030'))
     _rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))
@@ -630,8 +648,8 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'PP_1042/PP_1042', r'PP_1042'))
     _rcache.addinit(Model.build_unary_rule(r'PP_1043\PP_1043', r'PP_1043'))
     _rcache.addinit(Model.build_unary_rule(r'(N_1044\N_1044)\(N_1044\N_1044)', r'(N_1044\N_1044)'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[b]_3049\NP_2049)_3049/((S_3049\NP_2049)_3049\(S_3049\NP_2049)_3049)_1049)_3049', r'(S[b]_3049\NP_2049)_3049'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[ng]_3050\NP_2050)_3050/((S_3050\NP_2050)_3050\(S_3050\NP_2050)_3050)_1050)_3050', r'(S[ng]_3050\NP_2050)_3050'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[b]_3049\NP_2049)/((S_3049\NP_2049)\(S_3049\NP_2049))', r'S[b]_3049\NP_2049'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[ng]_3050\NP_2050)/((S_3050\NP_2050)\(S_3050\NP_2050))', r'(S[ng]_3050\NP_2050)_3050'))
     _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_2051)'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', r'(S_1052\NP_2052)/(S_1052\NP_2052)'))
     _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', r'S_1053\NP_2053'))
@@ -685,6 +703,10 @@ try:
 
     _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_3047\NP_2047)/((S_3047\NP_2047)\(S_3047\NP_2047))', r'(S[dcl]_3047\NP_2047)_3047'))
     _rcache.addinit(Model.build_unary_rule(r'(S[pss]_3048\NP_2048)/((S_3048\NP_2048)\(S_3048\NP_2048))', r'(S[pss]_3048\NP_2048)_3048'))
+
+    # Neuralccg needs these
+    _rcache.addinit(Model.build_unary_rule(r'NP_1205\NP_1205', r'S[X]_2205/NP_1205'))
+
 
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
 
