@@ -494,12 +494,15 @@ class ProductionList(AbstractProduction):
         """
         if len(rs) == 0:
             return
+        '''
         if 0 == (self.compose_options & CO_FAST_RENAME):
             self.rename_lambda_refs(rs)
             for d in self._compList:
                 d.rename_vars(rs)
         else:
             self.fast_rename_vars(rs, other)
+        '''
+        self.fast_rename_vars(rs, other)
 
     def push_right(self, other, merge=False):
         """Push an argument to the right of the list.
