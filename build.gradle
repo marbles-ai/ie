@@ -251,6 +251,10 @@ task cleanPy {
 
 clean {
     delete "${rootDir}/site/build"
+    delete "${rootDir}/src/python/build"
+    delete "${rootDir}/src/python/dist"
+    delete "${rootDir}/src/python/marbles_min.egg-info"
+    delete "${rootDir}/src/python/marbles_std.egg-info"
     delete "${rootDir}/src/python/services/ccgparser/build"
     delete "${rootDir}/src/python/services/infox/build"
     delete "${rootDir}/src/python/services/newsreader/build"
@@ -275,6 +279,7 @@ test.finalizedBy(testPy)
 
 task buildminpy(dependsOn: grpcOther) {
     ext.bdir = new File("${rootDir}/site/build")
+    ext.bdirout = new File("${rootDir}/src/python/dist")
     ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
     ext.wheelfile = "marbles_min-${pyver}-py2.py3-none-any.whl"
     ext.sources = fileTree("${rootDir}/src/python/marbles")
@@ -282,10 +287,13 @@ task buildminpy(dependsOn: grpcOther) {
 
     // Set these so we only build if source changes
     inputs.files(sources)
-    outputs.files(["${bdir}/${wheelfile}"])
+    outputs.files(["${bdirout}/${wheelfile}"])
+
+    doFirst {
+        bdir.mkdirs()
+    }
 
     doLast {
-        bdir.mkdirs()
         tasks.create('dobuildminpy', Exec) {
             workingDir = "${rootDir}/src/python"
             commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", 'minimal', "bdist_wheel"]
@@ -313,6 +321,7 @@ task buildstdpy(dependsOn: cpminpy) {
     ext.bdir1 = new File("${rootDir}/src/python/services/ccgparser/build")
     ext.bdir2 = new File("${rootDir}/src/python/services/infox/build")
     ext.bdir3 = new File("${rootDir}/src/python/services/newsreader/build")
+    ext.bdirout = new File("${rootDir}/src/python/dist")
     ext.pyver = "${version}".replaceFirst(/\.\d$/, "")
     ext.wheelfile = "marbles_std-${pyver}-py2.py3-none-any.whl"
     ext.sources = fileTree("${rootDir}/src/python/marbles")
@@ -320,12 +329,15 @@ task buildstdpy(dependsOn: cpminpy) {
 
     // Set these so we only build if source changes
     inputs.files(sources)
-    outputs.files(["${bdir1}/${wheelfile}", "${bdir2}/${wheelfile}", "${bdir3}/${wheelfile}"])
+    outputs.files(["${bdirout}/${wheelfile}"])
 
-    doLast {
+    doFirst {
         bdir1.mkdirs()
         bdir2.mkdirs()
         bdir3.mkdirs()
+    }
+
+    doLast {
         tasks.create('dobuildstdpy', Exec) {
             workingDir = "${rootDir}/src/python"
             commandLine = ['python', 'setup.py', "clean", "--version=${pyver}", "bdist_wheel"]
