@@ -16,8 +16,11 @@ popd &> /dev/null
 mkdir -p ${PROJROOT}/build/awslogs_download
 pushd ${PROJROOT}/build/awslogs_download > /dev/null
 
-curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O || die "download awslogs-agent-setup.py"
-curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/AgentDependencies.tar.gz -O || die "download AgentDependencies.tar.gz"
+FILES="awslogs-agent-setup.py AgentDependencies.tar.gz"
+
+for i in $FILES; do
+	[ -e $i ] || curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/$i -O || die "download $i"
+done
 
 popd > /dev/null
 

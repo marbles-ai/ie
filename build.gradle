@@ -295,6 +295,11 @@ task buildminpy(dependsOn: grpcOther) {
                 standardOutput = new ByteArrayOutputStream()
             }
         }.execute()
+        tasks.create('downloadAWSlogs1', Exec) {
+            workingDir = "${rootDir}"
+            commandLine = ["./scripts/download_awslogs.sh", "${bdir}"]
+            // Trash output- doesn't work with this script
+        }.execute()
     }
 }
 
@@ -330,7 +335,7 @@ task buildstdpy(dependsOn: cpminpy) {
                 standardOutput = new ByteArrayOutputStream()
             }
         }.execute()
-        tasks.create('downloadAWSlogs', Exec) {
+        tasks.create('downloadAWSlogs2', Exec) {
             workingDir = "${rootDir}"
             commandLine = ["./scripts/download_awslogs.sh", "${bdir1}", "${bdir2}", "${bdir3}"]
             // Trash output- doesn't work with this script
@@ -371,6 +376,12 @@ task cpawslogs_helper2(type: Copy, dependsOn: cpstdpy2) {
 task cpawslogs_helper3(type: Copy, dependsOn: cpstdpy3) {
     from "${rootDir}/scripts"
     into "${rootDir}/src/python/services/newsreader/build"
+    include 'cp_env_credentials_to_awslogs.sh'
+}
+
+task cpawslogs_helper4(type: Copy, dependsOn: cpminpy) {
+    from "${rootDir}/scripts"
+    into "${rootDir}/site/build"
     include 'cp_env_credentials_to_awslogs.sh'
 }
 
@@ -432,6 +443,7 @@ dockerdeps.dependsOn cpmodel1
 dockerdeps.dependsOn cpmodel2
 dockerdeps.dependsOn cpjar1
 dockerdeps.dependsOn cpjar2
+dockerdeps.dependsOn cpawslogs_helper4
 
 task dockerize(dependsOn: dockerdeps) {
     description "Dockerizing services."
