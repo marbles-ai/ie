@@ -69,7 +69,7 @@ def get_constituent_string(sent, ch=' '):
     return ch.join(s)
 
 
-class ConstituentTest(unittest.TestCase):
+class GoldConstituentTest(unittest.TestCase):
     def setUp(self):
         # Print log messages to console
         self.logger = logging.getLogger('marbles')
@@ -680,6 +680,66 @@ class ConstituentTest(unittest.TestCase):
         a = sent.get_constituent_tree()
         dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
+
+    def test2_GOLD_Wsj0051_13(self):
+        txt = r'''
+(<T S[dcl] 0 2> 
+  (<T S[dcl] 1 2> 
+    (<T NP 1 2> 
+      (<L NP[nb]/N DT DT The NP[nb]_273/N_273>) 
+      (<L N NNS NNS bids N>) 
+    ) 
+    (<T S[dcl]\NP 1 2> 
+      (<T (S\NP)/(S\NP) 1 2> 
+        (<L , , , , ,>) 
+        (<T (S\NP)/(S\NP) 0 2> 
+          (<T S[dcl]/S[dcl] 1 2> 
+            (<T S/(S\NP) 0 1> 
+              (<L NP PRP PRP he NP>) 
+            ) 
+            (<L (S[dcl]\NP)/S[dcl] VBD VBD added (S[dcl]\NP_242)/S[dcl]_243>) 
+          ) 
+          (<L , , , , ,>) 
+        ) 
+      ) 
+      (<T S[dcl]\NP 0 2> 
+        (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD were (S[dcl]\NP_211)/(S[adj]_212\NP_211:B)_212>) 
+        (<T S[adj]\NP 0 2> 
+          (<L (S[adj]\NP)/PP JJ JJ contrary (S[adj]\NP_219)/PP_220>) 
+          (<T PP 0 2> 
+            (<L PP/NP TO TO to PP/NP_225>) 
+            (<T NP 0 1> 
+              (<T N 1 2> 
+                (<L N/N JJ JJ common N_234/N_234>) 
+                (<L N NN NN sense N>) 
+              ) 
+            ) 
+          ) 
+        ) 
+      ) 
+    ) 
+  ) 
+  (<L . . . . .>) 
+) 
+'''
+        pt = parse_ccg_derivation(txt)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        self.assertIsNotNone(pt)
+        ccg = Ccg2Drs(CO_VERIFY_SIGNATURES | CO_NO_VERBNET | CO_NO_WIKI_SEARCH)
+        ccg.build_execution_sequence(pt)
+        ccg.create_drs()
+        ccg.final_rename()
+        d = ccg.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        sent = ccg.get_verbnet_sentence()
+        a = get_constituents_string_list(sent)
+        x = [
+        ]
+        dprint('\n'.join(a))
+        self.assertListEqual(x, a)
+
 
 
 if __name__ == '__main__':

@@ -315,8 +315,7 @@ class Ccg2Drs(Sentence):
             ucat = fn.category
             fn.set_options(self.options)
             d2 = stk.pop()
-            d1 = stk.pop()
-            stk.append(d1)
+            stk.append(fn)
             self._dispatch_ba(op, stk)
 
             nlst = ProductionList()
@@ -782,6 +781,10 @@ class Ccg2Drs(Sentence):
     def _refine_constituents(self):
         global _logger
         # Constituents ordering (see span) for sentence AB, AB < A < B
+        if not self.exeque[-1].category.isatom:
+            # Sentence finished with S\NP, for example "Welcome to our house".
+            if self.exeque[-1].category.simplify() == CAT_S_NP:
+                self.constituents.append(Constituent(Span(self, [x.idx for x in filter(lambda x: not x.ispunct, self.lexemes)]), ct.CONSTITUENT_S))
         constituents = sorted(self.constituents)
 
         # Merge adjacent adjuncts
@@ -1222,6 +1225,10 @@ class Ccg2Drs(Sentence):
                 # ExecOp dispatch based on rule
                 self._dispatch(op, stk)
 
+            if not (stk[-1].verify() and stk[-1].category.can_unify(op.category)):
+                stk[-1].verify()
+                stk[-1].category.can_unify(op.category)
+                pass
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
@@ -1525,6 +1532,7 @@ class Ccg2Drs(Sentence):
             - indexes progress is 1,2,...
             - events are tagged e, others x
         """
+        use_word_idx = 0 != (self.options & CO_VARNAMES_MATCH_WORD_INDEX)
         vx = set(filter(lambda x: not x.isconst, self.final_prod.variables))
         ors = filter(lambda x: x.var.idx < len(vx), vx)
         if len(ors) != 0:
@@ -1535,31 +1543,53 @@ class Ccg2Drs(Sentence):
             self.final_prod.rename_vars(rs)
             vx = set(filter(lambda x: not x.isconst, self.final_prod.variables))
 
-        # Attempt to order by first occurence
-        v = []
-        for t in self.lexemes:
-            if t.drs:
-                v.extend(t.drs.universe)
+        if use_word_idx:
+            vm = {}
+            idunused = len(self.lexemes)
+            for lx in self.lexemes:
+                if 0 != (lx.mask & (RT_EVENT|RT_ANAPHORA|RT_ENTITY|RT_PROPERNAME)) and lx.refs[0] not in vm:
+                    vm[lx.refs[0]] = lx.idx
+            for lx in self.lexemes:
+                if len(lx.refs) != 0 and lx.refs[0] not in vm:
+                    vm[lx.refs[0]] = lx.idx
+            for lx in self.lexemes:
+                for r in lx.refs:
+                    if r not in vm:
+                        vm[r] = idunused
+                        idunused += 1
+            rs = []
+            for r, i in vm.iteritems():
+                if i < len(self.lexemes) and 0 != (self.lexemes[i].mask & RT_EVENT):
+                    # ensure events are prefixed 'E'
+                    rs.append((r, DRSRef(DRSVar('E', i+1))))
+                else:
+                    rs.append((r, DRSRef(DRSVar('X', i+1))))
+        else:
+            # Attempt to order by first occurence
+            v = []
+            for t in self.lexemes:
+                if t.drs:
+                    v.extend(t.drs.universe)
 
-        v = remove_dups(v)
-        if len(vx) != len(v):
-            f = set(vx).difference(v)
-            v.extend(f)
+            v = remove_dups(v)
+            if len(vx) != len(v):
+                f = set(vx).difference(v)
+                v.extend(f)
 
-        # Map variables to type
-        vtype = dict(map(lambda y: (y.refs[0], y.mask), filter(lambda x: x.drs and len(x.drs.universe) != 0, self.lexemes)))
+            # Map variables to type
+            vtype = dict(map(lambda y: (y.refs[0], y.mask), filter(lambda x: x.drs and len(x.drs.universe) != 0, self.lexemes)))
 
-        # Move names to 1:...
-        idx = [i+1 for i in range(len(v))]
-        #rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
-        rs = []
-        for u, i in zip(v, idx):
-            mask = vtype.setdefault(u, 0)
-            if 0 != (mask & RT_EVENT):
-                # ensure events are prefixed 'E'
-                rs.append((u, DRSRef(DRSVar('E', i))))
-            else:
-                rs.append((u, DRSRef(DRSVar('X', i))))
+            # Move names to 1:...
+            idx = [i+1 for i in range(len(v))]
+            #rs = map(lambda x: (x[0], DRSRef(DRSVar(x[0].var.name, x[1]))), zip(v, idx))
+            rs = []
+            for u, i in zip(v, idx):
+                mask = vtype.setdefault(u, 0)
+                if 0 != (mask & RT_EVENT):
+                    # ensure events are prefixed 'E'
+                    rs.append((u, DRSRef(DRSVar('E', i))))
+                else:
+                    rs.append((u, DRSRef(DRSVar('X', i))))
 
         self.final_prod.rename_vars(rs)
         self.xid = self.limit

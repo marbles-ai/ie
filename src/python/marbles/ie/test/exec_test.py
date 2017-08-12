@@ -675,3 +675,79 @@ class ExecTest(unittest.TestCase):
         ]
         self.assertListEqual(expected, actual)
 
+    def test6_wsj0051_13(self):
+        txt = r'''
+(<T S[dcl] 0 2> 
+  (<T S[dcl] 1 2> 
+    (<T NP 1 2> 
+      (<L NP[nb]/N DT DT The NP[nb]_273/N_273>) 
+      (<L N NNS NNS bids N>) 
+    ) 
+    (<T S[dcl]\NP 1 2> 
+      (<T (S\NP)/(S\NP) 1 2> 
+        (<L , , , , ,>) 
+        (<T (S\NP)/(S\NP) 0 2> 
+          (<T S[dcl]/S[dcl] 1 2> 
+            (<T S/(S\NP) 0 1> 
+              (<L NP PRP PRP he NP>) 
+            ) 
+            (<L (S[dcl]\NP)/S[dcl] VBD VBD added (S[dcl]\NP_242)/S[dcl]_243>) 
+          ) 
+          (<L , , , , ,>) 
+        ) 
+      ) 
+      (<T S[dcl]\NP 0 2> 
+        (<L (S[dcl]\NP)/(S[adj]\NP) VBD VBD were (S[dcl]\NP_211)/(S[adj]_212\NP_211:B)_212>) 
+        (<T S[adj]\NP 0 2> 
+          (<L (S[adj]\NP)/PP JJ JJ contrary (S[adj]\NP_219)/PP_220>) 
+          (<T PP 0 2> 
+            (<L PP/NP TO TO to PP/NP_225>) 
+            (<T NP 0 1> 
+              (<T N 1 2> 
+                (<L N/N JJ JJ common N_234/N_234>) 
+                (<L N NN NN sense N>) 
+              ) 
+            ) 
+          ) 
+        ) 
+      ) 
+    ) 
+  ) 
+  (<L . . . . .>) 
+) 
+'''
+        pt = parse_ccg_derivation(txt)
+        ccg = Ccg2Drs()
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(the, NP[nb]/N, DT)',
+            '<PushOp>:(bids, N, NNS)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(,, ,, ,)',
+            '<PushOp>:(he, NP, PRP)',
+            '<ExecOp>:(1, TR S/(S\\NP))',
+            '<PushOp>:(add, (S[dcl]\\NP)/S[dcl], VBD)',
+            '<ExecOp>:(2, FC S[dcl]/S[dcl])',
+            '<PushOp>:(,, ,, ,)',
+            '<ExecOp>:(2, L_UNARY_TC (S\\NP)/(S\\NP))',
+            '<ExecOp>:(2, RP (S\\NP)/(S\\NP))',
+            '<PushOp>:(be, (S[dcl]\\NP)/(S[adj]\\NP), VBD)',
+            '<PushOp>:(contrary, (S[adj]\\NP)/PP, JJ)',
+            '<PushOp>:(to, PP/NP, TO)',
+            '<PushOp>:(common, N/N, JJ)',
+            '<PushOp>:(sense, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA PP)',
+            '<ExecOp>:(2, FA S[adj]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
+        ]
+        self.assertListEqual(expected, actual)
+
+
