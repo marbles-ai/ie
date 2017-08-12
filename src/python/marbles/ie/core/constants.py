@@ -62,7 +62,8 @@ CO_FAST_RENAME = 0x0080
 CO_NO_WIKI_SEARCH = 0x0100
 ## Discard constituents with adjuncts
 CO_DISCARD_ADJUCT_CONSTITUENTS = 0x0400
-
+## Variables indexes based on word position
+CO_VARNAMES_MATCH_WORD_INDEX = 0x8000
 ## @}
 
 
