@@ -746,6 +746,9 @@ class GoldConstituentTest(unittest.TestCase):
         dprint('\n'.join(a))
         self.assertListEqual(x, a)
 
+    def test2_GOLD_Wsj_0056_1(self):
+        # RAW 1043
+        txt = '''(<L PP IN IN @ PP>)'''
 
 
 if __name__ == '__main__':
