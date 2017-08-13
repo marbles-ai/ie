@@ -501,6 +501,7 @@ class Lexeme(AbstractLexeme):
         # since template DRSRefs are global and we never want to modify these.
 
         if template is None:
+            assert not self.category.isfunctor
             # Simple type
             # Handle prepositions
             if self.category in [CAT_CONJ, CAT_NPthr]:
