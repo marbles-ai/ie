@@ -2824,3 +2824,4 @@ S[wq]\S
 (S\NP)/S[to]
 (NP\NP)/NP[conj]
 (S\NP)\((S\NP)/S)
+((N\N)/(S[to]\NP))\((NP\NP)/NP)
