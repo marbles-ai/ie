@@ -13,6 +13,7 @@ from marbles.ie.drt.common import DRSVar, DRSConst
 from marbles.ie.drt.drs import DRSRef
 from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, PropProduction
 from marbles.ie.utils.cache import Cache
+from marbles.ie.core.constants import __X__, __E__
 
 _logger = logging.getLogger()
 
@@ -175,10 +176,10 @@ class FunctorTemplate(object):
                 if key is None or not gen.istagged(key):
                     acln = a.clean(True)
                     # Use DRSConst because we never want to modify template refs.
-                    if (acln == CAT_Sany and acln != CAT_Sadj) or acln.signature[0] == 'Z':
-                        r = DRSRef(DRSConst('E', gen.next_ei()))
+                    if acln == CAT_Sany and acln != CAT_Sadj:
+                        r = DRSRef(DRSConst(__E__, gen.next_ei()))
                     else:
-                        r = DRSRef(DRSConst('X', gen.next_xi()))
+                        r = DRSRef(DRSConst(__X__, gen.next_xi()))
                     if key is not None:
                         gen.tag(key, r)
                 else:
@@ -199,9 +200,9 @@ class FunctorTemplate(object):
 
         if key is None or not gen.istagged(key):
             if acln == CAT_Sany and acln != CAT_Sadj:
-                r = DRSRef(DRSConst('E', gen.next_ei()))
+                r = DRSRef(DRSConst(__E__, gen.next_ei()))
             else:
-                r = DRSRef(DRSConst('X', gen.next_xi()))
+                r = DRSRef(DRSConst(__X__, gen.next_xi()))
             if key is not None:
                 gen.tag(key, r)
         else:
@@ -366,7 +367,7 @@ class Model(object):
         """
         with open(filepath, 'rb') as fd:
             templates = fd.readlines()
-        dict = {}
+        dt = {}
         for line in templates:
             ln = line.strip()
             if len(ln) == 0 or ln[0] == '#':
@@ -374,15 +375,15 @@ class Model(object):
             predarg = ln.split(',')
             if len(predarg) == 1:
                 key, templ = cls.build_template(predarg[0])
-                dict[key] = templ
+                dt[key] = templ
             elif len(predarg) == 2:
                 key, templ = cls.build_template(predarg[0].strip(), final_atom=predarg[1].strip())
-                dict[key] = templ
+                dt[key] = templ
             else:
                 # Ignore this
                 print('Warning: ignoring badly formatted functor template \"%s\"' % ln)
         cache = Cache()
-        cache.initialize(dict.iteritems())
+        cache.initialize(dt.iteritems())
         return cache
 
     def save_templates(self, filepath):
