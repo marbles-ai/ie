@@ -6,6 +6,7 @@ import unittest
 
 from marbles import future_string
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
+from marbles.ie.ccg import get_rule, Category, RL_RPASS
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 from marbles.ie.semantics.ccg import Ccg2Drs
@@ -675,7 +676,7 @@ class ExecTest(unittest.TestCase):
         ]
         self.assertListEqual(expected, actual)
 
-    def test6_wsj0051_13(self):
+    def test6_Wsj0051_13(self):
         txt = r'''
 (<T S[dcl] 0 2> 
   (<T S[dcl] 1 2> 
@@ -750,4 +751,117 @@ class ExecTest(unittest.TestCase):
         ]
         self.assertListEqual(expected, actual)
 
-
+    def test7_Wsj0051_30(self):
+        txt = r'''
+(<T S[dcl] 0 2> 
+  (<T S[dcl] 1 2> 
+    (<T NP 0 1> 
+      (<T N 1 2> 
+        (<L N NNP NNP Fujitsu N>) 
+        (<T N[conj] 1 2> 
+          (<L conj CC CC and conj>) 
+          (<L N NNP NNP NEC N>) 
+        ) 
+      ) 
+    ) 
+    (<T S[dcl]\NP 0 2> 
+      (<L (S[dcl]\NP)/S[dcl] VBD VBD said (S[dcl]\NP_146)/S[dcl]_147>) 
+      (<T S[dcl] 0 2> 
+        (<T S[dcl] 1 2> 
+          (<L NP PRP PRP they NP>) 
+          (<T S[dcl]\NP 0 2> 
+            (<T (S[dcl]\NP)/(S[ng]\NP) 0 2> 
+              (<L (S[dcl]\NP)/(S[ng]\NP) VBD VBD were (S[dcl]\NP_156)/(S[ng]_157\NP_156:B)_157>) 
+              (<L (S\NP)\(S\NP) RB RB still (S_169\NP_164)_169\(S_169\NP_164)_169>) 
+            ) 
+            (<L S[ng]\NP VBG VBG investigating S[ng]\NP_174>) 
+          ) 
+        ) 
+        (<T S[dcl][conj] 1 2> 
+          (<L , , , , ,>) 
+          (<T S[dcl][conj] 1 2> 
+            (<L conj CC CC and conj>) 
+            (<T S[em] 0 2> 
+              (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]_181>) 
+              (<T S[dcl] 1 2> 
+                (<T NP 0 2> 
+                  (<T NP 0 1> 
+                    (<L N NN NN knowledge N>) 
+                  ) 
+                  (<T NP\NP 0 2> 
+                    (<L (NP\NP)/NP IN IN of (NP_207\NP_207)/NP_208>) 
+                    (<T NP 0 1> 
+                      (<T N 1 2> 
+                        (<L N/N JJR JJR more N_224/N_224>) 
+                        (<T N 1 2> 
+                          (<L N/N JJ JJ such N_217/N_217>) 
+                          (<L N NNS NNS bids N>) 
+                        ) 
+                      ) 
+                    ) 
+                  ) 
+                ) 
+                (<T S[dcl]\NP 0 2> 
+                  (<L (S[dcl]\NP)/(S[b]\NP) MD MD could (S[dcl]\NP_190)/(S[b]_191\NP_190:B)_191>) 
+                  (<L S[b]\NP VB VB emerge S[b]\NP_196>) 
+                ) 
+              ) 
+            ) 
+          ) 
+        ) 
+      ) 
+    ) 
+  ) 
+  (<L . . . . .>)
+) 
+'''
+        pt = parse_ccg_derivation(txt)
+        ccg = Ccg2Drs()
+        rule = get_rule(Category.from_cache('conj'), Category.from_cache('S[em]'), Category.from_cache('S[dcl][conj]'))
+        self.assertEqual(rule, RL_RPASS)
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(Fujitsu, N, NNP)',
+            '<PushOp>:(and, conj, CC)',
+            '<PushOp>:(NEC, N, NNP)',
+            '<ExecOp>:(2, RP N[conj])',
+            '<ExecOp>:(2, RCONJ N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(say, (S[dcl]\\NP)/S[dcl], VBD)',
+            '<PushOp>:(they, NP, PRP)',
+            '<PushOp>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBD)',
+            '<PushOp>:(still, (S\\NP)\\(S\\NP), RB)',
+            '<ExecOp>:(2, BX (S[dcl]\\NP)/(S[ng]\\NP))',
+            '<PushOp>:(investigate, S[ng]\\NP, VBG)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(,, ,, ,)',
+            '<PushOp>:(and, conj, CC)',
+            '<PushOp>:(that, S[em]/S[dcl], IN)',
+            '<PushOp>:(knowledge, N, NN)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
+            '<PushOp>:(more, N/N, JJR)',
+            '<PushOp>:(such, N/N, JJ)',
+            '<PushOp>:(bids, N, NNS)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<PushOp>:(could, (S\\NP)/(S\\NP), MD)',
+            '<PushOp>:(emerge, S[b]\\NP, VB)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<ExecOp>:(2, FA S[em])',
+            '<ExecOp>:(2, RP S[dcl][conj])',
+            '<ExecOp>:(2, RP S[dcl][conj])',
+            '<ExecOp>:(2, RCONJ S[dcl])',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])'
+        ]
+        self.assertListEqual(expected, actual)

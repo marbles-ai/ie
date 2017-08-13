@@ -6,9 +6,13 @@ import os
 import re
 
 import datapath
+import logging
 from marbles import safe_utf8_encode, safe_utf8_decode, future_string
 from marbles.ie.utils.cache import Cache, Freezable
 from marbles.ie.utils.vmap import Dispatchable
+
+_logger = logging.getLogger(__name__)
+
 
 ISCONJMASK   = 0x00000001
 FEATURE_CONJ = 0x00000002
@@ -347,8 +351,6 @@ class Category(Freezable):
         try:
             return cls._cache[signature]
         except KeyError:
-            if signature in ['S[em]', 'S[dcl]']:
-                pass
             cat = Category(signature)
             retcat = cat
             # Add to list to avoid initialize_ops_cache() calling from_cache() and getting another KeyError.
@@ -926,17 +928,17 @@ class Category(Freezable):
             return True
         if self.remove_features() in [CAT_PP, CAT_NP, CAT_N] and other.remove_features() in [CAT_PP, CAT_NP, CAT_N]:
             return True
-        s1 = self.remove_conj_feature().signature
-        s2 = other.remove_conj_feature().signature
-        if s1 == s2 or (s1[0] == 'N' and s2[0] == 'N'):
+        s1 = self.remove_conj_feature()
+        s2 = other.remove_conj_feature()
+        if s1 == s2 or (s1.signature[0] == 'N' and s2.signature[0] == 'N'):
             return True
-        if s1[0] == 'S' and s2[0] == 'S':
-            return (len(s1) == 1 or len(s2) == 1) \
-                   or (self == CAT_Sto and other == CAT_Sb) \
-                   or (self == CAT_Sb and other == CAT_Sto) \
-                   or (self == CAT_Sdcl and other == CAT_Sem) \
-                   or (self == CAT_Sem and other == CAT_Sdcl) \
-                   or self == CAT_SX or other == CAT_SX
+        if s1.signature[0] == 'S' and s2.signature[0] == 'S':
+            return (len(s1.signature) == 1 or len(s2.signature) == 1) \
+                   or (s1 == CAT_Sto and s2 == CAT_Sb) \
+                   or (s1 == CAT_Sb and s2 == CAT_Sto) \
+                   or (s1 == CAT_Sdcl and s2 == CAT_Sem) \
+                   or (s1 == CAT_Sem and s2 == CAT_Sdcl) \
+                   or s1 == CAT_SX or s2 == CAT_SX
         return False
 
     def can_unify(self, other):
@@ -1087,13 +1089,15 @@ try:
     # Need these for finalize_cache()
     CAT_PP = Category.from_cache('PP')
     CAT_NP = Category.from_cache('NP')
+    CAT_N = Category.from_cache('N')
     CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
     CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
     Category.finalize_cache()
 except Exception as e:
-    # TODO: log warning
+    _logger.exception('Exception caught', exc_info=e)
     CAT_PP = Category.from_cache('PP')
     CAT_NP = Category.from_cache('NP')
+    CAT_N = Category.from_cache('N')
     CAT_POSSESSIVE_ARGUMENT = Category.from_cache(r'(NP/(N/PP))\NP')
     CAT_POSSESSIVE_PRONOUN = Category.from_cache('NP/(N/PP)')
 
@@ -1108,7 +1112,6 @@ CAT_LQU = Category.from_cache('LQU')
 CAT_RQU = Category.from_cache('RQU')
 CAT_LRB = Category.from_cache('LRB')
 CAT_RRB = Category.from_cache('RRB')
-CAT_N = Category.from_cache('N')
 CAT_NPthr = Category.from_cache('NP[thr]')
 CAT_NPexpl = Category.from_cache('NP[expl]')
 CAT_PR = Category.from_cache('PR')
