@@ -736,6 +736,12 @@ class GoldConstituentTest(unittest.TestCase):
         sent = ccg.get_verbnet_sentence()
         a = get_constituents_string_list(sent)
         x = [
+            'NP(The #bids)',
+            'ADVP(he #added)',
+            'VP(#were)',
+            'ADJP(#contrary to common sense)',
+            'PP(#to)',
+            'NP(common #sense)'
         ]
         dprint('\n'.join(a))
         self.assertListEqual(x, a)
