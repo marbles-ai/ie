@@ -344,8 +344,6 @@ class Ccg2Drs(Sentence):
     def _can_use_conjoin_rules(self, op):
         global POS_NOUN_CHECK1, POS_NOUN_CHECK2
 
-        if not isinstance(op.sub_ops[0], PushOp):
-            pass
         # First check dependency tree
         assert isinstance(op.sub_ops[0], PushOp)
         lx = op.sub_ops[0].lexeme
@@ -537,7 +535,7 @@ class Ccg2Drs(Sentence):
     @dispatchmethod(dispatchmap, RL_BS, RL_BXS)
     def _dispatch_bs(self, op, stk):
         # CALL[(X\Y)|Z](Y|Z)
-        # Backward Substitution             Y\Z:g (X\Y)\Z:g => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
+        # Backward Substitution             Y\Z:g (X\Y)\Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         # Backward Crossing Substitution    Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         f = stk.pop()   # arg1
         g = stk.pop()   # arg0
@@ -784,7 +782,12 @@ class Ccg2Drs(Sentence):
         if not self.exeque[-1].category.isatom:
             # Sentence finished with S\NP, for example "Welcome to our house".
             if self.exeque[-1].category.simplify() == CAT_S_NP:
-                self.constituents.append(Constituent(Span(self, [x.idx for x in filter(lambda x: not x.ispunct, self.lexemes)]), ct.CONSTITUENT_S))
+                self.constituents.append(Constituent(Span(self, [x.idx for x in filter(lambda x: not x.ispunct, self.lexemes)]), ct.CONSTITUENT_SINF))
+        elif len(self.constituents) == 0:
+            # Don't wan't empty
+            self.constituents.append(Constituent(self.get_span(), ct.CONSTITUENT_S))
+            self.constituents[0].chead = 0
+            return
         constituents = sorted(self.constituents)
 
         # Merge adjacent adjuncts
@@ -1107,8 +1110,6 @@ class Ccg2Drs(Sentence):
                     # Check possessives - constituents should be well-formed here so functor phrases map
                     # to a single constituent.
                     cs = r2c[self.lexemes[lx.idx+2].refs[0]]
-                    if len(cs) != 1:
-                        pass
                     assert len(cs) == 1
                     # TODO: Not sure we need this here, see to-do help in loop below this one
                     cnpR = Constituent(cs[0].span.subspan(~RT_EMPTY_DRS), cs[0].vntype)
@@ -1225,10 +1226,10 @@ class Ccg2Drs(Sentence):
                 # ExecOp dispatch based on rule
                 self._dispatch(op, stk)
 
-            if not (stk[-1].verify() and stk[-1].category.can_unify(op.category)):
-                stk[-1].verify()
-                stk[-1].category.can_unify(op.category)
-                pass
+            #if not (stk[-1].verify() and stk[-1].category.can_unify(op.category)):
+            #    stk[-1].verify()
+            #    stk[-1].category.can_unify(op.category)
+            #    pass
             assert stk[-1].verify() and stk[-1].category.can_unify(op.category)
             assert op.category.get_scope_count() == stk[-1].get_scope_count(), "result-category=%s, prod=%s" % \
                                                                                (op.category, stk[-1])
@@ -1605,8 +1606,6 @@ class Ccg2Drs(Sentence):
         Returns:
             A renamed DrsProduction instance.
         """
-        if len(filter(lambda x: x.isconst, d.variables)) != 0:
-            pass
         assert len(filter(lambda x: x.isconst, d.variables)) == 0
         v = set(filter(lambda x: not x.isconst, d.variables))
         xlimit = 0
