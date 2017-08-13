@@ -1099,21 +1099,22 @@ class FunctorProduction(AbstractProduction):
             self is a template. The inner DrsProduction will be discarded.
         """
         self.make_vars_disjoint(np)
-        slr = self.inner_scope._comp.lambda_refs
-        assert isinstance(np, DrsProduction)
-        lr = np.lambda_refs
-        if len(lr) == 0:
-            lr = np.universe
-            np.set_lambda_refs(lr)
-        if len(lr) != len(slr):
-            if len(slr) != 1:
-                raise DrsComposeError('mismatch of lambda vars when doing special type change')
-            # Add proposition
-            p = PropProduction(category=np.category, referent=slr[0])
-            np = p.apply(np)
+        assert len(np.lambda_refs) != 0
+        if not isinstance(np, DrsProduction):
+            slr = self.lambda_refs
+            if len(np.lambda_refs) == 1:
+                np = np.pop()
+                lr = np.lambda_refs
+            else:
+                lr = np.lambda_refs
+                np = np.pop()
         else:
-            rs = zip(slr, lr)
-            self.rename_vars(rs)
+            slr = self.inner_scope._comp.lambda_refs
+            lr = np.lambda_refs
+        if len(lr) != len(slr) and len(lr) != 1:
+            raise DrsComposeError('mismatch of lambda vars when doing special type change')
+        rs = zip(slr, lr)
+        self.rename_vars(rs)
 
         x = self.pop() # discard inner DrsProduction
         np.set_category(x.category)
