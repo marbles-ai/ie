@@ -228,8 +228,6 @@ class AbstractProduction(object):
                 if other is not None:
                     assert 0 == len(set(vs).intersection(map(lambda x: x[0], xrs)))
                     ovs = other.get_raw_variables()
-                    if 0 == len(set(ovs).intersection(map(lambda x: x[0], xrs))):
-                        pass
                     assert 0 != len(set(ovs).intersection(map(lambda x: x[0], xrs)))
             else:
                 xrs = None
@@ -365,8 +363,6 @@ class DrsProduction(AbstractProduction):
 
     def verify(self):
         """Test helper."""
-        if len(self.lambda_refs) != 1 or not self.category.isatom:
-            pass
         return len(self.lambda_refs) == 1 and self.category.isatom
 
     def rename_vars(self, rs, other=None):
@@ -1360,35 +1356,36 @@ class FunctorProduction(AbstractProduction):
         else:
             g.make_vars_disjoint(self.outer_scope)
 
-        # Get scopes before we modify f and g
-        fv = self.category.argument_category().extract_unify_atoms(False)
+        # Get unification atoms from f and g
         gv = g.category.result_category().extract_unify_atoms(False)
+        fv = self.category.result_category().argument_category().extract_unify_atoms(False)
+        assert len(fv) == len(gv)
 
         # Get lambdas
         gc = g.pop()
+        assert gc is not None
         zg = g.pop()
         if zg is None:
             # Y is an atom (i.e. Y=gc) and functor scope is exhausted
             assert g.category.result_category().isatom
             zg = g
+            glr = gc.lambda_refs
+        else:
+            # Get Y unification lambdas
+            g.push(gc)
+            glr = g.get_unify_scopes(False)
+            g.pop()
         zg._category = cat
-
-        # Get Y unification lambdas
-        g.push(gc)
-        glr = g.get_unify_scopes(False)
-        g.pop()
-        assert gc is not None
 
         fc = self.pop()
         assert fc is not None
         zf = self.pop()
         assert zf is not None
         self.push(fc)
-        yflr = self.inner_scope.get_unify_scopes(False)
+        yflr = self.inner_scope.get_unify_scopes(True)[0]
         assert len(yflr) == len(glr)
 
         # Get Y unification scope
-        assert len(fv) == len(gv)
         assert len(fv) == len(yflr)
         uy = map(lambda x: (x[2], x[3]), filter(lambda x: x[0].can_unify_atom(x[1]),
                                                 zip(gv, fv, yflr, glr)))
@@ -1411,7 +1408,7 @@ class FunctorProduction(AbstractProduction):
         yf = self.pop()
         if yf is None:
             # X is atomic
-            assert self.category.result_category().isatom
+            assert cat.result_category().isatom
             zg.rename_vars(uy)  # unify
             return zg
         self.push(zg)
