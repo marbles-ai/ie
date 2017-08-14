@@ -14,12 +14,12 @@ sys.path.insert(0, pypath)
 
 from marbles.ie import grpc
 from marbles import safe_utf8_encode
-from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation
+from marbles.ie.semantics.ccg import process_ccg_pt, pt_to_ccg_derivation, _UNDEFINED_UNARY
 from marbles.ie.core.constants import *
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
 from marbles.ie.drt.common import SHOW_LINEAR
 from marbles.ie.utils.text import preprocess_sentence
-
+from marbles.ie.core.exception import UnaryRuleError
 
 def die(s):
     print('Error: %s' %s)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
         # These allow us to start from a section 00-24 and line number in raw file.
         start_section = 0
-        start_line = 987
+        start_line = 897  # 1271
 
         for fname in dirlist[start_section:]:
             ldcfile = os.path.join(rawpath, fname)
@@ -85,17 +85,18 @@ if __name__ == '__main__':
 
             out_file = None
             lnout = []
+            total_err = 0
             for ln, mm, idx in zip(lines[start_line:], mapping[start_line:], range(start_line, len(lines))):
-                start_line = 0
-                out_file = None
                 mm = mm.strip()
                 fm = mm.split('.')[0] + '.auto'
                 wsj_file = os.path.join(projdir, 'data', 'ldc', 'ccgbank_1_1', 'data', 'AUTO', section, fm)
                 if wsj_file != lastwsj_file:
                     lastwsj_file = wsj_file
                     wsjd = {}
-                    do_print(out_file, lnout)
-                    out_file = mm.split('.')[0] + '.txt'
+                    if total_err != 0:
+                        do_print(out_file, lnout)
+                    total_err = 0
+                    out_file = os.path.join(projdir, 'data', 'ldc', 'compare', section, mm.split('.')[0] + '.txt')
                     with open(wsj_file, 'r') as fd:
                         derivations = fd.readlines()
                     for k, v in zip(derivations[0::2],derivations[1::2]):
@@ -104,13 +105,15 @@ if __name__ == '__main__':
                         key = k[3:].split(' ')[0]
                         wsjd[key] = v
 
-                lc = len(lnout)
                 lnout.append('-------')
                 lnout.append('ID=%s' % mm)
                 lnout.append('RAW_LN=%d' % idx)
+                lc = len(lnout)
+                lnout.append(ln.strip())
 
                 if mm not in wsjd:
                     lnout.append('ERR: cannot find mapping to %s' % mm)
+                    total_err += 1
                     continue
                 gold_derivation = wsjd[mm]
 
@@ -130,8 +133,14 @@ if __name__ == '__main__':
 
                     gpt = parse_ccg_derivation(gold_derivation)
                     gold_sentence = process_ccg_pt(gpt, options)
+                except UnaryRuleError as e:
+                    lnout.append('ERR: %s' % e)
+                    total_err += 1
+                    continue
                 except Exception as e:
                     lnout.append('ERR: %s' % e)
+                    total_err += 1
+                    do_print(out_file, lnout)
                     raise
                     continue
 
@@ -140,7 +149,6 @@ if __name__ == '__main__':
                     lnout.append('ERR: sentence len mismatch for %s' % mm)
                     continue
 
-                lnout.append(ln.strip())
                 lnout.append('GOLD: %s' % gold_sentence.get_drs().show(SHOW_LINEAR))
                 if n_sentence is not None:
                     lnout.append('NCCG: %s' % n_sentence.get_drs().show(SHOW_LINEAR))
@@ -183,13 +191,23 @@ if __name__ == '__main__':
                                 lnout.append('    Easysrl   %s' % te)
                                 errcount += 1
                 # Only want to see errors
+                total_err += errcount
                 if errcount == 0:
                     lnout = lnout[0:lc]
-            do_print(out_file, lnout)
+            if total_err != 0:
+                do_print(out_file, lnout)
             out_file = None
+            start_line = 0
+            total_err = 0
 
     finally:
         if estub is not None:
             esvc.shutdown()
         if nstub is not None:
             nsvc.shutdown()
+
+    if len(_UNDEFINED_UNARY) != 0:
+        print('-----------------------------------------')
+        print('The following unary rules were undefined.')
+        for rule in _UNDEFINED_UNARY:
+            print("  (r'%s', r'%s')" % rule)
