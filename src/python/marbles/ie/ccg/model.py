@@ -15,7 +15,7 @@ from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, PropP
 from marbles.ie.utils.cache import Cache
 from marbles.ie.core.constants import __X__, __E__
 
-_logger = logging.getLogger()
+_logger = logging.getLogger(__name__)
 
 
 class FunctorTemplateGeneration(object):
@@ -482,14 +482,13 @@ class Model(object):
             return rule
         return None
 
-    def infer_unary(self, category):
+    def infer_unary(self, result, argument):
         """Attempt to build a unary modifier from existing templates if possible."""
-        if category.ismodifier:
-            template = self.lookup(category.result_category())
+        if result == argument:
+            template = self.lookup(argument)
             if template is not None:
                 taggedcat = template.predarg_category.complete_tags()
-                return self.add_unary_rule(Category.combine(taggedcat, category.slash, taggedcat, False),
-                                           taggedcat)
+                return self.add_unary_rule(Category.combine(taggedcat, '\\', taggedcat, False), taggedcat)
         return None
 
     def infer_template(self, category):
@@ -663,7 +662,7 @@ try:
     _rcache.addinit(Model.build_unary_rule(r'S[X]_1060\S[X]_1060', r'S[X]_1060'))
     _rcache.addinit(Model.build_unary_rule(r'S[dcl]_1061\S[dcl]_1061', r'S_1061'))
     _rcache.addinit(Model.build_unary_rule(r'S[X]_1062\S[X]_1062', r'S_1062'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1\NP_2063)/(S_1\NP_2063)', r'S[dcl]_1063/S[dcl]_1063'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1063\NP_2063)/(S_1063\NP_2063)', r'S[dcl]_1063/S[dcl]_1063'))
     _rcache.addinit(Model.build_unary_rule(r'S_1064\S_1064', 'S_1064'))
     _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1065\NP_2065)/NP_3065)\((S[dcl]_1065\NP_2065)/NP_3065)', r'(S_1065\NP_2065)/NP_3065'))
     _rcache.addinit(Model.build_unary_rule(r'((S[b]_1066\NP_2066)/NP_3066)\((S[b]_1066\NP_2066)/NP_3066)', r'(S_1066\NP_2066)/NP_3066'))
@@ -707,6 +706,21 @@ try:
 
     # Neuralccg needs these
     _rcache.addinit(Model.build_unary_rule(r'NP_1205\NP_1205', r'S[X]_2205/NP_1205'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1205\NP_1205', r'S[X]_2205/NP_1205'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1206/S_1206', r'S[X]_1206\S[X]_1206'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1207\NP_2207)\(S_1207\NP_2207)', r'S[dcl]_1207/S[dcl]_1207'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1208\S_1208', r'S[dcl]_1208/S[dcl]_1208'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1209\NP_2209)\(S_1209\NP_2209)', r'S[dcl]_1209'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1210\S_1210', r'S[dcl]_1210'))
+    _rcache.addinit(Model.build_unary_rule(r'NP[conj]_1211', r'NP_1211\NP_1211'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1212/S_2212)\(S_1212/S_2212)', r'S[dcl]_1212'))
+    _rcache.addinit(Model.build_unary_rule(r'(NP_1213\NP_2213)\(NP_1213\NP_2213)', r'S[b]_1213\NP_2213'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1214\S_2214', r'NP_1214'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1214/S_2214', r'NP_1214'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1215/S_2215', r'S[dcl]_1215'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1216\NP_2216', r'S[dcl]_1216/S[dcl]_2216'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1217\NP_2217', r'S[ng]_1217'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1218\NP_2218)/(S_1218\NP_2218)', r'S[dcl]_1218\S[dcl]_1218'))
 
 
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
@@ -721,7 +735,7 @@ try:
     UCONJ = Model(templates=Cache(), unary_rules=_rcache)
 
 except Exception as e:
-    print(e)
+    _logger.exception('Exception caught', exc_info=e)
     # Allow module to load else we cannot create the dat file.
     MODEL = Model()
     UCONJ = Model()
