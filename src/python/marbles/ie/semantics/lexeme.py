@@ -497,11 +497,12 @@ class Lexeme(AbstractLexeme):
         # Ensure we only have one instance for each referent name. FunctorTemplate's guarantee
         # this. This allows fast renaming by changing the DRSVar embedded in the DRSRef.
         #
-        # To take advantage of fast renaming we need to do one rename post functor creation
-        # since template DRSRefs are global and we never want to modify these.
+        # To take advantage of fast renaming we need to do one rename post functor creation.
 
         if template is None:
-            assert not self.category.isfunctor
+            if not (not self.category.isfunctor or self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]):
+                pass
+            assert not self.category.isfunctor or self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]
             # Simple type
             # Handle prepositions
             if self.category in [CAT_CONJ, CAT_NPthr]:
