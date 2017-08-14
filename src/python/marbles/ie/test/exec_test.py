@@ -6,7 +6,7 @@ import unittest
 
 from marbles import future_string
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg import get_rule, Category, RL_RPASS
+from marbles.ie.ccg import get_rule, Category, RL_RPASS, RL_TC_ATOM
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 from marbles.ie.semantics.ccg import Ccg2Drs
@@ -863,5 +863,61 @@ class ExecTest(unittest.TestCase):
             '<ExecOp>:(2, BA S[dcl])',
             '<PushOp>:(., ., .)',
             '<ExecOp>:(2, LP S[dcl])'
+        ]
+        self.assertListEqual(expected, actual)
+
+    def test8_Wsj0004_3(self):
+        txt = r'''
+        (<T S[dcl] 0 2> (<T S[dcl] 1 2> (<T NP 0 1> (<T N 1 2> (<L N/N NN NN Compound N_309/N_309>) 
+        (<L N NNS NNS yields N>) ) ) (<T S[dcl]\NP 0 2> (<L (S[dcl]\NP)/NP VBP VBP assume (S[dcl]\NP_236)/NP_237>) 
+        (<T NP 0 2> (<T NP 0 2> (<T NP 0 1> (<L N NN NN reinvestment N>) ) (<T NP\NP 0 2> 
+        (<L (NP\NP)/NP IN IN of (NP_248\NP_248)/NP_249>) (<T NP 0 1> (<L N NNS NNS dividends N>) ) ) ) (<T NP[conj] 1 2> 
+        (<L conj CC CC and conj>) (<T S[em] 0 2> (<L S[em]/S[dcl] IN IN that S[em]/S[dcl]_257>) (<T S[dcl] 1 2> 
+        (<T NP 1 2> (<L NP[nb]/N DT DT the NP[nb]_297/N_297>) (<T N 1 2> (<L N/N JJ JJ current N_292/N_292>) 
+        (<L N NN NN yield N>) ) ) (<T S[dcl]\NP 0 2> (<L S[dcl]\NP VBZ VBZ continues S[dcl]\NP_262>) 
+        (<T (S\NP)\(S\NP) 0 2> (<L ((S\NP)\(S\NP))/NP IN IN for ((S_275\NP_270)_275\(S_275\NP_270)_275)/NP_276>) 
+        (<T NP 1 2> (<L NP[nb]/N DT DT a NP[nb]_283/N_283>) (<L N NN NN year N>) ) ) ) ) ) ) ) ) ) (<L . . . . .>) ) '''
+        pt = parse_ccg_derivation(txt)
+        ccg = Ccg2Drs()
+        rule = get_rule(Category.from_cache('conj'), Category.from_cache('S[em]'), Category.from_cache('NP[conj]'))
+        self.assertEqual(rule, RL_TC_ATOM)
+        ccg.build_execution_sequence(pt)
+        # Check execution queue
+        actual = [repr(x) for x in ccg.exeque]
+        expected = [
+            '<PushOp>:(compound, N/N, NN)',
+            '<PushOp>:(yields, N, NNS)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(assume, (S[dcl]\\NP)/NP, VBP)',
+            '<PushOp>:(reinvestment, N, NN)',
+            '<ExecOp>:(1, LP NP)',
+            '<PushOp>:(of, (NP\\NP)/NP, IN)',
+            '<PushOp>:(dividends, N, NNS)',
+            '<ExecOp>:(1, LP NP)',
+            '<ExecOp>:(2, FA NP\\NP)',
+            '<ExecOp>:(2, BA NP)',
+            '<PushOp>:(and, conj, CC)',
+            '<PushOp>:(that, S[em]/S[dcl], IN)',
+            '<PushOp>:(the, NP[nb]/N, DT)',
+            '<PushOp>:(current, N/N, JJ)',
+            '<PushOp>:(yield, N, NN)',
+            '<ExecOp>:(2, FA N)',
+            '<ExecOp>:(2, FA NP)',
+            '<PushOp>:(continue, S[dcl]\\NP, VBZ)',
+            '<PushOp>:(for, ((S\\NP)\\(S\\NP))/NP, IN)',
+            '<PushOp>:(a, NP[nb]/N, DT)',
+            '<PushOp>:(year, N, NN)',
+            '<ExecOp>:(2, FA NP)',
+            '<ExecOp>:(2, FA (S\\NP)\\(S\\NP))',
+            '<ExecOp>:(2, BA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<ExecOp>:(2, FA S[em])',
+            '<ExecOp>:(2, ATOM_TC NP[conj])',
+            '<ExecOp>:(2, RCONJ NP)',
+            '<ExecOp>:(2, FA S[dcl]\\NP)',
+            '<ExecOp>:(2, BA S[dcl])',
+            '<PushOp>:(., ., .)',
+            '<ExecOp>:(2, LP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
