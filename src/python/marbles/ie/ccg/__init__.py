@@ -326,7 +326,6 @@ class Category(Freezable):
         return str(self)
 
     def __eq__(self, other):
-        # I have deliberately not used self.isconj in this test.
         if isinstance(other, AbstractCategoryClass):
             return other.ismember(self)
         elif self.isfrozen and other.isfrozen:
@@ -934,8 +933,8 @@ class Category(Freezable):
             return True
         if s1.signature[0] == 'S' and s2.signature[0] == 'S':
             return (len(s1.signature) == 1 or len(s2.signature) == 1) \
-                   or (s1 == CAT_Sto and s2 == CAT_Sb) \
-                   or (s1 == CAT_Sb and s2 == CAT_Sto) \
+                   or (s1 == CAT_Sto and other == CAT_Sb) \
+                   or (s1 == CAT_Sb and other == CAT_Sto) \
                    or (s1 == CAT_Sdcl and s2 == CAT_Sem) \
                    or (s1 == CAT_Sem and s2 == CAT_Sdcl) \
                    or s1 == CAT_SX or s2 == CAT_SX
@@ -1163,6 +1162,12 @@ CAT_AP_PP = Category.from_cache(r'(S[adj]\NP)/PP')
 CAT_MODAL_PAST = Category.from_cache(r'(S[dcl]\NP)/(S[pt]\NP)')
 # If then
 CAT_IF_THEN = Category.from_cache(r'(S/S)/S[dcl]')
+# Extras
+CAT_S_NP_S_NP = Category.from_cache(r'(S\NP)\(S\NP)')
+CAT_S_NPS_NP = Category.from_cache(r'(S\NP)/(S\NP)')
+CAT_Sadj_NP = Category.from_cache(r'S[adj]\NP')
+CAT_S_NP = Category.from_cache(r'S\NP')
+CAT_S_S = Category.from_cache(r'S\S')
 
 FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM
 FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
@@ -1415,11 +1420,6 @@ CAT_Sany_NP = RegexCategoryClass(r'S(?:\[[a-z]+\])?\\NP')
 CAT_Sany_Sany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_SanySany = RegexCategoryClass(r'^S(?:\[[a-z]+\])?\\S(?:\[[a-z]+\])?$')
 CAT_Sany_NP__Sany_NP = RegexCategoryClass(r'^\(S(\[[a-z]+\])?\\NP\)[\\/]\(S(\[[a-z]+\])?\\NP\)$')
-CAT_S_NP_S_NP = Category.from_cache(r'(S\NP)\(S\NP)')
-CAT_S_NPS_NP = Category.from_cache(r'(S\NP)/(S\NP)')
-CAT_Sadj_NP = Category.from_cache(r'S[adj]\NP')
-CAT_S_NP = Category.from_cache(r'S\NP')
-CAT_S_S = Category.from_cache(r'S\S')
 ## @endcond
 
 
@@ -1508,6 +1508,10 @@ def get_rule(left, right, result, exclude=None):
             elif result.ismodifier and result.argument_category().can_unify(right):
                 xupdate(exclude, 0)
                 return RL_TCR_UNARY
+            elif right.isatom and result.isatom:
+                # Simple unary type change
+                xupdate(exclude, 0)
+                return RL_TC_ATOM
             elif result.isconj:
                 # Section 3.7.2 LDC2005T13 manual
                 xupdate(exclude, 0)
