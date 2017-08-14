@@ -13,14 +13,11 @@ from marbles.ie.drt.utils import iterable_type_check, intersect, union, remove_d
 from marbles import safe_utf8_encode, future_string, UNICODE_STRINGS
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Span
+from marbles.ie.core.exception import DrsComposeError
 
 
 _FCHR = u'p'
 
-
-class DrsComposeError(Exception):
-    """AbstractProduction Error."""
-    pass
 
 
 def unify_vars(f, g, rs):
