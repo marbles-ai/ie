@@ -3,7 +3,7 @@ import logging
 import inspect
 import time
 import sys
-from marbles import Properties
+from marbles import Properties, isdebugging
 
 
 class ExceptionRateLimitedLogAdaptor(logging.LoggerAdapter, object):
@@ -78,3 +78,13 @@ def set_log_format(log_handler):
                                   datefmt='%Y-%m-%d %H:%M:%S%z')
     log_handler.setFormatter(formatter)
 
+
+def setup_debug_logging():
+    """Setup logging for scripts and debugging"""
+    # Setup logging
+    root_logger = logging.getLogger('marbles')
+    log_level = logging.DEBUG if isdebugging() else logging.INFO
+    root_logger.setLevel(log_level)
+    console_handler = logging.StreamHandler()
+    set_log_format(console_handler)
+    root_logger.addHandler(console_handler)
