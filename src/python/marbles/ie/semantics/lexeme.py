@@ -15,6 +15,7 @@ from marbles.ie.drt.utils import remove_dups, union, complement, intersect
 from marbles.ie.kb.verbnet import VERBNETDB
 from marbles import safe_utf8_decode, safe_utf8_encode
 from marbles.ie.core.constants import *
+from marbles.ie.core.exception import TemplateRuleError, _UNDEFINED_TEMPLATES
 from marbles.ie.core.sentence import Span, AbstractLexeme
 from marbles.ie.semantics.compose import FunctorProduction, DrsProduction, DrsComposeError, identity_functor
 from marbles.ie.parse import parse_drs
@@ -137,6 +138,8 @@ _WEEKDAYS = {
     'Sun':  'Sunday'
 }
 
+CAT_NPnbN_NP = Category.from_cache(r'(NP[nb]/N)\NP')
+CAT_NPN_NP = Category.from_cache(r'(NP/N)\NP')
 
 ## @ingroup gfn
 def strip_apostrophe_s(word):
@@ -180,8 +183,6 @@ def create_empty_drs_production(category, ref=None, span=None):
     return d
 
 _EventPredicates = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
-_EventPredicatesPss = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
-_ToBePredicates = ('_ARG0', '_ATTRIBUTE', '_ARG2')
 _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
 _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 _Punct= '?.,:;'
@@ -369,12 +370,12 @@ class Lexeme(AbstractLexeme):
             return template
         return None
 
-    def _build_conditions(self, conds, refs, template):
+    def _build_conditions(self, conds, binary, template):
         """Refs are reversed, refs[0] is the functor return value.
 
         Args:
             conds: The existing DRS conditions.
-            refs: The referents, where refs[0] is the functor return value.
+            binary: Binary flag
             template: A FunctorTemplate instance.
 
         Returns:
@@ -419,7 +420,12 @@ class Lexeme(AbstractLexeme):
                 elif self.word == ';':
                     conds.append(Rel('_LINK', [self.refs[0], self.refs[-1]]))
         elif self.pos == POS_PREPOSITION and not self.ispreposition:
-            conds.append(Rel(self.stem, self.refs))
+            if len(self.refs) > 1:
+                conds.append(Rel(self.stem, [self.refs[0], self.refs[-1]]))
+            else:
+                conds.append(Rel(self.stem, self.refs))
+        elif binary:
+            conds.append(Rel(self.stem, [self.refs[0], self.refs[-1]]))
         else:
             conds.append(Rel(self.stem, [self.refs[0]]))
         return conds
@@ -500,9 +506,9 @@ class Lexeme(AbstractLexeme):
         # To take advantage of fast renaming we need to do one rename post functor creation.
 
         if template is None:
-            if not (not self.category.isfunctor or self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]):
-                pass
-            assert not self.category.isfunctor or self.category in [CAT_CONJ_CONJ, CAT_CONJCONJ]
+            if self.category.isfunctor and self.category not in [CAT_CONJ_CONJ, CAT_CONJCONJ]:
+                _UNDEFINED_TEMPLATES.add(self.category)
+                raise TemplateRuleError('missing template for category %s' % self.category)
             # Simple type
             # Handle prepositions
             if self.category in [CAT_CONJ, CAT_NPthr]:
@@ -604,6 +610,8 @@ class Lexeme(AbstractLexeme):
             refs = remove_dups(refs)
             # refs[0] is always final_ref
             self.refs = refs
+            binary = len(refs) > 1 and (self.category in [CAT_NPnbN_NP, CAT_NPN_NP] or \
+                     (self.category.test_returns_entity_modifier() and self.category.argument_category().isatom))
 
             # Verbs can also be adjectives so check event
             isverb = self.isverb
@@ -834,10 +842,10 @@ class Lexeme(AbstractLexeme):
                         self.drs = DRS([], [Rel(self.stem, [refs[0]]), Rel('_MODAL', [refs[0]])])
                         d = DrsProduction([], self.refs, span=span)
                     else:
-                        self.drs = DRS([], self._build_conditions([], refs, template))
+                        self.drs = DRS([], self._build_conditions([], binary, template))
                         d = DrsProduction([], self.refs, span=span)
                 else:
-                    self.drs = DRS(universe, self._build_conditions([], refs, template))
+                    self.drs = DRS(universe, self._build_conditions([], binary, template))
                     d = DrsProduction(universe, freerefs, span=span)
 
             d.set_lambda_refs([final_ref])
