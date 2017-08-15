@@ -16,7 +16,7 @@ from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
 from marbles.ie.core.sentence import Sentence, Span, Constituent
-from marbles.ie.core.exception import UnaryRuleError
+from marbles.ie.core.exception import UnaryRuleError, _UNDEFINED_UNARY
 from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, DRSRelation
 from marbles.ie.drt.utils import remove_dups
@@ -155,20 +155,6 @@ _ATTITUDE = [
     'Frankly', 'honestly', 'I think', 'I suppose', 'after all', 'no doubt', 'I’m afraid', 'actually',
     'as a matter of fact', 'to tell the truth', 'unfortunately'
 ]
-
-# Track missing unary rules
-_UNDEFINED_UNARY = set()
-
-
-def save_undefined_unary_rules(path):
-    """Save missing unary rules to a file."""
-    global _UNDEFINED_UNARY
-    if len(_UNDEFINED_UNARY) == 0:
-        return
-    with open(path, 'w') as fp:
-        for rule in _UNDEFINED_UNARY:
-            fp.write('%s %s\n' % rule)
-
 
 ## @ingroup gfn
 def safe_create_empty_functor(category):
@@ -313,23 +299,22 @@ class Ccg2Drs(Sentence):
         self.final_prod = None
         self.drs_extra = []
         self.conjoins = []
+        self.unary_seen = set()
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, op, stk):
-        global _UNDEFINED_UNARY
         if len(op.sub_ops) == 2:
             assert len(stk) >= 2
             unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
-            if unary is None:
-                unary = MODEL.infer_unary(op.category, op.sub_ops[0].category)
             if unary is None:
                 _UNDEFINED_UNARY.add((op.category, op.sub_ops[0].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
                     unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
-                    unary = MODEL.infer_unary(op.category, op.sub_ops[0].category)
                 raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(op.category, op.sub_ops[0].category))
+
+            self.unary_seen.add(unary.getkey())
             fn = self.rename_vars(unary.get())
             ucat = fn.category
             fn.set_options(self.options)
@@ -346,15 +331,14 @@ class Ccg2Drs(Sentence):
         else:
             unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
             if unary is None:
-                unary = MODEL.infer_unary(op.category, op.sub_ops[0].category)
-            if unary is None:
                 _UNDEFINED_UNARY.add((op.category, op.sub_ops[0].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
                     unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
-                    unary = MODEL.infer_unary(op.category, op.sub_ops[0].category)
                 raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(op.category, op.sub_ops[0].category))
+
+            self.unary_seen.add(unary.getkey())
             fn = self.rename_vars(unary.get())
             ucat = fn.category
             fn.set_options(self.options)
@@ -391,7 +375,7 @@ class Ccg2Drs(Sentence):
         if op.sub_ops[0].category == CAT_CONJ and isinstance(op.sub_ops[0], PushOp) and \
                 op.sub_ops[1].category is not CAT_CONJ_CONJ and self._can_use_conjoin_rules(op):
             # Conj has different unification rules
-            unary = UCONJ.lookup_unary(op.category, op.sub_ops[1].category)
+            unary = UCONJ.lookup_unary(op.category, op.sub_ops[1].category, infer=False)
             op.conjoin = True
         elif op.sub_ops[0].category == CAT_COMMA and isinstance(op.sub_ops[0], PushOp):
             # TODO: Check if this is a conj rule
@@ -400,15 +384,14 @@ class Ccg2Drs(Sentence):
         if unary is None:
             unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
         if unary is None:
-            unary = MODEL.infer_unary(op.category, op.sub_ops[1].category)
-        if unary is None:
             _UNDEFINED_UNARY.add((op.category, op.sub_ops[1].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
                     unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
-                    unary = MODEL.infer_unary(op.category, op.sub_ops[1].category)
                 raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(op.category, op.sub_ops[1].category))
+
+        self.unary_seen.add(unary.getkey())
         fn = self.rename_vars(unary.get())
         ucat = fn.category
         fn.set_options(self.options)
@@ -449,6 +432,7 @@ class Ccg2Drs(Sentence):
         # Special type change rules. See section 3.7-3.8 of LDC 2005T13 manual.
         if len(op.sub_ops) == 2:
             fn = self.rename_vars(safe_create_empty_functor(op.category))
+            self.unary_seen.add(fn.category)
             if op.sub_ops[0].category == CAT_CONJ:
                 vp_or_np = stk.pop()
                 d = stk.pop()
@@ -464,6 +448,7 @@ class Ccg2Drs(Sentence):
             stk.append(nlst.flatten().unify())
         else:
             fn = self.rename_vars(safe_create_empty_functor(op.category))
+            self.unary_seen.add(fn.category)
             vp_or_np = stk.pop()
             stk.append(fn.type_change_np_snp(vp_or_np))
 
@@ -471,13 +456,15 @@ class Ccg2Drs(Sentence):
     def _dispatch_tcatom(self, op, stk):
         # Special rule to change atomic type
         fn = self.rename_vars(identity_functor(Category.combine(op.category, '\\', stk[-1].category)))
+        self.unary_seen.add(fn.category)
         fn.set_options(self.options)
         stk.append(fn)
         self._dispatch_ba(op, stk)  # backward application
         if len(op.sub_ops) == 2:
+            if op.sub_ops[0].category == CAT_CONJ and isinstance(op.sub_ops[0], PushOp):
+                op.conjoin = True
             d2 = stk.pop()
             d1 = stk.pop()
-            assert d1.category == CAT_CONJ
             stk.append(d2)
 
     @dispatchmethod(dispatchmap, RL_TYPE_RAISE)
@@ -1114,6 +1101,9 @@ class Ccg2Drs(Sentence):
                     # Check possessives - constituents should be well-formed here so functor phrases map
                     # to a single constituent.
                     cs = r2c[self.lexemes[lx.idx+2].refs[0]]
+                    # FIXME: LDC RAW 897, AUTO wsj_0048.24
+                    if len(cs) > 1:
+                        continue    # Temp hack
                     assert len(cs) == 1
                     # TODO: Not sure we need this here, see to-do help in loop below this one
                     cnpR = Constituent(cs[0].span.subspan(~RT_EMPTY_DRS), cs[0].vntype)
@@ -1155,6 +1145,8 @@ class Ccg2Drs(Sentence):
                 # right NP is orphaned
                 if cnpL.span in all_conjoins or len(cnpL.span.get_head_span()) > 1:
                     continue
+                if cnpL.get_head() is None:
+                    raise ValueError("null head")
                 if 0 != (cnpL.get_head().mask & (RT_ENTITY|RT_PROPERNAME)):
                     if cs[0].span[0].stem in ['a', 'an', 'the']:
                         # OK this looks like an appositive
@@ -1717,7 +1709,6 @@ class Ccg2Drs(Sentence):
         Returns:
             A ccgbank string.
         """
-        global _UNDEFINED_UNARY
         assert len(self.exeque) != 0 and len(self.lexemes) != 0
         assert isinstance(self.exeque[0], PushOp)
 
@@ -1744,8 +1735,6 @@ class Ccg2Drs(Sentence):
                 assert len(stk) >= 2
                 if op.rule == RL_TCL_UNARY:
                     unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
-                    if unary is None:
-                        unary = MODEL.infer_unary(op.category, op.sub_ops[0].category)
 
                     nlst = collections.deque()
                     # reverse order
@@ -1764,8 +1753,6 @@ class Ccg2Drs(Sentence):
                     stk.append(sep.join(nlst))
                 elif op.rule == RL_TCR_UNARY:
                     unary = MODEL.lookup_unary(op.category, op.sub_ops[1].category)
-                    if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[1].category:
-                        unary = MODEL.infer_unary(op.category)
                     nlst = collections.deque()
                     nlst.append('%s(<T %s %d %d>' % (indent, op.category, 1, 2))
                     b = stk.pop()
@@ -1792,8 +1779,6 @@ class Ccg2Drs(Sentence):
                     stk.append(sep.join(nlst))
             elif op.rule == RL_TCL_UNARY:
                 unary = MODEL.lookup_unary(op.category, op.sub_ops[0].category)
-                if unary is None and op.category.ismodifier and op.category.result_category() == op.sub_ops[0].category:
-                    unary = MODEL.infer_unary(op.category)
                 template = unary.template
                 nlst = collections.deque()
                 # reverse order
@@ -2009,6 +1994,8 @@ def process_ccg_pt(pt, options=0, browser=None):
     See Also:
         marbles.ie.drt.parse.parse_ccg_derivation()
     """
+    if pt is None:
+        return None
     ccg = Ccg2Drs(options | CO_FAST_RENAME)
     if future_string != unicode:
         pt = pt_to_utf8(pt)
