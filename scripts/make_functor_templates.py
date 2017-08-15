@@ -21,7 +21,8 @@ from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.ccg import Category
 from marbles.ie.utils.cache import Cache
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.semantics.ccg import Ccg2Drs, PushOp, save_undefined_unary_rules
+from marbles.ie.semantics.ccg import Ccg2Drs, PushOp
+from marbles.ie.core.exception import save_undefined_unary_rules, save_undefined_template_rules
 
 #from marbles.ie.parse import parse_ccg_derivation
 
@@ -312,6 +313,7 @@ if __name__ == "__main__":
             print('%s: %s' % (k, v))
 
     save_undefined_unary_rules(os.path.join(outdir, 'undefined_unary.dat'))
+    save_undefined_template_rules(os.path.join(outdir, 'undefined_template.dat'))
 
     if len(cache) != 0 or len(merge) != 0 or len(fn_dict) != 0:
         Category.initialize_cache([Category(k) for k, v in cache])
