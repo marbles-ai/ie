@@ -304,7 +304,7 @@ class UnaryRule(object):
             argument: The argument category.
 
         Returns:
-            A string.
+            A category.
 
         Remarks:
             Both categories must NOT include predarg tags. To remove tags do Category.clean(True).
@@ -483,12 +483,53 @@ class Model(object):
         return None
 
     def infer_unary(self, result, argument):
-        """Attempt to build a unary modifier from existing templates if possible."""
-        if result == argument:
+        """Attempt to build a unary from existing templates if possible."""
+        templres = self.lookup(result)
+        if result.test_return(argument, exact=True) and templres is not None:
+            taggedres = templres.predarg_category.complete_tags()   # tagged result
+            taggedarg = taggedres
+            while result != argument and not result.isatom:
+                taggedarg = taggedarg.result_category(cacheable=False)
+                result = result.result_category()
+            assert result == argument
+            return self.add_unary_rule(taggedres, taggedarg)
+
+        elif result.ismodifier and result.result_category() == argument:
+            if templres is None:
+                template = self.lookup(argument)
+                if template is not None:
+                    taggedcat = template.predarg_category.complete_tags()
+                    return self.add_unary_rule(Category.combine(taggedcat, result.slash, taggedcat, cacheable=False), taggedcat)
+                elif argument.isatom:
+                    taggedcat = argument.complete_tags()
+                    return self.add_unary_rule(Category.combine(taggedcat, result.slash, taggedcat, cacheable=False), taggedcat)
+            else:
+                taggedcat = templres.predarg_category.complete_tags()
+                return self.add_unary_rule(taggedcat, taggedcat.result_category())
+
+        elif result.ismodifier and result.test_return(argument.remove_features(), exact=True):
+            sarg = argument.remove_features()
             template = self.lookup(argument)
-            if template is not None:
-                taggedcat = template.predarg_category.complete_tags()
-                return self.add_unary_rule(Category.combine(taggedcat, '\\', taggedcat, False), taggedcat)
+            if template is None:
+                return None
+            taggedarg = template.predarg_category.complete_tags()   # tagged argument
+            stk = [(result.result_category(), result.slash)]
+            while not stk[-1][0].isatom and stk[-1][0] != sarg:
+                cat = stk[-1][0]
+                stk.append((result.result_category(), result.slash))
+            # test_returns means this must be true
+            assert stk[-1][0] == sarg
+            aresult = sarg          # actual result
+            # Remove features from taggedarg but keep predarg tags
+            tagresult = taggedarg.remove_features()   # tagged actual result
+            while len(stk) != 0:
+                cat, slash = stk.pop()
+                aresult = Category.combine(aresult, slash, aresult)
+                tagresult = Category.combine(tagresult, slash, tagresult, cacheable=False)
+
+            # Compare expected to actual
+            if aresult == result:
+                return self.add_unary_rule(tagresult, taggedarg)
         return None
 
     def infer_template(self, category):
@@ -524,7 +565,7 @@ class Model(object):
 
         return None
 
-    def lookup_unary(self, result, argument):
+    def lookup_unary(self, result, argument, infer=True):
         if isinstance(result, (str, unicode)):
             result = Category(result)
         elif not isinstance(result, Category):
@@ -541,10 +582,13 @@ class Model(object):
         # Perform wildcard replacements
         wc = Category.from_cache(self._Feature.sub('[X]', key.signature))
         try:
-            return self._UNARY[wc]
+            rule = self._UNARY[wc]
+            # Copy to current category so we don't have to use wildcard again
+            self._UNARY[key] = rule
+            return rule
         except Exception:
             pass
-        return None
+        return self.infer_unary(result, argument) if infer else None
 
     def lookup(self, category):
         """Lookup a FunctorTemplate with key=category."""
@@ -621,6 +665,8 @@ try:
     # PWG: I have checked this on EasySRL's parse of CCGBANK sentences, the head is always NP(x)
     #_tcache.addinit(Model.build_template(r'(NP_1204\NP_2204)_2204'), replace=True)
 
+    _tcache.addinit(Model.build_template(r'((N_1204\N_1204)/(S[to]_2204\NP))\((NP_1204\NP_1204)/NP_2204)'))
+
     # Add unary rules
     _rcache = Cache()
     _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', r'S_1024/S[dcl]_1024'))
@@ -631,97 +677,176 @@ try:
     # See test case conj_test.py[test5_OrOfVerb_OrInBrackets] fails due to this rule
     # Reverted since APPOS processing has been improved
     # PWG: I have checked this on EasySRL's parse of CCGBANK sentences, the head is always NP(x)
-    _rcache.addinit(Model.build_unary_rule(r'(NP_1028\NP_2028)_2028', r'NP_1028'))
-    # Wildcards incur more string processing so cover main rules
-    _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[pss]_2030\NP_1030'))
-    _rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))
-    _rcache.addinit(Model.build_unary_rule(r'N_1032\N_1032', r'S[dcl]_2032\NP_1032'))
-    _rcache.addinit(Model.build_unary_rule(r'N_1033\N_1033', r'S[ng]_2033\NP_1033'))
-    _rcache.addinit(Model.build_unary_rule(r'N_1034\N_1034', r'S_2034\NP_1034'))
-    _rcache.addinit(Model.build_unary_rule(r'N_1035\N_1035', r'S[X]_2035\NP_1035'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1036/S_2036', r'S[ng]_1036\NP_3036'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1037/S_1037', r'S[pss]_1037\NP'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1038/S_1038', r'S[to]_1038\NP'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1039/S_1039', r'S[X]_1039\NP'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1040/S_1040', r'S_1040\NP'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1041\S_1041', r'S[X]_1041\NP'))
-    _rcache.addinit(Model.build_unary_rule(r'PP_1042/PP_1042', r'PP_1042'))
-    _rcache.addinit(Model.build_unary_rule(r'PP_1043\PP_1043', r'PP_1043'))
-    _rcache.addinit(Model.build_unary_rule(r'(N_1044\N_1044)\(N_1044\N_1044)', r'(N_1044\N_1044)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[b]_3049\NP_2049)/((S_3049\NP_2049)\(S_3049\NP_2049))', r'S[b]_3049\NP_2049'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[ng]_3050\NP_2050)/((S_3050\NP_2050)\(S_3050\NP_2050))', r'(S[ng]_3050\NP_2050)_3050'))
-    _rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_2051)'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', r'(S_1052\NP_2052)/(S_1052\NP_2052)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', r'S_1053\NP_2053'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1054\NP_2054)\(S[dcl]_1054\NP_2054)', r'S_1054\NP_2054'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[em]_1055\NP_2055)\(S[em]_1055\NP_2055)', r'S_1055\NP_2055'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1056\NP_2056)\(S_1056\NP_2056)', r'S[ng]_1056\NP_2056'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1057\NP_2057)\(S[X]_1057\NP_2057)', r'S_1057\NP_2057'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1058\NP_1058)\(S_1058\NP_1058)', r'S_1058\NP_1058'))
-    _rcache.addinit(Model.build_unary_rule(r'(N_1059/N_1059)\(N_1059/N_1059)', r'N_1059/N_1059'))
-    _rcache.addinit(Model.build_unary_rule(r'S[X]_1060\S[X]_1060', r'S[X]_1060'))
-    _rcache.addinit(Model.build_unary_rule(r'S[dcl]_1061\S[dcl]_1061', r'S_1061'))
-    _rcache.addinit(Model.build_unary_rule(r'S[X]_1062\S[X]_1062', r'S_1062'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1063\NP_2063)/(S_1063\NP_2063)', r'S[dcl]_1063/S[dcl]_1063'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1064\S_1064', 'S_1064'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1065\NP_2065)/NP_3065)\((S[dcl]_1065\NP_2065)/NP_3065)', r'(S_1065\NP_2065)/NP_3065'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1066\NP_2066)/NP_3066)\((S[b]_1066\NP_2066)/NP_3066)', r'(S_1066\NP_2066)/NP_3066'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1067\NP_2067)/NP_3067)\((S[X]_1067\NP_2067)/NP_3067)', r'(S_1067\NP_2067)/NP_3067'))
-    _rcache.addinit(Model.build_unary_rule(r'(N_2068/PP_1068)\(N_2068/PP_1068)', r'N_2068/PP_1068'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_2069/S_1069)\(S_2069/S_1069)', r'S_2069/S_1069'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1070', r'S[ng]_1070\NP_2070'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1071', r'S_1071\NP_2071'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1028\NP_2028', r'NP_1028'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1073\NP_1073', r'S[pss]_2073\NP_1073'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1074\NP_1074', r'S[adj]_2074\NP_1074'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1075\NP_1075', r'S[dcl]_2075\NP_1075'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1070', r'S[ng]_1070\NP_2070'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1071', r'S_1071\NP_2071'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1072', r'S[X]_1072\NP_2072'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1073\NP_1073', r'S[pss]_2073\NP_1073'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1074\NP_1074', r'S[adj]_2074\NP_1074'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1075\NP_1075', r'S[dcl]_2075\NP_1075'))
 
-    _rcache.addinit(Model.build_unary_rule(r'NP_1076\NP_1076', r'S[ng]_2076\NP_1076'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1076\NP_1076', r'S[ng]_2076\NP_1076'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1077\NP_1077', r'S_2077\NP_1077'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1078\NP_1078', r'S_2078/NP_1078'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1073\NP_1073', r'S[X]_2073\NP_1073'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1079\NP_1079', r'S[X]_2079\NP_1079'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1080\NP_2080)/(S_1080\NP_2080)', r'S[ng]_1080\NP_2080'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1081\NP_2081)\(S_1081\NP_2081)', r'S[to]_1081\NP_2081'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1082\NP_2082)\(S_1082\NP_2082)', r'S[X]_1082\NP_2082'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1083\NP_2083)\(S_1083\NP_2083)', r'NP_2083'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1084\NP_1084', 'S[dcl]_1084'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1085\NP_3085)/S[em]_2085)\((S[dcl]_1085\NP_3085)/S[em]_2085)', r'(S_1085\NP_3085)/S[em]_2085'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1086\NP_3086)/S[X]_2086)\((S[X]_1086\NP_3086)/S[X]_2086)', r'(S_1086\NP_3086)/S[X]_2086'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1087\NP_2087)/(S[b]_1087\NP_2087))\((S[dcl]_1087\NP_2087)/(S[b]_1087\NP_2087))', r'(S_1087\NP_2087)/(S[b]_1087\NP_2087)'))
-    _rcache.addinit(Model.build_unary_rule(r'N_2088\N_2088', r'S[dcl]_1088/NP_2088'))
-    _rcache.addinit(Model.build_unary_rule(r'N_2089\N_2089', r'S[X]_1089/NP_2089'))
-    _rcache.addinit(Model.build_unary_rule(r'N_2090\N_2090', r'S_1090/NP_2090'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))\((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))', r'(S_1091\NP_2091)/(S[adj]_3091\NP_2091)'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', r'S[dcl]_1095/S[dcl]_1095'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', r'S[X]_1096/S[X]_1096'))
-
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_4045\NP_2045)', r'S[X]_1045\NP_2045'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_4046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_4092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_4093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_4094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
-
-    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_3047\NP_2047)/((S_3047\NP_2047)\(S_3047\NP_2047))', r'(S[dcl]_3047\NP_2047)_3047'))
-    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_3048\NP_2048)/((S_3048\NP_2048)\(S_3048\NP_2048))', r'(S[pss]_3048\NP_2048)_3048'))
-
-    # Neuralccg needs these
+    _rcache.addinit(Model.build_unary_rule(r'NP_1227/NP_1227', r'S[X]_2227\NP_1227'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1078\NP_1078', r'S_2078/NP_1078'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1205\NP_1205', r'S[X]_2205/NP_1205'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1205\NP_1205', r'S[X]_2205/NP_1205'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1206/S_1206', r'S[X]_1206\S[X]_1206'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1207\NP_2207)\(S_1207\NP_2207)', r'S[dcl]_1207/S[dcl]_1207'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1208\S_1208', r'S[dcl]_1208/S[dcl]_1208'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1209\NP_2209)\(S_1209\NP_2209)', r'S[dcl]_1209'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1210\S_1210', r'S[dcl]_1210'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1227/NP_1227', r'S[X]_2227/NP_1227'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_3076\NP_3076', r'S[to]_2076\NP_1076'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1227/NP_1227', r'S[ng]_2227\NP_1227'))
+
+    _rcache.addinit(Model.build_unary_rule(r'NP_1301\NP_2301', r'(S[X]_1301\NP_2301)/NP_3301'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP\NP', r'(S[to]\NP)/NP'))
+
+    _rcache.addinit(Model.build_unary_rule(r'NP_1084\NP_1084', 'S[X]_1084'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1232/NP_1232', 'S[X]_1232'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1084\NP_1084', 'S[dcl]_1084'))
+    #_rcache.addinit(Model.build_unary_rule(r'NP_1232/NP_2232', r'S[dcl]_1232'))
+
     _rcache.addinit(Model.build_unary_rule(r'NP[conj]_1211', r'NP_1211\NP_1211'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1212/S_2212)\(S_1212/S_2212)', r'S[dcl]_1212'))
-    _rcache.addinit(Model.build_unary_rule(r'(NP_1213\NP_2213)\(NP_1213\NP_2213)', r'S[b]_1213\NP_2213'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1214\S_2214', r'NP_1214'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1214/S_2214', r'NP_1214'))
-    _rcache.addinit(Model.build_unary_rule(r'S_1215/S_2215', r'S[dcl]_1215'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(NP_3213\NP_2213)\(NP_3213\NP_2213)', r'S[X]_1213\NP_2213'))
+    #_rcache.addinit(Model.build_unary_rule(r'(NP_1213\NP_2213)\(NP_1213\NP_2213)', r'S[b]_1213\NP_2213'))
+    #_rcache.addinit(Model.build_unary_rule(r'(NP_2219\NP_1219)\(NP_2219\NP_1219)', r'S[pss]_2219\NP_1219'))
+
     _rcache.addinit(Model.build_unary_rule(r'NP_1216\NP_2216', r'S[dcl]_1216/S[dcl]_2216'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1217\NP_2217', r'S[ng]_1217'))
-    _rcache.addinit(Model.build_unary_rule(r'(S_1218\NP_2218)/(S_1218\NP_2218)', r'S[dcl]_1218\S[dcl]_1218'))
 
+    _rcache.addinit(Model.build_unary_rule(r'N_1030\N_1030', r'S[X]_2030\NP_1030'))
+    _rcache.addinit(Model.build_unary_rule(r'N_2089\N_2089', r'S[X]_1089/NP_2089'))
+    _rcache.addinit(Model.build_unary_rule(r'N_1034\N_1034', r'S_2034\NP_1034'))
+    _rcache.addinit(Model.build_unary_rule(r'N_2090\N_2090', r'S_1090/NP_2090'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1035\N_1035', r'S[X]_2035\NP_1035'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_2088\N_2088', r'S[dcl]_1088/NP_2088'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1031\N_1031', r'S[adj]_2031\NP_1031'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1032\N_1032', r'S[dcl]_2032\NP_1032'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1033\N_1033', r'S[ng]_2033\NP_1033'))
+
+    _rcache.addinit(Model.build_unary_rule(r'N_1221/N_1221', r'S[X]_2221\NP_1221'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1221/N_1221', r'S[b]_2221\NP_1221'))
+    #_rcache.addinit(Model.build_unary_rule(r'N_1223/N_1223', r'S[dcl]_2223\NP_1223'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'S_1036/S_2036', r'S[ng]_1036\NP_3036'))
+    #_rcache.addinit(Model.build_unary_rule(r'S_1037/S_1037', r'S[pss]_1037\NP'))
+    #_rcache.addinit(Model.build_unary_rule(r'S_1038/S_1038', r'S[to]_1038\NP'))
+    # TODO: These should really discard _ARG0 for the NP
+    _rcache.addinit(Model.build_unary_rule(r'S_3039/S_3039', r'S[X]_1039\NP_2039'))
+    _rcache.addinit(Model.build_unary_rule(r'S_3040/S_3040', r'S_1040\NP_2040'))
+    _rcache.addinit(Model.build_unary_rule(r'S_3041\S_3041', r'S[X]_1041\NP_2041'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'S[X]_1060\S[X]_1060', r'S[X]_1060'))
+    #_rcache.addinit(Model.build_unary_rule(r'S[dcl]_1061\S[dcl]_1061', r'S_1061'))
+    _rcache.addinit(Model.build_unary_rule(r'S[X]_1060\S[X]_1060', r'S[X]_1060'))
+    _rcache.addinit(Model.build_unary_rule(r'S[X]_1062\S[X]_1062', r'S_1062'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1210\S_1210', r'S[X]_1210'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1215/S_2215', r'S[X]_1215'))
+    #_rcache.addinit(Model.build_unary_rule(r'S_1215/S_2215', r'S[dcl]_1215'))
+    #_rcache.addinit(Model.build_unary_rule(r'S\S', r'S[ng]'))
+
+    _rcache.addinit(Model.build_unary_rule(r'S_1214\S_2214', r'NP_1214'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1214/S_2214', r'NP_1214'))
+
+    _rcache.addinit(Model.build_unary_rule(r'S_1206/S_1206', r'S[X]_1206\S[X]_1206'))
+    _rcache.addinit(Model.build_unary_rule(r'S_1208\S_1208', r'S[X]_1208/S[X]_1208'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1083\NP_2083)\(S_1083\NP_2083)', r'NP_2083'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1212/S_2212)\(S_1212/S_2212)', r'S[X]_1212'))
+
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1228/S_2228)\(S_1228/S_2228)', r'S[X]_1228\NP_3228'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1225/S_2225)\(S_1225/S_2225)', r'S[X]_1225/NP_3225'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1300/S_3300)\(S_1300/S_3300)', r'S[dcl]_1300/NP_2300'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1225/S_2225)\(S_1225/S_2225)', r'S[adj]_1225\NP_3225'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1228/S_2228)\(S_1228/S_2228)', r'S[dcl]_1228\NP_3228'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1209\NP_2209)\(S_1209\NP_2209)', r'S[X]_1209'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1224\NP_2224)/(S_1224\NP_2224)', r'S[X]_1224'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1222\NP_2222)\(S_1222\NP_2222)', r'S[adj]_1222'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1220\NP_2220)\(S_1220\NP_2220)', r'S[ng]_1220'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1226\NP_2226)\(S_1226\NP_2226)', r'S[pt]_1226'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1063\NP_2063)/(S_3063\NP_4063)', r'S[dcl]_1063/S[dcl]_3063'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S[adj]_1095\NP_2095)\(S[adj]_1095\NP_2095)', r'S[dcl]_1095/S[dcl]_1095'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[adj]_1096\NP_2096)\(S[adj]_1096\NP_2096)', r'S[X]_1096/S[X]_1096'))
+
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1085\NP_3085)/S[em]_2085)\((S[dcl]_1085\NP_3085)/S[em]_2085)', r'(S_1085\NP_3085)/S[em]_2085'))
+
+    _rcache.addinit(Model.build_unary_rule(r'PP_1042/PP_2042', r'PP_1042'))
+    _rcache.addinit(Model.build_unary_rule(r'PP_1043\PP_2043', r'PP_1043'))
+    #_rcache.addinit(Model.build_unary_rule(r'(N_1044\N_1044)\(N_1044\N_1044)', r'(N_1044\N_1044)'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S[b]_3049\NP_2049)/((S_3049\NP_2049)\(S_3049\NP_2049))', r'S[b]_3049\NP_2049'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[ng]_3050\NP_2050)/((S_3050\NP_2050)\(S_3050\NP_2050))', r'S[ng]_3050\NP_2050'))
+
+    _rcache.addinit(Model.build_unary_rule(r'(S_1207\NP_2207)\(S_3207\NP_4207)', r'S[X]_1207/S[X]_3207'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1218\NP_2218)/(S_3218\NP_4218)', r'S[X]_1218\S[X]_3218'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'(S[em]_1055\NP_2055)\(S[em]_1055\NP_2055)', r'S_1055\NP_2055'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S[pss]_1053\NP_1053)\(S[pss]_1053\NP_2053)', r'S_1053\NP_2053'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S[dcl]_1054\NP_2054)\(S[dcl]_1054\NP_2054)', r'S_1054\NP_2054'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1056\NP_2056)\(S_1056\NP_2056)', r'S[X]_1056\NP_2056'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1057\NP_2057)\(S[X]_1057\NP_2057)', r'S_1057\NP_2057'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_4045\NP_2045)', r'S[X]_1045\NP_2045'))
+
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1067\NP_2067)/NP_3067)\((S[X]_1067\NP_2067)/NP_3067)', r'(S_1067\NP_2067)/NP_3067'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_4046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[b]_1066\NP_2066)/NP_3066)\((S[b]_1066\NP_2066)/NP_3066)', r'(S_1066\NP_2066)/NP_3066'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1065\NP_2065)/NP_3065)\((S[dcl]_1065\NP_2065)/NP_3065)', r'(S_1065\NP_2065)/NP_3065'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'((S_1051\NP_2051)\(S_1051\NP_2051))\((S_1051\NP_2051)\(S_1051\NP_2051))', r'(S_1051\NP_2051)\(S_1051\NP_2051)'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))\((S[dcl]_1052\NP_2052)/(S[b]_1052\NP_2052))', r'(S_1052\NP_2052)/(S_1052\NP_2052)'))
+
+    _rcache.addinit(Model.build_unary_rule(r'((S_1052\NP_2052)/(S_1052\NP_2052))\((S_1052\NP_2052)/(S_1052\NP_2052))', r'S[X]S_1052'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S\NP)/(S\NP))\((S\NP)/(S\NP))', r'S[dcl]'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1058\NP_1058)\(S_1058\NP_1058)', r'S_1058\NP_1058'))
+    #_rcache.addinit(Model.build_unary_rule(r'(N_1059/N_1059)\(N_1059/N_1059)', r'N_1059/N_1059'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'S_1064\S_1064', 'S_1064'))
+    #_rcache.addinit(Model.build_unary_rule(r'(N_2068/PP_1068)\(N_2068/PP_1068)', r'N_2068/PP_1068'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_2069/S_1069)\(S_2069/S_1069)', r'S_2069/S_1069'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1080\NP_2080)/(S_1080\NP_2080)', r'S[ng]_1080\NP_2080'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1081\NP_2081)\(S_1081\NP_2081)', r'S[to]_1081\NP_2081'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S_1082\NP_2082)\(S_1082\NP_2082)', r'S[X]_1082\NP_2082'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_4092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_4093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_4094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
+
+
+    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1086\NP_3086)/S[X]_2086)\((S[X]_1086\NP_3086)/S[X]_2086)', r'(S_1086\NP_3086)/S[X]_2086'))
+
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1087\NP_2087)/(S[b]_1087\NP_2087))\((S[dcl]_1087\NP_2087)/(S[b]_1087\NP_2087))', r'(S_1087\NP_2087)/(S[b]_1087\NP_2087)'))
+
+    _rcache.addinit(Model.build_unary_rule(r'((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))\((S[dcl]_1091\NP_2091)/(S[adj]_3091\NP_2091))', r'(S_1091\NP_2091)/(S[adj]_3091\NP_2091)'))
+
+
+    _rcache.addinit(Model.build_unary_rule(r'(S[dcl]_3047\NP_2047)/((S_3047\NP_2047)\(S_3047\NP_2047))', r'S[dcl]_3047\NP_2047'))
+    _rcache.addinit(Model.build_unary_rule(r'(S[pss]_3048\NP_2048)/((S_3048\NP_2048)\(S_3048\NP_2048))', r'S[pss]_3048\NP_2048'))
+
+    #_rcache.addinit(Model.build_unary_rule(r'(S\NP)\(S\NP)', r'(S[to]\NP)/NP'))
+    # Neuralccg needs these
+
+
+
+
+    #_rcache.addinit(Model.build_unary_rule(r'S/S', r'S[ng]'))
+    #_rcache.addinit(Model.build_unary_rule(r'(NP/N)\(NP/N)', r'NP[nb]/N'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S\NP)/(S\NP)', r'S[pss]\NP'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S\NP)\(S\NP))\((S\NP)\(S\NP))', r'S[ng]\NP'))
+    #_rcache.addinit(Model.build_unary_rule(r'S/S', r'S[intj]'))
+    #_rcache.addinit(Model.build_unary_rule(r'S/S', r'S[pss]'))
+    _rcache.addinit(Model.build_unary_rule(r'((S_1229\NP_2229)\(S_1229\NP_2229))\((S_1229\NP_2229)\(S_1229\NP_2229))', r'S[dcl]_1229'))
+    _rcache.addinit(Model.build_unary_rule(r'(S_1230\NP_2230)\(S_1230\NP_2230)', r'S[dcl]_1230\S[dcl]_2230'))
+    _rcache.addinit(Model.build_unary_rule(r'((S_1231/S_2231)/(S_1231/S_2231))\((S_1231/S_2231)/(S_1231/S_2231))', r'S[dcl]_1231'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S\NP)/(S\NP)', r'S[adj]\NP'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S[dcl]/NP)\(S[dcl]/NP)', r'S[dcl]/NP'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S\NP)\(S\NP))\((S\NP)\(S\NP))', r'S[adj]\NP'))
 
     MODEL = Model(templates=_tcache, unary_rules=_rcache)
 
