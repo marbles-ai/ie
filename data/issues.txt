@@ -112,3 +112,83 @@ Mismatch at word reported
 Mismatch at word to
     Expected  [| to(E12)]
     Neuralccg [| to(X14)]
+
+
+-------------------------
+RAW=36, AUTO=wsj_0004.4
+
+(S\S)/PP VBG VBG according (S_197\S_197)/PP_198>
+
+This is where a proposition is appropriate.  The gerund 'according' applies to the entire sentence
+the left. Gerunds can also return (S[X]\NP)|(S[Y]\NP). In this case we seem to require an ARG0, however
+a return of (S\NP)|(S\NP) could possible be a 2-var proposition such as
+
+left sentence (S[X]_1\NP_2), [S_2,NP_2,...| gerund(S_2), ..., S_2:[S_1...NP_2]
+
+
+
+----
+PYCODE _refine_constituents()
+
+                            elif len(p.get_head_span()) == 1:
+                                cihead = ci.get_head_span()
+                                ckhead = ck.get_head_span()
+                                if len(ckhead) != 1 or len(cihead) != 1:
+                                    # Cannot handle this case
+                                    break
+                                cihead = cihead[0]
+                                ckhead = ckhead[0]
+                                phead = p.get_head_span()[0]
+                                if nd.head_idx == phead.idx:
+                                    # Split nodes
+                                    #
+                                    #                       new-+-------------------.
+                                    #                           |                   |
+                                    # nd-+---------.        nd--+---------.         |
+                                    #    |         |            |         |         |
+                                    # child k   child i   =>  child k   child i   child p
+                                    # {ck,pk}   {pi,ci}       {ck}      {ci}       {cp}
+                                    assert cihead.head in phead
+                                    assert ckhead.head in phead
+                                elif phead.head in ckhead:
+                                    # TODO: implement
+                                    # Split nodes
+                                    #
+                                    #                       nd--+-------------------.
+                                    #                           |                   |
+                                    # nd-+---------.        new-+---------.         |
+                                    #    |         |            |         |         |
+                                    # child k   child i   =>  child p   child k   child i
+                                    # {ck,pk}   {pi,ci}       {p}       {ck}       {ci}
+                                    break
+                                elif phead.head in cihead:
+                                    # TODO: implement
+                                    # Split nodes
+                                    #
+                                    #                       nd--+-------------------.
+                                    #                           |                   |
+                                    # nd-+---------.        new-+---------.         |
+                                    #    |         |            |         |         |
+                                    # child k   child i   =>  child p   child i   child k
+                                    # {ck,pk}   {pi,ci}       {p}       {ci}       {ck}
+                                    break
+                                else:
+                                    # Can't handle
+                                    args = [self.msgid]
+                                    args.extend(sorted([spnd, ci, ck, p]))
+                                    _logger.warning('[msgid=%s], cannot split nominal np /%s/ -> /%s/%s/%s/' % tuple(args))
+                                    break
+
+
+
+                                # Split nodes if span is left or right justified
+                                #
+                                #                       nd--+-------------------.
+                                #                           |                   |
+                                # nd-+---------.        new-+---------.         |
+                                #    |         |            |         |         |
+                                # child k   child i   =>  child k   child p   child i
+                                # {ck,pk}   {pi,ci}       {c}       {p}       {ci}
+
+                                # Create an artifical node
+                                ndx = STreeNode(len(self.stree_nodes), ci, head, result_category, rule, lex_range, op_range, depth))
