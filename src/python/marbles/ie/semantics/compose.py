@@ -94,11 +94,6 @@ class AbstractProduction(object):
         return False
 
     @property
-    def iscombinator(self):
-        """Test if this class is a combinator. A combinator expects a functors as the argument."""
-        return False
-
-    @property
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same type."""
         return False
@@ -836,11 +831,6 @@ class FunctorProduction(AbstractProduction):
         return True
 
     @property
-    def iscombinator(self):
-        """A combinator expects a functor as the argument and returns a functor of a different category."""
-        return self.category.iscombinator
-
-    @property
     def ismodifier(self):
         """A modifier expects a functor as the argument and returns a functor of the same category."""
         return self.category.ismodifier
@@ -1143,6 +1133,7 @@ class FunctorProduction(AbstractProduction):
         if g.isfunctor:
             g = g.pop()
         g.set_lambda_refs(fc.lambda_refs)
+        g.set_category(fc.category)
         self.push(g)
         return self
 

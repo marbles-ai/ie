@@ -32,6 +32,12 @@ class Properties(object):
     exception_rlimit = 2.0
 
 
+def debug_break():
+    """File rarely changes so breakpoint line number is fixed."""
+    assert True
+    pass
+
+
 try:
     from marbles.test import isdebugging
     from marbles.test import dprint

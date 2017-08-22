@@ -16,6 +16,12 @@ class TemplateRuleError(Exception):
     """Functor Template Rule Error"""
     pass
 
+
+class CombinatorNotFoundError(Exception):
+    """Combinator Rule Error"""
+    pass
+
+
 # Track missing rules
 _UNDEFINED_UNARY = set()
 _UNDEFINED_TEMPLATES = set()

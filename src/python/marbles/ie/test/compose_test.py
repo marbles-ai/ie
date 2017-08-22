@@ -60,7 +60,7 @@ def get_constituents_string_list(sent):
     s = []
     for i in range(len(sent.constituents)):
         c = sent.constituents[i]
-        headword = c.get_head().idx
+        headword = c.head().idx
         txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
         s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
     return s
@@ -118,8 +118,6 @@ class ComposeTest(unittest.TestCase):
         s = get_constituent_string(ccg)
         dprint(s)
         self.assertEqual('S_DCL(The boy #wants to believe the girl) NP(#The boy) S_INF(#to believe the girl) S_INF(#believe the girl) NP(#the girl)', s)
-        s = get_constituent_string(ccg.get_verbnet_sentence())
-        self.assertEqual('NP(#The boy) VP(#wants) S_INF(#to believe) NP(#the girl)', s)
 
     def test1_EasySrl(self):
         # Welcome to MerryWeather High
@@ -1264,19 +1262,19 @@ class ComposeTest(unittest.TestCase):
         (<L conj CC CC and conj>) (<T (S\NP)\(S\NP) 1 2>
         (<L ((S\NP)\(S\NP))/((S\NP)\(S\NP)) JJ JJ late ((S\NP)\(S\NP))/((S\NP)\(S\NP))>)
         (<L (S\NP)\(S\NP) NN NN today (S\NP)\(S\NP)>) ) ) ) ) )'''
-        # 00 <PushOp>:(i, NP, PRP)
-        # 01 <PushOp>:(be, S[dcl]\NP, VBD)
-        # 02 <PushOp>:(early, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
-        # 03 <PushOp>:(yesterday, (S\NP)\(S\NP), NN)
-        # 04 <ExecOp>:(2, FA (S\NP)\(S\NP))
-        # 05 <PushOp>:(and, conj, CC)
-        # 06 <PushOp>:(late, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
-        # 07 <PushOp>:(today, (S\NP)\(S\NP), NN)
-        # 08 <ExecOp>:(2, FA (S\NP)\(S\NP))
-        # 09 <ExecOp>:(2, R_UNARY_TC ((S\NP)\(S\NP))\((S\NP)\(S\NP)))
-        # 10 <ExecOp>:(2, BA (S\NP)\(S\NP))
-        # 11 <ExecOp>:(2, BA S[dcl]\NP)
-        # 12 <ExecOp>:(2, BA S[dcl])
+        # 00 <STreeLeafNode>:(i, NP, PRP)
+        # 01 <STreeLeafNode>:(be, S[dcl]\NP, VBD)
+        # 02 <STreeLeafNode>:(early, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
+        # 03 <STreeLeafNode>:(yesterday, (S\NP)\(S\NP), NN)
+        # 04 <STreeNode>:(2, FA (S\NP)\(S\NP))
+        # 05 <STreeLeafNode>:(and, conj, CC)
+        # 06 <STreeLeafNode>:(late, ((S\NP)\(S\NP))/((S\NP)\(S\NP)), JJ)
+        # 07 <STreeLeafNode>:(today, (S\NP)\(S\NP), NN)
+        # 08 <STreeNode>:(2, FA (S\NP)\(S\NP))
+        # 09 <STreeNode>:(2, R_UNARY_TC ((S\NP)\(S\NP))\((S\NP)\(S\NP)))
+        # 10 <STreeNode>:(2, BA (S\NP)\(S\NP))
+        # 11 <STreeNode>:(2, BA S[dcl]\NP)
+        # 12 <STreeNode>:(2, BA S[dcl])
         pt = parse_ccg_derivation(txt)
         self.assertIsNotNone(pt)
         s = sentence_from_pt(pt)

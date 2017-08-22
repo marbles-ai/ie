@@ -34,6 +34,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
         self.assertTrue('went' in phrases)
+        self.assertTrue('John and Paul' in [c.text for c in sentence.conjoins])
         john = filter(lambda x: 'John' == x[1].text, f.iteritems())[0]
         paul = filter(lambda x: 'Paul' == x[1].text, f.iteritems())[0]
         went = filter(lambda x: 'went' == x[1].text, f.iteritems())[0]
@@ -60,13 +61,14 @@ class ConjTest(unittest.TestCase):
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
         self.assertTrue('saw' in phrases)
+        self.assertTrue('John and Paul' in [c.text for c in sentence.conjoins])
         john = filter(lambda x: 'John' == x[1].text, f.iteritems())[0]
         paul = filter(lambda x: 'Paul' == x[1].text, f.iteritems())[0]
         saw = filter(lambda x: 'saw' == x[1].text, f.iteritems())[0]
         J = john[0]
         P = paul[0]
         E = saw[0]
-        # FIXME: wn lemmatizer does not convert saw to see - I guess to to ambiguity
+        # FIXME: wn lemmatizer does not convert saw to see - I guess due to ambiguity
         self.assertTrue(d.find_condition(Rel('_EVENT', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('saw', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
@@ -87,6 +89,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue('participate' in phrases)
         self.assertTrue('games' in phrases)
         self.assertTrue('sport' in phrases)
+        self.assertTrue('games or sport' in [c.text for c in sentence.conjoins])
         noun1 = filter(lambda x: 'games' == x[1].text, f.iteritems())[0]
         noun2 = filter(lambda x: 'sport' == x[1].text, f.iteritems())[0]
         verb = filter(lambda x: 'participate' == x[1].text, f.iteritems())[0]
@@ -111,17 +114,24 @@ class ConjTest(unittest.TestCase):
         f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
-        self.assertTrue('makes distributes' in phrases)
+        self.assertTrue('makes' in phrases)
+        self.assertTrue('distributes' in phrases)
         self.assertTrue('computers' in phrases)
-        verb1 = filter(lambda x: 'makes distributes' == x[1].text, f.iteritems())[0]
+        self.assertTrue('makes and distributes' in [c.text for c in sentence.conjoins])
+        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
+        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
         agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
         theme = filter(lambda x: 'computers' == x[1].text, f.iteritems())[0]
         X1 = agent[0]
         X2 = theme[0]
         E1 = verb1[0]
+        E2 = verb2[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG0', [E1, X1])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG1', [E1, X2])) is not None)
+        self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E2, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E2, X2])) is not None)
 
     def test05_AndOfVerb_AndOfObj(self):
         text = "Bell makes and distributes computers, electronics, and building products"
@@ -135,28 +145,32 @@ class ConjTest(unittest.TestCase):
         f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT | RT_ATTRIBUTE)
         phrases = [sp.text for r, sp in f.iteritems()]
         self.assertTrue('Bell' in phrases)
-        self.assertTrue('makes distributes' in phrases)
+        self.assertTrue('makes' in phrases)
+        self.assertTrue('distributes' in phrases)
         self.assertTrue('computers' in phrases)
         self.assertTrue('electronics' in phrases)
         # Note if we add RT_EMPTY_DRS to the selection criteria then this phrase becomes 'and building products'
         self.assertTrue('building products' in phrases)
-        self.assertEqual(5, len(phrases))
-        verb1 = filter(lambda x: 'makes distributes' == x[1].text, f.iteritems())[0]
+        self.assertEqual(6, len(phrases))
+        self.assertTrue('makes and distributes' in [c.text for c in sentence.conjoins])
+        self.assertTrue('computers, electronics, and building products' in [c.text for c in sentence.conjoins])
+        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
+        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
         agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
-        theme1 = filter(lambda x: 'computers' == x[1].text, f.iteritems())[0]
-        theme2 = filter(lambda x: 'electronics' == x[1].text, f.iteritems())[0]
         theme3 = filter(lambda x: 'building products' == x[1].text, f.iteritems())[0]
         X1 = agent[0]
-        Y1 = theme1[0]
-        Y2 = theme2[0]
         Y3 = theme3[0]
         E1 = verb1[0]
+        E2 = verb2[0]
         self.assertTrue(d.find_condition(Rel('_EVENT', [E1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_EVENT', [E2])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG0', [E1, X1])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E2, X1])) is not None)
         # TODO: should we add proposition for multi NP's conjoined?
         self.assertTrue(d.find_condition(Rel('_ARG1', [E1, Y3])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E2, Y3])) is not None)
 
-    def test10_OrOfVerb_OrInBrackets(self):
+    def test06_OrOfVerb_OrInBrackets(self):
         text = "That which is perceived or known or inferred to have its own distinct existence (living or nonliving)"
         mtext = preprocess_sentence(text)
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)

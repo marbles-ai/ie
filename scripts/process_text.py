@@ -156,9 +156,7 @@ if __name__ == '__main__':
             orphaned = None
             conjoins = None
             functor_phrases = None
-            vnconstituents = ''
             constituents = ''
-            vsent = None
             sentence = None
 
             if options.ofmt == 'drs':
@@ -183,11 +181,6 @@ if __name__ == '__main__':
                     for c in sentence.constituents:
                         constituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
                     constituents = ' '.join(constituents)
-                    vnconstituents = []
-                    vsent = sentence.get_verbnet_sentence()
-                    for c in vsent.constituents:
-                        vnconstituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
-                    vnconstituents = ' '.join(vnconstituents)
                     onps = sentence.get_orphaned_np_nominals()
                     if onps is not None:
                         orphaned = '\n'.join(['NP(' + np.text + ')' for r, np in onps])
@@ -225,8 +218,6 @@ if __name__ == '__main__':
                     sys.stdout.write(sentence.get_constituent_tree_as_string(sentence.get_constituent_tree()))
                     sys.stdout.write('\n')
                     sys.stdout.write(sentence.get_dependency_tree_as_string(sentence.get_dependency_tree()))
-                    sys.stdout.write('\n')
-                    sys.stdout.write(vsent.get_constituent_tree_as_string(vsent.get_constituent_tree()))
                     sys.stdout.write('\n</constituents>\n')
                 if orphaned:
                     sys.stdout.write('<orphaned>\n')
@@ -264,8 +255,6 @@ if __name__ == '__main__':
                     if constituents:
                         fd.write(b'<constituents>\n')
                         fd.write(safe_utf8_encode(constituents))
-                        fd.write(b'\n')
-                        fd.write(safe_utf8_encode(vnconstituents))
                         fd.write(b'\n</constituents>\n')
                     if orphaned:
                         fd.write(b'<orphaned>\n')

@@ -1,19 +1,15 @@
 from __future__ import unicode_literals, print_function
 
 import collections
-import itertools
-import logging
-import time
-
 import requests
+import time
 import wikipedia
 
 import marbles.ie.drt
 import marbles.ie.utils.cache
 from marbles.ie.ccg import *
-from marbles.ie.kb import google_search
 from marbles.ie.core import constituent_types as ct
-from marbles.ie.core.constants import *
+from marbles.ie.kb import google_search
 from marbles.log import ExceptionRateLimitedLogAdaptor
 
 _actual_logger = logging.getLogger(__name__)
@@ -215,32 +211,172 @@ class BasicLexeme(AbstractLexeme):
         return BasicLexeme(self)
 
 
-class Constituent(object):
-    """A constituent is a sentence span and a phrase type."""
-    def __init__(self, span, vntype, chead=-1):
-        if not isinstance(span, Span) or not isinstance(vntype, marbles.ie.utils.cache.ConstString):
-            raise TypeError('Constituent.__init__() bad argument')
-        self.span = span
-        self.vntype = vntype
-        self.chead = chead
+def _compare_lex_range(r1, r2):
+    if r1 is None and r2 is None:
+        return 0
+    # Longest span is less
+    if r1 is not None and r2 is not None:
+        x = r1[0] - r2[0]
+        return x if x != 0 else r2[1] - r1[1]
+    return -1 if r1 is None else 1
+
+
+def _lex_limit_le(r1, r2):
+    # Longest span is less
+    if r1 is not None and r2 is not None:
+        return r1[1] <= r2[1]
+    return False
+
+
+class ConstituentTreeNode(object):
+
+    def __init__(self, constituent):
+        super(STreeNode, self).__init__(idx, depth)
+        self.rule = rule
+        self._result_category = result_category
+        self._child_nodes = child_nodes
+        self._head = head
+        self._lex_range = lex_range
+
+    def __repr__(self):
+        return b'<STreeNode>:(%d, %s %s)' % (len(self.child_nodes), self.rule, self.category)
+
+    @property
+    def category(self):
+        return self._result_category
+
+    @property
+    def lex_range(self):
+        return self._lex_range
+
+    @property
+    def children(self):
+        return self._child_nodes
+
+    @property
+    def isbinary(self):
+        return len(self._child_nodes) == 2
+
+    @property
+    def head_idx(self):
+        """Return the head of the phrase"""
+        return self._head
+
+    def iternodes(self):
+        """Iterate the syntax tree nodes unordered"""
+        stk = [self]
+        while len(stk) != 0:
+            nd = stk.pop()
+            if not nd.isleaf:
+                stk.extend(nd.children)
+            yield nd
+
+
+class AbstractConstituentNode(object):
+    """Base class for constituents and sytax tree nodes."""
+    def __init__(self, ndtype):
+        self.ndtype = ndtype
+
+    @property
+    def children(self):
+        """Get a list of the child nodes."""
+        return None
+
+    @property
+    def isleaf(self):
+        """Test if this is a leaf node."""
+        return self.children is None
+
+    @property
+    def head_idx(self):
+        """Return the lexical head of the phrase"""
+        raise NotImplementedError
+
+    @property
+    def parent_idx(self):
+        """Return the parent node index"""
+        raise NotImplementedError
+
+    @property
+    def lex_range(self):
+        """Return the lexical range (span) of the constituent"""
+        raise NotImplementedError
 
     def get_json(self):
         result = {
-            'span': self.span.get_indexes(),
-            'vntype': self.vntype.signature,
-            'chead': self.chead
+            'ndtype': self.ndtype.signature,
+            'chead': self.parent_idx,
+            'dhead': self.head_idx,
+            'lex_range': self.lex_range if self.lex_range is not None else [],
         }
         return result
 
+    def iternodes(self):
+        """Iterate the tree nodes unordered"""
+        if self.isleaf:
+            yield self
+        else:
+            stk = [self]
+            while len(stk) != 0:
+                nd = stk.pop()
+                if not nd.isleaf:
+                    stk.extend(nd.children)
+                yield nd
+
+    def contains(self, ndtypes):
+        """Return true if the node or any children have type in ndtypes"""
+        return self.ndtype in ndtypes or any([c.contains(ndtypes) for c in self.iternodes()])
+
+
+class ConstituentNode(AbstractConstituentNode):
+    """Base class for constituents."""
+    def __init__(self, ndtype, lex_range, parent_idx, head_idx):
+        super(ConstituentNode, self).__init__(ndtype)
+        self._head_idx = head_idx
+        self._parent_idx = parent_idx
+        self._lex_range = lex_range
+
+    @property
+    def children(self):
+        """Get a list of the child nodes."""
+        return None
+
+    @property
+    def head_idx(self):
+        """Return the lexical head of the phrase"""
+        return self._head_idx
+
+    @property
+    def parent_idx(self):
+        """Return the parent node index"""
+        self._parent_idx
+
+    @property
+    def lex_range(self):
+        """Return the lexical range (span) of the constituent"""
+        return self._lex_range
+
     @classmethod
-    def from_json(self, data, sentence):
-        c = Constituent(None, None)
-        c.vntype = ct.Typeof[data['vntype']]
-        c.span = Span(sentence, data['span'])
-        c.chead = data['chead']
+    def from_json(self, data):
+        lex_range=data['lex_range']
+        if len(lex_range) != 2:
+            lex_range = None
+        return ConstituentNode(ct.Typeof[data['ndtype']], lex_range=lex_range,
+                                       parent_idx=data['chead'], head_idx=data['dhead'])
+
+
+class Constituent(object):
+    """A constituent is a sentence span and a phrase type."""
+    def __init__(self, sentence, node):
+        if sentence is not None and not isinstance(sentence, AbstractSentence):
+            raise TypeError('sentence not instance of AbstractSentence')
+        if node is not None and not isinstance(node, AbstractConstituentNode):
+            raise TypeError('tree node not instance of AbstractConstituentNode')
+        self.sentence = sentence
+        self.node = node
 
     def __unicode__(self):
-        return self.vntype.signature + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
+        return self.node.ndtype.signature + u'(' + u' '.join([safe_utf8_decode(x.word) for x in self.span]) + u')'
 
     def __str__(self):
         return safe_utf8_encode(self.__unicode__())
@@ -249,19 +385,28 @@ class Constituent(object):
         return str(self)
 
     def __hash__(self):
-        return hash(self.span)
+        h = hash(id(self.sentence))
+        h ^= hash(self.node.ndtype)
+        if self.node.lex_range is not None:
+            for i in self.node.lex_range:
+                h = h ^ hash(i)
+        return h
 
     def __eq__(self, other):
-        return self.vntype is other.vntype and self.span == other.span
+        return self.node.ndtype is other.node.ndtype \
+               and 0 == _compare_lex_range(self.node.lex_range, other.node.lex_range)
 
     def __ne__(self, other):
-        return self.vntype is other.vntype or self.span != other.span
+        return self.node.ndtype is other.node.ndtype \
+               or 0 != _compare_lex_range(self.node.lex_range, other.node.lex_range)
 
     def __lt__(self, other):
-        return self.span < other.span or (self.span == other.span and self.vntype < other.vntype)
+        cmp = _compare_lex_range(self.node.lex_range, other.node.lex_range)
+        return cmp < 0 or (0 == cmp and self.node.ndtype < other.node.ndtype)
 
     def __gt__(self, other):
-        return self.span > other.span or (self.span == other.span and self.vntype > other.vntype)
+        cmp = _compare_lex_range(self.node.lex_range, other.node.lex_range)
+        return cmp > 0 or (0 == cmp and self.node.ndtype > other.node.ndtype)
 
     def __le__(self, other):
         return not self.__gt__()
@@ -269,60 +414,64 @@ class Constituent(object):
     def __ge__(self, other):
         return not self.__lt__()
 
-    def __contains__(self, item):
-        return item.span in self.span
+    def __contains__(self, other):
+        return _compare_lex_range(self.node.lex_range, other.node.lex_range) < 0 and \
+                _lex_limit_le(other.node.lex_range, self.node.lex_range)
 
     @property
-    def sentence(self):
-        return self.span.sentence
+    def isempty(self):
+        return self.node.lex_range is None
+
+    @property
+    def isroot(self):
+        """Test if this is the root constituent."""
+        return self is self.sentence.constituent_at(self.node.parent_idx)
+
+    @property
+    def ndtype(self):
+        return self.node.ndtype
+
+    @property
+    def span(self):
+        return Span(self.sentence, self.node.lex_range[0], self.node.lex_range[1]) \
+            if self.node.lex_range is not None else Span(self.sentence, self.node.head_idx, self.node.head_idx+1)
 
     def clone(self):
-        return Constituent(self.span.clone(), self.vntype, self.chead)
+        return Constituent(self.sentence, self.node)
 
-    def get_head(self, multihead=False):
+    def head(self):
         """Get the head lexeme of the constituent.
 
-        Args:
-            multihead: If True the return result is a list of heads. If false
-                a consituent with multiple heads will cause a ValueError.
-
         Returns:
-            A Lexeme instance or None if the constituent span is empty.
-
-        Raises:
-            ValueError
+            A Lexeme instance.
         """
-        if self.span.isempty:
-            return None
-        hdspan = self.span.get_head_span()
-        if len(hdspan) != 1 and not multihead:
-            raise ValueError('multiple heads (%s) for constituent %s' %
-                             (repr(hdspan.text), repr(self)))
-        return hdspan[0] if not multihead else [lex for lex in hdspan]
+        return self.sentence[self.node.head_idx]
 
-    def get_chead(self):
+    def chead(self):
         """Get the head constituent.
 
         Returns:
             A Constituent instance or None if the root constituent.
         """
-        return self.span.sentence.constituents[self.chead]
+        chd = self.sentence.constituent_at(self.node.parent_idx)
+        return None if chd is self else chd
 
     def marked_text(self, mark='#'):
         """Get the constituent text with the the head marked."""
-        if len(self.span) == 0:
+        if self.isempty:
             return ''
-        hd = self.get_head()
-        txt = [mark + self.span[0].word if self.span[0] is hd else self.span[0].word]
-        for tok in self.span[1:]:
+        hd = self.head()
+        span = self.span
+        txt = [mark + span[0].word if span[0] is hd else span[0].word]
+        for tok in span[1:]:
             if not tok.ispunct:
                 txt.append(' ')
             txt.append(mark + tok.word if tok is hd else tok.word)
         return ''.join(txt)
 
 
-class AbstractSentence(collections.Sequence):
-    """AbstractSentence"""
+class AbstractSpan(collections.Sequence):
+    """Abstract lexical span"""
 
     def __unicode__(self):
         return safe_utf8_decode(self.text)
@@ -354,34 +503,17 @@ class AbstractSentence(collections.Sequence):
         return ''.join(txt)
 
 
-class Sentence(AbstractSentence):
-    """A sentence."""
+class AbstractSentence(AbstractSpan):
+    """AbstractSentence"""
 
-    def __init__(self, lexemes=None, constituents=None, i2c=None, msgid=None):
-        if lexemes is not None:
-            self.lexemes = lexemes
-            self.constituents = [] if constituents is None else constituents
-        else:
-            self.lexemes = []
-            self.constituents = []
-            i2c = None
-        self.i2c = {} if i2c is None else i2c
-        self.msgid = msgid
-        if i2c is None and self.constituents is not None:
-            self.map_heads_to_constituents()
+    def __init__(self, msgid=None):
+        self.msgid = msgid  # for logging
 
-    def __len__(self):
-        return len(self.lexemes)
+    def constituent_at(self, idx):
+        raise NotImplementedError
 
-    def __getitem__(self, slice_i_j):
-        if isinstance(slice_i_j, slice):
-            indexes = [i for i in range(len(self))]
-            return Span(self, indexes[slice_i_j])
-        return self.lexemes[slice_i_j]
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self.lexemes[i]
+    def iterconstituents(self):
+        raise NotImplementedError
 
     def safe_wikipage(self, query):
         global _logger
@@ -395,9 +527,39 @@ class Sentence(AbstractSentence):
 
         return None
 
+
+class Sentence(AbstractSentence):
+    """A sentence."""
+
+    def __init__(self, lexemes=None, constituents=None, msgid=None):
+        super(Sentence, self).__init__(msgid)
+        if lexemes is not None:
+            self._lexemes = lexemes
+            self._constituents = [] if constituents is None else constituents
+        else:
+            self._lexemes = []
+            self._constituents = []
+
+    def __len__(self):
+        return len(self._lexemes)
+
+    def __getitem__(self, slice_i_j):
+        if isinstance(slice_i_j, slice):
+            indexes = [i for i in range(len(self))]
+            return Span(self, indexes[slice_i_j])
+        return self._lexemes[slice_i_j]
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self._lexemes[i]
+
+    def iterconstituents(self):
+        for nd in self._constituents:
+            yield Constituent(self, nd)
+
     def get_constituent_tree(self):
         """Get the constituent tree as an adjacency list of lists."""
-        constituents = self.constituents
+        constituents = self._constituents
         if len(constituents) == 0:
             return []
 
@@ -407,26 +569,26 @@ class Sentence(AbstractSentence):
         root = 0
         for i in range(len(constituents)):
             nd = constituents[i]
-            if nd.chead != i:
-                if i not in seen[nd.chead]:
-                    nodes[nd.chead][1].append(nodes[i])
-                    seen[nd.chead].append(i)
+            if nd.parent_idx != i:
+                if i not in seen[nd.parent_idx]:
+                    nodes[nd.parent_idx][1].append(nodes[i])
+                    seen[nd.parent_idx].append(i)
             else:
-                root = nd.chead
+                root = nd.parent_idx
         return nodes[root]
 
     def print_constituent_tree(self, ctree, level=0):
         """Print the constituent tree."""
         indent = '' if level == 0 else ' ' * level
-        c = self.constituents[ctree[0]]
-        print('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
+        c = self._constituents[ctree[0]]
+        print('%s%02d %s(%s)' % (indent, ctree[0], c.ndtype.signature, c.span.text))
         for nd in ctree[1]:
             self.print_constituent_tree(nd, level+3)
 
     def _get_constituent_tree_as_string_helper(self, ctree, level, result):
         indent = '' if level == 0 else ' ' * level
-        c = self.constituents[ctree[0]]
-        result.append('%s%02d %s(%s)' % (indent, ctree[0], c.vntype.signature, c.span.text))
+        c = self._constituents[ctree[0]]
+        result.append('%s%02d %s(%s)' % (indent, ctree[0], c.ndtype.signature, c.span.text))
         for nd in ctree[1]:
             self._get_constituent_tree_as_string_helper(nd, level+3, result)
         return result
@@ -446,7 +608,7 @@ class Sentence(AbstractSentence):
         seen = [[] for i in range(len(self))]
         root = 0
         for i in range(len(self)):
-            nd = self.lexemes[i]
+            nd = self._lexemes[i]
             if nd.head != i:
                 if i not in seen[nd.head]:
                     nodes[nd.head][1].append(nodes[i])
@@ -455,17 +617,27 @@ class Sentence(AbstractSentence):
                 root = nd.head
         return nodes[root]
 
+    def dependency_node_to_span(self, dtree):
+        """Convert a dependency node in an adjacency list to a span."""
+        stk = [dtree[0]]
+        indexes = []
+        while len(stk) != 0:
+            nd = stk.pop()
+            indexes.append(nd[0])
+            stk.extend(nd[1])
+        return Span(self, indexes)
+
     def print_dependency_tree(self, dtree, level=0):
         """Print the constituent tree."""
         indent = '' if level == 0 else ' ' * level
-        lex = self.lexemes[dtree[0]]
+        lex = self._lexemes[dtree[0]]
         print('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self.print_dependency_tree(nd, level+3)
 
     def _get_dependency_tree_as_string_helper(self, dtree, level, result):
         indent = '' if level == 0 else ' ' * level
-        lex = self.lexemes[dtree[0]]
+        lex = self._lexemes[dtree[0]]
         result.append('%s%02d %-4s(%s)' % (indent, dtree[0], lex.pos, lex.word))
         for nd in dtree[1]:
             self._get_dependency_tree_as_string_helper(nd, level+3, result)
@@ -476,221 +648,80 @@ class Sentence(AbstractSentence):
         result = self._get_dependency_tree_as_string_helper(ctree, 0, [])
         return '\n'.join(result)
 
-    def map_heads_to_constituents(self):
-        """Set constituent heads."""
 
-        # Lexeme head index is always in constituent so use it to map between the two.
-        i2c = {}
-        for i in range(len(self.constituents)):
-            c = self.constituents[i]
-            lexhd = c.get_head()
-            if lexhd.idx in i2c:
-                pass
-            assert lexhd.idx not in i2c
-            i2c[lexhd.idx] = i
+class AbstractSpan(AbstractSpan):
 
-        for i in range(len(self.constituents)):
-            c = self.constituents[i]
-            lexhd = c.get_head()
-            if lexhd.head in i2c:
-                c.chead = i2c[lexhd.head]
-            else:
-                while lexhd.head not in i2c and lexhd.head != lexhd.idx:
-                    lexhd = self.lexemes[lexhd.head]
-                if lexhd.head in i2c:
-                    c.chead = i2c[lexhd.head]
-        self.i2c = dict(map(lambda x: (x[0], self.constituents[x[1]]), i2c.iteritems()))
+    @property
+    def sentence(self):
+        raise NotImplementedError
 
-    def trim(self, to_remove):
-        assert isinstance(to_remove, Span)
-        if to_remove.isempty:
-            return self, None
-        # Python 2.x does not support nonlocal keyword for the closure
-        class context:
-            i = 0
-        def counter(inc=1):
-            idx = context.i
-            context.i += inc
-            return idx
+    @property
+    def isempty(self):
+        raise NotImplementedError
 
-        # Remove constituents and remap indexes.
-        context.i = 0
-        constituents = map(lambda c: Constituent(c.span.difference(to_remove), c.vntype, c.chead), self.constituents)
-        idxs_to_del = set(filter(lambda i: constituents[i].span.isempty, range(len(constituents))))
-        if len(idxs_to_del) != 0:
-            idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(constituents)))
-            constituents = map(lambda y: constituents[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
-            for c in constituents:
-                if c.chead >= 0:
-                    c.chead = idxmap[c.chead]
-                    assert c.chead >= 0
+    def clear(self):
+        raise NotImplementedError
 
-        # Remove lexemes and remap indexes.
-        context.i = 0
-        idxs_to_del = set(to_remove.get_indexes())
+    def indexes(self):
+        raise NotImplementedError
 
-        # Find the sentence head
-        sentence_head = 0
-        while self[sentence_head].head != sentence_head:
-            sentence_head = self[sentence_head].head
+    def clone(self):
+        raise NotImplementedError
 
-        # Only allow deletion if it has a single child, otherwise we get multiple sentence heads
-        if sentence_head in idxs_to_del and len(filter(lambda lex: lex.head == sentence_head, self)) != 2:
-            idxs_to_del.remove(sentence_head)
+    def union(self, other):
+        raise NotImplementedError
 
-        # Reparent heads marked for deletion
-        for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self):
-            lasthead = -1
-            while lex.head in idxs_to_del and lex.head != lasthead:
-                lasthead = lex.head
-                lex.head = self[lex.head].head
-            if lex.head in idxs_to_del:
-                # New head for sentence
-                lex.head = lex.idx
+    def add(self, idx):
+        raise NotImplementedError
 
-        idxmap = map(lambda x: -1 if x in idxs_to_del else counter(), range(len(self)))
-        for c in constituents:
-            c.span = Span(self, map(lambda y: idxmap[y],
-                                    filter(lambda x: idxmap[x] >= 0, c.span.get_indexes())))
-        lexemes = map(lambda y: self[y], filter(lambda x: idxmap[x] >= 0, range(len(idxmap))))
-        for i in range(len(lexemes)):
-            lexeme = lexemes[i]
-            lexeme.idx = i
-            lexeme.head = idxmap[lexeme.head]
-            assert lexeme.head >= 0
+    def remove(self, idx):
+        raise NotImplementedError
 
-        return Sentence(lexemes, constituents), idxmap
+    def difference(self, other):
+        raise NotImplementedError
 
-    def trim_punctuation(self):
-        to_remove = Span(self, filter(lambda i: self[i].ispunct, range(len(self))))
-        sent, _ = self.trim(to_remove)
-        return sent
+    def intersection(self, other):
+        raise NotImplementedError
 
-    def get_verbnet_sentence(self):
+    def subspan(self, required, excluded=0):
+        raise NotImplementedError
 
-        constituents = [c.clone() for c in self.constituents]
+    def contiguous_subspans(self, required, excluded=0):
+        raise NotImplementedError
 
-        # Build adjacency list
-        adj = map(lambda x: list(), constituents)
-        for i in range(len(constituents)):
-            c = constituents[i]
-            if c.chead != i:
-                adj[c.chead].append(i)
+    def fullspan(self):
+        raise NotImplementedError
 
-        vps = []
-        allspan = Span(self)
-        for i in itertools.ifilter(lambda x: constituents[x].vntype in [ct.CONSTITUENT_VP, ct.CONSTITUENT_SDCL,
-                                                                        ct.CONSTITUENT_SEM, ct.CONSTITUENT_SQ,
-                                                                        ct.CONSTITUENT_SWQ,
-                                                                        ct.CONSTITUENT_S, ct.CONSTITUENT_SINF],
-                                   range(len(constituents))):
-            ci = constituents[i]
-            span = Span(self)
-            for j in adj[i]:
-                span = span.union(constituents[j].span)
+    def get_drs(self, nodups=False):
+        raise NotImplementedError
 
-            span = span.union(allspan)
-            idxs = ci.span.difference(span).get_indexes()
-            if len(idxs) == 0:
-                ci.vntype = None
-                ci.span.clear()
-                continue
-            hds = dict([(hd.idx, Constituent(Span(self), ci.vntype))
-                        for hd in Span(self, idxs).get_head_span()])
-            for j in idxs:
-                k = j
-                while k not in hds and self[k].head != k:
-                    k = self[k].head
-                hds[k].span.add(j)
+    def get_head_span(self, strict=False):
+        raise NotImplementedError
 
-            # Check referents
-            refs = {}
-            spcjs = Span(self)
-            for cj in hds.itervalues():
-                refs[cj.get_head().refs[0]] = cj
-                spcjs = spcjs.union(cj.span)
-            nspcj = ci.span.difference(spcjs)
-            for lex in nspcj:
-                if len(lex.refs) != 0 and lex.refs[0] in refs:
-                    cj = refs[lex.refs[0]]
-                    if lex.head in cj.span and 0 != (lex.mask & (RT_EVENT | RT_EVENT_MODAL | RT_EVENT_ATTRIB)):
-                        cj.span.add(lex.idx)
-
-            for cj in hds.itervalues():
-                allspan = allspan.union(cj.span)
-            vps.extend(hds.itervalues())
-            ci.vntype = None
-            ci.span.clear()
-
-        for c in vps:
-            if c.vntype is ct.CONSTITUENT_SINF:
-                if len(c.span) == 1 and c.span[0] == 'to':
-                    c.vntype = ct.CONSTITUENT_TO
-            else:
-                c.vntype = ct.CONSTITUENT_VP
-
-        # Split Noun phrases
-        for i in itertools.ifilter(lambda x: constituents[x].vntype is not None and constituents[x].vntype in [ct.CONSTITUENT_NP, ct.CONSTITUENT_PP],
-                                   range(len(constituents))):
-            ci = constituents[i]
-            span = Span(self)
-            for j in adj[i]:
-                span = span.union(constituents[j].span)
-
-            ctmp = Constituent(ci.span.difference(span), ci.vntype)
-            if ctmp.span == ci.span:
-                continue
-
-            hds = ctmp.get_head(multihead=True)
-            if len(hds) == 1:
-                ci.span = ctmp.span
-        ##
-        # Constituent adjacency incorrect after this call
-        ##
-        constituents = filter(lambda x: x.vntype is not None, constituents)
-        constituents.extend(vps)
-
-        # TODO: do we need to do the same for PP, ADVP?
-        # Split adjacent NP, ADVP|ADJP
-        cadvp = filter(lambda x: x.vntype in [ct.CONSTITUENT_ADVP, ct.CONSTITUENT_ADJP], reversed(constituents))
-        cnp   = filter(lambda x: x.vntype is ct.CONSTITUENT_NP, reversed(constituents))
-        while len(cnp) > 0 and len(cadvp) > 0:
-            c1 = cnp.pop()
-            c2 = cadvp.pop()
-            hd1 = c1.get_head()
-            hd2 = c2.get_head()
-            if c2.span in c1.span:
-                lex = c2.span[0]
-                if lex.idx > 0 and self[lex.idx-1].ispunct and hd2.head in c1.span:
-                    c1.span = c1.span.difference(c2.span)
-                else:
-                    for lx in c2.span:
-                        lx.mask &= ~RT_ADJUNCT
-            elif hd1.idx < hd2.idx:
-                cadvp.append(c2)
-            elif hd1.idx > hd2.idx:
-                cnp.append(c1)
-
-        constituents = sorted(constituents)
-        return Sentence([lex for lex in self], constituents)
+    def search_wikipedia(self, max_results=1, google=True, browser=None):
+        raise NotImplementedError
 
 
-class Span(AbstractSentence):
+class Span(AbstractSpan):
     """View of a discourse."""
-    def __init__(self, sentence, indexes=None):
-        if not isinstance(sentence, Sentence):
-            raise TypeError('Span constructor requires sentence type = Sentence')
+    def __init__(self, sentence, indexes=None, end=None):
+        if not isinstance(sentence, AbstractSentence):
+            raise TypeError('Span constructor requires AbstractSentence type')
         self._sent = sentence
         if indexes is None:
             self._indexes = []
         elif isinstance(indexes, set):
             self._indexes = sorted(indexes)
+        elif end is not None:
+            if not isinstance(end, (int, long)) or not isinstance(indexes, (int, long)):
+                TypeError('Span() accepts index list or range')
+            self._indexes = [x for x in xrange(indexes, end)]
         else:
             self._indexes = sorted(set([x for x in indexes]))
 
     def __eq__(self, other):
         return other is not None and self.sentence is other.sentence and len(self) == len(other) \
-               and len(set(self._indexes).intersection(other._indexes)) == len(self)
+               and (len(self._indexes) == 0 or (self._indexes[0] == other._indexes[0] and self._indexes[-1] == other._indexes[-1]) == 0)
 
     def __hash__(self):
         h = hash(id(self.sentence))
@@ -773,7 +804,11 @@ class Span(AbstractSentence):
         """Make the span empty."""
         self._indexes = []
 
-    def get_indexes(self):
+    def iterindexes(self):
+        for x in self._indexes:
+            yield x
+
+    def indexes(self):
         """Get the list of indexes in this span."""
         return [x for x in self._indexes]
 
@@ -842,7 +877,7 @@ class Span(AbstractSentence):
         Returns:
             A list of Span instance.
         """
-        indexes = self.subspan(required, excluded).get_indexes()
+        indexes = self.subspan(required, excluded).indexes()
         if len(indexes) == 0:
             return []
         csp = []

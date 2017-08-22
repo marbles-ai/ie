@@ -52,8 +52,7 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
                 smod = preprocess_sentence(request.text)
                 ccgbank = gsvc.ccg_parse(self.ccg_stub, smod, gsvc.DEFAULT_SESSION)
                 pt = parse_ccg_derivation(ccgbank)
-                ccg = process_ccg_pt(pt, options=request.options)
-                sent = ccg.get_verbnet_sentence()
+                sent = process_ccg_pt(pt, options=request.options)
 
                 response = infox_service_pb2.GSentence()
                 for lex in sent:
@@ -73,9 +72,11 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
                         glex.wikidata.page_categories.extend(lex.wiki_data.page_categories)
                         glex.wikidata.url = lex.wiki_data.url
 
-                for c in ccg.constituents:
+                for c in sent.constituents:
                     gc = response.constituents.add()
-                    gc.span.extend(c.span.get_indexes())
+                    # TODO: rename - its not a span
+                    gc.span.extend(c.lex_range)
+                    gc.span.append(c.dhead)
                     gc.vntype = c.vntype.signature
                     gc.head = c.chead
 

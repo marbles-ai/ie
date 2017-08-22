@@ -16,8 +16,8 @@ def get_constituents_string_list(sent):
     s = []
     for i in range(len(sent.constituents)):
         c = sent.constituents[i]
-        headword = c.get_head().idx
-        txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
+        headword = c.head().idx
+        txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span()]
         s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
     return s
 
@@ -83,14 +83,12 @@ class InfoxTest(unittest.TestCase):
         ]
         aconstituents = []
         for c in gsentence.constituents:
-            aconstituents.append([x for x in c.span])
+            aconstituents.append([x for x in c.span()])
         self.assertListEqual(xconstituents, aconstituents)
 
         sent = marshal_sentence(gsentence)
         s = get_constituent_string(sent)
         self.assertEqual('S_DCL(The boy #wants to believe the girl) NP(#The boy) S_INF(#to believe the girl) S_INF(#believe the girl) NP(#the girl)', s)
-        s = get_constituent_string(sent.get_verbnet_sentence())
-        self.assertEqual('NP(#The boy) VP(#wants) S_INF(#to believe) NP(#the girl)', s)
 
 
 if __name__ == '__main__':

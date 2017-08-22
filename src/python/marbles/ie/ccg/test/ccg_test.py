@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
-import os
+
 import unittest
 
 from marbles.ie.ccg import *
-from marbles.ie.semantics.ccg import Ccg2Drs, PushOp, ExecOp
-from marbles.test import dprint, DPRINT_ON
+from marbles.ie.semantics.ccg import Ccg2Drs
+from marbles.ie.semantics.syntaxtree import STreeNode, STreeLeafNode
+from marbles.test import dprint
+
 parse_ccg_derivation = parse_ccg_derivation2
 
 
@@ -257,14 +259,14 @@ class CcgTest(unittest.TestCase):
                     continue
                 self.assertIsNotNone(pt)
 
-                for op in ccg.exeque:
-                    if isinstance(op, PushOp):
+                for nd in ccg.stree_nodes:
+                    if isinstance(nd, STreeLeafNode):
                         continue
-                    self.assertIsInstance(op, ExecOp)
-                    left = op.sub_ops[0].category
-                    result = op.category
-                    if len(op.sub_ops) == 2:
-                        right = op.sub_ops[1].category
+                    self.assertIsInstance(nd, STreeNode)
+                    left = nd.children[0].category
+                    result = nd.category
+                    if len(nd.children) == 2:
+                        right = nd.children[1].category
                     else:
                         right = CAT_EMPTY
 
@@ -322,14 +324,14 @@ class CcgTest(unittest.TestCase):
                     continue
 
                 self.assertIsNotNone(pt)
-                for op in ccg.exeque:
-                    if isinstance(op, PushOp):
+                for nd in ccg.stree_nodes:
+                    if isinstance(nd, STreeLeafNode):
                         continue
-                    self.assertIsInstance(op, ExecOp)
-                    left = op.sub_ops[0].category
-                    result = op.category
-                    if len(op.sub_ops) == 2:
-                        right = op.sub_ops[1].category
+                    self.assertIsInstance(nd, STreeNode)
+                    left = nd.children[0].category
+                    result = nd.category
+                    if len(nd.children) == 2:
+                        right = nd.children[1].category
                     else:
                         right = CAT_EMPTY
                     exclude = []
@@ -383,27 +385,27 @@ class CcgTest(unittest.TestCase):
                     failed_parse += 1
                     continue
 
-                for op in ccg.exeque:
-                    if isinstance(op, PushOp):
+                for nd in ccg.stree_nodes:
+                    if isinstance(nd, STreeLeafNode):
                         continue
-                    self.assertIsInstance(op, ExecOp)
-                    left = op.sub_ops[0].category.remove_wildcards()
-                    result = op.category.remove_wildcards()
-                    if len(op.sub_ops) == 2:
-                        right = op.sub_ops[1].category.remove_wildcards()
+                    self.assertIsInstance(nd, STreeNode)
+                    left = nd.children[0].category.remove_wildcards()
+                    result = nd.category.remove_wildcards()
+                    if len(nd.children) == 2:
+                        right = nd.children[1].category.remove_wildcards()
                     else:
                         right = CAT_EMPTY
 
-                    if op.rule is not None and op.rule not in [RL_TCL_UNARY, RL_TCR_UNARY, RL_TC_ATOM, RL_TC_CONJ, \
-                                                               RL_LPASS, RL_RPASS, RL_TYPE_RAISE]:
-                        actual = op.rule.apply_rule_to_category(left, right)
+                    if nd.rule is not None and nd.rule not in [RL_TCL_UNARY, RL_TCR_UNARY, RL_TC_ATOM, RL_TC_CONJ, \
+                                                               RL_RP, RL_LP, RL_TYPE_RAISE]:
+                        actual = nd.rule.apply_rule_to_category(left, right)
                         if not actual.can_unify(result):
                             failed_exec.append('%s-%04d: %s <!> %s' % (name, i, actual, result))
-                            failed_exec.append('%s <- %s %s %s' % (actual, left, op.rule, right))
+                            failed_exec.append('%s <- %s %s %s' % (actual, left, nd.rule, right))
                             failed_exec.append(ccgbank)
                         else:
                             # Can add analysis here
-                            if left == CAT_NP and right == CAT_NP_NP and op.rule == RL_BA and op.head != 0:
+                            if left == CAT_NP and right == CAT_NP_NP and nd.rule == RL_BA and nd.head != 0:
                                 # Expected: NP(x) <- λx.NP(x) -BA- λxλy.NP(y)\NP(x)
                                 # Actual: NP(y) <- λx.NP(x) -BA- λxλy.NP(y)\NP(x)
                                 analysis.append('%s-%04d: NP <ba> NP\\NP' % (name, i))

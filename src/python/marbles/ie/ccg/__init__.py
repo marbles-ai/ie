@@ -274,6 +274,7 @@ _Feature = re.compile(r'\[([a-z]+|X)\]')
 _Wildtag = re.compile(r'\{_.*\}')
 _cache = Cache()
 _use_cache = 0
+_Isconj = re.compile(r'(?<!\[)conj')
 _OP_EXTRACT_UNIFY_FALSE = 0 # Must be zero
 _OP_EXTRACT_UNIFY_TRUE = 1  # Must be one
 _OP_REMOVE_WILDCARDS = 2
@@ -307,7 +308,7 @@ class Category(Freezable):
             if isinstance(signature, (str, unicode)):
                 self._signature, self._features = extract_features(signature)
                 self._features |= features
-                self._features |= ISCONJMASK if 'conj' in signature else 0
+                self._features |= ISCONJMASK if _Isconj.match(signature) is not None else 0
             else:
                 self._signature = signature.signature
                 self._features = signature._features | features
@@ -622,11 +623,6 @@ class Category(Freezable):
     def isatom(self):
         """Test if the category is an atom."""
         return not self.isfunctor and not self.isempty
-
-    @property
-    def iscombinator(self):
-        """A combinator is a function which take a function argument and returns another function."""
-        return not self.ismodifier and iscombinator_signature(self._signature)
 
     @property
     def issentence(self):
@@ -1168,6 +1164,7 @@ CAT_S_NPS_NP = Category.from_cache(r'(S\NP)/(S\NP)')
 CAT_Sadj_NP = Category.from_cache(r'S[adj]\NP')
 CAT_S_NP = Category.from_cache(r'S\NP')
 CAT_S_S = Category.from_cache(r'S\S')
+CAT_SS = Category.from_cache(r'S/S')
 
 FEATURE_VARG = FEATURE_PSS | FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_TO | FEATURE_B | FEATURE_BEM
 FEATURE_VRES = FEATURE_NG | FEATURE_EM | FEATURE_DCL | FEATURE_B |FEATURE_BEM
@@ -1259,9 +1256,9 @@ class Rule(Dispatchable):
         Returns:
             A Category instance.
         """
-        if self == RL_LPASS:
+        if self == RL_RP:
             return left
-        elif self == RL_RPASS:
+        elif self == RL_LP:
             return right
         elif self in [RL_FX, RL_FC]:
             return Category.combine(left.result_category(), right.slash, right.argument_category())
@@ -1386,13 +1383,16 @@ RL_FXS = Rule('FXS', 'S')
 RL_BXS = Rule('BXS', 'S')
 
 ## Special rule for punctuation.
-RL_LPASS = Rule('LP', 'PASS')
+RL_RP = Rule('RP', 'PASS')
+
+## Special rule for punctuation.
+RL_LP = Rule('LP', 'PASS')
+
+## No operation - only used when post processing
+RL_NOP = Rule('NOP', 'PASS')
 
 ## Special rule for CONJ.
 RL_LCONJ = Rule('LCONJ', 'PASS')
-
-## Special rule for punctuation.
-RL_RPASS = Rule('RP', 'PASS')
 
 ## Special rule for CONJ.
 RL_RCONJ = Rule('RCONJ', 'PASS')
@@ -1462,16 +1462,16 @@ def get_rule(left, right, result, exclude=None):
     if left.ispunct and notexcluded(exclude, 13):
         xupdate(exclude, 13)
         if right.ispunct:
-            return RL_LPASS
+            return RL_RP
         elif right == CAT_EMPTY:
-            return RL_LPASS
+            return RL_LP
         elif right in [CAT_CONJ, CAT_CONJCONJ, CAT_CONJ_CONJ]:
             assert result == right
-            return RL_RPASS
+            return RL_LP
         elif right.can_unify(result):
-            return RL_RPASS
+            return RL_LP
         else:
-            return RL_TCR_UNARY
+            return RL_TCR_UNARY # unary type change to right argument
     elif right.ispunct and notexcluded(exclude, 14):
         if exclude is not None:
             if left.ispunct:
@@ -1479,9 +1479,9 @@ def get_rule(left, right, result, exclude=None):
         xupdate(exclude, 14)
         if left in [CAT_CONJ, CAT_CONJCONJ, CAT_CONJ_CONJ]:
             assert result == left
-            return RL_LPASS
+            return RL_RP
         elif left.can_unify(result) or left.ispunct:
-            return RL_LPASS
+            return RL_RP
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
         elif result.result_category() == result.argument_category().result_category() and \
@@ -1493,7 +1493,7 @@ def get_rule(left, right, result, exclude=None):
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_TYPE_RAISE
         else:
-            return RL_TCL_UNARY
+            return RL_TCL_UNARY # unary type change to left argument
 
     if left.isconj and right != CAT_EMPTY and not right.ispunct and notexcluded(exclude, 0):
         if left == CAT_CONJ:
@@ -1504,7 +1504,7 @@ def get_rule(left, right, result, exclude=None):
                 #return RL_RCONJ
                 xupdate(exclude, 0)
                 assert right != CAT_CONJ
-                return RL_RPASS
+                return RL_LP
             elif result.ismodifier and result.argument_category().can_unify(right):
                 xupdate(exclude, 0)
                 return RL_TCR_UNARY
@@ -1528,16 +1528,13 @@ def get_rule(left, right, result, exclude=None):
                 return None     # don't count as ambiguous rule
             exclude.append(1)
         if right == CAT_CONJ:
-            if not left.can_unify(result):
-                pass
             assert left.can_unify(result)
-            return RL_LCONJ
-            #return RL_TCL_UNARY
+            return RL_RP
         elif left.can_unify(right):
             return RL_RCONJ
     elif left == CAT_EMPTY and notexcluded(exclude, 2):
         xupdate(exclude, 2)
-        return RL_RPASS
+        return RL_LP
     elif left == CAT_NP_NP and right == CAT_NUM and notexcluded(exclude, 3):
         xupdate(exclude, 3)
         return RL_RNUM
@@ -1552,11 +1549,10 @@ def get_rule(left, right, result, exclude=None):
                 # X:a => T\(T/X): λxf.f(a)
                 return RL_TYPE_RAISE
         elif left.can_unify(result):
-            return RL_LPASS
+            return RL_RP
         elif left.isatom and result.isatom:
             return RL_TC_ATOM
-        else:
-            return RL_TCL_UNARY
+        return RL_TCL_UNARY
 
     elif left.isarg_right and left.argument_category().can_unify(right) and \
             left.result_category().can_unify(result) and notexcluded(exclude, 5):

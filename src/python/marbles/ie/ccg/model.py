@@ -516,7 +516,7 @@ class Model(object):
             stk = [(result.result_category(), result.slash)]
             while not stk[-1][0].isatom and stk[-1][0] != sarg:
                 cat = stk[-1][0]
-                stk.append((result.result_category(), result.slash))
+                stk.append((cat.result_category(), cat.slash))
             # test_returns means this must be true
             assert stk[-1][0] == sarg
             aresult = sarg          # actual result
@@ -549,12 +549,12 @@ class Model(object):
                 if catResult.isfunctor:
                     catResult = self.lookup(catResult).predarg_category.complete_tags()
                 else:
-                    catResult = Category(catResult.signature + '_999')  # synthesize pred-arg info
+                    catResult = Category(catResult.signature + '_10000')  # synthesize pred-arg info
                 if catArgArg.isfunctor:
                     # FIXME: Should really check predarg info does not overlap with catResult. Chances are low.
                     catArgArg = self.lookup(catArgArg).predarg_category.complete_tags()
                 else:
-                    catArgArg = Category(catArgArg.signature + '_998')  # synthesize pred-arg info
+                    catArgArg = Category(catArgArg.signature + '_10001')  # synthesize pred-arg info
                 newcat = Category.combine(catResult, category.slash,
                                           Category.combine(catResult, category.argument_category().slash, catArgArg), False)
                 return self.add_template(newcat)
@@ -588,9 +588,9 @@ class Model(object):
             return rule
         except Exception:
             pass
-        return self.infer_unary(result, argument) if infer else None
+        return self.infer_unary(result.remove_conj_feature(), argument.remove_conj_feature()) if infer else None
 
-    def lookup(self, category):
+    def lookup(self, category, infer=True):
         """Lookup a FunctorTemplate with key=category."""
         category = category.remove_conj_feature()
         if category in self._TEMPLATES:
@@ -602,7 +602,7 @@ class Model(object):
                 return self._TEMPLATES[wc]
             except Exception:
                 pass
-        return None
+        return self.infer_template(category.remove_conj_feature()) if infer else None
 
     def issupported(self, category):
         """Test a FunctorTemplate is in TEMPLATES with key=category."""
@@ -620,14 +620,18 @@ class Model(object):
 try:
     _tcache = Model.load_templates(os.path.join(datapath.DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
-
+    _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
+    _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
+    _tcache.addinit(Model.build_template(r'S[X]_1022/NP_2022'))
+    _tcache.addinit(Model.build_template(r'S[X]_1023\NP_2023'))
+    r'''
     _tcache.addinit(Model.build_template(r'(S[b]_238\NP_237)/(S[b]_238\NP_237)'), replace=True)
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
     _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
     #_tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
-    #_tcache.addinit(Model.build_template(r'PP_1002/NP_1002'), replace=True)
+    _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
     _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1004/PP_1004'), replace=True)
     _tcache.addinit(Model.build_template(r'NP_1007/N_2007'))
@@ -666,7 +670,7 @@ try:
     #_tcache.addinit(Model.build_template(r'(NP_1204\NP_2204)_2204'), replace=True)
 
     _tcache.addinit(Model.build_template(r'((N_1204\N_1204)/(S[to]_2204\NP))\((NP_1204\NP_1204)/NP_2204)'))
-
+    '''
     # Add unary rules
     _rcache = Cache()
     _rcache.addinit(Model.build_unary_rule(r'(S_1024\NP_2024)/(S_1024\NP_2024)', r'S_1024/S[dcl]_1024'))
@@ -852,11 +856,11 @@ try:
 
     # Special rules for conj
     _rcache = Cache()
-    _rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', r'S[X]_1045\NP_2045'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
-    _rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
+    #_rcache.addinit(Model.build_unary_rule(r'(S[X]_1045\NP_2045)\(S[X]_1045\NP_2045)', r'S[X]_1045\NP_2045'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[X]_1046\NP_2046)/NP_3046)\((S[X]_1046\NP_2046)/NP_3046)', r'(S[X]_1046\NP_2046)/NP_3046'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[pss]_1092\NP_2092)/PP_3092)\((S[pss]_1092\NP_2092)/PP_3092)', r'(S_1092\NP_2092)/PP_3092'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[b]_1093\NP_2093)/PP_3093)\((S[b]_1093\NP_2093)/PP_3093)', r'(S_1093\NP_2093)/PP_3093'))
+    #_rcache.addinit(Model.build_unary_rule(r'((S[X]_1094\NP_2094)/PP_3094)\((S[X]_1094\NP_2094)/PP_3094)', r'(S_1094\NP_2094)/PP_3094'))
     UCONJ = Model(templates=Cache(), unary_rules=_rcache)
 
 except Exception as e:

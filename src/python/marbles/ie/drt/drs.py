@@ -1345,7 +1345,7 @@ class Rel(AbstractDRSCond):
         if isinstance(drsRefs, AbstractDRSRef):
             drsRefs = [drsRefs]
         elif not iterable_type_check(drsRefs, AbstractDRSRef):
-            raise TypeError('Rel expects DRS')
+            raise TypeError('Rel expects DRSRef')
         if isinstance(drsRel, (str, unicode)):
             drsRel = DRSRelation(drsRel)
         if not isinstance(drsRel, AbstractDRSRelation):
@@ -1408,6 +1408,14 @@ class Rel(AbstractDRSCond):
     def isresolved(self):
         """Helper for DRS function of same name."""
         return all([x.isresolved for x in self._refs])
+
+    def set_referents(self, nrefs):
+        """Used during composition"""
+        if isinstance(nrefs, AbstractDRSRef):
+            nrefs = [nrefs]
+        elif not iterable_type_check(nrefs, AbstractDRSRef):
+            raise TypeError('Rel expects DRSRef')
+        self._refs = nrefs
 
     def find_condition(self, c, ld):
         """Search for a condition matching `c` within global DRS gd."""

@@ -47,6 +47,7 @@ def make_lexicon(daemon):
     projdir = os.path.dirname(os.path.dirname(__file__))
 
     easysrl_path = os.path.join(projdir, 'data', 'ldc', daemon, 'lexicon')
+    mappath = os.path.join(projdir, 'data', 'ldc', 'mapping')
     if not os.path.exists(easysrl_path):
         os.makedirs(easysrl_path)
     if not os.path.exists(os.path.join(easysrl_path, 'rt')):
@@ -67,21 +68,33 @@ def make_lexicon(daemon):
 
     failed_parse = 0
     failed_ccg_derivation = []
-    start = 0
+    start_line = 0
     progress = -1
     dictionary = None
+    allfiles = sorted(allfiles)
+    section_map = {}
     for fn in allfiles:
-        idx = idsrch.match(fn)
-        if idx is None:
+        section = idsrch.match(fn)
+        if section is None:
             continue
-        idx = idx.group('id')
+        section = section.group('id')
 
         with open(fn, 'r') as fd:
             lines = fd.readlines()
 
+        # Get mapping
+        mapfile = os.path.join(mappath, 'ccg_map%s.txt' % section)
+        with open(mapfile, 'r') as fd:
+            mapping = fd.readlines()
+        for i, mm in zip(range(len(lines)), mapping):
+            uid = '%s-%04d' % (section, i)
+            mm = mm.strip()
+            section_map[uid] = mm
+
+        # Process lines
         name, _ = os.path.splitext(os.path.basename(fn))
-        for i in range(start, len(lines)):
-            start = 0
+        for i in range(start_line, len(lines)):
+            start_line = 0
             ccgbank = lines[i].strip()
             if len(ccgbank) == 0 or ccgbank[0] == '#':
                 continue
@@ -101,7 +114,7 @@ def make_lexicon(daemon):
                 raise
                 continue
 
-            uid = '%s-%04d' % (idx, i)
+            uid = '%s-%04d' % (section, i)
             try:
                 #dictionary[0-25][stem][set([c]), set(uid)]
                 dictionary = extract_lexicon_from_pt(pt, dictionary, uid=uid)
@@ -111,19 +124,21 @@ def make_lexicon(daemon):
                 continue
 
     rtdict = {}
-    for idx in range(len(dictionary)):
-        fname = unichr(idx+0x40)
+    for section in range(len(dictionary)):
+        fname = unichr(section+0x40)
         filepath = os.path.join(easysrl_path, 'az', fname + '.txt')
         with open(filepath, 'w') as fd:
-            d = dictionary[idx]
+            d = dictionary[section]
             for k, v in d.iteritems():
                 # k == stem, v = {c: set(uid)}
-                fd.write(b'<predicate name=\'%s\'>\n' % safe_utf8_encode(k))
+                fd.write(b'<predicate name=\"%s\">\n' % safe_utf8_encode(k))
                 for x, w in v.iteritems():
-                    fd.write(b'<usage \'%s\'>\n' % safe_utf8_encode(x))
                     nc = x.split(':')
                     if len(nc) == 2:
                         c = Category.from_cache(Category(nc[1].strip()).clean(True))
+                        fd.write(b'<usage final_atom=\"%s\" predarg=\"%s\" category=\"%s\">\n' %
+                                 (safe_utf8_encode(nc[0].strip()), safe_utf8_encode(nc[1].strip()),
+                                  safe_utf8_encode(c.signature)))
                         # Return type atom
                         rt = c.extract_unify_atoms(False)[-1]
                         if rt in rtdict:
@@ -134,13 +149,15 @@ def make_lexicon(daemon):
                                 cdict[c] = [nc[0]]
                         else:
                             rtdict[rt] = {c: [nc[0]]}
+                    else:
+                        continue
                     for y in w:
-                        fd.write(b'sentence id: ' + safe_utf8_encode(y))
+                        fd.write(b'sentence-id: %s|%s' % (safe_utf8_encode(y), safe_utf8_encode(section_map[y])))
                         fd.write(b'\n')
                     fd.write(b'</usage>\n')
                 fd.write(b'</predicate>\n\n')
             # Free up memory
-            dictionary[idx] = None
+            dictionary[section] = None
             d = None
     for rt, cdict in rtdict.iteritems():
         fname = rt.signature.replace('[', '_').replace(']', '')
@@ -156,7 +173,7 @@ def make_lexicon(daemon):
 
 if __name__ == '__main__':
     make_lexicon('easysrl')
-    make_lexicon('neuralccg')
+    #make_lexicon('neuralccg')
 
 
 

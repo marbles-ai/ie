@@ -140,6 +140,7 @@ _WEEKDAYS = {
 
 CAT_NPnbN_NP = Category.from_cache(r'(NP[nb]/N)\NP')
 CAT_NPN_NP = Category.from_cache(r'(NP/N)\NP')
+CAT_NPP = Category.from_cache(r'N/PP')
 
 ## @ingroup gfn
 def strip_apostrophe_s(word):
@@ -182,7 +183,7 @@ def create_empty_drs_production(category, ref=None, span=None):
     d.set_lambda_refs([ref])
     return d
 
-_EventPredicates = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
+EventPredicates = ('_ARG0', '_ARG1', '_ARG2', '_ARG3', '_ARG4', '_ARG5')
 _TypeMonth = re.compile(r'^((Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?|January|February|March|April|June|July|August|September|October|November|December)$')
 _TypeWeekday = re.compile(r'^((Mon|Tue|Tues|Wed|Thur|Thurs|Fri|Sat|Sun)\.?|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$')
 _Punct= '?.,:;'
@@ -375,7 +376,7 @@ class Lexeme(AbstractLexeme):
 
         Args:
             conds: The existing DRS conditions.
-            binary: Binary flag
+            binary: Binary refs
             template: A FunctorTemplate instance.
 
         Returns:
@@ -393,39 +394,45 @@ class Lexeme(AbstractLexeme):
                     conds.append(Rel(_MONTHS[self.stem], [self.refs[0]]))
                 else:
                     conds.append(Rel(self.stem, [self.refs[0]]))
-                if template.isfinalevent:
-                    conds.append(Rel('_DATE', self.refs[0:2]))
-                else:
-                    conds.append(Rel('_DATE', self.refs[0]))
+                #if template.isfinalevent:
+                #    conds.append(Rel('_DATE', self.refs[0:2]))
+                #else:
+                #    conds.append(Rel('_DATE', self.refs[0]))
+                conds.append(Rel('_DATE', self.refs[0]))
             elif _TypeWeekday.match(self.stem):
                 self.mask |= RT_DATE
                 if self.stem in _WEEKDAYS:
                     conds.append(Rel(_WEEKDAYS[self.stem], [self.refs[0]]))
                 else:
                     conds.append(Rel(self.stem, [self.refs[0]]))
-                if template.isfinalevent:
-                    conds.append(Rel('_DATE', self.refs[0:2]))
-                else:
-                    conds.append(Rel('_DATE', self.refs[0]))
+                #if template.isfinalevent:
+                #    conds.append(Rel('_DATE', self.refs[0:2]))
+                #else:
+                #    conds.append(Rel('_DATE', self.refs[0]))
+                conds.append(Rel('_DATE', self.refs[0]))
             else:
                 conds.append(Rel(self.stem, [self.refs[0]]))
         elif self.isnumber:
             self.mask |= RT_NUMBER
             conds.append(Rel(self.stem, [self.refs[0]]))
-            conds.append(Rel('_NUM', self.refs))
+            conds.append(Rel('_NUM', self.refs[0]))
         elif self.ispunct:
-            if len(self.refs) > 1:
+            if binary is not None:
                 if self.word == ':':
-                    conds.append(Rel('_IE', [self.refs[0], self.refs[-1]]))
+                    conds.append(Rel('_IE', binary))
                 elif self.word == ';':
-                    conds.append(Rel('_LINK', [self.refs[0], self.refs[-1]]))
-        elif self.pos == POS_PREPOSITION and not self.ispreposition:
-            if len(self.refs) > 1:
-                conds.append(Rel(self.stem, [self.refs[0], self.refs[-1]]))
+                    conds.append(Rel('_LINK', binary))
+        #elif self.pos == POS_PREPOSITION and not self.ispreposition:
+        #    if len(self.refs) > 1:
+        #        conds.append(Rel(self.stem, [self.refs[0], self.refs[-1]]))
+        #    else:
+        #        conds.append(Rel(self.stem, self.refs))
+        elif binary is not None:
+            if self.pos == POS_POSSESSIVE:
+                self.mask |= RT_POSSESSIVE
+                conds.append(Rel('_POSS', binary))
             else:
-                conds.append(Rel(self.stem, self.refs))
-        elif binary:
-            conds.append(Rel(self.stem, [self.refs[0], self.refs[-1]]))
+                conds.append(Rel(self.stem, binary))
         else:
             conds.append(Rel(self.stem, [self.refs[0]]))
         return conds
@@ -458,13 +465,14 @@ class Lexeme(AbstractLexeme):
             # pattern.en.pluralize(self.stem)
             # or use inflect https://pypi.python.org/pypi/inflect
             if self.stem == "'s":
-                pass
+                sp = self.stem
             # inflect will generate an exception for single character nouns. This can happen for
             # bad pos tagging (like EasySRL)
-            if len(self.stem) > 1:
+            elif len(self.stem) > 1:
                 sp = _Ieng.plural(self.stem)
             self.wnsynsets = wn.wordnet.synsets(_Wnl.lemmatize(self.stem.lower(), 'n'), pos='n')
             if False and self.stem != sp:
+                # TODO: track these
                 rp = DRSRef(DRSVar('X', len(self.refs)+1))
                 self.drs = DRS([self.refs[0], rp],
                                [Rel(self.stem, [self.refs[0]]), Rel(sp, [rp]), Rel('_ISMEMBER', [self.refs[0], rp])])
@@ -495,7 +503,7 @@ class Lexeme(AbstractLexeme):
         Returns:
             A Production instance.
         """
-        global _EventPredicates
+        global EventPredicates
         no_vn = 0 != (CO_NO_VERBNET & options)
         span = Span(sentence, [self.idx])
         template = self.get_template()
@@ -610,17 +618,49 @@ class Lexeme(AbstractLexeme):
             refs = remove_dups(refs)
             # refs[0] is always final_ref
             self.refs = refs
-            binary = len(refs) > 1 and (self.category in [CAT_NPnbN_NP, CAT_NPN_NP] or \
-                     (self.category.test_returns_entity_modifier() and self.category.argument_category().isatom))
+
+            brefs = [final_ref]
+            brefs.extend(rstk)
+            brefs = remove_dups(brefs)
+            binary = None
+            if len(brefs) > 1 and (self.pos == POS_PREPOSITION or
+                    self.word in [':', ';'] or
+                    self.category in [CAT_NPnbN_NP, CAT_NPN_NP] or
+                    (self.category.test_returns_entity_modifier() and self.category.argument_category().isatom)):
+                # Right attachment
+                binary = [brefs[0], brefs[1]]
+            elif len(brefs) == 1 and len(rstk) == 1 and len(lstk) >= 1 and lstk[0] != brefs[0]:
+                # Left attachment
+                binary = [lstk[0], brefs[0]]
 
             # Verbs can also be adjectives so check event
             isverb = self.isverb
+            arg_offs = 0
             if self.isgerund:
-                result = self.category
-                while not isverb and not result.isatom:
-                    isverb = result.can_unify(CAT_TV)
-                    result = result.result_category()
-                    # TODO: Add predicate for NG or change predarg attachments
+                scat = self.category.simplify()
+                if not scat.ismodifier:
+                    if scat.test_return(CAT_S_NP_S_NP) or scat.test_return(CAT_S_NPS_NP) \
+                            or scat.test_return(CAT_S_S) or scat.test_return(CAT_SS):
+                        if len(rstk) != 0:
+                            arg_offs = 1
+                            refs = [refs[0]]
+                            refs.extend(rstk)
+                            refs = remove_dups(refs)[0:2]
+                            self.refs = refs
+                            isverb = True
+                        else:
+                            isverb = False
+                    else:
+                        isverb = scat.can_unify(CAT_VP) or scat.test_return(CAT_VP)
+                else:
+                    isverb = False
+
+            #if self.isgerund:
+            #    result = self.category
+            #    while not isverb and not result.isatom:
+            #        isverb = result.can_unify(CAT_TV)
+            #        result = result.result_category()
+            #        # TODO: Add predicate for NG or change predarg attachments
 
             if isverb and template.isfinalevent:
                 conds = []
@@ -655,17 +695,27 @@ class Lexeme(AbstractLexeme):
                     conds.append(Rel(self.stem, [refs[0]]))
                     pass
                 rcat = self.category.test_return_and_get(CAT_VPMODX, False)
-                if rcat is not None and rcat.argument_category().has_any_features(FEATURE_VARG) \
-                        and rcat.result_category().has_any_features(FEATURE_VRES):
+                if self.isgerund:
                     conds.append(Rel('_EVENT', [refs[0]]))
-                    pred = zip(refs[1:], _EventPredicates)
+                    pred = zip(refs[1:], EventPredicates[arg_offs:])
                     for v, e in pred[0:2]:
                         conds.append(Rel(e, [refs[0], v]))
                     self.mask |= RT_EVENT
                     self.vnclasses = vnclasses
                     self.drs = DRS([refs[0]], conds)
-                    #d = DrsProduction([refs[0]], self.refs[1:], span=span)
-                    d = DrsProduction([], self.refs, span=span)
+                    d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                    #d = DrsProduction([], self.refs, span=span)
+                elif rcat is not None and rcat.argument_category().has_any_features(FEATURE_VARG) \
+                        and rcat.result_category().has_any_features(FEATURE_VRES):
+                    conds.append(Rel('_EVENT', [refs[0]]))
+                    pred = zip(refs[1:], EventPredicates)
+                    for v, e in pred[0:2]:
+                        conds.append(Rel(e, [refs[0], v]))
+                    self.mask |= RT_EVENT
+                    self.vnclasses = vnclasses
+                    self.drs = DRS([refs[0]], conds)
+                    d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                    #d = DrsProduction([], self.refs, span=span)
 
                 elif rcat is not None and (rcat.has_any_features(FEATURE_PSS | FEATURE_TO) or rcat.ismodifier):
                     if len(refs) > 1:
@@ -677,14 +727,14 @@ class Lexeme(AbstractLexeme):
                             d = DrsProduction([], self.refs, span=span)
                         else:
                             conds.append(Rel('_EVENT', [refs[0]]))
-                            pred = zip(refs[1:], _EventPredicates)
+                            pred = zip(refs[1:], EventPredicates)
                             for v, e in pred[0:2]:
                                 conds.append(Rel(e, [refs[0], v]))
                             self.mask |= RT_EVENT
                             self.vnclasses = vnclasses
                             self.drs = DRS([refs[0]], conds)
-                            #d = DrsProduction([refs[0]], self.refs[1:], span=span)
-                            d = DrsProduction([], self.refs, span=span)
+                            d = DrsProduction([refs[0]], self.refs[1:], span=span)
+                            #d = DrsProduction([], self.refs, span=span)
                     else:
                         d = DrsProduction([], self.refs, span=span)
 
@@ -712,8 +762,8 @@ class Lexeme(AbstractLexeme):
                         conds.append(Rel('_ARG0', [refs[0], refs[1]]))
                         conds.append(Rel('_ARG1', [refs[0], refs[2]]))
                     self.drs = DRS([refs[0]], conds)
-                    #d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
-                    d = DrsProduction([], refs, category=final_atom, span=span)
+                    d = DrsProduction([refs[0]], refs[1:], category=final_atom, span=span)
+                    #d = DrsProduction([], refs, category=final_atom, span=span)
                 elif self.category == CAT_VPdcl:
                     if len(refs) != 2:
                         pass
@@ -726,8 +776,8 @@ class Lexeme(AbstractLexeme):
 
                     # Special handling
                     self.drs = DRS([refs[0]], conds)
-                    #d = DrsProduction([refs[0]], self.refs[1:], category=final_atom, span=span)
-                    d = DrsProduction([], self.refs, category=final_atom, span=span)
+                    d = DrsProduction([refs[0]], self.refs[1:], category=final_atom, span=span)
+                    #d = DrsProduction([], self.refs, category=final_atom, span=span)
 
                 else:
                     # TODO: use verbnet to get semantics
@@ -739,16 +789,12 @@ class Lexeme(AbstractLexeme):
                                       Rel('_ARG1', [refs[0], refs[2]])])
                     else:
                         conds.append(Rel('_EVENT', [refs[0]]))
-                        pred = zip(refs[1:], _EventPredicates)
+                        pred = zip(refs[1:], EventPredicates)
                         for v, e in pred:
                             conds.append(Rel(e, [refs[0], v]))
-                        if (len(refs)-1) > len(pred):
-                            rx = [refs[0]]
-                            rx.extend(refs[len(pred)+1:])
-                            conds.append(Rel('_ARG2', rx))
                     self.drs = DRS([refs[0]], conds)
-                    #d = DrsProduction([refs[0]], refs[1:], span=span)
-                    d = DrsProduction([], refs, span=span)
+                    d = DrsProduction([refs[0]], refs[1:], span=span)
+                    #d = DrsProduction([], refs, span=span)
 
             elif self.isadverb and template.isfinalevent:
                 if self.stem in _ADV:
@@ -780,21 +826,19 @@ class Lexeme(AbstractLexeme):
                 if template.construct_empty:
                     # Make sure we have one freeref. For functors it is a bad idea to use an empty DrsProduction
                     # as the spans can be deleted by ProductionList.flatten().
-                    d = DrsProduction([], [refs[0]], span=span)
+                    d = DrsProduction([], [self.refs[0]], span=span)
                 else:
-                    if len(refs) >= 2:
-                        refs = [refs[0], refs[-1]]
-                        self.refs = refs
-                        self.drs = DRS([], [Rel(self.stem, refs)])
+                    if binary is not None:
+                        self.refs = binary
+                        self.drs = DRS([], [Rel(self.stem, binary)])
                     else:
-                        self.drs = DRS([], [Rel(self.stem, refs)])
+                        self.refs = [self.refs[0]]
+                        self.drs = DRS([], [Rel(self.stem, self.refs)])
                     d = DrsProduction([], self.refs, span=span)
 
-            elif self.pos == POS_PREPOSITION and self.category.test_returns_modifier() \
-                    and len(refs) > 1 and not self.category.ismodifier:
-                self.drs = DRS([], [Rel(self.stem, [refs[0], refs[-1]])])
-                refs = [refs[0], refs[-1]]
-                self.refs = refs
+            elif self.pos == POS_PREPOSITION and binary is not None:
+                self.drs = DRS([], [Rel(self.stem, binary)])
+                self.refs = binary
                 d = DrsProduction([], self.refs, span=span)
 
             elif final_atom == CAT_Sadj and len(refs) > 1:
@@ -813,8 +857,14 @@ class Lexeme(AbstractLexeme):
                     d = DrsProduction([], self.refs, span=span)
 
             else:
-                universe = []
-                freerefs = self.refs
+                if self.category == CAT_NPP:
+                    # Treat as noun
+                    universe = [self.refs[0]]
+                    freerefs = []
+                else:
+                    universe = []
+                    freerefs = self.refs
+
                 if self.isproper_noun:
                     #universe.append(self.refs[0])
                     #freerefs = self.refs[1:]
@@ -827,8 +877,6 @@ class Lexeme(AbstractLexeme):
                 elif len(self.refs) == 1 and final_atom == CAT_N \
                         and (self.category.ismodifier or self.category.test_returns_modifier()):
                     self.mask |= RT_ATTRIBUTE
-                if self.pos == POS_POSSESSIVE:
-                    self.mask |= RT_POSSESSIVE
 
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:

@@ -6,7 +6,7 @@ import unittest
 
 from marbles import future_string
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.ccg import get_rule, Category, RL_RPASS, RL_TC_ATOM
+from marbles.ie.ccg import get_rule, Category, RL_LP, RL_TC_ATOM
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.parse import parse_ccg_derivation as parse_ccg_derivation_old
 from marbles.ie.semantics.ccg import Ccg2Drs
@@ -64,41 +64,38 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(Mr, N/N, NNP)',
-            '<PushOp>:(Vinken, N, NNP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(be, (S[dcl]\\NP)/NP, VBZ)',
-            '<PushOp>:(chairman, N, NN)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(Elsevier, N/N, NNP)',
-            '<PushOp>:(N.V, N, NNP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(,, ,, ,)',
-            '<PushOp>:(the, NP[nb]/N, DT)',
-            '<PushOp>:(Dutch, N/N, NNP)',
-            '<PushOp>:(publish, N/N, VBG)',
-            '<PushOp>:(group, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, RP NP[conj])',
-            '<ExecOp>:(2, RCONJ NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(Mr, N/N, NNP)',
+            '<STreeLeafNode>:(Vinken, N, NNP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP)/NP, VBZ)',
+            '<STreeLeafNode>:(chairman, N, NN)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(Elsevier, N/N, NNP)',
+            '<STreeLeafNode>:(N.V, N, NNP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeLeafNode>:(the, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(Dutch, N/N, NNP)',
+            '<STreeLeafNode>:(publish, N/N, VBG)',
+            '<STreeLeafNode>:(group, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, LP NP[conj])',
+            '<STreeNode>:(2, RCONJ NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
-        # Check ccgbank generation
-        txt2 = '\n' + ccg.get_predarg_ccgbank(pretty=True)
-        self.assertEquals(txt, txt2)
         # Check lexicon
         expected = [
             'Mr.',      'Vinken',       'is',
@@ -106,20 +103,20 @@ class ExecTest(unittest.TestCase):
             'N.V.',     ',',            'the',
             'Dutch',    'publishing',   'group',        '.'
         ]
-        actual = [x.word for x in ccg.lexque]
+        actual = [x.word for x in ccg.lexemes]
         self.assertListEqual(expected, actual)
         # Check dependencies
-        self.assertEquals(ccg.lexque[0].head, 1)    # Mr. -> Vinken
-        self.assertEquals(ccg.lexque[1].head, 2)    # Vinken -> is
-        self.assertEquals(ccg.lexque[2].head, 2)    # root
-        self.assertEquals(ccg.lexque[3].head, 2)    # chairman -> is
-        self.assertEquals(ccg.lexque[4].head, 3)    # of -> chairman
-        self.assertEquals(ccg.lexque[5].head, 6)    # Elsevier -> N.V.
-        self.assertEquals(ccg.lexque[6].head, 4)    # N.V. -> of
-        self.assertEquals(ccg.lexque[8].head, 11)   # the -> group
-        self.assertEquals(ccg.lexque[9].head, 11)   # Dutch -> group
-        self.assertEquals(ccg.lexque[10].head, 11)  # publishing -> group
-        self.assertEquals(ccg.lexque[11].head, 6)   # group -> N.V
+        self.assertEquals(ccg.lexemes[0].head, 1)    # Mr. -> Vinken
+        self.assertEquals(ccg.lexemes[1].head, 2)    # Vinken -> is
+        self.assertEquals(ccg.lexemes[2].head, 2)    # root
+        self.assertEquals(ccg.lexemes[3].head, 2)    # chairman -> is
+        self.assertEquals(ccg.lexemes[4].head, 3)    # of -> chairman
+        self.assertEquals(ccg.lexemes[5].head, 6)    # Elsevier -> N.V.
+        self.assertEquals(ccg.lexemes[6].head, 4)    # N.V. -> of
+        self.assertEquals(ccg.lexemes[8].head, 11)   # the -> group
+        self.assertEquals(ccg.lexemes[9].head, 11)   # Dutch -> group
+        self.assertEquals(ccg.lexemes[10].head, 11)  # publishing -> group
+        self.assertEquals(ccg.lexemes[11].head, 6)   # group -> N.V
 
     def test2_Wsj0037_37(self):
         txt = r'''
@@ -171,37 +168,37 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(more, N/N, JJR)',
-            '<PushOp>:(and, conj, CC)',
-            '<PushOp>:(more, N/N, JJR)',
-            '<ExecOp>:(2, RP N/N[conj])',
-            '<ExecOp>:(2, RCONJ N/N)',
-            '<PushOp>:(corners, N, NNS)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(the, NP[nb]/N, DT)',
-            '<PushOp>:(globe, N, NN)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<PushOp>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBP)',
-            '<PushOp>:(become, (S[ng]\\NP)/(S[adj]\\NP), VBG)',
-            '<PushOp>:(free, (S[adj]\\NP)/PP, JJ)',
-            '<PushOp>:(of, PP/NP, IN)',
-            '<PushOp>:(tobacco, N/N, NN)',
-            '<PushOp>:(smoke, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA PP)',
-            '<ExecOp>:(2, FA S[adj]\\NP)',
-            '<ExecOp>:(2, FA S[ng]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(more, N/N, JJR)',
+            '<STreeLeafNode>:(and, conj, CC)',
+            '<STreeLeafNode>:(more, N/N, JJR)',
+            '<STreeNode>:(2, LP N/N[conj])',
+            '<STreeNode>:(2, RCONJ N/N)',
+            '<STreeLeafNode>:(corners, N, NNS)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(the, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(globe, N, NN)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBP)',
+            '<STreeLeafNode>:(become, (S[ng]\\NP)/(S[adj]\\NP), VBG)',
+            '<STreeLeafNode>:(free, (S[adj]\\NP)/PP, JJ)',
+            '<STreeLeafNode>:(of, PP/NP, IN)',
+            '<STreeLeafNode>:(tobacco, N/N, NN)',
+            '<STreeLeafNode>:(smoke, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA PP)',
+            '<STreeNode>:(2, FA S[adj]\\NP)',
+            '<STreeNode>:(2, FA S[ng]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
         # Check lexicon
@@ -210,21 +207,21 @@ class ExecTest(unittest.TestCase):
             'the',      'globe',    'are',      'becoming',     'free',
             'of',       'tobacco',  'smoke',    '.'
         ]
-        actual = [x.word for x in ccg.lexque]
+        actual = [x.word for x in ccg.lexemes]
         self.assertListEqual(expected, actual)
         # Check dependencies
-        self.assertEquals(ccg.lexque[0].head, 3)    # More -> corners
-        self.assertEquals(ccg.lexque[2].head, 0)    # more -> More
-        self.assertEquals(ccg.lexque[3].head, 7)    # corners -> are
-        self.assertEquals(ccg.lexque[4].head, 3)    # of -> corners
-        self.assertEquals(ccg.lexque[5].head, 6)    # the -> globe
-        self.assertEquals(ccg.lexque[6].head, 4)    # globe -> of
-        self.assertEquals(ccg.lexque[7].head, 7)    # root
-        self.assertEquals(ccg.lexque[8].head, 7)    # becoming -> are
-        self.assertEquals(ccg.lexque[9].head, 8)    # free -> becoming
-        self.assertEquals(ccg.lexque[10].head, 9)   # of -> free
-        self.assertEquals(ccg.lexque[11].head, 12)  # tobacco -> smoke
-        self.assertEquals(ccg.lexque[12].head, 10)  # smoke -> of
+        self.assertEquals(ccg.lexemes[0].head, 3)    # More -> corners
+        self.assertEquals(ccg.lexemes[2].head, 0)    # more -> More
+        self.assertEquals(ccg.lexemes[3].head, 7)    # corners -> are
+        self.assertEquals(ccg.lexemes[4].head, 3)    # of -> corners
+        self.assertEquals(ccg.lexemes[5].head, 6)    # the -> globe
+        self.assertEquals(ccg.lexemes[6].head, 4)    # globe -> of
+        self.assertEquals(ccg.lexemes[7].head, 7)    # root
+        self.assertEquals(ccg.lexemes[8].head, 7)    # becoming -> are
+        self.assertEquals(ccg.lexemes[9].head, 8)    # free -> becoming
+        self.assertEquals(ccg.lexemes[10].head, 9)   # of -> free
+        self.assertEquals(ccg.lexemes[11].head, 12)  # tobacco -> smoke
+        self.assertEquals(ccg.lexemes[12].head, 10)  # smoke -> of
 
     def test3_Wsj0002_1(self):
         # Rudolph Agnew, 55 years old and former chairman of Consolidated Gold Fields PLC, was named a nonexecutive
@@ -326,64 +323,64 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(Rudolph, N/N, NNP)',
-            '<PushOp>:(Agnew, N, NNP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(,, ,, ,)',
-            '<ExecOp>:(2, LP NP)',
-            '<PushOp>:(55, N/N, CD)',
-            '<PushOp>:(years, N, NNS)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(old, (S[adj]\\NP)\\NP, JJ)',
-            '<ExecOp>:(2, BA S[adj]\\NP)',
-            '<PushOp>:(and, conj, CC)',
-            '<PushOp>:(former, N/N, JJ)',
-            '<PushOp>:(chairman, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(Consolidated, N/N, NNP)',
-            '<PushOp>:(Gold, N/N, NNP)',
-            '<PushOp>:(Fields, N/N, NNP)',
-            '<PushOp>:(PLC, N, NNP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, CONJ_TC S[adj]\\NP[conj])',
-            '<ExecOp>:(2, RCONJ S[adj]\\NP)',
-            '<ExecOp>:(1, L_UNARY_TC NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<PushOp>:(,, ,, ,)',
-            '<ExecOp>:(2, LP NP)',
-            '<PushOp>:(be, (S[dcl]\\NP)/(S[pss]\\NP), VBD)',
-            '<PushOp>:(name, (S[pss]\\NP)/NP, VBN)',
-            '<PushOp>:(a, NP[nb]/N, DT)',
-            '<PushOp>:(nonexecutive, N/N, JJ)',
-            '<PushOp>:(director, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(this, NP[nb]/N, DT)',
-            '<PushOp>:(british, N/N, JJ)',
-            '<PushOp>:(industrial, N/N, JJ)',
-            '<PushOp>:(conglomerate, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[pss]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(Rudolph, N/N, NNP)',
+            '<STreeLeafNode>:(Agnew, N, NNP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeNode>:(2, RP NP)',
+            '<STreeLeafNode>:(55, N/N, CD)',
+            '<STreeLeafNode>:(years, N, NNS)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(old, (S[adj]\\NP)\\NP, JJ)',
+            '<STreeNode>:(2, BA S[adj]\\NP)',
+            '<STreeLeafNode>:(and, conj, CC)',
+            '<STreeLeafNode>:(former, N/N, JJ)',
+            '<STreeLeafNode>:(chairman, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(Consolidated, N/N, NNP)',
+            '<STreeLeafNode>:(Gold, N/N, NNP)',
+            '<STreeLeafNode>:(Fields, N/N, NNP)',
+            '<STreeLeafNode>:(PLC, N, NNP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, CONJ_TC S[adj]\\NP[conj])',
+            '<STreeNode>:(2, RCONJ S[adj]\\NP)',
+            '<STreeNode>:(1, L_UNARY_TC NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeNode>:(2, RP NP)',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP)/(S[pss]\\NP), VBD)',
+            '<STreeLeafNode>:(name, (S[pss]\\NP)/NP, VBN)',
+            '<STreeLeafNode>:(a, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(nonexecutive, N/N, JJ)',
+            '<STreeLeafNode>:(director, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(this, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(british, N/N, JJ)',
+            '<STreeLeafNode>:(industrial, N/N, JJ)',
+            '<STreeLeafNode>:(conglomerate, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, FA S[pss]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
 
@@ -470,58 +467,58 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(people, N, NNS)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(on, (NP\\NP)/NP, IN)',
-            '<PushOp>:(fix, N/N, VBN)',
-            '<PushOp>:(incomes, N, NNS)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<PushOp>:(get, (S[dcl]\\NP)/NP, VBP)',
-            '<PushOp>:(a, NP[nb]/N, DT)',
-            '<PushOp>:(break, N, NN)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(at, (NP\\NP)/NP, IN)',
-            '<PushOp>:(Espre, N, NNP)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(;, ;, ;)',
-            '<PushOp>:(over, N/N, IN)',
-            '<PushOp>:(55, N, CD)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(win, (S[dcl]\\NP)/NP, VBZ)',
-            '<PushOp>:(a, NP[nb]/N, DT)',
-            '<PushOp>:(45, (N/N)/(N/N), CD)',
-            '<PushOp>:(%, N/N, NN)',
-            '<ExecOp>:(2, FA N/N)',
-            '<PushOp>:(discount, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(at, (NP\\NP)/NP, IN)',
-            '<PushOp>:(Anaheim, N/N, NNP)',
-            '<PushOp>:(Imperial, N/N, NNP)',
-            '<PushOp>:(Health, N/N, NNP)',
-            '<PushOp>:(Spa, N, NNP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, RP S[dcl][conj])',
-            '<ExecOp>:(2, RCONJ S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(people, N, NNS)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(on, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(fix, N/N, VBN)',
+            '<STreeLeafNode>:(incomes, N, NNS)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeLeafNode>:(get, (S[dcl]\\NP)/NP, VBP)',
+            '<STreeLeafNode>:(a, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(break, N, NN)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(at, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(Espre, N, NNP)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(;, ;, ;)',
+            '<STreeLeafNode>:(over, N/N, IN)',
+            '<STreeLeafNode>:(55, N, CD)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(win, (S[dcl]\\NP)/NP, VBZ)',
+            '<STreeLeafNode>:(a, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(45, (N/N)/(N/N), CD)',
+            '<STreeLeafNode>:(%, N/N, NN)',
+            '<STreeNode>:(2, FA N/N)',
+            '<STreeLeafNode>:(discount, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(at, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(Anaheim, N/N, NNP)',
+            '<STreeLeafNode>:(Imperial, N/N, NNP)',
+            '<STreeLeafNode>:(Health, N/N, NNP)',
+            '<STreeLeafNode>:(Spa, N, NNP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeNode>:(2, LP S[dcl][conj])',
+            '<STreeNode>:(2, RCONJ S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
 
@@ -615,64 +612,64 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(the, NP/N, DT)',
-            '<PushOp>:(investment, N/N, NN)',
-            '<PushOp>:(community, N, NN)',
-            '<PushOp>:(,, ,, ,)',
-            '<ExecOp>:(2, LP N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(however, (S\\NP)/(S\\NP), RB)',
-            '<PushOp>:(,, ,, ,)',
-            '<PushOp>:(strongly, (S\\NP)/(S\\NP), RB)',
-            '<ExecOp>:(2, R_UNARY_TC ((S\\NP)/(S\\NP))\((S\\NP)/(S\\NP)))',
-            '<ExecOp>:(2, BA (S\\NP)/(S\\NP))',
-            '<PushOp>:(believe, (S[dcl]\\NP)/S[em], VBZ)',
-            '<PushOp>:(that, S[em]/S[dcl], IN)',
-            '<PushOp>:(the, NP/N, DT)',
-            '<PushOp>:(strike, N, NN)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(will, (S\\NP)/(S\\NP), MD)',
-            '<PushOp>:(be, (S[b]\\NP)/(S[pss]\\NP), VB)',
-            '<PushOp>:(settle, S[pss]\\NP, VBN)',
-            '<ExecOp>:(2, FA S[b]\\NP)',
-            '<PushOp>:(before, ((S\\NP)\(S\\NP))/S[dcl], IN)',
-            '<PushOp>:(there, NP[thr], EX)',
-            '<PushOp>:(be, (S[dcl]\\NP[thr])/NP, VBZ)',
-            '<PushOp>:(any, NP/N, DT)',
-            '<PushOp>:(lasting, N/N, JJ)',
-            '<PushOp>:(effect, N/PP, NN)',
-            '<PushOp>:(on, PP/NP, IN)',
-            '<PushOp>:(either, NP/NP, CC)',
-            '<PushOp>:(Boeing, N, NNP)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, FA PP)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(or, conj, CC)',
-            '<PushOp>:(its, NP/(N/PP), PRP$)',
-            '<PushOp>:(work, N/N, NN)',
-            '<PushOp>:(force, N/PP, NN)',
-            '<ExecOp>:(2, FC N/PP)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, R_UNARY_TC NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP[thr])',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, FA (S\\NP)\\(S\\NP))',
-            '<ExecOp>:(2, BA S[b]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, FA S[em])',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(the, NP/N, DT)',
+            '<STreeLeafNode>:(investment, N/N, NN)',
+            '<STreeLeafNode>:(community, N, NN)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeNode>:(2, RP N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(however, (S\\NP)/(S\\NP), RB)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeLeafNode>:(strongly, (S\\NP)/(S\\NP), RB)',
+            '<STreeNode>:(2, R_UNARY_TC ((S\\NP)/(S\\NP))\((S\\NP)/(S\\NP)))',
+            '<STreeNode>:(2, BA (S\\NP)/(S\\NP))',
+            '<STreeLeafNode>:(believe, (S[dcl]\\NP)/S[em], VBZ)',
+            '<STreeLeafNode>:(that, S[em]/S[dcl], IN)',
+            '<STreeLeafNode>:(the, NP/N, DT)',
+            '<STreeLeafNode>:(strike, N, NN)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(will, (S\\NP)/(S\\NP), MD)',
+            '<STreeLeafNode>:(be, (S[b]\\NP)/(S[pss]\\NP), VB)',
+            '<STreeLeafNode>:(settle, S[pss]\\NP, VBN)',
+            '<STreeNode>:(2, FA S[b]\\NP)',
+            '<STreeLeafNode>:(before, ((S\\NP)\(S\\NP))/S[dcl], IN)',
+            '<STreeLeafNode>:(there, NP[thr], EX)',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP[thr])/NP, VBZ)',
+            '<STreeLeafNode>:(any, NP/N, DT)',
+            '<STreeLeafNode>:(lasting, N/N, JJ)',
+            '<STreeLeafNode>:(effect, N/PP, NN)',
+            '<STreeLeafNode>:(on, PP/NP, IN)',
+            '<STreeLeafNode>:(either, NP/NP, CC)',
+            '<STreeLeafNode>:(Boeing, N, NNP)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, FA PP)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(or, conj, CC)',
+            '<STreeLeafNode>:(its, NP/(N/PP), PRP$)',
+            '<STreeLeafNode>:(work, N/N, NN)',
+            '<STreeLeafNode>:(force, N/PP, NN)',
+            '<STreeNode>:(2, FC N/PP)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, R_UNARY_TC NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP[thr])',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeNode>:(2, FA (S\\NP)\\(S\\NP))',
+            '<STreeNode>:(2, BA S[b]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeNode>:(2, FA S[em])',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
 
@@ -721,33 +718,33 @@ class ExecTest(unittest.TestCase):
         ccg = Ccg2Drs()
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(the, NP[nb]/N, DT)',
-            '<PushOp>:(bids, N, NNS)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(,, ,, ,)',
-            '<PushOp>:(he, NP, PRP)',
-            '<ExecOp>:(1, TR S/(S\\NP))',
-            '<PushOp>:(add, (S[dcl]\\NP)/S[dcl], VBD)',
-            '<ExecOp>:(2, FC S[dcl]/S[dcl])',
-            '<PushOp>:(,, ,, ,)',
-            '<ExecOp>:(2, L_UNARY_TC (S\\NP)/(S\\NP))',
-            '<ExecOp>:(2, RP (S\\NP)/(S\\NP))',
-            '<PushOp>:(be, (S[dcl]\\NP)/(S[adj]\\NP), VBD)',
-            '<PushOp>:(contrary, (S[adj]\\NP)/PP, JJ)',
-            '<PushOp>:(to, PP/NP, TO)',
-            '<PushOp>:(common, N/N, JJ)',
-            '<PushOp>:(sense, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA PP)',
-            '<ExecOp>:(2, FA S[adj]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(the, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(bids, N, NNS)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeLeafNode>:(he, NP, PRP)',
+            '<STreeNode>:(1, TR S/(S\\NP))',
+            '<STreeLeafNode>:(add, (S[dcl]\\NP)/S[dcl], VBD)',
+            '<STreeNode>:(2, FC S[dcl]/S[dcl])',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeNode>:(2, L_UNARY_TC (S\\NP)/(S\\NP))',
+            '<STreeNode>:(2, LP (S\\NP)/(S\\NP))',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP)/(S[adj]\\NP), VBD)',
+            '<STreeLeafNode>:(contrary, (S[adj]\\NP)/PP, JJ)',
+            '<STreeLeafNode>:(to, PP/NP, TO)',
+            '<STreeLeafNode>:(common, N/N, JJ)',
+            '<STreeLeafNode>:(sense, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA PP)',
+            '<STreeNode>:(2, FA S[adj]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)
 
@@ -818,51 +815,51 @@ class ExecTest(unittest.TestCase):
         pt = parse_ccg_derivation(txt)
         ccg = Ccg2Drs()
         rule = get_rule(Category.from_cache('conj'), Category.from_cache('S[em]'), Category.from_cache('S[dcl][conj]'))
-        self.assertEqual(rule, RL_RPASS)
+        self.assertEqual(rule, RL_LP)
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(Fujitsu, N, NNP)',
-            '<PushOp>:(and, conj, CC)',
-            '<PushOp>:(NEC, N, NNP)',
-            '<ExecOp>:(2, RP N[conj])',
-            '<ExecOp>:(2, RCONJ N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(say, (S[dcl]\\NP)/S[dcl], VBD)',
-            '<PushOp>:(they, NP, PRP)',
-            '<PushOp>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBD)',
-            '<PushOp>:(still, (S\\NP)\\(S\\NP), RB)',
-            '<ExecOp>:(2, BX (S[dcl]\\NP)/(S[ng]\\NP))',
-            '<PushOp>:(investigate, S[ng]\\NP, VBG)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(,, ,, ,)',
-            '<PushOp>:(and, conj, CC)',
-            '<PushOp>:(that, S[em]/S[dcl], IN)',
-            '<PushOp>:(knowledge, N, NN)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(more, N/N, JJR)',
-            '<PushOp>:(such, N/N, JJ)',
-            '<PushOp>:(bids, N, NNS)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<PushOp>:(could, (S\\NP)/(S\\NP), MD)',
-            '<PushOp>:(emerge, S[b]\\NP, VB)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, FA S[em])',
-            '<ExecOp>:(2, RP S[dcl][conj])',
-            '<ExecOp>:(2, RP S[dcl][conj])',
-            '<ExecOp>:(2, RCONJ S[dcl])',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])'
+            '<STreeLeafNode>:(Fujitsu, N, NNP)',
+            '<STreeLeafNode>:(and, conj, CC)',
+            '<STreeLeafNode>:(NEC, N, NNP)',
+            '<STreeNode>:(2, LP N[conj])',
+            '<STreeNode>:(2, RCONJ N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(say, (S[dcl]\\NP)/S[dcl], VBD)',
+            '<STreeLeafNode>:(they, NP, PRP)',
+            '<STreeLeafNode>:(be, (S[dcl]\\NP)/(S[ng]\\NP), VBD)',
+            '<STreeLeafNode>:(still, (S\\NP)\\(S\\NP), RB)',
+            '<STreeNode>:(2, BX (S[dcl]\\NP)/(S[ng]\\NP))',
+            '<STreeLeafNode>:(investigate, S[ng]\\NP, VBG)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(,, ,, ,)',
+            '<STreeLeafNode>:(and, conj, CC)',
+            '<STreeLeafNode>:(that, S[em]/S[dcl], IN)',
+            '<STreeLeafNode>:(knowledge, N, NN)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(more, N/N, JJR)',
+            '<STreeLeafNode>:(such, N/N, JJ)',
+            '<STreeLeafNode>:(bids, N, NNS)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeLeafNode>:(could, (S\\NP)/(S\\NP), MD)',
+            '<STreeLeafNode>:(emerge, S[b]\\NP, VB)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeNode>:(2, FA S[em])',
+            '<STreeNode>:(2, LP S[dcl][conj])',
+            '<STreeNode>:(2, LP S[dcl][conj])',
+            '<STreeNode>:(2, RCONJ S[dcl])',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])'
         ]
         self.assertListEqual(expected, actual)
 
@@ -883,41 +880,41 @@ class ExecTest(unittest.TestCase):
         self.assertEqual(rule, RL_TC_ATOM)
         ccg.build_execution_sequence(pt)
         # Check execution queue
-        actual = [repr(x) for x in ccg.exeque]
+        actual = [repr(x) for x in ccg.stree_nodes]
         expected = [
-            '<PushOp>:(compound, N/N, NN)',
-            '<PushOp>:(yields, N, NNS)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(assume, (S[dcl]\\NP)/NP, VBP)',
-            '<PushOp>:(reinvestment, N, NN)',
-            '<ExecOp>:(1, LP NP)',
-            '<PushOp>:(of, (NP\\NP)/NP, IN)',
-            '<PushOp>:(dividends, N, NNS)',
-            '<ExecOp>:(1, LP NP)',
-            '<ExecOp>:(2, FA NP\\NP)',
-            '<ExecOp>:(2, BA NP)',
-            '<PushOp>:(and, conj, CC)',
-            '<PushOp>:(that, S[em]/S[dcl], IN)',
-            '<PushOp>:(the, NP[nb]/N, DT)',
-            '<PushOp>:(current, N/N, JJ)',
-            '<PushOp>:(yield, N, NN)',
-            '<ExecOp>:(2, FA N)',
-            '<ExecOp>:(2, FA NP)',
-            '<PushOp>:(continue, S[dcl]\\NP, VBZ)',
-            '<PushOp>:(for, ((S\\NP)\\(S\\NP))/NP, IN)',
-            '<PushOp>:(a, NP[nb]/N, DT)',
-            '<PushOp>:(year, N, NN)',
-            '<ExecOp>:(2, FA NP)',
-            '<ExecOp>:(2, FA (S\\NP)\\(S\\NP))',
-            '<ExecOp>:(2, BA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<ExecOp>:(2, FA S[em])',
-            '<ExecOp>:(2, ATOM_TC NP[conj])',
-            '<ExecOp>:(2, RCONJ NP)',
-            '<ExecOp>:(2, FA S[dcl]\\NP)',
-            '<ExecOp>:(2, BA S[dcl])',
-            '<PushOp>:(., ., .)',
-            '<ExecOp>:(2, LP S[dcl])',
+            '<STreeLeafNode>:(compound, N/N, NN)',
+            '<STreeLeafNode>:(yields, N, NNS)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(assume, (S[dcl]\\NP)/NP, VBP)',
+            '<STreeLeafNode>:(reinvestment, N, NN)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeLeafNode>:(of, (NP\\NP)/NP, IN)',
+            '<STreeLeafNode>:(dividends, N, NNS)',
+            '<STreeNode>:(1, RP NP)',
+            '<STreeNode>:(2, FA NP\\NP)',
+            '<STreeNode>:(2, BA NP)',
+            '<STreeLeafNode>:(and, conj, CC)',
+            '<STreeLeafNode>:(that, S[em]/S[dcl], IN)',
+            '<STreeLeafNode>:(the, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(current, N/N, JJ)',
+            '<STreeLeafNode>:(yield, N, NN)',
+            '<STreeNode>:(2, FA N)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeLeafNode>:(continue, S[dcl]\\NP, VBZ)',
+            '<STreeLeafNode>:(for, ((S\\NP)\\(S\\NP))/NP, IN)',
+            '<STreeLeafNode>:(a, NP[nb]/N, DT)',
+            '<STreeLeafNode>:(year, N, NN)',
+            '<STreeNode>:(2, FA NP)',
+            '<STreeNode>:(2, FA (S\\NP)\\(S\\NP))',
+            '<STreeNode>:(2, BA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeNode>:(2, FA S[em])',
+            '<STreeNode>:(2, ATOM_TC NP[conj])',
+            '<STreeNode>:(2, RCONJ NP)',
+            '<STreeNode>:(2, FA S[dcl]\\NP)',
+            '<STreeNode>:(2, BA S[dcl])',
+            '<STreeLeafNode>:(., ., .)',
+            '<STreeNode>:(2, RP S[dcl])',
         ]
         self.assertListEqual(expected, actual)

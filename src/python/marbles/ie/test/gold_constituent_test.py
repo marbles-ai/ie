@@ -56,9 +56,8 @@ def dprint_ccgbank(ccgbank):
 
 def get_constituents_string_list(sent):
     s = []
-    for i in range(len(sent.constituents)):
-        c = sent.constituents[i]
-        headword = c.get_head().idx
+    for c in sent.iterconstituents():
+        headword = c.head().idx
         txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
         s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
     return s
@@ -232,20 +231,19 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg.get_verbnet_sentence()
-        a = get_constituents_string_list(sent)
+        a = get_constituents_string_list(ccg)
         dprint('\n'.join(a))
         # Hash indicates head word in constituent
         x = [
-            'NP(#Rudolph-Agnew)',
+            'NP(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC)',
             'ADJP(55 years #old and former chairman of Consolidated-Gold-Fields-PLC)',
             'NP(55 #years)',
-            'NP(former #chairman)',
-            'PP(#of)',
+            'NP(former #chairman of Consolidated-Gold-Fields-PLC)',
+            'PP(#of Consolidated-Gold-Fields-PLC)',
             'NP(#Consolidated-Gold-Fields-PLC)',
-            'VP(#was named)',
+            'VP(#was nameda nonexecutive director of this British industrial conglomerate)',
             'NP(a nonexecutive #director)',
-            'PP(#of)',
+            'PP(#of this British industrial conglomerate)',
             'NP(this British industrial #conglomerate)'
         ]
         self.assertListEqual(x, a)
@@ -260,8 +258,8 @@ class GoldConstituentTest(unittest.TestCase):
         #     8 PP(of)
         #       9 NP(this British industrial conglomerate)
         x = (6, [(0, [(1, [(2, []), (3, [(4, [(5, [])])])])]), (7, [(8, [(9, [])])])])
-        a = sent.get_constituent_tree()
-        dprint_constituent_tree(sent, a)
+        a = ccg.get_constituent_tree()
+        dprint_constituent_tree(ccg, a)
         self.assertEqual(repr(x), repr(a))
         #ccg.add_wikipedia_links(browser=)
 
@@ -450,7 +448,7 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg.get_verbnet_sentence()
+        sent = ccg
         a = get_constituents_string_list(sent)
         x = [
             'NP(#Mr.-Vinken)',
@@ -733,7 +731,7 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg.get_verbnet_sentence()
+        sent = ccg
         a = get_constituents_string_list(sent)
         x = [
             'NP(The #bids)',

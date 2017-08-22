@@ -21,7 +21,8 @@ from marbles.ie.ccg.model import FunctorTemplate, Model
 from marbles.ie.ccg import Category
 from marbles.ie.utils.cache import Cache
 from marbles.ie.ccg import parse_ccg_derivation2 as parse_ccg_derivation
-from marbles.ie.semantics.ccg import Ccg2Drs, PushOp
+from marbles.ie.semantics.ccg import Ccg2Drs
+from marbles.ie.semantics.syntaxtree import STreeLeafNode
 from marbles.ie.core.exception import save_undefined_unary_rules, save_undefined_template_rules
 
 #from marbles.ie.parse import parse_ccg_derivation
@@ -155,7 +156,7 @@ def build_from_ldc_ccgbank2(fn_dict, outdir, verbose=False, verify=True):
                 pt = parse_ccg_derivation(ccgbank)
                 builder = Ccg2Drs()
                 builder.build_execution_sequence(pt)
-                for x in filter(lambda x: x.isinstance(PushOp), builder.exeque):
+                for x in filter(lambda x: x.isinstance(STreeLeafNode), builder.stree_nodes):
                     rules.append(x.predarg)
                 # Calling this will track undefined and add to category cache
                 builder.get_predarg_ccgbank()

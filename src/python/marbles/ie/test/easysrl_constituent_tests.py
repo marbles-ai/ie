@@ -59,7 +59,7 @@ def get_constituents_string_list(sent):
     s = []
     for i in range(len(sent.constituents)):
         c = sent.constituents[i]
-        headword = c.get_head().idx
+        headword = c.head().idx
         txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
         s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
     return s
@@ -111,8 +111,6 @@ class EasySRLConstituentTest(unittest.TestCase):
         a = sent.get_constituent_tree()
         dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
-        vsent = get_constituent_string(sent.get_verbnet_sentence())
-        self.assertEqual('S_INF(#Eat) NP(#spaghetti) PP(#with) NP(#meatballs)', vsent)
 
 if __name__ == '__main__':
     unittest.main()

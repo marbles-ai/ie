@@ -18,7 +18,7 @@ class PossessiveTest(unittest.TestCase):
     def tearDown(self):
         self.svc.shutdown()
 
-    def test10_Ccgbank_00_0036(self):
+    def test1_Ccgbank_00_0036(self):
         text = "Average maturity of the funds' investments lengthened by a day to 41 days, the longest since early August, according to Donoghue's."
         etext = "Average maturity of the funds ' investments lengthened by a day to 41 days , the longest since early August , according to Donoghue 's ."
         mtext = preprocess_sentence(text)
@@ -42,7 +42,7 @@ class PossessiveTest(unittest.TestCase):
         self.assertTrue('lengthened' in vps)
         self.assertTrue('according' in vps)
 
-    def test10_Ccgbank_00_0099(self):
+    def test2_Ccgbank_00_0099(self):
         text = "Plans that give advertisers discounts for maintaining or increasing ad spending have become permanent fixtures at the news weeklies and underscore the fierce competition between Newsweek, Time Warner Inc.'s Time magazine, and Mortimer B. Zuckerman's U.S. News & World Report."
         mtext = preprocess_sentence(text)
         derivation = grpc.ccg_parse(self.stub, mtext, grpc.DEFAULT_SESSION)

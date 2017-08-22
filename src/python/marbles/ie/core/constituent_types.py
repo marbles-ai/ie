@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 from marbles.ie.utils.cache import ConstString, Cache
 
+ConstituentType = ConstString
 
 CONSTITUENT_NP = ConstString('NP')
 CONSTITUENT_VP = ConstString('VP')
@@ -15,6 +16,7 @@ CONSTITUENT_SEM = ConstString('S_EM')
 CONSTITUENT_SQ = ConstString('S_Q')
 CONSTITUENT_SWQ = ConstString('S_WQ')
 CONSTITUENT_S = ConstString('S')
+CONSTITUENT_NODE = ConstString('NODE')
 
 
 _CT = Cache()
@@ -30,6 +32,7 @@ _CT.addinit((CONSTITUENT_SEM.signature, CONSTITUENT_SEM))
 _CT.addinit((CONSTITUENT_SQ.signature, CONSTITUENT_SQ))
 _CT.addinit((CONSTITUENT_SWQ.signature, CONSTITUENT_SWQ))
 _CT.addinit((CONSTITUENT_S.signature, CONSTITUENT_S))
+_CT.addinit((CONSTITUENT_NODE.signature, CONSTITUENT_NODE))
 for k, v in _CT:
     v.freeze()
 
