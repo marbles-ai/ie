@@ -30,14 +30,15 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         f = sentence.select_phrases(RT_PROPERNAME | RT_EVENT)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
         self.assertTrue('went' in phrases)
-        self.assertTrue('John and Paul' in [c.text for c in sentence.conjoins])
-        john = filter(lambda x: 'John' == x[1].text, f.iteritems())[0]
-        paul = filter(lambda x: 'Paul' == x[1].text, f.iteritems())[0]
-        went = filter(lambda x: 'went' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('John and Paul' in [c.text for c in conjoins])
+        john = filter(lambda x: 'John' == x[1].text, f.viewitems())[0]
+        paul = filter(lambda x: 'Paul' == x[1].text, f.viewitems())[0]
+        went = filter(lambda x: 'went' == x[1].text, f.viewitems())[0]
         J = john[0]
         P = paul[0]
         E = went[0]
@@ -45,7 +46,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('go', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_ARG0', [E, J])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [E, P])) is not None)
 
     def test02_AndOfObj(self):
         text = "He saw John and Paul"
@@ -57,14 +58,15 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         f = sentence.select_phrases(RT_PROPERNAME | RT_EVENT)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('John' in phrases)
         self.assertTrue('Paul' in phrases)
         self.assertTrue('saw' in phrases)
-        self.assertTrue('John and Paul' in [c.text for c in sentence.conjoins])
-        john = filter(lambda x: 'John' == x[1].text, f.iteritems())[0]
-        paul = filter(lambda x: 'Paul' == x[1].text, f.iteritems())[0]
-        saw = filter(lambda x: 'saw' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('John and Paul' in [c.text for c in conjoins])
+        john = filter(lambda x: 'John' == x[1].text, f.viewitems())[0]
+        paul = filter(lambda x: 'Paul' == x[1].text, f.viewitems())[0]
+        saw = filter(lambda x: 'saw' == x[1].text, f.viewitems())[0]
         J = john[0]
         P = paul[0]
         E = saw[0]
@@ -73,7 +75,7 @@ class ConjTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('saw', [E])) is not None)
         self.assertTrue(d.find_condition(Rel('John', [J])) is not None)
         self.assertTrue(d.find_condition(Rel('Paul', [P])) is not None)
-        self.assertTrue(d.find_condition(Rel('_ARG1', [E, J])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [E, P])) is not None)
 
     def test03_OrOfObj(self):
         text = "To participate in games or sport"
@@ -85,14 +87,15 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         f = sentence.select_phrases(RT_ENTITY | RT_EVENT)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('participate' in phrases)
         self.assertTrue('games' in phrases)
         self.assertTrue('sport' in phrases)
-        self.assertTrue('games or sport' in [c.text for c in sentence.conjoins])
-        noun1 = filter(lambda x: 'games' == x[1].text, f.iteritems())[0]
-        noun2 = filter(lambda x: 'sport' == x[1].text, f.iteritems())[0]
-        verb = filter(lambda x: 'participate' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('games or sport' in [c.text for c in conjoins])
+        noun1 = filter(lambda x: 'games' == x[1].text, f.viewitems())[0]
+        noun2 = filter(lambda x: 'sport' == x[1].text, f.viewitems())[0]
+        verb = filter(lambda x: 'participate' == x[1].text, f.viewitems())[0]
         X1 = noun1[0]
         X2 = noun2[0]
         E = verb[0]
@@ -112,16 +115,17 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('Bell' in phrases)
         self.assertTrue('makes' in phrases)
         self.assertTrue('distributes' in phrases)
         self.assertTrue('computers' in phrases)
-        self.assertTrue('makes and distributes' in [c.text for c in sentence.conjoins])
-        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
-        agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
-        theme = filter(lambda x: 'computers' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('makes and distributes' in [c.text for c in conjoins])
+        verb1 = filter(lambda x: 'makes' == x[1].text, f.viewitems())[0]
+        verb2 = filter(lambda x: 'distributes' == x[1].text, f.viewitems())[0]
+        agent = filter(lambda x: 'Bell' == x[1].text, f.viewitems())[0]
+        theme = filter(lambda x: 'computers' == x[1].text, f.viewitems())[0]
         X1 = agent[0]
         X2 = theme[0]
         E1 = verb1[0]
@@ -143,7 +147,7 @@ class ConjTest(unittest.TestCase):
         dprint(pt_to_ccg_derivation(pt))
         dprint(d)
         f = sentence.select_phrases(RT_PROPERNAME | RT_ENTITY | RT_EVENT | RT_ATTRIBUTE)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('Bell' in phrases)
         self.assertTrue('makes' in phrases)
         self.assertTrue('distributes' in phrases)
@@ -152,12 +156,13 @@ class ConjTest(unittest.TestCase):
         # Note if we add RT_EMPTY_DRS to the selection criteria then this phrase becomes 'and building products'
         self.assertTrue('building products' in phrases)
         self.assertEqual(6, len(phrases))
-        self.assertTrue('makes and distributes' in [c.text for c in sentence.conjoins])
-        self.assertTrue('computers, electronics, and building products' in [c.text for c in sentence.conjoins])
-        verb1 = filter(lambda x: 'makes' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'distributes' == x[1].text, f.iteritems())[0]
-        agent = filter(lambda x: 'Bell' == x[1].text, f.iteritems())[0]
-        theme3 = filter(lambda x: 'building products' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('makes and distributes' in [c.text for c in conjoins])
+        self.assertTrue('computers, electronics, and building products' in [c.text for c in conjoins])
+        verb1 = filter(lambda x: 'makes' == x[1].text, f.viewitems())[0]
+        verb2 = filter(lambda x: 'distributes' == x[1].text, f.viewitems())[0]
+        agent = filter(lambda x: 'Bell' == x[1].text, f.viewitems())[0]
+        theme3 = filter(lambda x: 'building products' == x[1].text, f.viewitems())[0]
         X1 = agent[0]
         Y3 = theme3[0]
         E1 = verb1[0]
@@ -183,15 +188,21 @@ class ConjTest(unittest.TestCase):
         f = sentence.select_phrases(lambda x: x.pos is POS.from_cache('WDT') or \
                                                    0 == (x.mask & RT_EMPTY_DRS),
                                     contiguous=False)
-        phrases = [sp.text for r, sp in f.iteritems()]
+        constituents = [c for c in sentence.sorted_sentence().iterconstituents(False)]
+        phrases = [sp.text for r, sp in f.viewitems()]
         self.assertTrue('That which' in phrases)
         self.assertTrue('have' in phrases)
-        self.assertTrue('is perceived known inferred' in phrases)
+        self.assertTrue('is' in phrases)
+        self.assertTrue('perceived' in phrases)
+        self.assertTrue('known' in phrases)
+        self.assertTrue('inferred' in phrases)
         self.assertTrue('its own distinct existence' in phrases)
-        verb1 = filter(lambda x: 'is perceived known inferred' == x[1].text, f.iteritems())[0]
-        verb2 = filter(lambda x: 'have' == x[1].text, f.iteritems())[0]
-        agent = filter(lambda x: 'That which' == x[1].text, f.iteritems())[0]
-        theme = filter(lambda x: 'its own distinct existence' == x[1].text, f.iteritems())[0]
+        conjoins = [nd.span(sentence) for nd in sentence.conjoins]
+        self.assertTrue('perceived or known or inferred' in [c.text for c in conjoins])
+        verb1 = filter(lambda x: 'is perceived known inferred' == x[1].text, f.viewitems())[0]
+        verb2 = filter(lambda x: 'have' == x[1].text, f.viewitems())[0]
+        agent = filter(lambda x: 'That which' == x[1].text, f.viewitems())[0]
+        theme = filter(lambda x: 'its own distinct existence' == x[1].text, f.viewitems())[0]
         X1 = agent[0]
         E1 = verb1[0]
         E2 = verb2[0]

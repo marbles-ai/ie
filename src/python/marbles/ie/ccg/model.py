@@ -620,15 +620,15 @@ class Model(object):
 try:
     _tcache = Model.load_templates(os.path.join(datapath.DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
-    _tcache.addinit(Model.build_template(r'N_1003/PP_1003'), replace=True)
+    _tcache.addinit(Model.build_template(r'N_1001/PP_1001'), replace=True)
     _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
-    _tcache.addinit(Model.build_template(r'S[X]_1022/NP_2022'))
-    _tcache.addinit(Model.build_template(r'S[X]_1023\NP_2023'))
+    _tcache.addinit(Model.build_template(r'S[X]_1003/NP_2003'))
+    _tcache.addinit(Model.build_template(r'S[X]_1004\NP_2004'))
+    _tcache.addinit(Model.build_template(r'(S[to]_1005\NP_2005)/(S[b]_1005\NP_2005)'), replace=True)
     r'''
     _tcache.addinit(Model.build_template(r'(S[b]_238\NP_237)/(S[b]_238\NP_237)'), replace=True)
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
     # Use unique numeric tags above 1K so when building a template from existing ones we don't overlap
-    _tcache.addinit(Model.build_template(r'((S[adj]_2000\NP_1000)\NP_2000)_1000'), replace=True)
     # Attach passive then infinitive to verb that follows
     #_tcache.addinit(Model.build_template(r'(S[pss]_2001\NP_1001)/(S[to]_2001\NP_1001)'), replace=True)
     _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
@@ -687,9 +687,9 @@ try:
     #_rcache.addinit(Model.build_unary_rule(r'NP_1074\NP_1074', r'S[adj]_2074\NP_1074'))
     #_rcache.addinit(Model.build_unary_rule(r'NP_1075\NP_1075', r'S[dcl]_2075\NP_1075'))
 
-    #_rcache.addinit(Model.build_unary_rule(r'NP_1070', r'S[ng]_1070\NP_2070'))
+    _rcache.addinit(Model.build_unary_rule(r'NP_1070', r'S[ng]_1070\NP_2070'))
     #_rcache.addinit(Model.build_unary_rule(r'NP_1071', r'S_1071\NP_2071'))
-    _rcache.addinit(Model.build_unary_rule(r'NP_1072', r'S[X]_1072\NP_2072'))
+    _rcache.addinit(Model.build_unary_rule(r'S[adj]_1501\NP_2501[conj]', r'NP_1501'))
 
     #_rcache.addinit(Model.build_unary_rule(r'NP_1076\NP_1076', r'S[ng]_2076\NP_1076'))
     _rcache.addinit(Model.build_unary_rule(r'NP_1077\NP_1077', r'S_2077\NP_1077'))

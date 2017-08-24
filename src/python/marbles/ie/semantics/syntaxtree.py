@@ -16,6 +16,11 @@ class AbstractSTreeNode(AbstractConstituentNode):
         self.conjoin = False    # Set during construction
 
     @property
+    def span_width(self):
+        rng = self.lex_range
+        return rng[1] - rng[0]
+
+    @property
     def category(self):
         """Get the category assigned to the node."""
         raise NotImplementedError

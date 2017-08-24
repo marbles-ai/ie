@@ -14,7 +14,7 @@ from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
 from marbles.ie.core.exception import UnaryRuleError, CombinatorNotFoundError, _UNDEFINED_UNARY
-from marbles.ie.core.sentence import AbstractSentence, Sentence, Span
+from marbles.ie.core.sentence import AbstractSentence, Sentence, Span, ConstituentNode
 from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, DRSRelation
 from marbles.ie.drt.utils import remove_dups
@@ -265,9 +265,25 @@ class Ccg2Drs(AbstractSentence):
         """Required by AbstractSentence."""
         return self.stree_nodes[idx]
 
-    def iterconstituents(self):
-        for nd in self.stree_nodes:
-            if nd.ndtype != ct.CONSTITUENT_NODE:
+    def sorted_sentence(self):
+        # Remap constituents sorted by span
+        sorted_tree = sorted(self.stree_nodes, key=lambda nd: nd.span(self))
+        idxmap = dict([(x[0].idx, x[1]) for x in zip(sorted_tree, range(len(self.stree_nodes)))])
+        constituents = []
+        for nd in sorted_tree:
+            assert len(constituents) == idxmap[nd.idx]
+            constituents.append(ConstituentNode(nd.ndtype, nd.lex_range, idxmap[nd.parent_idx], nd.head_idx))
+
+        return Sentence(self.lexemes, constituents, idxmap[len(self.stree_nodes)-1])
+
+    def iterconstituents(self, dfs=True):
+        # DFS from root
+        if dfs:
+            for nd in self.stree_nodes[-1].iternodes():
+                yield nd.constituent(self)
+        else:
+            # Linear iteration from root
+            for nd in reversed(self.stree_nodes):
                 yield nd.constituent(self)
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
@@ -318,32 +334,20 @@ class Ccg2Drs(AbstractSentence):
     def _can_use_conjoin_rules(self, nd):
         # Conjoins are built right to left. The right child should be a binary
         # node with a left conjoin child, or a partially built conjoin
-        if not nd.isbinary or not nd.children[1].isbinary \
-                or not isinstance(nd.children[1].children[0], STreeLeafNode) \
-                or not (nd.children[1].children[0].category == CAT_CONJ \
-                            or (nd.children[1].children[0].category.ispunct and nd.children[1].children[1].conjoin)):
+        if not nd.isbinary or not isinstance(nd.children[0], STreeLeafNode):
             return False
-
-        # Check nodes
-        nds = [nd.children[0], nd.children[1].children[1]]
-        return nds[0].category.can_unify(nds[1].category)
+        elif nd.children[0].category == CAT_CONJ and nd.children[1].category is not CAT_CONJ_CONJ:
+            return True
+        elif nd.children[0].category == CAT_COMMA and nd.children[1].isbinary and nd.children[1].children[1].conjoin:
+            return True
+        return False
 
     @dispatchmethod(dispatchmap, RL_TCR_UNARY)
     def _dispatch_runary(self, nd, stk):
         assert len(nd.children) == 2
         assert len(stk) >= 2
-        unary = None
-        if nd.children[0].category == CAT_CONJ and isinstance(nd.children[0], STreeLeafNode) and \
-                nd.children[1].category is not CAT_CONJ_CONJ and self._can_use_conjoin_rules(nd):
-            # Conj has different unification rules
-            unary = UCONJ.lookup_unary(nd.category, nd.children[1].category, infer=False)
-            nd.conjoin = True
-        elif nd.children[0].category == CAT_COMMA and isinstance(nd.children[0], STreeLeafNode):
-            # TODO: Check if this is a conj rule
-            nd.conjoin = self._can_use_conjoin_rules(nd)
-
-        if unary is None:
-            unary = MODEL.lookup_unary(nd.category, nd.children[1].category)
+        nd.conjoin = self._can_use_conjoin_rules(nd)
+        unary = MODEL.lookup_unary(nd.category, nd.children[1].category)
         if unary is None:
             _UNDEFINED_UNARY.add((nd.category, nd.children[1].category))
             if unary is None:
@@ -442,7 +446,6 @@ class Ccg2Drs(AbstractSentence):
     def _update_conjoins(self, nd):
         # Assumes conjoins are built right to left
         if nd.isbinary and nd.children[1].conjoin:
-            nd.conjoin = True
             if len(self.conjoins) != 0:
                 ndsp = nd.span(self)
                 lastsp = self.conjoins[-1].span(self)
@@ -450,6 +453,12 @@ class Ccg2Drs(AbstractSentence):
                     self.conjoins.pop()
 
             self.conjoins.append(nd)
+            # Inherit type
+            if nd.children[0].ndtype != ct.CONSTITUENT_NODE and not nd.children[0].isleaf:
+                nd.ndtype = nd.children[0].ndtype
+            elif nd.children[1].isbinary and nd.children[1].children[1].ndtype != ct.CONSTITUENT_NODE \
+                    and not nd.children[1].children[1].isleaf:
+                nd.ndtype = nd.children[1].children[1].ndtype
 
     @dispatchmethod(dispatchmap, RL_FA)
     def _dispatch_fa(self, nd, stk):
@@ -620,21 +629,108 @@ class Ccg2Drs(AbstractSentence):
                     break
         return nps
 
+    def _delete_nodes(self, nodes_to_del, reparent=False):
+        if len(nodes_to_del) == 0:
+            return
+
+        if not isinstance(nodes_to_del, set):
+            nodes_to_del = set(nodes_to_del)
+
+        # Reparent heads marked for deletion - currently caller does this
+        if reparent:
+            # This method can create n-ary nodes > 2
+            for nd in itertools.ifilter(lambda x: x.idx not in nodes_to_del, self.stree_nodes):
+                lastparent = -1
+                ndc = nd
+                while nd.parent in nodes_to_del and nd.parent != lastparent:
+                    if isdebugging():
+                        i = 0 if nd is self.stree_nodes[nd.parent].children[0] else 1
+                        assert not self.stree_nodes[nd.parent].isbinary or self.stree_nodes[nd.parent].children[1-i].idx in nodes_to_del
+                    lastparent = nd.parent
+                    nd = self.stree_nodes[nd.parent]
+                # Cannot delete root
+                assert nd.parent not in nodes_to_del
+                if ndc is not nd:
+                    i = 0 if nd is self.stree_nodes[nd.parent].children[0] else 1
+                    if self.stree_nodes[nd.parent].children[i].idx in nodes_to_del:
+                        self.stree_nodes[nd.parent].children[i] = ndc
+                    else:
+                        # Make it an n-ary node
+                        self.stree_nodes[nd.parent].children.append(ndc)
+                    ndc.parent = nd.parent
+
+        # Remove nodes and remap tree indexes
+        newsize = len(self.stree_nodes) - len(nodes_to_del)
+        self.conjoins = filter(lambda nd: nd.idx not in nodes_to_del, self.conjoins)
+        self.stree_nodes = filter(lambda nd: nd.idx not in nodes_to_del, self.stree_nodes)
+        idxmap = dict([(x[0].idx, x[1]) for x in zip(self.stree_nodes, range(len(self.stree_nodes)))])
+        assert newsize == len(self.stree_nodes)
+        for i in xrange(len(self.stree_nodes)):
+            nd = self.stree_nodes[i]
+            nd.idx = i
+            nd.parent = idxmap[nd.parent]
+
+    def _delete_lexemes(self, idxs_to_del):
+        if len(idxs_to_del) == 0:
+            return
+
+        if not isinstance(idxs_to_del, set):
+            idxs_to_del = set(idxs_to_del)
+
+        # Reparent heads marked for deletion
+        for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self.lexemes):
+            lasthead = -1
+            while lex.head in idxs_to_del and lex.head != lasthead:
+                lasthead = lex.head
+                lex.head = self.lexemes[lex.head].head
+            if lex.head in idxs_to_del:
+                # New head for sentence
+                lex.head = lex.idx
+
+        newsize = len(self.lexemes) - len(idxs_to_del)
+        self.lexemes = filter(lambda nd: nd.idx not in idxs_to_del, self.lexemes)
+        idxmap = dict([(x[0].idx, x[1]) for x in zip(self.lexemes, range(len(self.lexemes)))])
+        assert newsize == len(self.lexemes)
+        for i in xrange(len(self.lexemes)):
+            lex = self.lexemes[i]
+            lex.idx = i
+            lex.head = idxmap[lex.head]
+
+        # Set lexical heads for tree nodes
+        for nd in self.stree_nodes:
+            if nd.head_idx not in idxmap:
+                leaf = nd.isleaf
+            nd.set_head(idxmap[nd.head_idx])
+
+        # Last is root
+        self.stree_nodes[-1].recalc_span()
+
+        if self.final_prod is not None:
+            pspan = Span(self, map(lambda y: idxmap[y],
+                                   filter(lambda x: idxmap[x] >= 0, self.final_prod.span.indexes())))
+            self.final_prod.span = pspan
+
     def _refine_constituents(self):
-        # Merge adjacent phrases
-        # TODO: only iterate once from leaves
+        # Push down unary type to child nodes
         merge = True
         while merge:
             merge = False
-            for nd in itertools.ifilter(lambda nd: nd.isunary and nd.ndtype == ct.CONSTITUENT_NODE \
-                                                and nd.children[0].ndtype != ct.CONSTITUENT_NODE, self.stree_nodes):
-                nd.ndtype = nd.children[0].ndtype
-                merge = True
-            for nd in itertools.ifilter(lambda nd: nd.isbinary and nd.ndtype == ct.CONSTITUENT_NODE \
-                                            and nd.children[0].ndtype != ct.CONSTITUENT_NODE \
-                                            and nd.children[0].ndtype == nd.children[1].ndtype, self.stree_nodes):
-                nd.ndtype = nd.children[0].ndtype
-                merge = True
+            for nd in itertools.ifilter(lambda nd: nd.isunary, self.stree_nodes):
+                if nd.ndtype != ct.CONSTITUENT_NODE and nd.children[0].isunary:
+                    # Push type down
+                    nd.children[0].ndtype = nd.ndtype
+                    merge = True
+                if nd.ndtype == ct.CONSTITUENT_NODE and nd.children[0].isunary \
+                        and nd.children[0].ndtype != ct.CONSTITUENT_NODE:
+                    # Push type up
+                    nd.ndtype = nd.children[0].ndtype
+                    merge = True
+
+        # Remove all unary nodes except root
+        nodes_to_del = set([x.idx for x in itertools.ifilter(lambda nd: nd.isunary and nd.parent_idx != nd.idx, self.stree_nodes)])
+        for nd in itertools.ifilter(lambda nd: nd.isunary and nd.children[0].isbinary, self.stree_nodes):
+            nd.children[0].ndtype = nd.ndtype
+        self._delete_nodes(nodes_to_del, reparent=True)
 
         # Ensure phrases have a constituent
         nps = dict(self.get_np_nominals())
@@ -846,14 +942,12 @@ class Ccg2Drs(AbstractSentence):
         # Process exec queue
         stk = []
         for nd in self.stree_nodes:
-            if isinstance(nd, STreeLeafNode):
+            if nd.isleaf:
                 # Set leaf constituent types
-                if 0 != (nd.lexeme.mask & (RT_EVENT|RT_EVENT_ATTRIB|RT_EVENT_MODAL)):
-                    nd.ndtype = ct.CONSTITUENT_VP
-                elif 0 != (nd.lexeme.mask & (RT_ENTITY|RT_PROPERNAME)):
-                    nd.ndtype = ct.CONSTITUENT_NP
-                elif nd.lexeme.pos == POS_PREPOSITION:
-                    nd.ndtype = ct.CONSTITUENT_PP
+                if nd.lexeme.ispunct or nd.lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+                    nd.ndtype = ct.CONSTITUENT_PUNCT
+                elif nd.lexeme.pos.tag in ct.CT:
+                    nd.ndtype = ct.CT[nd.lexeme.pos.tag]
                 stk.append(prods[nd.lexeme.idx])
             else:
                 # STreeNode dispatch based on rule
@@ -931,7 +1025,7 @@ class Ccg2Drs(AbstractSentence):
                     lex.drs = DRS([], [Rel(lex.stem, lex.refs)])
 
         # Fixup conjoins - must have at least one CAT_CONJ
-        self.conjoins = filter(lambda sp: any([x.category == CAT_CONJ for x in sp]), self.conjoins)
+        self.conjoins = filter(lambda nd: any([x.category == CAT_CONJ for x in nd.span(self)]), self.conjoins)
         # Refine constituents and we are done
         self._refine_constituents()
 
@@ -1034,75 +1128,115 @@ class Ccg2Drs(AbstractSentence):
     def resolve_proper_names(self):
         """Merge proper names."""
 
-        # Sort NP syntax tree nodes by their span
-        constituents = sorted(filter(lambda np: np.ndtype == ct.CONSTITUENT_NP, self.stree_nodes), key=lambda np: np.span(self))
+        lastref = DRSRef('$$$$')
+        startIdx = -1
+        endIdx = -1
+        spans = []
+        for i in range(len(self.lexemes)):
+            lexeme = self.lexemes[i]
+            if lexeme.refs is None or len(lexeme.refs) == 0:
+                ref = DRSRef('$$$$')
+            else:
+                ref = lexeme.refs[0]
 
+            if startIdx >= 0:
+                if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N):
+                    endIdx = i
+                    continue
+                elif ref == lastref and lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(c.span) \
+                    and self.lexemes[i+1].isproper_noun:
+                    continue
+                else:
+                    if startIdx != endIdx:
+                        spans.append((startIdx, endIdx))
+                    startIdx = -1
+
+            if lexeme.isproper_noun:
+                startIdx = i
+                endIdx = i
+                lastref = ref
+
+        if startIdx >= 0 and startIdx != endIdx:
+            spans.append((startIdx, endIdx))
+
+        # Map heads to nodes - can exclude unary nodes
+        # Sort by span width to ensure first node in list is always the leaf
+        heads = {}
+        for nd in itertools.ifilter(lambda nd: not nd.isunary, sorted(self.stree_nodes, key=lambda x: x.span_width)):
+            lst = heads.setdefault(nd.head_idx, [])
+            lst.append(nd)
+
+        # Merge spans
         to_remove = Span(self)
-        for nd in constituents:
-            c = nd.constituent(self)
-            cspan = c.span.difference(to_remove)
-            if cspan.isempty:
+        nodes_to_del = set()
+        for s, e in spans:
+            # Handle cases like  "according to Donoghue 's ." and "go to Paul 's"
+            if self.lexemes[e].word == "'s":
+                if e == (s+1):
+                    continue
+                e -= 1
+
+            sp = Span(self, s, e+1)
+            hd = sp.get_head_span()
+            if len(hd) != 1:
+                _logger.warning('[msgid=%s] - propernoun merge causes multiheaded span /%s/' % (self.msgid, sp.text))
                 continue
 
-            spans = []
-            lastref = DRSRef('$$$$')
-            startIdx = -1
-            endIdx = -1
-            for i in range(len(c.span)):
-                lexeme = c.span[i]
-                if lexeme.refs is None or len(lexeme.refs) == 0:
-                    ref = DRSRef('$$$$')
-                else:
-                    ref = lexeme.refs[0]
+            # Get nodes with same head sorted by span width
+            nodes = heads[hd[0].idx]
+            assert nodes[0].isleaf  # the head itself must be the shortest span
+            spnd = None
+            for nd in nodes[1:]:
+                spnd = nd.span(self)
+                if sp in spnd:
+                    break
+                spnd = None
+            if spnd is None:
+                _logger.warning('[msgid=%s] - no constituent for propernoun merge /%s/' % (self.msgid, sp.text))
+                continue
 
-                if startIdx >= 0:
-                    if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N):
-                        endIdx = i
-                        continue
-                    elif ref == lastref and lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(c.span) \
-                            and c.span[i+1].isproper_noun:
-                        continue
-                    else:
-                        if startIdx != endIdx:
-                            spans.append((startIdx, endIdx))
-                        startIdx = -1
+            # Include remainder of span and preserve heads
+            rem = spnd.difference(sp)
+            if rem.isempty:
+                nodes_to_del = nodes_to_del.union([x.idx for x in nd.iternodes()])
+                nodes_to_del.remove(nodes[0].idx)   # don't include leaf
+                parent = self.stree_nodes[nd.parent]
+                i = 0 if parent.children[0] is nd else 1
+                assert parent.children[i] is nd
+                parent.children[i] = nodes[0]
+                nodes[0].parent = nd.parent
 
-                if lexeme.isproper_noun:
-                    startIdx = i
-                    endIdx = i
-                    lastref = ref
+            elif len(rem) == 1:
+                nodes_to_del = nodes_to_del.union([x.idx for x in nd.children[0].iternodes()])
+                nodes_to_del = nodes_to_del.union([x.idx for x in nd.children[1].iternodes()])
+                i = 0 if nd.children[0].head_idx == hd[0] else 1
 
-            if startIdx >= 0 and startIdx != endIdx:
-                spans.append((startIdx, endIdx))
+                nodes_to_del.remove(nodes[0].idx)   # don't include leaf
+                nd.children[i] = nodes[0]
+                nodes[0].parent = nd.idx
 
-            for s, e in spans:
-                # Handle cases like  "according to Donoghue 's ." and "go to Paul 's"
-                if c.span[e].word == "'s":
-                    if e == (s+1):
-                        continue
-                    e -= 1
+                nodes = heads[rem[0].idx]
+                nodes_to_del.remove(nodes[0].idx)   # don't include leaf
+                nd.children[1-i] = nodes[0]
+                nodes[0].parent = nd.idx
+            else:
+                # TODO: create nary node - tree does not have to binary at this point
+                _logger.warning('[msgid=%s] - propernoun merge not supported /%s/ -> /%s/%s/' %
+                                (self.msgid, spnd.text, rem.text, sp.text))
+                continue
 
-                spfound = Span(self, s, e+1)
-                if spfound in to_remove:
-                    continue
-
-                # Preserve heads
-                lexeme = c.head()
-                if lexeme.idx not in spfound:
-                    # TODO: log this
-                    continue
-
-                ref = lexeme.refs[0]
-                word = '-'.join([c.span[i].word for i in range(s, e+1)])
-                stem = '-'.join([c.span[i].stem for i in range(s, e+1)])
-                fca = lexeme.drs.find_condition(Rel(lexeme.stem, [ref]))
-                if fca is None:
-                    continue
-                fca.cond.relation.rename(stem)
-                lexeme.stem = stem
-                lexeme.word = word
-                spfound.remove(lexeme.idx)
-                to_remove = to_remove.union(spfound)
+            lexeme = hd[0]
+            ref = lexeme.refs[0]
+            word = '-'.join([lex.word for lex in sp])
+            stem = '-'.join([lex.stem for lex in sp])
+            fca = lexeme.drs.find_condition(Rel(lexeme.stem, [ref]))
+            if fca is None:
+                continue
+            fca.cond.relation.rename(stem)
+            lexeme.stem = stem
+            lexeme.word = word
+            sp.remove(lexeme.idx)
+            to_remove = to_remove.union(sp)
 
         if not to_remove.isempty:
             # Python 2.x does not support nonlocal keyword for the closure
@@ -1113,47 +1247,25 @@ class Ccg2Drs(AbstractSentence):
                 context.i += inc
                 return idx
 
-            # Remove constituents and remap indexes.
-            #
-            inodes = []
-            for nd in itertools.ifilter(lambda nd: nd.isleaf and nd.lexeme.idx in to_remove, self.stree_nodes):
-                lastnd = None
-                # Trace path back to root and mark nodes for deletion
-                inodes.append(nd.idx)
-                while nd.idx != 0:
-                    if nd.isbinary:
-                        i = 0 if nd.children[0] == lastnd else 1
-                        assert nd.children[i].span(self) in to_remove
-                        inodes.append(nd.children[i].idx)
-                        # Make node unary, if another path from a leaf includes this node
-                        # then it will be marked for deletion
-                        nd.remove_child(i)
-                        nd.rule = RL_NOP
-                        break
-                    else:
-                        # Should never delete root
-                        assert nd.idx != 0
-                        inodes.append(nd.idx)
-                    lastnd = nd
-                    nd = self.stree_nodes[nd.parent]
-
             # Remove nodes and remap tree indexes
-            inodes = set(inodes)
+            self._delete_nodes(nodes_to_del)
+            '''
             context.i = 0
-            idxmap = map(lambda x: -1 if x in inodes else counter(), range(len(self.stree_nodes)))
-            newsize = len(self.stree_nodes) - len(inodes)
-            self.conjoins = filter(lambda nd: nd.idx not in inodes, self.conjoins)
-            self.stree_nodes = filter(lambda nd: nd.idx not in inodes, self.stree_nodes)
+            idxmap = map(lambda x: -1 if x in nodes_to_del else counter(), range(len(self.stree_nodes)))
+            newsize = len(self.stree_nodes) - len(nodes_to_del)
+            self.conjoins = filter(lambda nd: nd.idx not in nodes_to_del, self.conjoins)
+            self.stree_nodes = filter(lambda nd: nd.idx not in nodes_to_del, self.stree_nodes)
             idxmap = dict([(x[0].idx, x[1]) for x in zip(self.stree_nodes, range(len(self.stree_nodes)))])
             assert newsize == len(self.stree_nodes)
             for i in xrange(len(self.stree_nodes)):
                 nd = self.stree_nodes[i]
                 nd.idx = i
                 nd.parent = idxmap[nd.parent]
+            '''
 
             # Remove lexemes and remap indexes.
             idxs_to_del = set(to_remove.indexes())
-
+            #self._delete_lexemes(idxs_to_del)
             # Reparent heads marked for deletion
             for lex in itertools.ifilter(lambda x: x.idx not in idxs_to_del, self.lexemes):
                 lasthead = -1

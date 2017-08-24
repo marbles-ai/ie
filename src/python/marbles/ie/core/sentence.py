@@ -228,50 +228,6 @@ def _lex_limit_le(r1, r2):
     return False
 
 
-class ConstituentTreeNode(object):
-
-    def __init__(self, constituent):
-        super(STreeNode, self).__init__(idx, depth)
-        self.rule = rule
-        self._result_category = result_category
-        self._child_nodes = child_nodes
-        self._head = head
-        self._lex_range = lex_range
-
-    def __repr__(self):
-        return b'<STreeNode>:(%d, %s %s)' % (len(self.child_nodes), self.rule, self.category)
-
-    @property
-    def category(self):
-        return self._result_category
-
-    @property
-    def lex_range(self):
-        return self._lex_range
-
-    @property
-    def children(self):
-        return self._child_nodes
-
-    @property
-    def isbinary(self):
-        return len(self._child_nodes) == 2
-
-    @property
-    def head_idx(self):
-        """Return the head of the phrase"""
-        return self._head
-
-    def iternodes(self):
-        """Iterate the syntax tree nodes unordered"""
-        stk = [self]
-        while len(stk) != 0:
-            nd = stk.pop()
-            if not nd.isleaf:
-                stk.extend(nd.children)
-            yield nd
-
-
 class AbstractConstituentNode(object):
     """Base class for constituents and sytax tree nodes."""
     def __init__(self, ndtype):
@@ -312,7 +268,7 @@ class AbstractConstituentNode(object):
         return result
 
     def iternodes(self):
-        """Iterate the tree nodes unordered"""
+        """Depth first iteration over the tree nodes."""
         if self.isleaf:
             yield self
         else:
@@ -349,7 +305,7 @@ class ConstituentNode(AbstractConstituentNode):
     @property
     def parent_idx(self):
         """Return the parent node index"""
-        self._parent_idx
+        return self._parent_idx
 
     @property
     def lex_range(self):
@@ -363,10 +319,14 @@ class ConstituentNode(AbstractConstituentNode):
             lex_range = None
         return ConstituentNode(ct.Typeof[data['ndtype']], lex_range=lex_range,
                                        parent_idx=data['chead'], head_idx=data['dhead'])
+    def clone(self):
+        """Deep copy of object"""
+        return ConstituentNode(self.ndtype, self._lex_range, self._parent_idx, self._head_idx)
 
 
 class Constituent(object):
     """A constituent is a sentence span and a phrase type."""
+
     def __init__(self, sentence, node):
         if sentence is not None and not isinstance(sentence, AbstractSentence):
             raise TypeError('sentence not instance of AbstractSentence')
@@ -435,9 +395,6 @@ class Constituent(object):
     def span(self):
         return Span(self.sentence, self.node.lex_range[0], self.node.lex_range[1]) \
             if self.node.lex_range is not None else Span(self.sentence, self.node.head_idx, self.node.head_idx+1)
-
-    def clone(self):
-        return Constituent(self.sentence, self.node)
 
     def head(self):
         """Get the head lexeme of the constituent.
@@ -512,7 +469,7 @@ class AbstractSentence(AbstractSpan):
     def constituent_at(self, idx):
         raise NotImplementedError
 
-    def iterconstituents(self):
+    def iterconstituents(self, dfs=True):
         raise NotImplementedError
 
     def safe_wikipage(self, query):
@@ -540,6 +497,7 @@ class Sentence(AbstractSentence):
             self._lexemes = []
             self._constituents = []
 
+
     def __len__(self):
         return len(self._lexemes)
 
@@ -553,9 +511,19 @@ class Sentence(AbstractSentence):
         for i in range(len(self)):
             yield self._lexemes[i]
 
-    def iterconstituents(self):
-        for nd in self._constituents:
-            yield Constituent(self, nd)
+    def iterconstituents(self, dfs=True):
+        """DFS iteration from root"""
+        if dfs:
+            for nd in self._constituents[self._croot].iternodes():
+                yield Constituent(self, nd)
+        else:
+            # Linear iteration from root (always zero)
+            for nd in self._constituents:
+                yield Constituent(self, nd)
+
+    def constituent_root(self):
+        """Return the root node"""
+        return self._constituents[0] if len(self._constituents) != 0 else None
 
     def get_constituent_tree(self):
         """Get the constituent tree as an adjacency list of lists."""

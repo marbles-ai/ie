@@ -56,10 +56,10 @@ def dprint_ccgbank(ccgbank):
 
 def get_constituents_string_list(sent):
     s = []
-    for c in sent.iterconstituents():
+    for c in sent.iterconstituents(dfs=False):
         headword = c.head().idx
         txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
-        s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
+        s.append('%s(%s)' % (c.ndtype.signature, ' '.join(txt)))
     return s
 
 
@@ -102,19 +102,27 @@ class GoldConstituentTest(unittest.TestCase):
         dprint(s)
         x = '[X1,E2,E3,X4| boy(X1),will(E2),_MODAL(E2),want(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,E3),believe(E3),_EVENT(E3),_ARG0(E3,X1),_ARG1(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
-        a = get_constituents_string_list(ccg)
+        sent = ccg.sorted_sentence()
+        a = get_constituents_string_list(sent)
         dprint('\n'.join(a))
         x = [
             'S(The boy #will want to believe the girl)',
             'NP(#The boy)',
+            'DET(#The)',
+            'NOUN(#boy)',
+            'VP(#will want to believe the girl)',
+            'ADP(#will)',
             'S_INF(#want to believe the girl)',
+            'VERB(#want)',
             'S_INF(#to believe the girl)',
+            'TO(#to)',
             'S_INF(#believe the girl)',
-            'NP(#the girl)'
+            'VERB(#believe)',
+            'NP(#the girl)',
+            'DET(#the)',
+            'NOUN(#girl)',
         ]
         self.assertListEqual(x, a)
-        s = get_constituent_string(ccg.get_verbnet_sentence())
-        self.assertEqual('NP(#The boy) VP(#will want) S_INF(#to believe) NP(#the girl)', s)
 
     def test2_GOLD_Wsj0002_1(self):
         # ID=wsj_0002.1 PARSER=GOLD NUMPARSE=1
@@ -231,20 +239,54 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        a = get_constituents_string_list(ccg)
+        sent = ccg.sorted_sentence()
+        a = get_constituents_string_list(sent)
         dprint('\n'.join(a))
         # Hash indicates head word in constituent
         x = [
+            'S_DCL(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate .)',
+            'S_DCL(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate)',
+            'NP(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC ,)',
             'NP(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC)',
+            'NP(#Rudolph-Agnew ,)'
+            'PROPN(#Rudolph-Agnew)'
+            'PUNCT(#,)',
             'ADJP(55 years #old and former chairman of Consolidated-Gold-Fields-PLC)',
+            'ADJP(55 years #old)',
             'NP(55 #years)',
+            'NUM(#55)',
+            'NOUN(#years)',
+            'ADJ(#old)',
+            'UNK(and former #chairman of Consolidated-Gold-Fields-PLC)',
+            'CONJ(#and)',
             'NP(former #chairman of Consolidated-Gold-Fields-PLC)',
+            'NP(former #chairman)',
+            'ADJ(#former)',
+            'NOUN(#chairman)',
             'PP(#of Consolidated-Gold-Fields-PLC)',
-            'NP(#Consolidated-Gold-Fields-PLC)',
-            'VP(#was nameda nonexecutive director of this British industrial conglomerate)',
+            'ADP(#of)',
+            'PROPN(#Consolidated-Gold-Fields-PLC)',
+            'PUNCT(#,)',
+            'VP(#was named a nonexecutive director of this British industrial conglomerate)',
+            'VP(#was)',
+            'VP(#named a nonexecutive director of this British industrial conglomerate)',
+            'VP(#named)',
+            'NP(#a nonexecutive director of this British industrial conglomerate)',
             'NP(a nonexecutive #director)',
+            'DET(#a)',
+            'UNK(nonexecutive #director)',
+            'ADJ(#nonexecutive)',
+            'NOUN(#director)',
             'PP(#of this British industrial conglomerate)',
-            'NP(this British industrial #conglomerate)'
+            'ADP(#of)',
+            'NP(this British industrial #conglomerate)',
+            'DET(#this)',
+            'UNK(British industrial #conglomerate)',
+            'ADJ(#British)',
+            'UNK(industrial #conglomerate)',
+            'ADJ(#industrial)',
+            'NOUN(#conglomerate)',
+            'PUNCT(#.)',
         ]
         self.assertListEqual(x, a)
         # 6 VP(was named)
