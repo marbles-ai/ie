@@ -1,0 +1,47 @@
+sudo: false
+dist: xenial
+
+addons:
+  apt:
+    packages:
+    - cmake
+    - gradle
+    - zlib1g-dev
+    - libboost-all-dev
+    - git-lfs
+    - libtesseract-dev
+    - libopenblas-dev
+    - libatlas-dev
+    - libatlas-base-dev
+    - sox
+    - libsox-dev
+    - swig
+    - python-pip
+    - supervisor
+    - flac
+    - gawk
+    - imagemagick
+    - liblmdb-dev
+    - libleveldb-dev
+    - libhdf5-serial-dev
+    - bc
+    - python-numpy
+    - python-gi
+    - python-gobject
+    - python-gobject-2
+    - memcached
+    - flex
+    - bison
+    - zip
+    - unzip
+    - wget
+    - curl
+
+before_install:
+  - "bash scripts/extract_lfs.sh"
+
+language: python
+python:
+  - "2.7"
+  install:
+    - "pip install --user -r deps/python_deps.txt"
