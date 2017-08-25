@@ -1,7 +1,7 @@
 from __future__ import unicode_literals, print_function
 from marbles.ie.ccg import *
 from marbles.ie.core import constituent_types as ct
-from sentence import ConstituentNode, BasicLexeme, Wikidata, Sentence, Span
+from marbles.ie.core import sentence
 from marbles.ie.grpc.infox_service_pb2 import GSentence
 
 
@@ -12,15 +12,14 @@ def marshal_sentence(response):
         The gRPC response.
 
     Returns:
-        A marbles.ie.core.Sentence instance.
+        A marbles.ie.core.sentence.Sentence instance.
     """
     assert isinstance(response, GSentence)
 
     lexemes = []
     constituents = []
-    sentence = Sentence(lexemes, constituents)
     for glex in response.lexemes:
-        lex = BasicLexeme()
+        lex = sentence.BasicLexeme()
         lexemes.append(lex)
         lex.head = glex.head
         lex.idx = glex.idx
@@ -31,7 +30,7 @@ def marshal_sentence(response):
         lex.stem = glex.stem
         lex.category = Category.from_cache(glex.category)
         if len(glex.wikidata.title) != 0:
-            wd = Wikidata()
+            wd = sentence.Wikidata()
             wd.title = glex.wikidata.title
             wd.summary = glex.wikidata.summary
             wd.page_categories = [x for x in glex.wikidata.page_categories]
@@ -39,12 +38,11 @@ def marshal_sentence(response):
             lex.wiki_data = wd
 
     for gc in response.constituents:
-        lex_range = gc.span[0:2]
-        dhead = gc.span[2]
-        chead = gc.span[3]
-        c = ConstituentNode(ct.from_cache(gc.vntype), lex_range=lex_range, chead=chead, dhead=dhead)
+        span = sentence.SimpleSpan(gc.span[0], gc.span[1])
+        c = sentence.ConstituentNode(ct.from_cache(gc.ndtype), simple_span=span,
+                                     parent_idx=gc.parent_idx, head_idx=gc.head_idx)
         constituents.append(c)
 
-    return sentence
+    return sentence.Sentence(lexemes, constituents)
 
 

@@ -4,16 +4,20 @@ import collections
 import requests
 import time
 import wikipedia
+import itertools
 
-import marbles.ie.drt
-import marbles.ie.utils.cache
+try:
+    # Not visible in website
+    from marbles.ie import drt
+except:
+    pass
 from marbles.ie.ccg import *
 from marbles.ie.core import constituent_types as ct
-from marbles.ie.kb import google_search
-from marbles.log import ExceptionRateLimitedLogAdaptor
+from marbles.ie import kb
+from marbles import log
 
 _actual_logger = logging.getLogger(__name__)
-_logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
+_logger = log.ExceptionRateLimitedLogAdaptor(_actual_logger)
 _NNPSPLIT = re.compile(r'for|and|of')
 
 # Remove extra info from wikipedia topic
@@ -211,21 +215,128 @@ class BasicLexeme(AbstractLexeme):
         return BasicLexeme(self)
 
 
-def _compare_lex_range(r1, r2):
+def _compare_simple_span(r1, r2):
     if r1 is None and r2 is None:
         return 0
     # Longest span is less
     if r1 is not None and r2 is not None:
-        x = r1[0] - r2[0]
-        return x if x != 0 else r2[1] - r1[1]
+        x = r1.begin - r2.begin
+        return x if x != 0 else r2.end - r1.end
     return -1 if r1 is None else 1
 
 
-def _lex_limit_le(r1, r2):
-    # Longest span is less
-    if r1 is not None and r2 is not None:
-        return r1[1] <= r2[1]
-    return False
+class SimpleSpan(object):
+    def __init__(self, begin, end=None):
+        if isinstance(begin, (tuple, list)):
+            assert end is None
+            self.begin = begin[0]
+            self.end = max(begin)
+        else:
+            self.begin = begin
+            self.end = (begin + 1) if end is None else max([end, begin])
+
+    def __eq__(self, other):
+        return self.begin == other.begin and self.end == other.end
+
+    def __ne__(self, other):
+        return self.begin != other.begin or self.end != other.end
+
+    def __lt__(self, other):
+        return self.begin < other.begin or (self.begin == other.begin and self.end > other.end)
+
+    def __gt__(self, other):
+        return self.begin > other.begin or (self.begin == other.begin and self.end < other.end)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __hash__(self):
+        return hash((self.begin, self.end))
+
+    def __unicode__(self):
+        return u'(%d:%d)' % (self.begin, self.end)
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
+
+    def __repr__(self):
+        return str(self)
+
+    @property
+    def width(self):
+        return self.end - self.begin
+
+    def __union(self, other):
+        if not isinstance(other, SimpleSpan):
+            raise TypeError('other is not a SimpleSpan')
+        if other.width == 0:
+            return self.begin, self.end
+        elif self.width == 0:
+            return other.begin, other.end
+        return min(other.begin, self.begin), max(other.end, self.end)
+
+    def __difference(self, other):
+        if not isinstance(other, SimpleSpan):
+            raise TypeError('other is not a SimpleSpan')
+        if other.width == 0 or self.width == 0 or other.end <= self.begin or \
+                other.begin >= self.end:
+            return self.begin, self.end
+        elif other.begin <= self.begin and other.end > self.begin:
+            # left overlap
+            return min(other.end, self.end), self.end
+        elif other.end >= self.end and other.begin < self.end:
+            # right overlap
+            return self.begin, max(self.begin, other.begin)
+        # simple span can't support these overlaps
+        # Return left and right results
+        s1 = self.__difference(SimpleSpan(self.begin, other.begin))
+        s2 = self.__difference(SimpleSpan(other.begin, self.end))
+        return s1, s2
+
+    def __intersection(self, other):
+        if not isinstance(other, SimpleSpan):
+            raise TypeError('other is not a SimpleSpan')
+        if self.width == 0 or other.width == 0:
+            return self.begin, self.begin
+        elif other.end <= self.end:
+            return max(self.begin, other.begin), max(self.begin, other.end)
+        elif other.begin > self.begin:
+            return min(self.end, other.begin), min(self.end, other.end)
+        return self.begin, self.end
+
+    def to_list(self):
+        return [self.begin, self.end]
+
+    def clone(self):
+        return SimpleSpan(self.begin, self.end)
+
+    def union(self, other):
+        return SimpleSpan(self.__union(other))
+
+    def union_inplace(self, other):
+        self.begin, self.end = self.__union(other)
+        return self
+
+    def intersection(self, other):
+        return SimpleSpan(self.__intersection(other))
+
+    def intersection_inplace(self, other):
+        self.begin, self.end = self.__intersection(other)
+        return self
+
+    def difference(self, other):
+        s1, s2 = self.__difference(other)
+        assert not isinstance(s1, SimpleSpan)
+        return SimpleSpan(s1, s2)
+
+    def difference_inplace(self, other):
+        s1, s2 = self.__difference(other)
+        assert not isinstance(s1, SimpleSpan)
+        self.begin, self.end = s1, s2
+        return self
 
 
 class AbstractConstituentNode(object):
@@ -234,14 +345,14 @@ class AbstractConstituentNode(object):
         self.ndtype = ndtype
 
     @property
-    def children(self):
+    def child_nodes(self):
         """Get a list of the child nodes."""
         return None
 
     @property
     def isleaf(self):
         """Test if this is a leaf node."""
-        return self.children is None
+        return self.child_nodes is None
 
     @property
     def head_idx(self):
@@ -254,7 +365,7 @@ class AbstractConstituentNode(object):
         raise NotImplementedError
 
     @property
-    def lex_range(self):
+    def simple_span(self):
         """Return the lexical range (span) of the constituent"""
         raise NotImplementedError
 
@@ -263,7 +374,7 @@ class AbstractConstituentNode(object):
             'ndtype': self.ndtype.signature,
             'chead': self.parent_idx,
             'dhead': self.head_idx,
-            'lex_range': self.lex_range if self.lex_range is not None else [],
+            'span': self.simple_span if self.simple_span is not None else [],
         }
         return result
 
@@ -276,7 +387,7 @@ class AbstractConstituentNode(object):
             while len(stk) != 0:
                 nd = stk.pop()
                 if not nd.isleaf:
-                    stk.extend(nd.children)
+                    stk.extend(nd.child_nodes)
                 yield nd
 
     def contains(self, ndtypes):
@@ -286,16 +397,37 @@ class AbstractConstituentNode(object):
 
 class ConstituentNode(AbstractConstituentNode):
     """Base class for constituents."""
-    def __init__(self, ndtype, lex_range, parent_idx, head_idx):
+    def __init__(self, ndtype, idx, simple_span, parent_idx, head_idx, children=None):
         super(ConstituentNode, self).__init__(ndtype)
+        self._idx = idx
         self._head_idx = head_idx
         self._parent_idx = parent_idx
-        self._lex_range = lex_range
+        self._simple_span = simple_span
+        self._child_nodes = children
+
+    def __unicode__(self):
+        return u'%s%s' % (self.ndtype.signature, self.simple_span)
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
+
+    def __repr__(self):
+        return str(self)
 
     @property
-    def children(self):
+    def child_nodes(self):
         """Get a list of the child nodes."""
-        return None
+        return self._child_nodes
+
+    @property
+    def isnary(self):
+        """Return true is the node is not a leaf or unary."""
+        return not self.isleaf and len(self.child_nodes) > 1
+
+    @property
+    def idx(self):
+        """Return the index of this node"""
+        return self._idx
 
     @property
     def head_idx(self):
@@ -308,20 +440,61 @@ class ConstituentNode(AbstractConstituentNode):
         return self._parent_idx
 
     @property
-    def lex_range(self):
+    def simple_span(self):
         """Return the lexical range (span) of the constituent"""
-        return self._lex_range
+        return self._simple_span
 
     @classmethod
     def from_json(self, data):
-        lex_range=data['lex_range']
-        if len(lex_range) != 2:
-            lex_range = None
-        return ConstituentNode(ct.Typeof[data['ndtype']], lex_range=lex_range,
+        simple_span=data['span']
+        if len(simple_span) != 2:
+            simple_span = None
+        return ConstituentNode(ct.Typeof[data['ndtype']], simple_span=simple_span,
                                        parent_idx=data['chead'], head_idx=data['dhead'])
     def clone(self):
         """Deep copy of object"""
-        return ConstituentNode(self.ndtype, self._lex_range, self._parent_idx, self._head_idx)
+        return ConstituentNode(self.ndtype, self.idx, self.simple_span, self.parent_idx, self.head_idx)
+
+    def remove_child(self, index):
+        """Remove the child at index and return it."""
+        child = None
+        if self._child_nodes is not None:
+            child = self._child_nodes[index]
+            self._simple_span.difference_inplace(child.simple_span)
+            if index == 0:
+                self._child_nodes = self._child_nodes[1:]
+            elif index == (len(self._child_nodes)-1):
+                self._child_nodes.pop()
+            else:
+                self._child_nodes = self._child_nodes[0:index]
+                self._child_nodes.extend(self._child_nodes[index+1:])
+        if len(self._child_nodes) == 0:
+            self._child_nodes = None
+            assert self.simple_span.width == 0
+
+        return child
+
+    def insert_child(self, index, child):
+        """Insert child (or child_nodes) at index."""
+        if self._child_nodes is None:
+            if index != 0:
+                raise IndexError('child insert %d out of bounds' % index)
+            self._child_nodes = [child] if not isinstance(child, collections.Iterable) else [x for x in child]
+            for ch in self._child_nodes:
+                self._simple_span.union_inplace(ch.simple_span)
+                ch._parent_idx = self._idx
+        elif isinstance(child, collections.Iterable):
+            tmp = self._child_nodes[index:]
+            self._child_nodes = self._child_nodes[0:index]
+            self._child_nodes.extend(child)
+            self._child_nodes.extend(tmp)
+            for ch in child:
+                self._simple_span.union_inplace(ch.simple_span)
+                ch._parent_idx = self._idx
+        else:
+            self._child_nodes.insert(index, child)
+            self._simple_span.union_inplace(child.simple_span)
+            child._parent_idx = self._idx
 
 
 class Constituent(object):
@@ -347,25 +520,25 @@ class Constituent(object):
     def __hash__(self):
         h = hash(id(self.sentence))
         h ^= hash(self.node.ndtype)
-        if self.node.lex_range is not None:
-            for i in self.node.lex_range:
+        if self.node.simple_span is not None:
+            for i in self.node.simple_span:
                 h = h ^ hash(i)
         return h
 
     def __eq__(self, other):
         return self.node.ndtype is other.node.ndtype \
-               and 0 == _compare_lex_range(self.node.lex_range, other.node.lex_range)
+               and 0 == _compare_simple_span(self.node.simple_span, other.node.simple_span)
 
     def __ne__(self, other):
         return self.node.ndtype is other.node.ndtype \
-               or 0 != _compare_lex_range(self.node.lex_range, other.node.lex_range)
+               or 0 != _compare_simple_span(self.node.simple_span, other.node.simple_span)
 
     def __lt__(self, other):
-        cmp = _compare_lex_range(self.node.lex_range, other.node.lex_range)
+        cmp = _compare_simple_span(self.node.simple_span, other.node.simple_span)
         return cmp < 0 or (0 == cmp and self.node.ndtype < other.node.ndtype)
 
     def __gt__(self, other):
-        cmp = _compare_lex_range(self.node.lex_range, other.node.lex_range)
+        cmp = _compare_simple_span(self.node.simple_span, other.node.simple_span)
         return cmp > 0 or (0 == cmp and self.node.ndtype > other.node.ndtype)
 
     def __le__(self, other):
@@ -375,12 +548,12 @@ class Constituent(object):
         return not self.__lt__()
 
     def __contains__(self, other):
-        return _compare_lex_range(self.node.lex_range, other.node.lex_range) < 0 and \
-                _lex_limit_le(other.node.lex_range, self.node.lex_range)
+        return other is not None and other.width != 0 and self.width != 0 and \
+               _compare_simple_span(self.node.simple_span, other.node.simple_span) <= 0
 
     @property
     def isempty(self):
-        return self.node.lex_range is None
+        return self.node.simple_span is None
 
     @property
     def isroot(self):
@@ -388,14 +561,19 @@ class Constituent(object):
         return self is self.sentence.constituent_at(self.node.parent_idx)
 
     @property
+    def isleaf(self):
+        return self.node.isleaf
+
+    @property
     def ndtype(self):
         return self.node.ndtype
 
     @property
     def span(self):
-        return Span(self.sentence, self.node.lex_range[0], self.node.lex_range[1]) \
-            if self.node.lex_range is not None else Span(self.sentence, self.node.head_idx, self.node.head_idx+1)
+        return Span(self.sentence, self.node.simple_span) \
+            if self.node.simple_span is not None else Span(self.sentence, self.node.head_idx, self.node.head_idx+1)
 
+    @property
     def head(self):
         """Get the head lexeme of the constituent.
 
@@ -404,6 +582,7 @@ class Constituent(object):
         """
         return self.sentence[self.node.head_idx]
 
+    @property
     def chead(self):
         """Get the head constituent.
 
@@ -413,18 +592,24 @@ class Constituent(object):
         chd = self.sentence.constituent_at(self.node.parent_idx)
         return None if chd is self else chd
 
-    def marked_text(self, mark='#'):
+    def marked_text(self, mark='#', minimal=True):
         """Get the constituent text with the the head marked."""
         if self.isempty:
             return ''
-        hd = self.head()
+        hd = self.head
         span = self.span
-        txt = [mark + span[0].word if span[0] is hd else span[0].word]
-        for tok in span[1:]:
-            if not tok.ispunct:
-                txt.append(' ')
-            txt.append(mark + tok.word if tok is hd else tok.word)
-        return ''.join(txt)
+        if minimal:
+            txt = [mark + span[0].word if span[0] is hd else span[0].word]
+            for tok in span[1:]:
+                if not tok.ispunct:
+                    txt.append(' ')
+                txt.append(mark + tok.word if tok is hd else tok.word)
+            return ''.join(txt)
+        return ' '.join(itertools.imap(lambda x: mark + x.word if x is hd else x.word, span))
+
+    def children(self):
+        ch = self.node.child_nodes
+        return None if ch is None else [Constituent(self._sent, x) for x in ch]
 
 
 class AbstractSpan(collections.Sequence):
@@ -486,9 +671,12 @@ class AbstractSentence(AbstractSpan):
 
 
 class Sentence(AbstractSentence):
-    """A sentence."""
+    """A sentence comprised of lexemes and constituents.
 
-    def __init__(self, lexemes=None, constituents=None, msgid=None):
+    Remarks:
+        The constituents are ordered such that the leaves match their lexeme indexes.
+    """
+    def __init__(self, lexemes, constituents=None, msgid=None):
         super(Sentence, self).__init__(msgid)
         if lexemes is not None:
             self._lexemes = lexemes
@@ -496,7 +684,6 @@ class Sentence(AbstractSentence):
         else:
             self._lexemes = []
             self._constituents = []
-
 
     def __len__(self):
         return len(self._lexemes)
@@ -511,19 +698,79 @@ class Sentence(AbstractSentence):
         for i in range(len(self)):
             yield self._lexemes[i]
 
+    @property
+    def constituent_count(self):
+        return len(self._constituents)
+
     def iterconstituents(self, dfs=True):
-        """DFS iteration from root"""
+        """DFS iteration from root or linear iteration from root."""
+        if len(self._constituents) == 0:
+            return
         if dfs:
-            for nd in self._constituents[self._croot].iternodes():
+            # Root is last index
+            for nd in self._constituents[-1].iternodes():
                 yield Constituent(self, nd)
         else:
-            # Linear iteration from root (always zero)
-            for nd in self._constituents:
+            # Linear iteration
+            for nd in reversed(self._constituents):
                 yield Constituent(self, nd)
 
     def constituent_root(self):
         """Return the root node"""
-        return self._constituents[0] if len(self._constituents) != 0 else None
+        return self._constituents[-1] if len(self._constituents) != 0 else None
+
+    def find_constituent(self, span):
+        """Find the constituent containing the span argument.
+
+        Args:
+            span: A Span instance.
+
+        Returns:
+            A Constituent instance or None if not found.
+        """
+        # leaves are first
+        if span.isempty:
+            return None
+        # constituents are sorted by lexeme index, then span
+        start, end = (0, len(self._lexemes)) if len(span) == 1 else (len(self._lexemes), len(self._constituents))
+        for nd in itertools.ifilter(lambda nd: nd.simple_span.width >= len(span), self._constituents[start:end]):
+            c = Constituent(self, nd)
+            if span in c.span:
+                return c
+        return None
+
+    def find_span(self, text, ignorecase=True):
+        """Find the span containing the given text.
+
+        Args:
+            text: A string.
+            ignorecase: Case sensitivity of search.
+
+        Returns:
+            A Span instance or None if not found.
+        """
+        if ignorecase:
+            tokens = [x.strip() for x in text.lower().split()]
+        else:
+            tokens = [x.strip() for x in text.split()]
+        k = len(tokens)
+        lexicon = set(tokens)
+        m = filter(lambda i: tokens[i] == tokens[-1], range(len(tokens)-1))
+        m.append(k-1)
+        m = m[0] + 1
+        n = len(self._lexemes)
+        i = k
+        while i < n:
+            w = self._lexemes[i].word.lower() if ignorecase else self._lexemes[i]
+            if tokens[-1] == w:
+                if all(itertools.imap(lambda x: x[0] == x[1].word.lower(), zip(tokens, self._lexemes[i-k+1:i]))):
+                    return Span(self, i-k+1, i+1)
+                i += m
+            elif w in lexicon:
+                i += 1
+            else:
+                i += m
+
 
     def get_constituent_tree(self):
         """Get the constituent tree as an adjacency list of lists."""
@@ -680,10 +927,13 @@ class Span(AbstractSpan):
             self._indexes = []
         elif isinstance(indexes, set):
             self._indexes = sorted(indexes)
-        elif end is not None:
-            if not isinstance(end, (int, long)) or not isinstance(indexes, (int, long)):
-                TypeError('Span() accepts index list or range')
-            self._indexes = [x for x in xrange(indexes, end)]
+        elif isinstance(indexes, SimpleSpan):
+            self._indexes = [x for x in xrange(indexes.begin, indexes.end)] if indexes.width != 0 else []
+        elif isinstance(indexes, (int, long)):
+            if end is not None:
+                self._indexes = [x for x in xrange(indexes, end)]
+            else:
+                self._indexes = [indexes]
         else:
             self._indexes = sorted(set([x for x in indexes]))
 
@@ -881,7 +1131,7 @@ class Span(AbstractSpan):
             if tok.drs:
                 conds.extend(tok.drs.conditions)
                 refs.extend(tok.drs.referents)
-        return marbles.ie.drt.drs.DRS(refs, conds)
+        return drt.drs.DRS(refs, conds)
 
     def get_head_span(self, strict=False):
         """Get the head lexemes of the span.
@@ -948,7 +1198,7 @@ class Span(AbstractSpan):
                             return [result]
                     if google and (result is None or len(result) == 0):
                         # Try google search - hopefully will fix up spelling or ignore irrelevent words
-                        scraper = google_search.GoogleScraper(browser)
+                        scraper = kb.google_search.GoogleScraper(browser)
                         spell, urls = scraper.search(txt, 'wikipedia.com')
                         if spell is not None:
                             result = wikipedia.search(txt, results=max_results)

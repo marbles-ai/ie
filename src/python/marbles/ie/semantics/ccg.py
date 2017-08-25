@@ -9,12 +9,12 @@ import numpy as np
 
 from marbles import isdebugging
 from marbles.ie.ccg import *
-from marbles.ie.ccg.model import MODEL, UCONJ, UnaryRule
+from marbles.ie.ccg.model import MODEL, UnaryRule
 from marbles.ie.ccg.utils import pt_to_utf8
 from marbles.ie.core import constituent_types as ct
 from marbles.ie.core.constants import *
 from marbles.ie.core.exception import UnaryRuleError, CombinatorNotFoundError, _UNDEFINED_UNARY
-from marbles.ie.core.sentence import AbstractSentence, Sentence, Span, ConstituentNode
+from marbles.ie.core.sentence import AbstractSentence, Sentence, SimpleSpan, Span, ConstituentNode
 from marbles.ie.drt.common import DRSVar
 from marbles.ie.drt.drs import DRS, DRSRef, Rel, DRSRelation
 from marbles.ie.drt.utils import remove_dups
@@ -22,10 +22,10 @@ from marbles.ie.semantics.compose import ProductionList, FunctorProduction, DrsP
 from marbles.ie.semantics.lexeme import Lexeme, EventPredicates
 from marbles.ie.semantics.syntaxtree import STreeNode, STreeLeafNode
 from marbles.ie.utils.vmap import VectorMap, dispatchmethod, default_dispatchmethod
-from marbles.log import ExceptionRateLimitedLogAdaptor
+from marbles import log
 
 _actual_logger = logging.getLogger(__name__)
-_logger = ExceptionRateLimitedLogAdaptor(_actual_logger)
+_logger = log.ExceptionRateLimitedLogAdaptor(_actual_logger)
 
 
 # The sentential features are as follows:
@@ -183,31 +183,6 @@ def safe_create_empty_functor(category):
     return None
 
 
-def ndtype_from_category(category):
-    if category == CAT_NP:
-        return ct.CONSTITUENT_NP
-    elif category == CAT_PP:
-        return ct.CONSTITUENT_PP
-    elif category in [CAT_VPdcl, CAT_VP]:
-        return ct.CONSTITUENT_VP
-    elif category in [CAT_VPb, CAT_VPto]:
-        return ct.CONSTITUENT_SINF
-    elif category == CAT_AP:
-        return ct.CONSTITUENT_ADJP
-    elif category.isatom and category == CAT_Sany:
-        if category.has_any_features(FEATURE_DCL):
-            return ct.CONSTITUENT_SDCL
-        elif category.has_any_features(FEATURE_EM | FEATURE_BEM):
-            return ct.CONSTITUENT_SEM
-        elif category.has_any_features(FEATURE_QEM | FEATURE_Q):
-            return ct.CONSTITUENT_SQ
-        elif category.has_any_features(FEATURE_WQ):
-            return ct.CONSTITUENT_SWQ
-        else:
-            return ct.CONSTITUENT_S
-    return None
-
-
 CcgArgSep = re.compile(r'/|\\')
 TType = re.compile(r'((?:[()/\\]|(?:(?:S|NP|N)(?:\[[Xa-z]+\])?)|conj|[A-Z]+\$?|-[A-Z]+-)*)')
 LPosType = re.compile(r'([A-Z$:-]+|[.,:;])(?=\s+[^>\s]+\s+[^>\s]+(?:\s|[>]))')
@@ -266,15 +241,92 @@ class Ccg2Drs(AbstractSentence):
         return self.stree_nodes[idx]
 
     def sorted_sentence(self):
-        # Remap constituents sorted by span
-        sorted_tree = sorted(self.stree_nodes, key=lambda nd: nd.span(self))
+        # Attempt to make ordering less dependent on construction.
+        # - Remap constituents with lexemes at front.
+        #   This way lexeme indexes and constituent indexes match for leaves.
+        # - Non leaves are sorted by span with root at end.
+        sorted_tree = sorted(filter(lambda nd: nd.isleaf, self.stree_nodes), key=lambda nd: nd.lexeme.idx)
+        sorted_tree.extend(reversed(sorted(filter(lambda ndx: not ndx.isleaf, self.stree_nodes[0:-1]), key=lambda nd: nd.span(self))))
+        sorted_tree.append(self.stree_nodes[-1])
+        # Root must be last index
+        assert sorted_tree[-1].parent == sorted_tree[-1].idx
         idxmap = dict([(x[0].idx, x[1]) for x in zip(sorted_tree, range(len(self.stree_nodes)))])
         constituents = []
         for nd in sorted_tree:
             assert len(constituents) == idxmap[nd.idx]
-            constituents.append(ConstituentNode(nd.ndtype, nd.lex_range, idxmap[nd.parent_idx], nd.head_idx))
+            ndtype = ct.CONSTITUENT_CONJ if nd.category == CAT_CONJ else nd.ndtype
+            constituents.append(ConstituentNode(ndtype, len(constituents), nd.simple_span, idxmap[nd.parent_idx], nd.head_idx))
 
-        return Sentence(self.lexemes, constituents, idxmap[len(self.stree_nodes)-1])
+        # Set children
+        for nd in sorted_tree:
+            if nd.child_nodes is not None:
+                children = [constituents[idxmap[x.idx]] for x in nd.child_nodes]
+                c = constituents[idxmap[nd.idx]]
+                c.insert_child(0, children)
+
+        # Push left and right punctuation to parent nodes - reverse so we complete in one iteration
+        # Our tree will no longer be binary after this operation
+        nodes_to_del = set()
+        for nd in reversed(constituents):
+            spnd = Span(self, nd.simple_span)
+            if nd.parent_idx != nd.idx and nd.isnary \
+                    and ((nd.child_nodes[0].isleaf and nd.child_nodes[0].ndtype in [ct.CONSTITUENT_PUNCT, ct.CONSTITUENT_CONJ])
+                    or (nd.child_nodes[-1].isleaf and nd.child_nodes[-1].ndtype in [ct.CONSTITUENT_PUNCT, ct.CONSTITUENT_CONJ])):
+
+                k = 0 if nd.child_nodes[0].isleaf \
+                         and nd.child_nodes[0].ndtype in [ct.CONSTITUENT_PUNCT, ct.CONSTITUENT_CONJ] \
+                    else (len(nd.child_nodes) - 1)
+
+                ndp = constituents[nd.parent_idx]
+                pspnd = Span(self, ndp.simple_span)
+                for i in xrange(len(ndp.child_nodes)):
+                    if nd is ndp.child_nodes[i]:
+                        break
+                assert i != len(ndp.child_nodes)
+                punct = nd.child_nodes[k]
+                if len(nd.child_nodes) == 2:
+                    nodes_to_del.add(nd.idx)
+                    ndp.remove_child(i)
+                    ndp.insert_child(i, nd.child_nodes)
+                    k += i  # punct position in parent
+                else:
+                    nd.remove_child(k)
+                    k = i if k == 0 else (i+1)
+                    ndp.insert_child(k, punct)
+
+                # Keep pushing to parents if punctuation is on left or right
+                while (k == 0 or (k+1) == len(ndp.child_nodes)) and ndp.idx != ndp.parent_idx:
+                    nd = ndp
+                    spnd = pspnd
+                    ndp = constituents[nd.parent_idx]
+                    pspnd = Span(self, ndp.simple_span)
+                    for i in xrange(len(ndp.child_nodes)):
+                        if nd is ndp.child_nodes[i]:
+                            break
+                    assert i != len(ndp.child_nodes)
+                    nd.remove_child(k)
+                    k = i if k == 0 else (i+1)
+                    ndp.insert_child(k, punct)
+                    spndA = Span(self, nd.simple_span)
+                    pspndA = Span(self, ndp.simple_span)
+
+        if len(nodes_to_del) != 0:
+            # Remove nodes and remap tree indexes
+            newsize = len(constituents) - len(nodes_to_del)
+            constituents = filter(lambda nd: nd.idx not in nodes_to_del, constituents)
+            idxmap = dict([(x[0].idx, x[1]) for x in zip(constituents, range(len(constituents)))])
+            assert newsize == len(constituents)
+            for i in xrange(len(constituents)):
+                nd = constituents[i]
+                nd._idx = i
+                nd._parent_idx = idxmap[nd.parent_idx]
+
+        if isdebugging():
+            # Lexeme index must match constituent index for leaves
+            for i in range(len(self.lexemes)):
+                assert i == constituents[i].idx
+
+        return Sentence(self.lexemes, constituents)
 
     def iterconstituents(self, dfs=True):
         # DFS from root
@@ -288,16 +340,16 @@ class Ccg2Drs(AbstractSentence):
 
     @dispatchmethod(dispatchmap, RL_TCL_UNARY)
     def _dispatch_lunary(self, nd, stk):
-        if len(nd.children) == 2:
+        if len(nd.child_nodes) == 2:
             assert len(stk) >= 2
-            unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
+            unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
             if unary is None:
-                _UNDEFINED_UNARY.add((nd.category, nd.children[0].category))
+                _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[0].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
-                    unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
-                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.children[0].category))
+                    unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
+                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.child_nodes[0].category))
 
             self.unary_seen.add(unary.getkey())
             fn = self.rename_vars(unary.get())
@@ -314,14 +366,14 @@ class Ccg2Drs(AbstractSentence):
             nlst.push_right(d2)
             stk.append(nlst.flatten().unify())
         else:
-            unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
+            unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
             if unary is None:
-                _UNDEFINED_UNARY.add((nd.category, nd.children[0].category))
+                _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[0].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
-                    unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
-                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.children[0].category))
+                    unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
+                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.child_nodes[0].category))
 
             self.unary_seen.add(unary.getkey())
             fn = self.rename_vars(unary.get())
@@ -334,27 +386,27 @@ class Ccg2Drs(AbstractSentence):
     def _can_use_conjoin_rules(self, nd):
         # Conjoins are built right to left. The right child should be a binary
         # node with a left conjoin child, or a partially built conjoin
-        if not nd.isbinary or not isinstance(nd.children[0], STreeLeafNode):
+        if not nd.isbinary or not isinstance(nd.child_nodes[0], STreeLeafNode):
             return False
-        elif nd.children[0].category == CAT_CONJ and nd.children[1].category is not CAT_CONJ_CONJ:
+        elif nd.child_nodes[0].category == CAT_CONJ and nd.child_nodes[1].category is not CAT_CONJ_CONJ:
             return True
-        elif nd.children[0].category == CAT_COMMA and nd.children[1].isbinary and nd.children[1].children[1].conjoin:
+        elif nd.child_nodes[0].category == CAT_COMMA and nd.child_nodes[1].isbinary and nd.child_nodes[1].child_nodes[1].conjoin:
             return True
         return False
 
     @dispatchmethod(dispatchmap, RL_TCR_UNARY)
     def _dispatch_runary(self, nd, stk):
-        assert len(nd.children) == 2
+        assert len(nd.child_nodes) == 2
         assert len(stk) >= 2
         nd.conjoin = self._can_use_conjoin_rules(nd)
-        unary = MODEL.lookup_unary(nd.category, nd.children[1].category)
+        unary = MODEL.lookup_unary(nd.category, nd.child_nodes[1].category)
         if unary is None:
-            _UNDEFINED_UNARY.add((nd.category, nd.children[1].category))
+            _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[1].category))
             if unary is None:
                 # DEBUG HELPER
                 if isdebugging():
-                    unary = MODEL.lookup_unary(nd.category, nd.children[1].category)
-                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.children[1].category))
+                    unary = MODEL.lookup_unary(nd.category, nd.child_nodes[1].category)
+                raise UnaryRuleError('Missing unary rule for %s' % UnaryRule.create_key(nd.category, nd.child_nodes[1].category))
 
         self.unary_seen.add(unary.getkey())
         fn = self.rename_vars(unary.get())
@@ -395,12 +447,13 @@ class Ccg2Drs(AbstractSentence):
     @dispatchmethod(dispatchmap, RL_TC_CONJ)
     def _dispatch_tcconj(self, nd, stk):
         # Special type change rules. See section 3.7-3.8 of LDC 2005T13 manual.
-        if len(nd.children) == 2:
+        if len(nd.child_nodes) == 2:
             self._dispatch_runary(nd, stk)
             return
+            # TODO: remove code below
             fn = self.rename_vars(safe_create_empty_functor(nd.category))
             self.unary_seen.add(fn.category)
-            if nd.children[0].category == CAT_CONJ:
+            if nd.child_nodes[0].category == CAT_CONJ:
                 vp_or_np = stk.pop()
                 d = stk.pop()
             else:
@@ -427,8 +480,8 @@ class Ccg2Drs(AbstractSentence):
         fn.set_options(self.options)
         stk.append(fn)
         self._dispatch_ba(nd, stk)  # backward application
-        if len(nd.children) == 2:
-            if nd.children[0].category == CAT_CONJ and isinstance(nd.children[0], STreeLeafNode):
+        if len(nd.child_nodes) == 2:
+            if nd.child_nodes[0].category == CAT_CONJ and isinstance(nd.child_nodes[0], STreeLeafNode):
                 nd.conjoin = True
             d2 = stk.pop()
             d1 = stk.pop()
@@ -438,14 +491,14 @@ class Ccg2Drs(AbstractSentence):
     def _dispatch_type_raise(self, nd, stk):
         ## Forward   X:g => T/(T\X): λxf.f(g)
         ## Backward  X:g => T\(T/X): λxf.f(g)
-        assert len(nd.children) == 1
+        assert len(nd.child_nodes) == 1
         f = self.rename_vars(safe_create_empty_functor(nd.category))
         g = stk.pop()
         stk.append(f.type_raise(g))
 
     def _update_conjoins(self, nd):
         # Assumes conjoins are built right to left
-        if nd.isbinary and nd.children[1].conjoin:
+        if nd.isbinary and nd.child_nodes[1].conjoin:
             if len(self.conjoins) != 0:
                 ndsp = nd.span(self)
                 lastsp = self.conjoins[-1].span(self)
@@ -454,11 +507,11 @@ class Ccg2Drs(AbstractSentence):
 
             self.conjoins.append(nd)
             # Inherit type
-            if nd.children[0].ndtype != ct.CONSTITUENT_NODE and not nd.children[0].isleaf:
-                nd.ndtype = nd.children[0].ndtype
-            elif nd.children[1].isbinary and nd.children[1].children[1].ndtype != ct.CONSTITUENT_NODE \
-                    and not nd.children[1].children[1].isleaf:
-                nd.ndtype = nd.children[1].children[1].ndtype
+            if nd.child_nodes[0].ndtype != ct.CONSTITUENT_NODE and not nd.child_nodes[0].isleaf:
+                nd.ndtype = nd.child_nodes[0].ndtype
+            elif nd.child_nodes[1].isbinary and nd.child_nodes[1].child_nodes[1].ndtype != ct.CONSTITUENT_NODE \
+                    and not nd.child_nodes[1].child_nodes[1].isleaf:
+                nd.ndtype = nd.child_nodes[1].child_nodes[1].ndtype
 
     @dispatchmethod(dispatchmap, RL_FA)
     def _dispatch_fa(self, nd, stk):
@@ -467,7 +520,8 @@ class Ccg2Drs(AbstractSentence):
         fn = stk.pop()  # arg0
         prevcat = fn.category
         # Track spans of like items
-        stk.append(self._update_constituents(nd, fn.apply(d), prevcat))
+        stk.append(fn.apply(d))
+        self._update_constituents(nd, prevcat)
         self._update_conjoins(nd)
 
     @dispatchmethod(dispatchmap, RL_BA)
@@ -476,16 +530,18 @@ class Ccg2Drs(AbstractSentence):
         fn = stk.pop()   # arg1
         d = stk.pop()    # arg0
         prevcat = fn.category
-        stk.append(self._update_constituents(nd, fn.apply(d), prevcat))
+        stk.append(fn.apply(d))
+        self._update_constituents(nd, prevcat)
         self._update_conjoins(nd)
 
     @dispatchmethod(dispatchmap, RL_FC, RL_FX)
     def _dispatch_fc(self, nd, stk):
         # CALL[X/Y](Y|Z)
-        # Forward Composition           X/Y:f Y/Z:g => X/Z: λx􏰓.f(g(x))
-        # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx􏰓.f(g(x))
+        # Forward Composition           X/Y:f Y/Z:g => X/Z: λx.f(g(x))
+        # Forward Crossing Composition  X/Y:f Y\Z:g => X\Z: λx.f(g(x))
         g = stk.pop()   # arg1
         f = stk.pop()   # arg0
+        self._update_constituents(nd, f.category)
         stk.append(f.compose(g))
 
     @dispatchmethod(dispatchmap, RL_GFC, RL_GFX)
@@ -495,6 +551,7 @@ class Ccg2Drs(AbstractSentence):
         # Generalized Forward Crossing Composition  X/Y:f (Y\Z)$: => (X\Z)$
         g = stk.pop()   # arg1
         f = stk.pop()   # arg0
+        self._update_constituents(nd, f.category)
         stk.append(f.generalized_compose(g))
 
     @dispatchmethod(dispatchmap, RL_BC, RL_BX)
@@ -504,6 +561,7 @@ class Ccg2Drs(AbstractSentence):
         # Backward Crossing Composition Y/Z:g X\Y:f => X/Z: λx􏰓.f(g(x))
         f = stk.pop()
         g = stk.pop()
+        self._update_constituents(nd, f.category)
         stk.append(f.compose(g))
 
     @dispatchmethod(dispatchmap, RL_GBC, RL_GBX)
@@ -513,6 +571,7 @@ class Ccg2Drs(AbstractSentence):
         # Generalized Backward Crossing Composition (Y/Z)/$ X\Y:f => (X/Z)/$
         f = stk.pop()
         g = stk.pop()
+        self._update_constituents(nd, f.category)
         stk.append(f.generalized_compose(g))
 
     @dispatchmethod(dispatchmap, RL_FS, RL_FXS)
@@ -522,6 +581,7 @@ class Ccg2Drs(AbstractSentence):
         # Forward Crossing Substitution (X/Y)\Z:f Y\Z:g => X\Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         g = stk.pop()   # arg1
         f = stk.pop()   # arg0
+        self._update_constituents(nd, f.category)
         stk.append(f.substitute(g))
 
     @dispatchmethod(dispatchmap, RL_BS, RL_BXS)
@@ -531,6 +591,7 @@ class Ccg2Drs(AbstractSentence):
         # Backward Crossing Substitution    Y/Z:g (X\Y)/Z:f => X/Z: λx􏰓.fx􏰨(g􏰨(x􏰩􏰩))
         f = stk.pop()   # arg1
         g = stk.pop()   # arg0
+        self._update_constituents(nd, f.category)
         stk.append(f.substitute(g))
 
     @dispatchmethod(dispatchmap, RL_LCONJ, RL_RCONJ)
@@ -547,7 +608,8 @@ class Ccg2Drs(AbstractSentence):
             d.push_right(g)
             d = d.unify()
             d.set_category(f.category)
-        stk.append(self._update_constituents(nd, d, d.category))
+        stk.append(d)
+        self._update_constituents(nd, d.category)
         self._update_conjoins(nd)
 
     @dispatchmethod(dispatchmap, RL_LP, RL_RP, RL_RNUM)
@@ -555,16 +617,18 @@ class Ccg2Drs(AbstractSentence):
         d = ProductionList()
         d.set_options(self.options)
         d.set_category(nd.category)
-        nd.conjoin = nd.children[0].category in [CAT_CONJ, CAT_COMMA] and isinstance(nd.children[0],
+        nd.conjoin = nd.child_nodes[0].category in [CAT_CONJ, CAT_COMMA] and isinstance(nd.child_nodes[0],
                                                                                         STreeLeafNode) and \
                      self._can_use_conjoin_rules(nd)
-        for i in range(len(nd.children)):
+        for i in range(len(nd.child_nodes)):
             d.push_left(stk.pop())
         if d.contains_functor:
             # Bit of a hack, flatten() gets rid of empty productions
-            stk.append(self._update_constituents(nd, d.flatten().unify(), d.category))
+            self._update_constituents(nd, d.category)
+            stk.append(d.flatten().unify())
         else:
-            stk.append(self._update_constituents(nd, d.unify(), d.category))
+            self._update_constituents(nd, d.category)
+            stk.append(d.unify())
 
     @default_dispatchmethod(dispatchmap)
     def _dispatch_default(self, nd, stk):
@@ -586,36 +650,77 @@ class Ccg2Drs(AbstractSentence):
         # d is the result of the type change
         c = nd.constituent(self, ct.CONSTITUENT_ADJP if ucat.argument_category() == CAT_AP else ct.CONSTITUENT_ADVP)
         # Cannot have a proper noun as head of an adverbial or adjectival phrase
-        if not c.head().isproper_noun:
+        if not c.head.isproper_noun:
             nd.ndtype = c.ndtype
 
-    def _update_constituents(self, nd, d, cat_before_rule):
+    def _update_constituents(self, nd, cat_before_rule):
+        # Never called on leaf nodes
         ndtype = None
-        if isinstance(d, (FunctorProduction, DrsProduction)):
-            if d.category == CAT_NP:
-                ndtype = ct.CONSTITUENT_NP
-            elif cat_before_rule == CAT_ESRL_PP:
-                if nd.constituent(self).head().pos == POS_PREPOSITION:
-                    ndtype = ct.CONSTITUENT_PP
-            elif cat_before_rule == CAT_PP_ADVP and d.category == CAT_VP_MOD and not d.span.isempty:
-                hd = nd.constituent(self)
-                if hd.pos == POS_PREPOSITION and hd.stem in ['for']:
-                    ndtype = ct.CONSTITUENT_ADVP
-            else:
-                ndtype = ndtype_from_category(d.category)
-                if ndtype is None and cat_before_rule.argument_category().remove_features() == CAT_N \
-                        and (cat_before_rule.test_return(CAT_VPMODX) or cat_before_rule.test_return(CAT_VP_MODX)):
-                    # (S\NP)/(S\NP)/N[X]
-                    ndtype = ct.CONSTITUENT_NP
-                elif ndtype is None and cat_before_rule.argument_category() in [CAT_VPb, CAT_VPto] and \
-                        cat_before_rule.result_category().ismodifier and \
-                        cat_before_rule.result_category().test_return(CAT_S_NP):
-                    # Handle categories like ((S\NP)\(S\NP))/(S[b]\NP) for TO in 'has done more than its share to popularize'
-                    ndtype = ct.CONSTITUENT_SINF
+        if isdebugging():
+            constituent = nd.constituent(self)
+            if constituent.span[0].word == 'he added':
+                pass
 
-            if ndtype is not None:
-                nd.ndtype = ndtype
-        return d
+        if nd.isunary and nd.rule in [RL_TCL_UNARY, RL_TC_ATOM] and nd.child_nodes[0].ndtype != ct.CONSTITUENT_NODE:
+            # Don't change constituent type
+            ndtype = nd.child_nodes[0].ndtype
+        elif nd.category.remove_features() == CAT_NP or nd.category.remove_features() == CAT_N:
+            ndtype = ct.CONSTITUENT_NP
+        elif nd.category == CAT_PP:
+            ndtype = ct.CONSTITUENT_PP
+        elif cat_before_rule == CAT_ESRL_PP:
+            if nd.constituent(self).head.pos == POS_PREPOSITION:
+                ndtype = ct.CONSTITUENT_PP
+        elif cat_before_rule == CAT_PP_ADVP and nd.category == CAT_VP_MOD:
+            hd = nd.constituent(self).head
+            if hd.pos == POS_PREPOSITION and hd.stem in ['for']:
+                ndtype = ct.CONSTITUENT_ADVP
+        elif nd.category in [CAT_VPdcl, CAT_VP]:
+            ndtype =  ct.CONSTITUENT_VP
+        elif nd.category in [CAT_VPb, CAT_VPto]:
+            ndtype = ct.CONSTITUENT_SINF
+        elif nd.category == CAT_AP or nd.category.test_return(CAT_AP):
+            ndtype = ct.CONSTITUENT_ADJP
+        elif nd.category.simplify() in [CAT_NP_NP, CAT_NPNP, CAT_ADJECTIVE] \
+            or nd.category.test_returns_entity_modifier():
+            ndtype = ct.CONSTITUENT_NP
+        elif nd.category.isatom and nd.category == CAT_Sany:
+            if nd.category.has_any_features(FEATURE_DCL):
+                ndtype = ct.CONSTITUENT_SDCL
+            elif nd.category.has_any_features(FEATURE_EM | FEATURE_BEM):
+                ndtype = ct.CONSTITUENT_SEM
+            elif nd.category.has_any_features(FEATURE_QEM | FEATURE_Q):
+                ndtype = ct.CONSTITUENT_SQ
+            elif nd.category.has_any_features(FEATURE_WQ):
+                ndtype = ct.CONSTITUENT_SWQ
+            else:
+                ndtype = ct.CONSTITUENT_S
+        elif cat_before_rule.argument_category().remove_features() == CAT_N \
+                and (cat_before_rule.test_return(CAT_VPMODX) or cat_before_rule.test_return(CAT_VP_MODX)):
+            # (S\NP)/(S\NP)/N[X]
+            ndtype = ct.CONSTITUENT_NP
+        elif cat_before_rule.argument_category() in [CAT_VPb, CAT_VPto] and \
+                cat_before_rule.result_category().ismodifier and \
+                cat_before_rule.result_category().test_return(CAT_S_NP):
+            # Handle categories like ((S\NP)\(S\NP))/(S[b]\NP) for TO in 'has done more than its share to popularize'
+            ndtype = ct.CONSTITUENT_SINF
+
+        # Ensure we always have a type for binary nodes.
+        # Unary nodes are deleted later.
+        if ndtype is not None:
+            nd.ndtype = ndtype
+        elif nd.isbinary:
+            hd = nd.constituent(self).head
+            try:
+                ndtype = ct.CT[hd.pos.tag]
+                if ndtype is ct.CONSTITUENT_VERB:
+                    nd.ndtype = ct.CONSTITUENT_VP
+                elif ndtype is ct.CONSTITUENT_ADP:
+                    nd.ndtype = ct.CONSTITUENT_PP
+                else:
+                    nd.ndtype = ct.CONSTITUENT_NP
+            except:
+                nd.ndtype = ct.CONSTITUENT_NP
 
     def _unary_np_map(self):
         nps = {}
@@ -644,19 +749,19 @@ class Ccg2Drs(AbstractSentence):
                 ndc = nd
                 while nd.parent in nodes_to_del and nd.parent != lastparent:
                     if isdebugging():
-                        i = 0 if nd is self.stree_nodes[nd.parent].children[0] else 1
-                        assert not self.stree_nodes[nd.parent].isbinary or self.stree_nodes[nd.parent].children[1-i].idx in nodes_to_del
+                        i = 0 if nd is self.stree_nodes[nd.parent].child_nodes[0] else 1
+                        assert not self.stree_nodes[nd.parent].isbinary or self.stree_nodes[nd.parent].child_nodes[1-i].idx in nodes_to_del
                     lastparent = nd.parent
                     nd = self.stree_nodes[nd.parent]
                 # Cannot delete root
                 assert nd.parent not in nodes_to_del
                 if ndc is not nd:
-                    i = 0 if nd is self.stree_nodes[nd.parent].children[0] else 1
-                    if self.stree_nodes[nd.parent].children[i].idx in nodes_to_del:
-                        self.stree_nodes[nd.parent].children[i] = ndc
+                    i = 0 if nd is self.stree_nodes[nd.parent].child_nodes[0] else 1
+                    if self.stree_nodes[nd.parent].child_nodes[i].idx in nodes_to_del:
+                        self.stree_nodes[nd.parent].child_nodes[i] = ndc
                     else:
                         # Make it an n-ary node
-                        self.stree_nodes[nd.parent].children.append(ndc)
+                        self.stree_nodes[nd.parent].child_nodes.append(ndc)
                     ndc.parent = nd.parent
 
         # Remove nodes and remap tree indexes
@@ -716,20 +821,20 @@ class Ccg2Drs(AbstractSentence):
         while merge:
             merge = False
             for nd in itertools.ifilter(lambda nd: nd.isunary, self.stree_nodes):
-                if nd.ndtype != ct.CONSTITUENT_NODE and nd.children[0].isunary:
+                if nd.ndtype != ct.CONSTITUENT_NODE and nd.child_nodes[0].isunary:
                     # Push type down
-                    nd.children[0].ndtype = nd.ndtype
+                    nd.child_nodes[0].ndtype = nd.ndtype
                     merge = True
-                if nd.ndtype == ct.CONSTITUENT_NODE and nd.children[0].isunary \
-                        and nd.children[0].ndtype != ct.CONSTITUENT_NODE:
+                if nd.ndtype == ct.CONSTITUENT_NODE and nd.child_nodes[0].isunary \
+                        and nd.child_nodes[0].ndtype != ct.CONSTITUENT_NODE:
                     # Push type up
-                    nd.ndtype = nd.children[0].ndtype
+                    nd.ndtype = nd.child_nodes[0].ndtype
                     merge = True
 
         # Remove all unary nodes except root
         nodes_to_del = set([x.idx for x in itertools.ifilter(lambda nd: nd.isunary and nd.parent_idx != nd.idx, self.stree_nodes)])
-        for nd in itertools.ifilter(lambda nd: nd.isunary and nd.children[0].isbinary, self.stree_nodes):
-            nd.children[0].ndtype = nd.ndtype
+        for nd in itertools.ifilter(lambda nd: nd.isunary and nd.child_nodes[0].isbinary, self.stree_nodes):
+            nd.child_nodes[0].ndtype = nd.ndtype
         self._delete_nodes(nodes_to_del, reparent=True)
 
         # Ensure phrases have a constituent
@@ -752,16 +857,16 @@ class Ccg2Drs(AbstractSentence):
                                     if not ndx.isleaf:
                                         ndx.ndtype = ct.CONSTITUENT_NODE
                             elif nd.isbinary:
-                                i = 0 if nd.children[0] == lastnd else 1
-                                assert lastnd == nd.children[i]
+                                i = 0 if nd.child_nodes[0] == lastnd else 1
+                                assert lastnd == nd.child_nodes[i]
 
-                                spi = nd.children[i].span(self)
+                                spi = nd.child_nodes[i].span(self)
                                 if p in spi:
                                     # will catch in another leaf-root traversal
                                     pass
                                 else:
                                     # Not sure this is required
-                                    spk = nd.children[1-i].span(self)
+                                    spk = nd.child_nodes[1-i].span(self)
                                     pk = spk.intersection(p)
                                     pi = spi.intersection(p)
                                     ck = spk.difference(pi)
@@ -859,19 +964,19 @@ class Ccg2Drs(AbstractSentence):
 
             #for nd in itertools.ifilter(lambda x: x.isbinary and x.rule is RL_LP and not x.conjoin, self.stree_nodes):
             for nd in itertools.ifilter(lambda x: x.isbinary and x.rule in [RL_LP, RL_TCR_UNARY] and not x.conjoin
-                                and x.children[0].category == CAT_COMMA, self.stree_nodes):
+                                and x.child_nodes[0].category == CAT_COMMA, self.stree_nodes):
 
                 parent = self.stree_nodes[nd.parent]
                 if parent == nd or not parent.isbinary:
                     continue
-                i = 0 if parent.children[0] == nd else 1
+                i = 0 if parent.child_nodes[0] == nd else 1
                 if i == 0:
                     continue
-                if nd.children[1].ndtype != ct.CONSTITUENT_NP or parent.children[1-i].ndtype != ct.CONSTITUENT_NP:
+                if nd.child_nodes[1].ndtype != ct.CONSTITUENT_NP or parent.child_nodes[1-i].ndtype != ct.CONSTITUENT_NP:
                     continue
 
-                cnpR = nd.children[1].constituent(self)
-                cnpL = parent.children[0].constituent(self)
+                cnpR = nd.child_nodes[1].constituent(self)
+                cnpL = parent.child_nodes[0].constituent(self)
                 npR = cnpR.span
                 npL = cnpL.span
 
@@ -883,16 +988,16 @@ class Ccg2Drs(AbstractSentence):
                 i = 0 if len(orphanedL) == 0 else 1
                 cnpX = [cnpL, cnpR]
 
-                if npR[0].stem in ['a', 'an', 'the'] and cnpL.head().refs[0] in nps:
-                    sp = nps[cnpL.head().refs[0]]
+                if npR[0].stem in ['a', 'an', 'the'] and cnpL.head.refs[0] in nps:
+                    sp = nps[cnpL.head.refs[0]]
                     if sp in npL:
                         # OK this looks like an appositive
-                        akas.add((cnpX[1-i].head().refs[0], cnpX[i].head().refs[0]))
-                elif cnpR.head().refs[0] in nps:
-                    sp = nps[cnpR.head().refs[0]]
+                        akas.add((cnpX[1-i].head.refs[0], cnpX[i].head.refs[0]))
+                elif cnpR.head.refs[0] in nps:
+                    sp = nps[cnpR.head.refs[0]]
                     if sp in npR:
                         # OK this looks like an appositive
-                        akas.add((cnpX[1-i].head().refs[0], cnpX[i].head().refs[0]))
+                        akas.add((cnpX[1-i].head.refs[0], cnpX[i].head.refs[0]))
                 # FIXME: LDC RAW 897, AUTO wsj_0048.24
 
         # Add aliases
@@ -937,14 +1042,14 @@ class Ccg2Drs(AbstractSentence):
             # Useful for select_phrases
             if lexeme.drs is None or lexeme.drs.isempty:
                 lexeme.mask |= RT_EMPTY_DRS
-        # TODO: Defer special handling of proper nouns
 
         # Process exec queue
         stk = []
         for nd in self.stree_nodes:
             if nd.isleaf:
                 # Set leaf constituent types
-                if nd.lexeme.ispunct or nd.lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU]:
+                if nd.lexeme.ispunct or nd.lexeme.category in [CAT_LRB, CAT_RRB, CAT_LQU, CAT_RQU] \
+                        or lexeme.word[0] == '-':
                     nd.ndtype = ct.CONSTITUENT_PUNCT
                 elif nd.lexeme.pos.tag in ct.CT:
                     nd.ndtype = ct.CT[nd.lexeme.pos.tag]
@@ -967,7 +1072,7 @@ class Ccg2Drs(AbstractSentence):
             d = d.apply_null_left().unify()
             oldroot = self.stree_nodes[-1]
             oldroot.parent = len(self.stree_nodes)
-            newroot = STreeNode(len(self.stree_nodes), [oldroot], oldroot.head_idx, CAT_S, RL_NOP, oldroot.lex_range, 0)
+            newroot = STreeNode(len(self.stree_nodes), [oldroot], oldroot.head_idx, CAT_S, RL_NOP, oldroot.simple_span, 0)
             newroot.ndtype = ct.CONSTITUENT_S
             self.stree_nodes.append(newroot)
         self.final_prod = d
@@ -1030,7 +1135,7 @@ class Ccg2Drs(AbstractSentence):
         self._refine_constituents()
 
     def select_phrases(self, select_fn, exclude_fn=None, contiguous=True):
-        """Get a map of the phrases match the selection/exclusion criteria.
+        """Get a map of the phrases matching the selection/exclusion criteria.
 
         Args:
             select_fn: The lexeme selection function. If an integer mask is passed then select function
@@ -1042,7 +1147,7 @@ class Ccg2Drs(AbstractSentence):
             contiguous: If True (default) then only allow contiguous spans.
 
         Returns:
-            A dictionary of referent(key):Span(value) instances.
+            A dictionary of DRSRef(key):Span(value) instances.
         """
         if isinstance(select_fn, (long, int)):
             mask = select_fn
@@ -1143,7 +1248,7 @@ class Ccg2Drs(AbstractSentence):
                 if ref == lastref and (lexeme.isproper_noun or lexeme.category == CAT_N):
                     endIdx = i
                     continue
-                elif ref == lastref and lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(c.span) \
+                elif ref == lastref and lexeme.word in ['&', 'and', 'for', 'of'] and (i+1) < len(self.lexemes) \
                     and self.lexemes[i+1].isproper_noun:
                     continue
                 else:
@@ -1162,7 +1267,7 @@ class Ccg2Drs(AbstractSentence):
         # Map heads to nodes - can exclude unary nodes
         # Sort by span width to ensure first node in list is always the leaf
         heads = {}
-        for nd in itertools.ifilter(lambda nd: not nd.isunary, sorted(self.stree_nodes, key=lambda x: x.span_width)):
+        for nd in itertools.ifilter(lambda nd: not nd.isunary, sorted(self.stree_nodes, key=lambda x: x.simple_span.width)):
             lst = heads.setdefault(nd.head_idx, [])
             lst.append(nd)
 
@@ -1201,23 +1306,23 @@ class Ccg2Drs(AbstractSentence):
                 nodes_to_del = nodes_to_del.union([x.idx for x in nd.iternodes()])
                 nodes_to_del.remove(nodes[0].idx)   # don't include leaf
                 parent = self.stree_nodes[nd.parent]
-                i = 0 if parent.children[0] is nd else 1
-                assert parent.children[i] is nd
-                parent.children[i] = nodes[0]
+                i = 0 if parent.child_nodes[0] is nd else 1
+                assert parent.child_nodes[i] is nd
+                parent.child_nodes[i] = nodes[0]
                 nodes[0].parent = nd.parent
 
             elif len(rem) == 1:
-                nodes_to_del = nodes_to_del.union([x.idx for x in nd.children[0].iternodes()])
-                nodes_to_del = nodes_to_del.union([x.idx for x in nd.children[1].iternodes()])
-                i = 0 if nd.children[0].head_idx == hd[0] else 1
+                nodes_to_del = nodes_to_del.union([x.idx for x in nd.child_nodes[0].iternodes()])
+                nodes_to_del = nodes_to_del.union([x.idx for x in nd.child_nodes[1].iternodes()])
+                i = 0 if nd.child_nodes[0].head_idx == hd[0] else 1
 
                 nodes_to_del.remove(nodes[0].idx)   # don't include leaf
-                nd.children[i] = nodes[0]
+                nd.child_nodes[i] = nodes[0]
                 nodes[0].parent = nd.idx
 
                 nodes = heads[rem[0].idx]
                 nodes_to_del.remove(nodes[0].idx)   # don't include leaf
-                nd.children[1-i] = nodes[0]
+                nd.child_nodes[1-i] = nodes[0]
                 nodes[0].parent = nd.idx
             else:
                 # TODO: create nary node - tree does not have to binary at this point
@@ -1540,7 +1645,7 @@ class Ccg2Drs(AbstractSentence):
             assert count == len(idxs)
             # Ranges allow us to schedule work to a thread pool
             op_range = (nd_begin, len(self.stree_nodes))
-            lex_range = (lex_begin, len(self.lexemes))
+            simple_span = SimpleSpan(lex_begin, len(self.lexemes))
 
             if count == 2:
                 childs = [self.stree_nodes[nd_end[0]], self.stree_nodes[-1]]
@@ -1554,13 +1659,13 @@ class Ccg2Drs(AbstractSentence):
                         raise CombinatorNotFoundError('cannot discover combinator for %s <- %s <?> %s' % (result, cats[0], cats[1]))
 
                 # Head resolved to lexemes indexes
-                assert idxs[1-head] in range(lex_range[0], lex_range[1])
-                assert idxs[head] in range(lex_range[0], lex_range[1])
+                assert idxs[1-head] in range(simple_span.begin, simple_span.end)
+                assert idxs[head] in range(simple_span.begin, simple_span.end)
                 self.lexemes[idxs[1-head]].head = idxs[head]
                 childs[0].parent = len(self.stree_nodes)
                 childs[1].parent = len(self.stree_nodes)
                 self.stree_nodes.append(
-                    STreeNode(len(self.stree_nodes), childs, idxs[head], result, rule, lex_range, self.depth))
+                    STreeNode(len(self.stree_nodes), childs, idxs[head], result, rule, simple_span, self.depth))
                 self.depth -= 1
                 return idxs[head]
             else:
@@ -1577,7 +1682,7 @@ class Ccg2Drs(AbstractSentence):
 
                 # No need to set head, Lexeme defaults to self is head
                 self.stree_nodes.append(
-                    STreeNode(len(self.stree_nodes), childs, idxs[head], result, rule, lex_range, self.depth))
+                    STreeNode(len(self.stree_nodes), childs, idxs[head], result, rule, simple_span, self.depth))
                 self.depth -= 1
                 return idxs[head]
         else:
@@ -1619,18 +1724,18 @@ class Ccg2Drs(AbstractSentence):
                     else:
                         stk.append('%s(<L %s %s %s %s %s>)' % (indent, nd.lexeme.category, nd.lexeme.pos, nd.lexeme.pos,
                                                                nd.lexeme.word, template.predarg_category))
-            elif len(nd.children) == 2:
+            elif len(nd.child_nodes) == 2:
                 assert len(stk) >= 2
                 if nd.rule == RL_TCL_UNARY:
-                    unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
+                    unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
 
                     nlst = collections.deque()
                     # reverse order
                     nlst.append('%s(<T %s %d %d>' % (indent, nd.category, 1, 2))
                     nlst.append(stk.pop())
                     if unary is None:
-                        _UNDEFINED_UNARY.add((nd.category, nd.children[0].category))
-                        unary = Category.combine(nd.category, '\\', nd.children[0].category, cacheable=False)
+                        _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[0].category))
+                        unary = Category.combine(nd.category, '\\', nd.child_nodes[0].category, cacheable=False)
                         nlst.append('%s  (<L %s %s %s %s %s>)' % (indent, unary, '?UNARY?', '?UNARY?',
                                                                   '?UNARY?', unary))
                     else:
@@ -1640,7 +1745,7 @@ class Ccg2Drs(AbstractSentence):
                     nlst.append('%s)' % indent)
                     stk.append(sep.join(nlst))
                 elif nd.rule == RL_TCR_UNARY:
-                    unary = MODEL.lookup_unary(nd.category, nd.children[1].category)
+                    unary = MODEL.lookup_unary(nd.category, nd.child_nodes[1].category)
                     nlst = collections.deque()
                     nlst.append('%s(<T %s %d %d>' % (indent, nd.category, 1, 2))
                     b = stk.pop()
@@ -1648,8 +1753,8 @@ class Ccg2Drs(AbstractSentence):
                     nlst.append(a)
                     nlst.append(b)
                     if unary is None:
-                        _UNDEFINED_UNARY.add((nd.category, nd.children[1].category))
-                        unary = Category.combine(nd.category, '\\', nd.children[1].category, cacheable=False)
+                        _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[1].category))
+                        unary = Category.combine(nd.category, '\\', nd.child_nodes[1].category, cacheable=False)
                         nlst.append('%s  (<L %s %s %s %s %s>)' % (indent, unary, '?UNARY?', '?UNARY?',
                                                                   '?UNARY?', unary))
                     else:
@@ -1662,19 +1767,19 @@ class Ccg2Drs(AbstractSentence):
                     nlst = collections.deque()
                     nlst.appendleft(stk.pop())  # arg1
                     nlst.appendleft(stk.pop())  # arg0
-                    nlst.appendleft('%s(<T %s %d %d>' % (indent, nd.category, 0 if nd.head_idx == nd.children[0].head_idx else 1, 2))
+                    nlst.appendleft('%s(<T %s %d %d>' % (indent, nd.category, 0 if nd.head_idx == nd.child_nodes[0].head_idx else 1, 2))
                     nlst.append('%s)' % indent)
                     stk.append(sep.join(nlst))
             elif nd.rule == RL_TCL_UNARY:
-                unary = MODEL.lookup_unary(nd.category, nd.children[0].category)
+                unary = MODEL.lookup_unary(nd.category, nd.child_nodes[0].category)
                 template = unary.template
                 nlst = collections.deque()
                 # reverse order
                 nlst.append('%s(<T %s %d %d>' % (indent, nd.category, 0, 2))
                 nlst.append(stk.pop())
                 if unary is None:
-                    _UNDEFINED_UNARY.add((nd.category, nd.children[0].category))
-                    unary = Category.combine(nd.category, '\\', nd.children[0].category, cacheable=False)
+                    _UNDEFINED_UNARY.add((nd.category, nd.child_nodes[0].category))
+                    unary = Category.combine(nd.category, '\\', nd.child_nodes[0].category, cacheable=False)
                     nlst.append('%s  (<L %s %s %s %s %s>)' % (indent, unary, '?UNARY?', '?UNARY?',
                                                               '?UNARY?', unary))
                 else:

@@ -2,11 +2,11 @@
 from __future__ import unicode_literals, print_function
 import weakref
 from marbles import safe_utf8_encode, isdebugging
-from marbles.ie.core.sentence import Span, AbstractConstituentNode, Constituent, ConstituentNode
+from marbles.ie.core import sentence
 from marbles.ie.core import constituent_types as ct
 
 
-class AbstractSTreeNode(AbstractConstituentNode):
+class AbstractSTreeNode(sentence.AbstractConstituentNode):
     """Syntax tree node. Can be a leaf, unary, or binary node."""
     def __init__(self, idx, depth):
         super(AbstractSTreeNode, self).__init__(ct.CONSTITUENT_NODE)
@@ -14,11 +14,6 @@ class AbstractSTreeNode(AbstractConstituentNode):
         self.parent = idx
         self.depth = depth
         self.conjoin = False    # Set during construction
-
-    @property
-    def span_width(self):
-        rng = self.lex_range
-        return rng[1] - rng[0]
 
     @property
     def category(self):
@@ -59,7 +54,7 @@ class AbstractSTreeNode(AbstractConstituentNode):
         return self.parent
 
     def contains_adjunct(self):
-        """Return true if the node or an children are tags as adjuncts"""
+        """Return true if the node or any children are tagged as adjuncts"""
         return self.adjunct
 
     def clear_adjunct(self):
@@ -75,19 +70,18 @@ class AbstractSTreeNode(AbstractConstituentNode):
         """Union the node span with `sp`."""
         return sp.union(self.span(sp.sentence))
 
-    def span(self, sentence):
+    def span(self, sent):
         """Build a span from this node and `sentence`."""
-        rng = self.lex_range
-        return Span(sentence, rng[0], rng[1])
+        return sentence.Span(sent, self.simple_span)
 
-    def constituent(self, sentence, ndtype=None):
+    def constituent(self, sent, ndtype=None):
         """Build a constituent from this node and `sentence`."""
         if isdebugging():
-            sp = self.span(sentence)
+            sp = self.span(sent)
             hds = sp.get_head_span()
             assert len(hds) == 1
             assert hds[0].idx == self.head_idx
-        return Constituent(sentence, self)
+        return sentence.Constituent(sent, self)
 
     def set_head(self, new_idx):
         pass
@@ -95,13 +89,13 @@ class AbstractSTreeNode(AbstractConstituentNode):
 
 class STreeNode(AbstractSTreeNode):
     """A syntax tree node. This includes unary and binary nodes."""
-    def __init__(self, idx, child_nodes, head, result_category, rule, lex_range, depth):
+    def __init__(self, idx, children, head, result_category, rule, simple_span, depth):
         super(STreeNode, self).__init__(idx, depth)
         self.rule = rule
         self._result_category = result_category
-        self._child_nodes = child_nodes
+        self._child_nodes = children
         self._head = head
-        self._lex_range = lex_range
+        self._simple_span = simple_span
 
     def __repr__(self):
         return b'<STreeNode>:(%d, %s %s)' % (len(self._child_nodes), self.rule, self.category)
@@ -112,16 +106,16 @@ class STreeNode(AbstractSTreeNode):
         return self._result_category
 
     @property
-    def lex_range(self):
+    def simple_span(self):
         """Return the lexical range (span).
 
         Remarks:
             Required by AbstractConstituentNode.
         """
-        return self._lex_range
+        return self._simple_span
 
     @property
-    def children(self):
+    def child_nodes(self):
         """Get a list of the child nodes."""
         return self._child_nodes
 
@@ -139,26 +133,18 @@ class STreeNode(AbstractSTreeNode):
         return self._head
 
     def clear_adjunct(self):
-        """Clear the adjuct tag for this node and all children"""
+        """Clear the adjuct tag for this node and all child_nodes"""
         if self.adjunct:
             self.ndtype = ct.CONSTITUENT_NODE
         for c in self._child_nodes:
             c.clear_adjunct()
 
     def contains_adjunct(self):
-        """Return true if the node or an children are tags as adjuncts"""
+        """Return true if the node or an child_nodes are tags as adjuncts"""
         return self.adjunct or any([c.contains_adjunct() for c in self._child_nodes])
 
     def remove_child(self, i):
         del self._child_nodes[i]
-
-    def trim_span(self, limit):
-        size = self._lex_range[1] - self._lex_range[0]
-        if size > 0:
-            if limit >= 0:
-                self._lex_range[0] = min(limit, size-1)
-            else:
-                self._lex_range[1] -= min(-limit, size)
 
     def recalc_span(self):
         leaves = sorted(filter(lambda x: x.isleaf, self.iternodes()), key=lambda x: x.lexeme.idx)
@@ -166,25 +152,22 @@ class STreeNode(AbstractSTreeNode):
         # reset all
         for nd in self.iternodes():
             if not nd.isleaf:
-                nd._lex_range = []
+                nd._simple_span = sentence.SimpleSpan(0, 0)
 
-        # Set this one
-        self._lex_range = [leaves[0].lexeme.idx, leaves[-1].lexeme.idx]
-        # Set the rest
+        # Union spans
         for nd in leaves:
-            idx = nd.lexeme.idx
+            span = nd.simple_span
             nd = nds[nd.parent]
             while nd is not self:
-                nd._lex_range.append(idx)
+                nd._simple_span.union_inplace(span)
                 nd = nds[nd.parent]
-        # Trim
-        for nd in self.iternodes():
-            if not nd.isleaf:
-                assert len(nd._lex_range) != 0
-                nd._lex_range = [nd._lex_range[0], nd._lex_range[-1]+1]
+            # do self
+            nd._simple_span.union_inplace(span)
 
-        if (self._lex_range[1] - self._lex_range[0]) != len(leaves):
-            raise ValueError('lex range %s does not match leaf count [%d]' % (repr(self._lex_range), len(leaves)))
+        # Sanity check
+        sp = sentence.SimpleSpan(leaves[0].lexeme.idx, leaves[-1].lexeme.idx+1)
+        if self._simple_span != sp or sp.width != len(leaves):
+            raise ValueError('lex range %s does not match leaf count [%d]' % (repr(self._simple_span), len(leaves)))
 
     def set_head(self, new_idx):
         self._head = new_idx
@@ -210,13 +193,13 @@ class STreeLeafNode(AbstractSTreeNode):
         return self.lexeme.category
 
     @property
-    def lex_range(self):
+    def simple_span(self):
         """Return the lexical range (span).
 
         Remarks:
             Required by AbstractConstituentNode.
         """
-        return [self.lexeme.idx, self.lexeme.idx+1]
+        return sentence.SimpleSpan(self.lexeme.idx)
 
     @property
     def isleaf(self):

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, print_function
 from marbles.ie.utils.cache import ConstString, Cache
-from marbles.ie.ccg import POS
 
 ConstituentType = ConstString
 
@@ -49,12 +48,22 @@ _postags = {
     'WDT':'DET',    'WP':'PRON',    'WP$':'DET',    'WRB':'ADV',
 }
 
-
+# Ensure we get a single instance for each universal tag
+_utags = {}
 for pos, unv in _postags.items():
-    CT.addinit((pos, ConstString(unv)))
+    unv = _utags.setdefault(unv, ConstString(unv))
+    CT.addinit((pos, unv))              # pos alias
+    CT.addinit((unv.signature, unv))    # actual
+
+# Free memory
+_utags = None
+_postags = None
 
 
 CONSTITUENT_PUNCT = CT['LS']
+CONSTITUENT_CONJ = CT['CC']
+CONSTITUENT_VERB = CT['VBZ']
+CONSTITUENT_ADP = CT['IN']
 
 
 for k, v in CT:

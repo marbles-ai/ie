@@ -54,12 +54,13 @@ def dprint_ccgbank(ccgbank):
                 print('  '* level + nd)
 
 
-def get_constituents_string_list(sent):
+def get_constituents_string_list(sent, noleaves=True):
     s = []
     for c in sent.iterconstituents(dfs=False):
-        headword = c.head().idx
-        txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
-        s.append('%s(%s)' % (c.ndtype.signature, ' '.join(txt)))
+        # ignore leaves - these come last
+        if c.isleaf and noleaves:
+            break
+        s.append('%s(%s)' % (c.ndtype.signature, c.marked_text(minimal=False)))
     return s
 
 
@@ -103,24 +104,24 @@ class GoldConstituentTest(unittest.TestCase):
         x = '[X1,E2,E3,X4| boy(X1),will(E2),_MODAL(E2),want(E2),_EVENT(E2),_ARG0(E2,X1),_ARG1(E2,E3),believe(E3),_EVENT(E3),_ARG0(E3,X1),_ARG1(E3,X4),girl(X4)]'
         self.assertEqual(x, s)
         sent = ccg.sorted_sentence()
-        a = get_constituents_string_list(sent)
+        a = get_constituents_string_list(sent, noleaves=False)
         dprint('\n'.join(a))
         x = [
-            'S(The boy #will want to believe the girl)',
+            'S_DCL(The boy #will want to believe the girl)',
             'NP(#The boy)',
-            'DET(#The)',
-            'NOUN(#boy)',
             'VP(#will want to believe the girl)',
-            'ADP(#will)',
             'S_INF(#want to believe the girl)',
-            'VERB(#want)',
             'S_INF(#to believe the girl)',
-            'TO(#to)',
             'S_INF(#believe the girl)',
-            'VERB(#believe)',
             'NP(#the girl)',
-            'DET(#the)',
             'NOUN(#girl)',
+            'DET(#the)',
+            'VERB(#believe)',
+            'TO(#to)',
+            'VERB(#want)',
+            'VERB(#will)',
+            'NOUN(#boy)',
+            'DET(#The)',
         ]
         self.assertListEqual(x, a)
 
@@ -240,70 +241,36 @@ class GoldConstituentTest(unittest.TestCase):
         s = d.show(SHOW_LINEAR)
         dprint(s)
         sent = ccg.sorted_sentence()
+        # Leaves are excluded from this list
         a = get_constituents_string_list(sent)
         dprint('\n'.join(a))
         # Hash indicates head word in constituent
         x = [
-            'S_DCL(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate .)',
-            'S_DCL(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate)',
-            'NP(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC ,)',
+            'S_DCL(Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate .)',
+            'S_DCL(Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC , #was named a nonexecutive director of this British industrial conglomerate)',
             'NP(#Rudolph-Agnew , 55 years old and former chairman of Consolidated-Gold-Fields-PLC)',
-            'NP(#Rudolph-Agnew ,)'
-            'PROPN(#Rudolph-Agnew)'
-            'PUNCT(#,)',
             'ADJP(55 years #old and former chairman of Consolidated-Gold-Fields-PLC)',
             'ADJP(55 years #old)',
             'NP(55 #years)',
-            'NUM(#55)',
-            'NOUN(#years)',
-            'ADJ(#old)',
-            'UNK(and former #chairman of Consolidated-Gold-Fields-PLC)',
-            'CONJ(#and)',
             'NP(former #chairman of Consolidated-Gold-Fields-PLC)',
             'NP(former #chairman)',
-            'ADJ(#former)',
-            'NOUN(#chairman)',
             'PP(#of Consolidated-Gold-Fields-PLC)',
-            'ADP(#of)',
-            'PROPN(#Consolidated-Gold-Fields-PLC)',
-            'PUNCT(#,)',
             'VP(#was named a nonexecutive director of this British industrial conglomerate)',
-            'VP(#was)',
             'VP(#named a nonexecutive director of this British industrial conglomerate)',
-            'VP(#named)',
-            'NP(#a nonexecutive director of this British industrial conglomerate)',
+            'NP(a nonexecutive #director of this British industrial conglomerate)',
             'NP(a nonexecutive #director)',
-            'DET(#a)',
-            'UNK(nonexecutive #director)',
-            'ADJ(#nonexecutive)',
-            'NOUN(#director)',
+            'NP(nonexecutive #director)',
             'PP(#of this British industrial conglomerate)',
-            'ADP(#of)',
             'NP(this British industrial #conglomerate)',
-            'DET(#this)',
-            'UNK(British industrial #conglomerate)',
-            'ADJ(#British)',
-            'UNK(industrial #conglomerate)',
-            'ADJ(#industrial)',
-            'NOUN(#conglomerate)',
-            'PUNCT(#.)',
+            'NP(British industrial #conglomerate)',
+            'NP(industrial #conglomerate)',
         ]
         self.assertListEqual(x, a)
-        # 6 VP(was named)
-        #   0 NP(Rudolph-Agnew)
-        #     1 ADVP(55 years old former chairman of Consolidated-Gold-Fields-PLC)
-        #       2 NP(55 years)
-        #       3 NP(former chairman)
-        #         4 PP(of)
-        #           5 NP(Consolidated-Gold-Fields-PLC)
-        #   7 NP(a nonexecutive director)
-        #     8 PP(of)
-        #       9 NP(this British industrial conglomerate)
-        x = (6, [(0, [(1, [(2, []), (3, [(4, [(5, [])])])])]), (7, [(8, [(9, [])])])])
-        a = ccg.get_constituent_tree()
-        dprint_constituent_tree(ccg, a)
-        self.assertEqual(repr(x), repr(a))
-        #ccg.add_wikipedia_links(browser=)
+        sp = sent.find_span('old and former chairman')
+        self.assertIsNotNone(sp)
+        c = sent.find_constituent(sp)
+        self.assertIsNotNone(c)
+        self.assertEqual(c.span.text, '55 years old and former chairman of Consolidated-Gold-Fields-PLC')
 
     def test2_GOLD_Wsj0001_1(self):
         # ID=wsj_0001.1 PARSER=GOLD NUMPARSE=1
@@ -389,36 +356,35 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg.get_verbnet_sentence()
+        sent = ccg.sorted_sentence()
         a = get_constituents_string_list(sent)
         # FIXME: VP(will #join) should be S_INF(will #join).
         # Issues occurs because I convert modal-verb combinator categories to modifiers. Must be fixed on functor
         # creation - Lexeme.get_production()
         # will: (S[dcl]\NP)/(S[b]/NP) -> (S\NP)/(S/NP)
         x = [
-            'NP(#Pierre-Vinken)',
+            'S_DCL(Pierre-Vinken , 61 years old , #will join the board as a nonexecutive director Nov. 29 .)',
+            'S_DCL(Pierre-Vinken , 61 years old , #will join the board as a nonexecutive director Nov. 29)',
+            'NP(#Pierre-Vinken , 61 years old)',
             'ADJP(61 years #old)',
             'NP(61 #years)',
-            'VP(#will join)',
+            'VP(#will join the board as a nonexecutive director Nov. 29)',
+            'S_INF(#join the board as a nonexecutive director Nov. 29)',
+            'S_INF(#join the board as a nonexecutive director)',
+            'VP(#join the board)',
             'NP(the #board)',
-            'PP(#as)',
+            'PP(#as a nonexecutive director)',
             'NP(a nonexecutive #director)',
-            'NP(#Nov. 29)'
+            'NP(nonexecutive #director)',
+            'ADJP(#Nov. 29)',
         ]
         dprint('\n'.join(a))
         self.assertListEqual(x, a)
-        # 03 VP(will join)
-        #    00 NP(Pierre-Vinken)
-        #       01 ADJP(61 years old)
-        #          02 NP(61 years)
-        #    04 NP(the board)
-        #    05 PP(as)
-        #       06 NP(a nonexecutive director)
-        #    07 NP(Nov. 29)
-        x = (3, [(0, [(1, [(2, [])])]), (4, []), (5, [(6, [])]), (7, [])])
-        a = sent.get_constituent_tree()
-        dprint_constituent_tree(sent, a)
-        self.assertEqual(repr(x), repr(a))
+        sp = sent.find_span('board as a')
+        self.assertIsNotNone(sp)
+        c = sent.find_constituent(sp)
+        self.assertIsNotNone(c)
+        self.assertEqual(c.span.text, 'join the board as a nonexecutive director')
 
     def test2_GOLD_Wsj0001_2(self):
         # Mr. Vinken is chairman of Elsevier N.V. , the Dutch publishing group .
@@ -490,28 +456,21 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg
+        sent = ccg.sorted_sentence()
         a = get_constituents_string_list(sent)
         x = [
-            'NP(#Mr.-Vinken)',
-            'VP(#is)',
-            'NP(#chairman)',
-            'PP(#of)',
-            'NP(#Elsevier-N.V.)',
+            'S_DCL(Mr.-Vinken #is chairman of Elsevier-N.V. , the Dutch publishing group .)',
+            'S_DCL(Mr.-Vinken #is chairman of Elsevier-N.V. , the Dutch publishing group)',
+            'VP(#is chairman of Elsevier-N.V. , the Dutch publishing group)',
+            'NP(#chairman of Elsevier-N.V. , the Dutch publishing group)',
+            'PP(#of Elsevier-N.V. , the Dutch publishing group)',
+            'NP(#Elsevier-N.V. , the Dutch publishing group)',
             'NP(the Dutch publishing #group)',
+            'NP(Dutch publishing #group)',
+            'NP(publishing #group)',
         ]
         dprint('\n'.join(a))
         self.assertListEqual(x, a)
-        # 01 VP(is)
-        #    00 NP(Mr.-Vinken)
-        #    02 NP(chairman)
-        #       03 PP(of Elsevier N.V. the Dutch publishing group)
-        #          04 NP(Elsevier N.V.)
-        #             05 NP(the Dutch publishing group)
-        x = (1, [(0, []), (2, [(3, [(4, [(5, [])])])])])
-        a = sent.get_constituent_tree()
-        dprint_constituent_tree(sent, a)
-        self.assertEqual(repr(x), repr(a))
 
     def test2_GOLD_Wsj0003_1(self):
         # A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths
@@ -674,52 +633,46 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg.get_verbnet_sentence()
+        sent = ccg.sorted_sentence()
         a = get_constituents_string_list(sent)
         x = [
-            'NP(A #form)',              # 0
-            'PP(#of)',                  # 1
-            'NP(#asbestos)',            # 2
-            'ADVP(once #used to make Kent cigarette filters)',   # 3
-            'S_INF(#to make)',          # 4
-            'NP(Kent cigarette #filters)',  # 5
-            'VP(#has caused)',          # 6
-            'NP(a high #percentage)',   # 7
-            'PP(#of)',                  # 8
-            'NP(cancer #deaths)',       # 9
-            'PP(#among)',               #10
-            'NP(a #group)',             #11
-            'PP(#of)',                  #12
-            'NP(#workers)',             #13
-            'ADVP(#exposed to it more than 30 years ago)',  #14
-            'NP(more than 30 #years)',  #15
-            'NP(#researchers)',         #16
-            'VP(#reported)',            #17
+            'S_DCL(A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago , researchers #reported .)',
+            'S_DCL(A form of asbestos once used to make Kent cigarette filters has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago , researchers #reported)',
+            'S_DCL(A form of asbestos once used to make Kent cigarette filters #has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago)',
+            'NP(A #form of asbestos once used to make Kent cigarette filters)',
+            'NP(A #form of asbestos)',
+            'NP(A #form)',
+            'PP(#of asbestos)',
+            'VP(once #used to make Kent cigarette filters)',
+            'VP(#used to make Kent cigarette filters)',
+            'S_INF(#to make Kent cigarette filters)',
+            'S_INF(#make Kent cigarette filters)',
+            'NP(Kent cigarette #filters)',
+            'NP(cigarette #filters)',
+            'VP(#has caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago)',
+            'VP(#caused a high percentage of cancer deaths among a group of workers exposed to it more than 30 years ago)',
+            'NP(a high #percentage of cancer deaths among a group of workers exposed to it more than 30 years ago)',
+            'NP(a high #percentage of cancer deaths)',
+            'NP(a high #percentage)',
+            'NP(high #percentage)',
+            'PP(#of cancer deaths)',
+            'NP(cancer #deaths)',
+            'PP(#among a group of workers exposed to it more than 30 years ago)',
+            'NP(a #group of workers exposed to it more than 30 years ago)',
+            'NP(a #group)',
+            'PP(#of workers exposed to it more than 30 years ago)',
+            'NP(#workers exposed to it more than 30 years ago)',
+            'VP(#exposed to it more than 30 years ago)',
+            'VP(#exposed to it)',
+            'PP(#to it)',
+            'ADJP(more than 30 years #ago)',
+            'NP(more than 30 #years)',
+            'NP(more than #30)',
+            'NP(more #than)',
+            'VP(researchers #reported)',
         ]
         dprint('\n'.join(a))
         self.assertListEqual(x, a)
-        # 17 VP(reported.)
-        #    06 VP(has caused)
-        #       00 NP(A form)
-        #          01 PP(of)
-        #             02 NP(asbestos)
-        #          03 ADVP(once used to make Kent cigarette filters)
-        #             04 S_INF(to make)
-        #                05 NP(Kent cigarette filters)
-        #       07 NP(a high percentage)
-        #          08 PP(of)
-        #             09 NP(cancer deaths)
-        #          10 PP(among)
-        #             11 NP(a group)
-        #                12 PP(of)
-        #                   13 NP(workers)
-        #                      14 ADVP(exposed to it more than 30 years ago)
-        #                         15 NP(more than 30 years)
-        #    16 NP(reserchers)
-        x = (17, [(6, [(0, [(1, [(2, [])]), (3, [(4, [(5, [])])])]), (7, [(8, [(9, [])]), (10, [(11, [(12, [(13, [(14, [(15, [])])])])])])])]), (16, [])])
-        a = sent.get_constituent_tree()
-        dprint_constituent_tree(sent, a)
-        self.assertEqual(repr(x), repr(a))
 
     def test2_GOLD_Wsj0051_13(self):
         txt = r'''
@@ -773,15 +726,18 @@ class GoldConstituentTest(unittest.TestCase):
         d = ccg.get_drs()
         s = d.show(SHOW_LINEAR)
         dprint(s)
-        sent = ccg
+        sent = ccg.sorted_sentence()
         a = get_constituents_string_list(sent)
         x = [
+            'S_DCL(The bids , he added , #were contrary to common sense .)',
+            'S_DCL(The bids , he added , #were contrary to common sense)',
             'NP(The #bids)',
-            'ADVP(he #added)',
-            'VP(#were)',
+            'VP(he added , #were contrary to common sense)',
+            'VP(he #added)',
+            'VP(#were contrary to common sense)',
             'ADJP(#contrary to common sense)',
-            'PP(#to)',
-            'NP(common #sense)'
+            'PP(#to common sense)',
+            'NP(common #sense)',
         ]
         dprint('\n'.join(a))
         self.assertListEqual(x, a)

@@ -75,10 +75,10 @@ class InfoxService(infox_service_pb2.InfoxServiceServicer):
                 for c in sent.constituents:
                     gc = response.constituents.add()
                     # TODO: rename - its not a span
-                    gc.span.extend(c.lex_range)
-                    gc.span.append(c.dhead)
-                    gc.vntype = c.vntype.signature
-                    gc.head = c.chead
+                    gc.span.extend(c.node.simple_span.to_list())
+                    gc.ndtype = c.ndtype.signature
+                    gc.parent_idx = c.node.parent_idx
+                    gc.head_idx = c.node.head_idx
 
                 return response
 

@@ -185,7 +185,7 @@ def split_signature(signature):
             elif arg.endswith('[conj]'):
                 arg = arg[0:-6]
             return ret, signature[i], arg
-    return signature[0:-6], '', '' if signature.endswith('[conj]') else signature, '', ''
+    return (signature[0:-6], '', '') if signature.endswith('[conj]') else (signature, '', '')
 
 
 ## @ingroup gfn
@@ -1403,10 +1403,10 @@ RL_LNUM = Rule('LNUM')
 
 ## Special type changing rule.
 ## See LDC manual 2005T13 and unaryRules in EasySRL model folder.
-RL_TC_CONJ = Rule('CONJ_TC')
-RL_TC_ATOM = Rule('ATOM_TC')
-RL_TCL_UNARY = Rule('L_UNARY_TC')
-RL_TCR_UNARY = Rule('R_UNARY_TC')
+RL_TC_CONJ = Rule('TC_CONJ')
+RL_TC_ATOM = Rule('TC_ATOM')
+RL_TCL_UNARY = Rule('TCL_UNARY')
+RL_TCR_UNARY = Rule('TCR_UNARY')
 ## @}
 
 # Special type changing rules - see LDC2005T13 document
@@ -1713,7 +1713,8 @@ class POS(Freezable):
 _tags = [
     'CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD', 'NN', 'NNS', 'NNP', 'NNPS',
     'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN',
-    'VBP', 'VBZ', 'WDT', 'WP', 'WP$', 'WRB', 'UNKNOWN', ',', '.', ':', ';', '?', '$', 'SO'
+    'VBP', 'VBZ', 'WDT', 'WP', 'WP$', 'WRB', 'UNKNOWN', ',', '.', ':', ';', '?', '$', 'SO',
+    '-LRB-', '-RRB-', '-LQU-', '-RQU-'
 ]
 
 # Initialize POS cache
@@ -1738,5 +1739,6 @@ POS_UNKNOWN = POS.from_cache('UNKNOWN')
 POS_NUMBER = POS.from_cache('CD')
 POS_PREPOSITION = POS.from_cache('IN')
 POS_LIST_PUNCT = [POS.from_cache(','), POS.from_cache('.'), POS.from_cache('?'), POS.from_cache(':'),
-                  POS.from_cache(';')]
+                  POS.from_cache(';'), POS.from_cache('-LRB-'), POS.from_cache('-RRB-'),
+                  POS.from_cache('-LQU-'), POS.from_cache('-RQU-')]
 POS_POSSESSIVE = POS.from_cache('POS')

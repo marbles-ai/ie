@@ -60,7 +60,7 @@ def get_constituents_string_list(sent):
     s = []
     for i in range(len(sent.constituents)):
         c = sent.constituents[i]
-        headword = c.head().idx
+        headword = c.head.idx
         txt = [lex.word if headword != lex.idx else '#'+lex.word for lex in c.span]
         s.append('%s(%s)' % (c.vntype.signature, ' '.join(txt)))
     return s
