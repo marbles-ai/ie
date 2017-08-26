@@ -227,7 +227,13 @@ def _compare_simple_span(r1, r2):
 
 
 class SimpleSpan(object):
+    """A set of contiguous indexes in a sentence span."""
     def __init__(self, begin, end=None):
+        """Constructor.
+
+        :param begin: Start index
+        :param end: Stop inde
+        """
         if isinstance(begin, (tuple, list)):
             assert end is None
             self.begin = begin[0]
@@ -882,7 +888,13 @@ class Sentence(AbstractSentence):
 
 
 class SimpleIndexSpan(object):
+    """A set of non-contiguous indexes in a sentence span."""
     def __init__(self, indexes=None, issorted=False):
+        """Constructor.
+
+        :param indexes: The indexes
+        :param issorted: True if the indexes are sorted
+        """
         self.issorted = False
         if indexes is None:
             self.indexes = []
@@ -1022,7 +1034,7 @@ class SimpleIndexSpan(object):
 
 
 class Span(AbstractSpan):
-    """View of a discourse."""
+    """A container for a sentence span."""
     def __init__(self, sentence, begin=None, end=None, issorted=False):
         if not isinstance(sentence, AbstractSentence):
             raise TypeError('Span constructor requires AbstractSentence type')
