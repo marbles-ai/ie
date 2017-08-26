@@ -5,6 +5,7 @@ import requests
 import time
 import wikipedia
 import itertools
+import bisect
 
 try:
     # Not visible in website
@@ -307,6 +308,11 @@ class SimpleSpan(object):
             return min(self.end, other.begin), min(self.end, other.end)
         return self.begin, self.end
 
+    def iterindexes(self, anysort=False):
+        # anysort required for compaibility with SimpleIndexSpan
+        for i in xrange(self.begin, self.end):
+            yield i
+
     def to_list(self):
         return [self.begin, self.end]
 
@@ -337,6 +343,17 @@ class SimpleSpan(object):
         assert not isinstance(s1, SimpleSpan)
         self.begin, self.end = s1, s2
         return self
+
+    def at(self, i):
+        if i >= self.width:
+            raise IndexError('index %d out of bounds' % i)
+        return self.begin + i
+
+    def contains_index(self, i):
+        return i >= self.begin and i < self.end
+
+    def contains_span(self, other):
+        return self.intersection(other).width == other.width
 
 
 class AbstractConstituentNode(object):
@@ -864,111 +881,205 @@ class Sentence(AbstractSentence):
         return '\n'.join(result)
 
 
-class AbstractSpan(AbstractSpan):
+class SimpleIndexSpan(object):
+    def __init__(self, indexes=None, issorted=False):
+        self.issorted = False
+        if indexes is None:
+            self.indexes = []
+            self.issorted = True
+        elif isinstance(indexes, set):
+            self.indexes = indexes
+        elif isinstance(indexes, collections.Iterator):
+            self.indexes = set(indexes)
+        elif issorted or len(indexes) == (1 + indexes[-1] - indexes[0]):
+            self.indexes = indexes
+            self.issorted = True
+        else:
+            self.indexes = set(indexes)
+
+    def _resort(self):
+        if not self.issorted:
+            self.indexes = sorted(self.indexes)
+            self.issorted = True
+
+    def _reset(self):
+        if self.issorted:
+            self.indexes = set(self.indexes)
+            self.issorted = False
+
+    def __eq__(self, other):
+        self._resort()
+        return self.begin == other.begin and self.end == other.end
+
+    def __ne__(self, other):
+        self._resort()
+        return self.begin != other.begin or self.end != other.end
+
+    def __lt__(self, other):
+        self._resort()
+        return self.begin < other.begin or (self.begin == other.begin and self.end > other.end)
+
+    def __gt__(self, other):
+        self._resort()
+        return self.begin > other.begin or (self.begin == other.begin and self.end < other.end)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __hash__(self):
+        self._resort()
+        h = 0
+        for i in self.indexes:
+            h = h ^ hash(i)
+        return h
 
     @property
-    def sentence(self):
-        raise NotImplementedError
+    def begin(self):
+        self._resort()
+        return 0 if len(self.indexes) == 0 else self.indexes[0]
 
     @property
-    def isempty(self):
-        raise NotImplementedError
+    def end(self):
+        self._resort()
+        return 0 if len(self.indexes) == 0 else self.indexes[-1]+1
 
-    def clear(self):
-        raise NotImplementedError
+    @property
+    def width(self):
+        return len(self.indexes)
 
-    def indexes(self):
-        raise NotImplementedError
+    def iterindexes(self, anysort=False):
+        if not anysort:
+            self._resort()
+        for i in self.indexes:
+            yield i
 
     def clone(self):
-        raise NotImplementedError
+        return SimpleIndexSpan(self.indexes, issorted=self.issorted)
 
     def union(self, other):
-        raise NotImplementedError
+        self._reset()
+        indexes = self.indexes.union(other.iterindexes(anysort=True))
+        return SimpleIndexSpan(indexes)
 
-    def add(self, idx):
-        raise NotImplementedError
-
-    def remove(self, idx):
-        raise NotImplementedError
-
-    def difference(self, other):
-        raise NotImplementedError
+    def union_inplace(self, other):
+        self._reset()
+        self.indexes = self.indexes.union(other.iterindexes(anysort=True))
+        return self
 
     def intersection(self, other):
-        raise NotImplementedError
+        self._reset()
+        indexes = self.indexes.intersection(other.iterindexes(anysort=True))
+        return SimpleIndexSpan(indexes)
 
-    def subspan(self, required, excluded=0):
-        raise NotImplementedError
+    def intersection_inplace(self, other):
+        self._reset()
+        self.indexes = self.indexes.intersection(other.iterindexes(anysort=True))
+        return self
 
-    def contiguous_subspans(self, required, excluded=0):
-        raise NotImplementedError
+    def difference(self, other):
+        self._reset()
+        indexes = self.indexes.difference(other.iterindexes(anysort=True))
+        return SimpleIndexSpan(indexes)
 
-    def fullspan(self):
-        raise NotImplementedError
+    def difference_inplace(self, other):
+        self._reset()
+        self.indexes = self.indexes.difference(other.iterindexes(anysort=True))
+        return self
 
-    def get_drs(self, nodups=False):
-        raise NotImplementedError
+    def at(self, i):
+        self._resort()
+        return self.indexes[i]
 
-    def get_head_span(self, strict=False):
-        raise NotImplementedError
+    def add(self, idx):
+        """Add an index to the span."""
+        self._reset()
+        if isinstance(idx, AbstractLexeme):
+            self.indexes.add(idx.idx)
+        else:
+            self.indexes.add(idx)
+        return self
 
-    def search_wikipedia(self, max_results=1, google=True, browser=None):
-        raise NotImplementedError
+    def remove(self, idx):
+        """Remove an index from the span."""
+        self._reset()
+        if isinstance(idx, AbstractLexeme):
+            self.indexes.remove(idx.idx)
+        else:
+            self.indexes.remove(idx)
+        return self
+
+    def contains_index(self, idx):
+        if self.issorted:
+            i = bisect.bisect_left(self.indexes, idx)
+            return i != len(self.indexes) and self.indexes[i] == idx
+        return idx in self.indexes
+
+    def contains_span(self, other):
+        return self.intersection(other).width == other.width
 
 
 class Span(AbstractSpan):
     """View of a discourse."""
-    def __init__(self, sentence, indexes=None, end=None):
+    def __init__(self, sentence, begin=None, end=None, issorted=False):
         if not isinstance(sentence, AbstractSentence):
             raise TypeError('Span constructor requires AbstractSentence type')
         self._sent = sentence
-        if indexes is None:
-            self._indexes = []
-        elif isinstance(indexes, set):
-            self._indexes = sorted(indexes)
-        elif isinstance(indexes, SimpleSpan):
-            self._indexes = [x for x in xrange(indexes.begin, indexes.end)] if indexes.width != 0 else []
-        elif isinstance(indexes, (int, long)):
-            if end is not None:
-                self._indexes = [x for x in xrange(indexes, end)]
-            else:
-                self._indexes = [indexes]
+        if isinstance(begin, (SimpleSpan, SimpleIndexSpan)):
+            self.spobj = SimpleIndexSpan(begin.iterindexes())
+            self._compress()
+        elif isinstance(begin, (int, long)):
+            self.spobj = SimpleIndexSpan(xrange(begin, end))
         else:
-            self._indexes = sorted(set([x for x in indexes]))
+            assert end is None
+            self.spobj = SimpleIndexSpan(begin)
+            self._compress()
 
-    def __eq__(self, other):
-        return other is not None and self.sentence is other.sentence and len(self) == len(other) \
-               and (len(self._indexes) == 0 or (self._indexes[0] == other._indexes[0] and self._indexes[-1] == other._indexes[-1]) == 0)
+        '''
+        if isinstance(begin, (SimpleSpan, SimpleIndexSpan)):
+            self.spobj = begin
+            self._compress()
+        elif isinstance(begin, (int, long)):
+            self.spobj = SimpleSpan(begin, end)
+        else:
+            assert end is None
+            self.spobj = SimpleIndexSpan(begin, issorted=self.issorted)
+            self._compress()
+        '''
+
+    def _compress(self):
+        if isinstance(self.spobj, SimpleIndexSpan) and len(self) != 0 and \
+                (self.spobj.begin + self.spobj.width) == self.spobj.end:
+            self.spobj = SimpleSpan(self.spobj.begin, self.spobj.end)
+
+    def _decompress(self):
+        if isinstance(self.spobj, SimpleSpan):
+            self.spobj = SimpleIndexSpan(self.spobj.iterindexes() if len(self) != 0 else None)
 
     def __hash__(self):
-        h = hash(id(self.sentence))
-        for i in self._indexes:
-            h = h ^ hash(i)
-        return h
+        return hash(id(self._sent)) ^ hash(self.spobj)
+
+    def __eq__(self, other):
+        return  self._sent is other._sent and \
+                self.spobj.width == other.spobj.width and \
+               (self.spobj.width == 0 or self.spobj.begin == other.spobj.begin)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        if self.sentence is not other.sentence:
-            return id(self.sentence) < id(other.sentence)
-        for i, j in zip(self._indexes, other._indexes):
-            if i == j:
-                continue
-            return i < j
-        # The longer sentence is less - important for constituent ordering
-        return len(self) > len(other)
+        if self._sent is not other._sent:
+            return id(self._sent) < id(other._sent)
+        return self.spobj.begin < other.spobj.begin or \
+               (self.spobj.begin == other.spobj.begin and self.spobj.end > other.spobj.end)
 
     def __gt__(self, other):
-        if self.sentence is not other.sentence:
-            return id(self.sentence) > id(other.sentence)
-        for i, j in zip(self._indexes, other._indexes):
-            if i == j:
-                continue
-            return i > j
-        # The shorter sentence is greater - important for constituent ordering
-        return len(self) < len(other)
+        if self._sent is not other._sent:
+            return id(self._sent) > id(other._sent)
+        return self.spobj.begin > other.spobj.begin or \
+               (self.spobj.begin == other.spobj.begin and self.spobj.end < other.spobj.end)
 
     def __le__(self, other):
         return not self.__gt__(other)
@@ -977,34 +1088,44 @@ class Span(AbstractSpan):
         return not self.__lt__(other)
 
     def __len__(self):
-        return len(self._indexes)
+        return self.spobj.width
 
     def __getitem__(self, i):
         if isinstance(i, slice):
-            return Span(self._sent, self._indexes[i])
-        return self._sent[self._indexes[i]]
+            if isinstance(self.spobj, SimpleIndexSpan):
+                self.spobj._resort()
+                return Span(self._sent, self.spobj.indexes[i], issorted=True)
+            elif i.step is not None and i.step != 1:
+                indexes = [x for x in self.spobj.iterindexes()]
+                return Span(self._sent, indexes[i], issorted=True)
+            else:
+                start = self.spobj.begin if i.start is None else (self.spobj.begin + i.start)
+                stop  = self.spobj.end if i.stop is None else (self.spobj.end + i.stop)
+                return Span(self._sent, self.spobj.intersection(SimpleSpan(start, stop)))
+        return self._sent[self.spobj.at(i)]
 
     def __iter__(self):
-        for k in self._indexes:
+        for k in self.spobj.iterindexes():
             yield self._sent[k]
 
     def __contains__(self, item):
         if isinstance(item, Span):
-            return len(item) != 0 and len(set(item._indexes).difference(self._indexes)) == 0
+            if isinstance(item.spobj, SimpleIndexSpan):
+                return item.spobj.intersection(self.spobj).width == item.spobj.width
+            return self.spobj.intersection(self.spobj).width == item.spobj.width
         elif isinstance(item, int):
-            return item in self._indexes
+            return self.spobj.contains_index(item)
         elif not isinstance(item, AbstractLexeme):
             raise TypeError('Span.__contains__ expects a Span, Lexeme, or int type')
         # Lexeme
-        return item.idx in self._indexes
+        return self.spobj.contains_index(item.idx)
 
     @property
     def text(self):
-        if len(self._indexes) == 0:
+        if len(self) == 0:
             return ''
-        txt = [self._sent[self._indexes[0]].word]
-        for i in self._indexes[1:]:
-            tok = self._sent[i]
+        txt = [self[0].word]
+        for tok in self[1:]:
             if not tok.ispunct:
                 txt.append(' ')
             txt.append(tok.word)
@@ -1016,61 +1137,79 @@ class Span(AbstractSpan):
 
     @property
     def isempty(self):
-        return len(self._indexes) == 0
+        return len(self) == 0
 
     def clear(self):
         """Make the span empty."""
-        self._indexes = []
+        self.spobj = SimpleIndexSpan([])
 
     def iterindexes(self):
-        for x in self._indexes:
-            yield x
+        return self.spobj.iterindexes()
 
     def indexes(self):
         """Get the list of indexes in this span."""
-        return [x for x in self._indexes]
+        return [x for x in self.spobj.iterindexes()]
 
     def clone(self):
         """Do a shallow copy and clone the span."""
-        return Span(self._sent, self._indexes)
+        return Span(self._sent, self.spobj.clone())
 
     def union(self, other):
         """Union two spans."""
+        assert self._sent is other._sent
         if other is None or len(other) == 0:
             return self
-        return Span(self._sent, set(self._indexes).union(other._indexes))
+        if isinstance(other.spobj, SimpleIndexSpan):
+            return Span(self._sent, other.spobj.union(self.spobj))
+        return Span(self._sent, self.spobj.union(other.spobj))
 
     def add(self, idx):
         """Add an index to the span."""
-        u = set(self._indexes)
-        if isinstance(idx, AbstractLexeme):
-            u.add(idx.idx)
+        if isinstance(self.spobj, SimpleSpan):
+            if (idx+1) == self.spobj.begin or idx == self.spobj.end:
+                self.spobj = self.spobj.union_inplace(SimpleSpan(idx))
+            else:
+                self.spobj = SimpleIndexSpan(self.spobj.iterindexes()).add(idx)
         else:
-            u.add(idx)
-        self._indexes = sorted(u)
+            self.spobj.add(idx)
         return self
 
     def remove(self, idx):
         """Remove an index from the span."""
-        u = set(self._indexes)
-        if isinstance(idx, AbstractLexeme):
-            u.remove(idx.idx)
+        if isinstance(self.spobj, SimpleSpan):
+            if idx == self.spobj.begin or idx == (self.spobj.end-1):
+                self.spobj = self.spobj.difference_inplace(SimpleSpan(idx))
+            else:
+                self.spobj = SimpleIndexSpan(self.spobj.iterindexes()).remove(idx)
         else:
-            u.remove(idx)
-        self._indexes = sorted(u)
+            self.spobj.remove(idx)
         return self
 
     def difference(self, other):
         """Remove other from this span."""
         if other is None or len(other) == 0:
             return self
-        return Span(self._sent, set(self._indexes).difference(other._indexes))
+        assert self._sent is other._sent
+        if isinstance(self.spobj, SimpleSpan):
+            if isinstance(other.spobj, SimpleSpan):
+                sp = self.spobj.difference(other.spobj)
+                if isinstance(sp, tuple):
+                    return Span(self._sent, sp[0]).union(Span(self._sent, sp[1]))
+                else:
+                    return Span(self._sent, sp)
+            return Span(self._sent, SimpleIndexSpan(self.spobj.iterindexes()).difference_inplace(other.spobj))
+        return Span(self._sent, self.spobj.difference(other.spobj))
 
     def intersection(self, other):
         """Find common span."""
         if other is None or len(other) == 0:
             return Span(self._sent)
-        return Span(self._sent, set(self._indexes).intersection(other._indexes))
+        assert self._sent is other._sent
+        if isinstance(self.spobj, SimpleSpan):
+            if isinstance(other.spobj, SimpleSpan):
+                return Span(self._sent, self.spobj.intersection(other.spobj))
+            return Span(self._sent, other.spobj.intersection(self.spobj))
+        return Span(self._sent, self.spobj.intersection(other.spobj))
 
     def subspan(self, required, excluded=0):
         """Refine the span with `required` and `excluded` criteria's.
@@ -1083,7 +1222,7 @@ class Span(AbstractSpan):
             A Span instance.
         """
         return Span(self._sent, filter(lambda i: 0 != (self._sent[i].mask & required) and \
-                                                 0 == (self._sent[i].mask & excluded), self._indexes))
+                                                 0 == (self._sent[i].mask & excluded), self.iterindexes()))
 
     def contiguous_subspans(self, required, excluded=0):
         """Refine the span with `required` and `excluded` criteria's.
@@ -1115,9 +1254,9 @@ class Span(AbstractSpan):
         Returns:
             A Span instance.
         """
-        if len(self._indexes) <= 1:
+        if len(self) <= 1:
             return self
-        return Span(self._sent, [x for x in range(self._indexes[0], self._indexes[-1] + 1)])
+        return Span(self._sent, SimpleSpan(self.spobj.begin, self.spobj.end))
 
     def get_drs(self, nodups=False):
         """Get a DRS view of the span.
@@ -1144,10 +1283,10 @@ class Span(AbstractSpan):
             A span of Lexeme instances.
         """
         # Handle singular case
-        if len(self._indexes) == 1:
+        if len(self) == 1:
             return self
 
-        indexes = set(self._indexes)
+        indexes = set(self.indexes())
         hds = set()
         if strict:
             for lex in self:
@@ -1185,7 +1324,7 @@ class Span(AbstractSpan):
                 result = wikipedia.search(txt, results=max_results)
                 if result is not None and len(result) != 0:
                     for t in result:
-                        wr = self.sentence.safe_wikipage(t)
+                        wr = self._sent.safe_wikipage(t)
                         if wr is not None:
                             topics.append(wr)
 
@@ -1193,7 +1332,7 @@ class Span(AbstractSpan):
                     # Get suggestions from wikipedia
                     query = wikipedia.suggest(txt)
                     if query is not None:
-                        result = self.sentence.safe_wikipage(query)
+                        result = self._sent.safe_wikipage(query)
                         if result is not None:
                             return [result]
                     if google and (result is None or len(result) == 0):
@@ -1204,7 +1343,7 @@ class Span(AbstractSpan):
                             result = wikipedia.search(txt, results=max_results)
                             if result is not None and len(result) != 0:
                                 for t in result:
-                                    wr = self.sentence.safe_wikipage(t)
+                                    wr = self._sent.safe_wikipage(t)
                                     if wr is not None:
                                         topics.append(wr)
 
@@ -1212,7 +1351,7 @@ class Span(AbstractSpan):
                                 # Get suggestions from wikipedia
                                 query = wikipedia.suggest(txt)
                                 if query is not None:
-                                    result = self.sentence.safe_wikipage(query)
+                                    result = self._sent.safe_wikipage(query)
                                     if result is not None and len(result) != 0:
                                         return [result]
                             else:
@@ -1224,7 +1363,7 @@ class Span(AbstractSpan):
                                 t = m.group('topic')
                                 if t not in seen:
                                     seen.add(t)
-                                    wr = self.sentence.safe_wikipage(t.replace('_', ' '))
+                                    wr = self._sent.safe_wikipage(t.replace('_', ' '))
                                     if wr:
                                         topics.append(wr)
                                         if len(topics) >= max_results:
@@ -1233,8 +1372,8 @@ class Span(AbstractSpan):
             except requests.exceptions.ConnectionError as e:
                 attempts += 1
                 retry = attempts <= 3
-                if self.sentence.msgid is not None:
-                    _logger.exception('[msgid=%s] Span.search_wikipedia', self.sentence.msgid, exc_info=e)
+                if self._sent.msgid is not None:
+                    _logger.exception('[msgid=%s] Span.search_wikipedia', self._sent.msgid, exc_info=e)
                 else:
                     _logger.exception('Span.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
@@ -1244,8 +1383,8 @@ class Span(AbstractSpan):
             except wikipedia.exceptions.HTTPTimeoutError as e:
                 attempts += 1
                 retry = attempts <= 3
-                if self.sentence.msgid is not None:
-                    _logger.exception('[msgid=%s] Span.search_wikipedia', self.sentence.msgid, exc_info=e)
+                if self._sent.msgid is not None:
+                    _logger.exception('[msgid=%s] Span.search_wikipedia', self._sent.msgid, exc_info=e)
                 else:
                     _logger.exception('Span.search_wikipedia', exc_info=e)
                 time.sleep(0.25)
