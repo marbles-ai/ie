@@ -903,7 +903,7 @@ class SimpleIndexSpan(object):
             self.indexes = indexes
         elif isinstance(indexes, collections.Iterator):
             self.indexes = set(indexes)
-        elif issorted or len(indexes) == (1 + indexes[-1] - indexes[0]):
+        elif issorted or (len(indexes) != 0 and len(indexes) == (1 + indexes[-1] - indexes[0])):
             self.indexes = indexes
             self.issorted = True
         else:
@@ -918,6 +918,19 @@ class SimpleIndexSpan(object):
         if self.issorted:
             self.indexes = set(self.indexes)
             self.issorted = False
+
+    def __unicode__(self):
+        if not self.issorted:
+            indexes = [unicode(x) for x in sorted(self.indexes)]
+        else:
+            indexes = [unicode(x) for x in self.indexes]
+        return u'(%s)' % ','.join(indexes)
+
+    def __str__(self):
+        return safe_utf8_encode(self.__unicode__())
+
+    def __repr__(self):
+        return str(self)
 
     def __eq__(self, other):
         self._resort()
@@ -969,7 +982,10 @@ class SimpleIndexSpan(object):
             yield i
 
     def clone(self):
-        return SimpleIndexSpan(self.indexes, issorted=self.issorted)
+        if self.issorted:
+            return SimpleIndexSpan(self.indexes, issorted=True)
+        # Copy set incase add or remove are called
+        return SimpleIndexSpan(self.iterindexes(anysort=True), issorted=False)
 
     def union(self, other):
         self._reset()
@@ -1040,14 +1056,12 @@ class Span(AbstractSpan):
             raise TypeError('Span constructor requires AbstractSentence type')
         self._sent = sentence
         if isinstance(begin, (SimpleSpan, SimpleIndexSpan)):
-            self.spobj = SimpleIndexSpan(begin.iterindexes())
-            self._compress()
+            self.spobj = begin.clone()  # SimpleIndexSpan(begin.iterindexes())
         elif isinstance(begin, (int, long)):
-            self.spobj = SimpleIndexSpan(xrange(begin, end))
+            self.spobj = SimpleSpan(begin, end) # SimpleIndexSpan(xrange(begin, end))
         else:
             assert end is None
             self.spobj = SimpleIndexSpan(begin)
-            self._compress()
 
         '''
         if isinstance(begin, (SimpleSpan, SimpleIndexSpan)):
@@ -1076,7 +1090,7 @@ class Span(AbstractSpan):
     def __eq__(self, other):
         return  self._sent is other._sent and \
                 self.spobj.width == other.spobj.width and \
-               (self.spobj.width == 0 or self.spobj.begin == other.spobj.begin)
+               (self.intersection(other).spobj.width == self.spobj.width)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1113,7 +1127,10 @@ class Span(AbstractSpan):
             else:
                 start = self.spobj.begin if i.start is None else (self.spobj.begin + i.start)
                 stop  = self.spobj.end if i.stop is None else (self.spobj.end + i.stop)
-                return Span(self._sent, self.spobj.intersection(SimpleSpan(start, stop)))
+                sp = Span(self._sent, self.spobj.intersection(SimpleSpan(start, stop)))
+                sp2 = Span(self._sent, SimpleIndexSpan(range(start, stop)).intersection(self.spobj))
+                assert sp.intersection(sp2) == sp
+                return sp
         return self._sent[self.spobj.at(i)]
 
     def __iter__(self):
@@ -1124,7 +1141,7 @@ class Span(AbstractSpan):
         if isinstance(item, Span):
             if isinstance(item.spobj, SimpleIndexSpan):
                 return item.spobj.intersection(self.spobj).width == item.spobj.width
-            return self.spobj.intersection(self.spobj).width == item.spobj.width
+            return self.spobj.intersection(item.spobj).width == item.spobj.width
         elif isinstance(item, int):
             return self.spobj.contains_index(item)
         elif not isinstance(item, AbstractLexeme):
@@ -1173,6 +1190,9 @@ class Span(AbstractSpan):
             return self
         if isinstance(other.spobj, SimpleIndexSpan):
             return Span(self._sent, other.spobj.union(self.spobj))
+        sp = Span(self._sent, self.spobj.union(other.spobj))
+        sp2 = Span(self._sent, SimpleIndexSpan(self.spobj.iterindexes()).union(other.spobj))
+        assert sp == sp2
         return Span(self._sent, self.spobj.union(other.spobj))
 
     def add(self, idx):
