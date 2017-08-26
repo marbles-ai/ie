@@ -1185,9 +1185,9 @@ class Span(AbstractSpan):
 
     def union(self, other):
         """Union two spans."""
-        assert self._sent is other._sent
         if other is None or len(other) == 0:
             return self
+        assert self._sent is other._sent
         if isinstance(other.spobj, SimpleIndexSpan):
             return Span(self._sent, other.spobj.union(self.spobj))
         sp = Span(self._sent, self.spobj.union(other.spobj))
