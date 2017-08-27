@@ -68,13 +68,15 @@ class PossessiveTest(unittest.TestCase):
         vf = sentence.get_vp_nominals()
         vphrases = [sp.text for r, sp in vf]
         self.assertTrue('give' in vphrases)
-        self.assertTrue('maintaining increasing' in vphrases)
+        self.assertTrue('maintaining' in vphrases)
+        self.assertTrue('increasing' in vphrases)
         self.assertTrue('have become' in vphrases)
         self.assertTrue('underscore' in vphrases)
         give = filter(lambda x: 'give' == x[1].text, vf)[0][0]
         become = filter(lambda x: 'have become' == x[1].text, vf)[0][0]
         uscore = filter(lambda x: 'underscore' == x[1].text, vf)[0][0]
-        minc = filter(lambda x: 'maintaining increasing' == x[1].text, vf)[0][0]
+        maint = filter(lambda x: 'maintaining' == x[1].text, vf)[0][0]
+        incr = filter(lambda x: 'increasing' == x[1].text, vf)[0][0]
         plans = filter(lambda x: 'Plans' == x[1].text, f)[0][0]
         advertisers = filter(lambda x: 'advertisers' == x[1].text, f)[0][0]
         discounts = filter(lambda x: 'discounts' == x[1].text, f)[0][0]
@@ -88,8 +90,10 @@ class PossessiveTest(unittest.TestCase):
         self.assertTrue(d.find_condition(Rel('_ARG0', [give, plans])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG1', [give, advertisers])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG2', [give, discounts])) is not None)
-        self.assertTrue(d.find_condition(Rel('_ARG0', [minc, plans])) is not None)
-        self.assertTrue(d.find_condition(Rel('_ARG1', [minc, spending])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [maint, plans])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [maint, spending])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG0', [incr, plans])) is not None)
+        self.assertTrue(d.find_condition(Rel('_ARG1', [incr, spending])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG0', [become, plans])) is not None)
         self.assertTrue(d.find_condition(Rel('_ARG1', [become, fixtures])) is not None)
         self.assertTrue(d.find_condition(Rel('_POSS', [mortimer, uswr])) is not None)

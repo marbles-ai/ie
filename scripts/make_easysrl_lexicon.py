@@ -151,7 +151,7 @@ def make_lexicon(daemon):
                             rtdict[rt] = {c: [nc[0]]}
                     else:
                         continue
-                    for y in w:
+                    for y in sorted(w):
                         fd.write(b'sentence-id: %s|%s' % (safe_utf8_encode(y), safe_utf8_encode(section_map[y])))
                         fd.write(b'\n')
                     fd.write(b'</usage>\n')

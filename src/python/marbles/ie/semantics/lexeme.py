@@ -240,7 +240,7 @@ class Lexeme(AbstractLexeme):
         self.pos = POS.from_cache(pos_tags[0]) if pos_tags is not None else POS_UNKNOWN
 
         # We treat modal as verb modifiers - i.e. they don't get their own event
-        if self.pos == POS_MODAL:
+        if self.pos == POS_MODAL or self.category == CAT_MODAL_PAST:
             tmpcat = self.category.remove_features().simplify()
             if tmpcat.ismodifier:
                 self.category = tmpcat
@@ -359,6 +359,8 @@ class Lexeme(AbstractLexeme):
                 # Special handling for prepositions
                 if self.category == CAT_PREPOSITION and self.word in _PREPS:
                     template = _PREPS[self.word]
+                elif self.category == CAT_MODAL_PAST:
+                    template = MODEL.lookup(self.category.remove_features().simplify())
                 else:
                     template = MODEL.lookup(self.category)
             except Exception:

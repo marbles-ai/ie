@@ -625,6 +625,10 @@ try:
     _tcache.addinit(Model.build_template(r'S[X]_1003/NP_2003'))
     _tcache.addinit(Model.build_template(r'S[X]_1004\NP_2004'))
     _tcache.addinit(Model.build_template(r'(S[to]_1005\NP_2005)/(S[b]_1005\NP_2005)'), replace=True)
+    # Plans(x) that(x) give(e) arg0(e, x) - otherwise we get arg0(e, y) where y is a free variable
+    _tcache.addinit(Model.build_template(r'(N_1013\N_1013)/(S[dcl]\NP_1013)'), replace=True)
+    _tcache.addinit(Model.build_template(r'(NP_1018\NP_1018)\(S[dcl]\NP_1018)'), replace=True)
+
     r'''
     _tcache.addinit(Model.build_template(r'(S[b]_238\NP_237)/(S[b]_238\NP_237)'), replace=True)
     _tcache.addinit(Model.build_template(r'(NP_148\NP_148)/(NP_148\NP_148)'), replace=True)
@@ -644,7 +648,6 @@ try:
     _tcache.addinit(Model.build_template(r'S_1010\(S_1010/NP)'))
     _tcache.addinit(Model.build_template(r'(S_2011\NP_1011)/((S_2011\NP_1011)\PP)'))
     _tcache.addinit(Model.build_template(r'(S_1012\NP_2012)\((S_1012\NP_2012)/PP)'))
-    _tcache.addinit(Model.build_template(r'(N_1013\N_1013)/(S[dcl]\NP_1013)'))
     _tcache.addinit(Model.build_template(r'(S[dcl]_1014\NP_2014)/((S[dcl]_1014\NP_2014)\PP)'))
 
     _tcache.addinit(Model.build_template(r'S[X]_1015/S[X]_2015'))
