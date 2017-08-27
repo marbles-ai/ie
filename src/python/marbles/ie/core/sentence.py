@@ -825,7 +825,7 @@ class Sentence(AbstractSentence):
 
     def _get_constituent_tree_as_string_helper(self, ctree, level, result):
         indent = '' if level == 0 else ' ' * level
-        c = self._constituents[ctree[0]]
+        c = Constituent(self, self._constituents[ctree[0]])
         result.append('%s%02d %s(%s)' % (indent, ctree[0], c.ndtype.signature, c.span.text))
         for nd in ctree[1]:
             self._get_constituent_tree_as_string_helper(nd, level+3, result)

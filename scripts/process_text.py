@@ -172,22 +172,23 @@ if __name__ == '__main__':
                 ops |= CO_NO_WIKI_SEARCH if options.no_wp else 0
 
                 try:
-                    sentence = process_ccg_pt(pt, ops)
-                    d = sentence.get_drs()
+                    builder = process_ccg_pt(pt, ops)
+                    d = builder.get_drs()
                     fol, _ = d.to_fol()
                     fol = unicode(fol)
                     drs = d.show(SHOW_LINEAR)
                     constituents = []
-                    for c in sentence.constituents:
-                        constituents.append(c.vntype.signature + '(' + c.marked_text() + ')')
+                    sent = builder.sorted_sentence()
+                    for c in sent.iterconstituents():
+                        constituents.append(c.ndtype.signature + '(' + c.marked_text() + ')')
                     constituents = ' '.join(constituents)
-                    onps = sentence.get_orphaned_np_nominals()
+                    onps = builder.get_orphaned_np_nominals()
                     if onps is not None:
                         orphaned = '\n'.join(['NP(' + np.text + ')' for r, np in onps])
-                    if len(sentence.conjoins) != 0:
-                        conjoins = '\n'.join([sp.text for sp in sentence.conjoins])
-                    functor_phrases = ['VP(' + sp.text + ')' for r, sp in sentence.get_vp_nominals()]
-                    functor_phrases.extend(['NP(' + sp.text + ')' for r, sp in sentence.get_np_nominals()])
+                    if len(builder.conjoins) != 0:
+                        conjoins = '\n'.join([nd.span(builder).text for nd in builder.conjoins])
+                    functor_phrases = ['VP(' + sp.text + ')' for r, sp in builder.get_vp_nominals()]
+                    functor_phrases.extend(['NP(' + sp.text + ')' for r, sp in builder.get_np_nominals()])
                     functor_phrases = '\n'.join(functor_phrases)
                 except Exception as e:
                     print('Error: failed to compose DRS - %s' % str(e))
@@ -215,9 +216,9 @@ if __name__ == '__main__':
                     sys.stdout.write('\n</fol>\n')
                 if constituents:
                     sys.stdout.write('<constituents>\n')
-                    sys.stdout.write(sentence.get_constituent_tree_as_string(sentence.get_constituent_tree()))
+                    sys.stdout.write(sent.get_constituent_tree_as_string(sent.get_constituent_tree()))
                     sys.stdout.write('\n')
-                    sys.stdout.write(sentence.get_dependency_tree_as_string(sentence.get_dependency_tree()))
+                    sys.stdout.write(sent.get_dependency_tree_as_string(sent.get_dependency_tree()))
                     sys.stdout.write('\n</constituents>\n')
                 if orphaned:
                     sys.stdout.write('<orphaned>\n')
