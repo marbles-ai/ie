@@ -620,7 +620,7 @@ class Model(object):
 try:
     _tcache = Model.load_templates(os.path.join(datapath.DATA_PATH, 'functor_templates.dat'))
     # Add missing categories
-    _tcache.addinit(Model.build_template(r'N_1001/PP_1001'), replace=True)
+    #_tcache.addinit(Model.build_template(r'N_1001/PP_1001'), replace=True)
     _tcache.addinit(Model.build_template(r'PP_1002/NP_2002'), replace=True)
     _tcache.addinit(Model.build_template(r'S[X]_1003/NP_2003'))
     _tcache.addinit(Model.build_template(r'S[X]_1004\NP_2004'))

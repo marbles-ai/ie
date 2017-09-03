@@ -112,5 +112,19 @@ class EasySRLConstituentTest(unittest.TestCase):
         dprint_constituent_tree(sent, a)
         self.assertEqual(repr(x), repr(a))
 
+    def test2_ProperNoun(self):
+        txt = "Book a ticket to Los Angeles on Monday"
+        derivation = grpc.ccg_parse(self.stub, txt, grpc.DEFAULT_SESSION)
+        pt = parse_ccg_derivation(derivation)
+        s = sentence_from_pt(pt)
+        dprint(s)
+        sent = process_ccg_pt(pt, CO_NO_VERBNET|CO_NO_WIKI_SEARCH)
+        d = sent.get_drs()
+        s = d.show(SHOW_LINEAR)
+        dprint(s)
+        f = sent.get_np_nominals()
+        phrases = [sp.text for r, sp in f]
+        self.assertTrue('Los-Angeles' in phrases)
+
 if __name__ == '__main__':
     unittest.main()

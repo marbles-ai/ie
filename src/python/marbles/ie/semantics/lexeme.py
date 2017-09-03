@@ -456,7 +456,7 @@ class Lexeme(AbstractLexeme):
         d.set_lambda_refs(map(lambda x: nvrs[x.var.to_string()], sample[2]))
         # refs[0] is always the final_ref (atom)
         self.refs = d.lambda_refs
-        xtra = filter(lambda x: x not in self.refs, nvrs.itervalues())
+        xtra = filter(lambda x: x not in self.refs, nvrs.viewvalues())
         self.refs.extend(xtra)
         return d
 
@@ -859,26 +859,35 @@ class Lexeme(AbstractLexeme):
                     d = DrsProduction([], self.refs, span=span)
 
             else:
-                if self.category == CAT_NPP:
-                    # Treat as noun
-                    universe = [self.refs[0]]
-                    freerefs = []
-                else:
-                    universe = []
-                    freerefs = self.refs
-
                 if self.isproper_noun:
-                    #universe.append(self.refs[0])
-                    #freerefs = self.refs[1:]
+                    binary = None
+                    if not self.category.ismodifier and not self.category.test_returns_modifier():
+                        universe = self.refs[0:1]
+                        freerefs = self.refs[1:]
+                    else:
+                        universe = []
+                        freerefs = self.refs
                     self.mask |= RT_PROPERNAME
+                elif self.category.result_category() == CAT_NPP:
+                    # Treat as noun
+                    binary = None
+                    universe = self.refs[0:1]
+                    freerefs = self.refs[1:]
+                    self.mask |= (RT_ENTITY | RT_PLURAL) if self.pos == POS_NOUN_S else RT_ENTITY
                 elif final_atom == CAT_N and not self.category.ismodifier \
                         and not self.category.test_returns_modifier():
-                    #universe.append(self.refs[0])
-                    #freerefs = self.refs[1:]
+                    binary = None
+                    universe = self.refs[0:1]
+                    freerefs = self.refs[1:]
                     self.mask |= (RT_ENTITY | RT_PLURAL) if self.pos == POS_NOUN_S else RT_ENTITY
                 elif len(self.refs) == 1 and final_atom == CAT_N \
                         and (self.category.ismodifier or self.category.test_returns_modifier()):
                     self.mask |= RT_ATTRIBUTE
+                    universe = []
+                    freerefs = self.refs
+                else:
+                    universe = []
+                    freerefs = self.refs
 
                 if template.isfinalevent:
                     if self.category == CAT_INFINITIVE:
