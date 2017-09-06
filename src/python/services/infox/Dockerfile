@@ -21,6 +21,9 @@ ADD awslogs.conf /Infox
 ADD build/AgentDependencies.tar.gz /Infox
 ADD build/awslogs-agent-setup.py /Infox
 
+RUN mkdir /usr/share/nltk_data
+ADD build/nltk_data /usr/share/nltk_data
+
 RUN apt-get update \
     && apt-get install -y gcc apt-utils anacron libfontconfig \
     && apt-get install -y python2.7 python-pip
@@ -39,10 +42,13 @@ RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDepe
 # docker run -v ~/.aws:/root/.aws ...
 RUN mkdir -p /root/.aws
 
+# Copy over NLTK Stuff
+
 # Set AWS Environmental variables
 ENV AWS_ACCESS_KEY_ID=AKIAJ273EGWTPFTL5NXA
 ENV AWS_SECRET_ACCESS_KEY=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
 ENV AWS_DEFAULT_REGION=us-west-1
+ENV AWS_REGION="$AWS_DEFAULT_REGION"
 
 # This is the command to be executed when done creating our container
 CMD ["./mservice.sh", "./infox.py", "start", "-j", "easysrl-0.1.0-capsule.jar", "-m", "model"]

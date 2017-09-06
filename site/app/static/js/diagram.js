@@ -10,7 +10,7 @@
 var displayWidth = $(window).innerWidth()/2;
 var mobileWidth = (displayWidth > 500 ? false : true);
 
-var globalColor = "#1d1ca3";
+var globalColor = "#428bca"; //"#1d1ca3";
 
 // Margins in all directions (buffer space)
 var margin = {top: 10,
@@ -107,23 +107,23 @@ var linearGradient = defs.append("linearGradient")
 linearGradient.append("stop")
     .attr("offset", "5%")
 //    .attr("stop-color", "#E8E8E8");
-    .attr("stop-color", "#1d1ca3");
+    .attr("stop-color", "#428bca");//"#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "45%")
     //.attr("stop-color", "#A3A3A3");
-    .attr("stop-color", "#1d1ca3");
+    .attr("stop-color", "#428bca");//"#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "55%")
     //.attr("stop-color", "#A3A3A3");
     //.attr("stop-color", "#a37b05");
-    .attr("stop-color", "#1d1ca3");
+    .attr("stop-color", "#428bca");//"#1d1ca3");
 
 linearGradient.append("stop")
     .attr("offset", "95%")
     //.attr("stop-color", "#E8E8E8");
-    .attr("stop-color", "#1d1ca3");
+    .attr("stop-color", "#428bca");//"#1d1ca3");
 
 
 /*
@@ -237,7 +237,7 @@ redraw();
 function strokePath() {
     g.append("path")
         .style("stroke", function (d, i) {
-            return (Names[i] === "" ? "none" : "#00A1DE");
+            return (Names[i] === "" ? "none" : "#428bca");//"#00A1DE");
         })
         .style("fill", function (d, i) {
             return (Names[i] === "" ? "none" : "auto");
