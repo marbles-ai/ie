@@ -25,3 +25,6 @@ RUN python awslogs-agent-setup.py --region=us-west-1 --dependency-path=AgentDepe
 
 # Copy over the flask server code
 COPY ./app /app
+
+# This is the command to be executed when done creating our container
+CMD ["python", "main.py"]
