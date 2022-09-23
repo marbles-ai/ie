@@ -128,7 +128,7 @@ setup(
         'nltk',
         'numpy',
         'statistics',
-        'protobuf==3.2.0',
+        'protobuf==3.18.3',
         'grpcio==1.1.3',
         'selenium',
         'beautifulsoup4',
