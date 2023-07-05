@@ -129,7 +129,7 @@ setup(
         'numpy',
         'statistics',
         'protobuf==3.2.0',
-        'grpcio==1.1.3',
+        'grpcio==1.53.0',
         'selenium',
         'beautifulsoup4',
         'feedparser',
